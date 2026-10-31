@@ -19,4 +19,4 @@ def test_an_entry_carries_only_what_is_printed_on_the_page() -> None:
 
 
 def test_the_list_carries_entries_and_nothing_about_facts() -> None:
-    assert set(TranscriptList.model_fields) == {"status", "total", "entries", "picture_pages"}
+    assert set(TranscriptList.model_fields) == {"status", "total", "entries", "picture_pages", "unread_pages"}

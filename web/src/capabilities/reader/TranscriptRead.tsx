@@ -108,6 +108,7 @@ export function TranscriptRead() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [total, setTotal] = useState(0);
   const [picturePages, setPicturePages] = useState<number[]>([]);
+  const [unreadPages, setUnreadPages] = useState<number[]>([]);
   const [status, setStatus] = useState<Schemas["TranscriptList"]["status"] | null>(null);
   const [failed, setFailed] = useState(false);
   const [read, setRead] = useState<number | null>(null);
@@ -133,6 +134,7 @@ export function TranscriptRead() {
         setStatus(got.status);
         setTotal(got.total);
         setPicturePages(got.picture_pages);
+        setUnreadPages(got.unread_pages);
         setEntries((old) => (offset === 0 ? got.entries : [...old, ...got.entries]));
       } catch {
         setFailed(true);
@@ -151,6 +153,16 @@ export function TranscriptRead() {
     const timer = setTimeout(() => void load(0), POLL_MS);
     return () => clearTimeout(timer);
   }, [status, load, entries]);
+
+  // Only the reader's own press asks the server to prepare the transcript again; polling never does.
+  async function retry() {
+    try {
+      await unwrap(api.POST("/v1/cases/{case_id}/transcript/retry", { params: { path: { case_id: caseId } } }));
+    } catch {
+      /* the next load shows the state */
+    }
+    await load(0);
+  }
 
   const seen = useCallback<SeenFn>(
     (view) => {
@@ -216,7 +228,7 @@ export function TranscriptRead() {
       {status === "failed" && (
         <Notice tone="warning">
           <p>{w("transcript.failed")}</p>
-          <Button onClick={() => void load(0)}>{w("transcript.try_again")}</Button>
+          <Button onClick={() => void retry()}>{w("transcript.try_again")}</Button>
         </Notice>
       )}
       {status === "idle" && <Notice tone="info"><p>{w("transcript.preparing")}</p></Notice>}
@@ -231,6 +243,18 @@ export function TranscriptRead() {
           {picturePages.map((n) => (
             <article key={n} className="rd-entry" aria-label={w("transcript.picture_page_label", { page: n })}>
               <p className="rd-entry__page">{w("read.page_ref", { page: n })}</p>
+              <PagePicture caseId={caseId} pageNo={n} onSeen={seen} />
+            </article>
+          ))}
+        </section>
+      )}
+      {unreadPages.length > 0 && (
+        <section aria-label={w("transcript.unread_pages")}>
+          <h2>{w("transcript.unread_pages")}</h2>
+          {unreadPages.map((n) => (
+            <article key={n} className="rd-entry" aria-label={w("transcript.unread_page_label", { page: n })}>
+              <p className="rd-entry__page">{w("read.page_ref", { page: n })}</p>
+              <p>{w("transcript.unread_page_lead")}</p>
               <PagePicture caseId={caseId} pageNo={n} onSeen={seen} />
             </article>
           ))}

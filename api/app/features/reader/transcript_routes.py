@@ -26,7 +26,7 @@ from app.core.packs import PackLibrary
 from app.core.storage import SupabaseStorage
 from app.features.reader import transcript, transcript_jobs
 from app.features.reader.router import router
-from app.features.reader.schemas import JobOut, SeenIn, SeenOut, TranscriptEntryOut, TranscriptList
+from app.features.reader.schemas import JobOut, RetryOut, SeenIn, SeenOut, TranscriptEntryOut, TranscriptList
 
 View = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
 Read = Annotated[CaseAccess, Depends(require_case_access("page.read"))]
@@ -50,9 +50,12 @@ async def transcript_entries(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> TranscriptList:
     if not await entries_ready(conn, case_id):
-        if "page.read" in access.allowed_actions:  # someone who cannot read pages does not start the work
+        status = await entries_status(conn, case_id)
+        # A failed job is not queued again by a poll; the reader asks again (`/transcript/retry`).
+        if status == "idle" and "page.read" in access.allowed_actions:  # others do not start the work
             await request_entries(conn, case_id)  # queues once; nothing while one is waiting
-        return TranscriptList(status=await entries_status(conn, case_id), total=0, entries=[])
+            status = await entries_status(conn, case_id)
+        return TranscriptList(status=status, total=0, entries=[])
     crypto: CaseCrypto = request.app.state.crypto
     library: PackLibrary = request.app.state.packs
     got = await transcript.entries(conn, crypto, library, case_id, offset=offset, limit=limit)
@@ -65,6 +68,13 @@ async def transcript_entries(
             TranscriptEntryOut(**{f: getattr(e, f) for f in TranscriptEntryOut.model_fields}) for e in got.entries
         ],
     )
+
+
+@router.post("/transcript/retry", status_code=202, response_model=RetryOut)
+async def transcript_retry(case_id: uuid.UUID, access: Read, conn: DbConn) -> RetryOut:
+    """The reader asks again after the entries job failed; queues once, nothing while one is waiting."""
+    await request_entries(conn, case_id)
+    return RetryOut(status=await entries_status(conn, case_id))
 
 
 @router.post("/transcript/seen", response_model=SeenOut)

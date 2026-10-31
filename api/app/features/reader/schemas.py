@@ -292,6 +292,10 @@ class TranscriptList(BaseModel):
     unread_pages: list[int] = []  # pages the computer could not read: read by opening the picture
 
 
+class RetryOut(BaseModel):
+    status: Literal["idle", "preparing", "ready", "failed"]
+
+
 class SeenIn(BaseModel):
     entry_id: uuid.UUID | None = None
     dwell_ms: int = Field(default=0, ge=0, le=600_000)

@@ -33,16 +33,22 @@ const entry = (n: number, over: Record<string, unknown> = {}) => ({
 interface Seen {
   seen: unknown[];
   downloads: number;
+  retries: number;
 }
 
 function mockTranscript(
   status: "ready" | "preparing" | "failed",
   entries = [entry(1), entry(2, { folded: true })],
   picture_pages: number[] = [],
+  unread_pages: number[] = [],
 ): Seen {
-  const log: Seen = { seen: [], downloads: 0 };
+  const log: Seen = { seen: [], downloads: 0, retries: 0 };
   server.use(
-    http.get(`${C}/transcript/entries`, () => json({ status, total: entries.length, entries, picture_pages })),
+    http.get(`${C}/transcript/entries`, () => json({ status, total: entries.length, entries, picture_pages, unread_pages })),
+    http.post(`${C}/transcript/retry`, () => {
+      log.retries += 1;
+      return json({ status: "preparing" }, 202);
+    }),
     http.post(`${C}/transcript/seen`, async ({ request }) => {
       log.seen.push(await request.json());
       return json({ pages_read: [] });
@@ -105,8 +111,24 @@ describe.each([
     mockReader(pack);
     mockTranscript("failed", []);
     renderAt(PATH);
-    expect(await screen.findByText("We couldn't get the record ready.")).toBeVisible();
+    expect(await screen.findByText("We couldn't get your transcript ready.")).toBeVisible();
     expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
+  });
+
+  test("Try again asks the server to prepare it again, once per press", async () => {
+    mockReader(pack);
+    const log = mockTranscript("failed", []);
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(log.retries).toBe(1));
+  });
+
+  test("a page the computer could not read says so and offers its picture", async () => {
+    mockReader(pack);
+    mockTranscript("ready", [entry(1)], [], [7]);
+    renderAt(PATH);
+    expect(await screen.findByText("This page couldn't be read by the computer; look at the picture.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Open the picture of page 7" })).toBeVisible();
   });
 
   test("the Word button asks for the file and saves it", async () => {

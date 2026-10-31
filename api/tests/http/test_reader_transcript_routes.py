@@ -112,10 +112,12 @@ async def _failed_entries_job(admin: psycopg.Connection, aconn: psycopg.AsyncCon
         " where case_id = %s",
         (w["case"],),
     )
-    admin.execute(
-        "insert into app.jobs (case_id, kind, status, error_code) values (%s, 'extract_entries', 'failed', 'x')",
-        (w["case"],),
-    )
+    job = admin.execute(
+        "insert into app.jobs (case_id, kind) values (%s, 'extract_entries') returning id", (w["case"],)
+    ).fetchone()
+    assert job is not None
+    admin.execute("update app.jobs set status = 'running' where id = %s", (job[0],))
+    admin.execute("update app.jobs set status = 'failed', error_code = 'x' where id = %s", (job[0],))
 
 
 def _jobs(admin: psycopg.Connection, w: dict[str, Any]) -> int:

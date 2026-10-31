@@ -3484,6 +3484,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/transcript/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transcript Retry
+         * @description The reader asks again after the entries job failed; queues once, nothing while one is waiting.
+         */
+        post: operations["transcript_retry_v1_cases__case_id__transcript_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/transcript/seen": {
         parameters: {
             query?: never;
@@ -10688,6 +10708,14 @@ export interface components {
              */
             policy: "keep_default" | "return_then_delete" | "delete_now";
         };
+        /** RetryOut */
+        RetryOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "idle" | "preparing" | "ready" | "failed";
+        };
         /** Role */
         Role: {
             /** Ended On */
@@ -12351,6 +12379,11 @@ export interface components {
             status: "idle" | "preparing" | "ready" | "failed";
             /** Total */
             total: number;
+            /**
+             * Unread Pages
+             * @default []
+             */
+            unread_pages: number[];
         };
         /** TranscriptSaved */
         TranscriptSaved: {
@@ -22379,6 +22412,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TranscriptList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    transcript_retry_v1_cases__case_id__transcript_retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetryOut"];
                 };
             };
             /** @description Validation Error */
