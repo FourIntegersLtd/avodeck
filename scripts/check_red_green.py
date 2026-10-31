@@ -47,6 +47,7 @@ EXCUSED = {
     "c4bbd65353f9724a49a8266ac4a391d4b5948bd3": "slice/c-server-side-rules: server feat and screen feat both follow one test commit; branch head tested as a whole in #143, history kept (no force push)",
     "90d1211cf513fcb13b9d1a11b15bb89f02426194": "slice/d-server-side-rules: server feat and screen feat both follow one test commit; branch head tested as a whole in #143, history kept (no force push)",
     "9b672a82d72da8326dab326162b89ae7ec63b398": "slice/b-server-side-rules: server feat and screen feat both follow one test commit; branch head tested as a whole in #143, history kept (no force push)",
+    "bee843b6361fc31900aff8b4e2011a3ca13f735c": "fix/safety-group-1: the word-per-line date-of-birth tests in 870730f9 pass only after 9627b9a1; branch head tested as a whole, history kept (no force push)",
 }
 
 
