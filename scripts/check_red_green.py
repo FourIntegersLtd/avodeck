@@ -50,6 +50,7 @@ EXCUSED = {
     "bee843b6361fc31900aff8b4e2011a3ca13f735c": "fix/safety-group-1: the word-per-line date-of-birth tests in 870730f9 pass only after 9627b9a1; branch head tested as a whole, history kept (no force push)",
     "fb186aa3df5d4bce72dc4dc4023abb2da79b4cc5": "feat/records-transcript: 0215 redefined close_stale_exports before 0802 creates it, so the database at this commit cannot be built; fixed by 0805 in 48a1df0f, history kept (no force push)",
     "7866441c790a11a5c467262f8aa25cf02631952d": "feat/records-transcript: 0215 redefined close_stale_exports before 0802 creates it, so the database at this commit cannot be built; fixed by 0805 in 48a1df0f, history kept (no force push)",
+    "d448bd97773827b69f3fa66c5c8fc55c9253e8eb": "feat/records-transcript: transcript review fixes followed a test commit for a different change; the test file pass on this commit (16 passed), history kept (no force push)",
 }
 
 
