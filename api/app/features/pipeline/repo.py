@@ -1090,6 +1090,21 @@ async def document(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.
     return DocumentRow(*row) if row else None
 
 
+async def document_storage_paths(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> tuple[str | None, list[uuid.UUID]]:
+    """The document's storage_path and the page ids whose storage objects must be removed."""
+    cur = await conn.execute("select storage_path from app.documents where id = %s and case_id = %s", (document_id, case_id))
+    row = await cur.fetchone()
+    storage_path = row[0] if row else None
+    cur = await conn.execute("select id from app.pages where document_id = %s and case_id = %s", (document_id, case_id))
+    page_ids = [r[0] for r in await cur.fetchall()]
+    return storage_path, page_ids
+
+
+async def delete_document(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> bool:
+    cur = await conn.execute("delete from app.documents where id = %s and case_id = %s returning id", (document_id, case_id))
+    return (await cur.fetchone()) is not None
+
+
 async def change_provenance(conn: AsyncConnection, document_id: uuid.UUID, changes: dict[str, Any]) -> None:
     allowed = {"received_on", "obtained_how"}
     cols = [c for c in changes if c in allowed]
