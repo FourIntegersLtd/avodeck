@@ -573,3 +573,27 @@ async def test_only_people_on_the_case_see_its_files(
     client_for: ClientFor, world: dict[str, uuid.UUID], model: RecordedBedrock
 ) -> None:
     assert (await (await client_for(world["outsider"])).get(url(world, "files"))).status_code == 404
+
+
+# --- the letter's own pages on screen 06 ---------------------------------------------------------------
+
+
+async def test_the_letter_pages_are_counted_and_drawn_for_the_case_and_hidden_from_outsiders(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    client = await client_for(world["expert"])
+    await read_letter(client, world, worker_db)
+    version = (await client.get(url(world, "questions"))).json()["questions"][0]["instruction_version_id"]
+    base = url(world, f"instructions/{version}/pages")
+    count = await client.get(base)
+    assert count.status_code == 200, count.text
+    assert count.json()["page_count"] >= 1
+    first = await client.get(f"{base}/1")
+    assert first.status_code == 200
+    assert first.headers["content-type"] == "image/png"
+    assert first.content.startswith(b"\x89PNG")
+    assert (await client.get(f"{base}/999")).status_code == 404
+    assert (await client.get(f"{base}/0")).status_code == 404
+    outsider = await client_for(world["outsider"])
+    assert (await outsider.get(base)).status_code == 404
+    assert (await outsider.get(f"{base}/1")).status_code == 404
