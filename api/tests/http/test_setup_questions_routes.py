@@ -597,3 +597,55 @@ async def test_the_letter_pages_are_counted_and_drawn_for_the_case_and_hidden_fr
     outsider = await client_for(world["outsider"])
     assert (await outsider.get(base)).status_code == 404
     assert (await outsider.get(f"{base}/1")).status_code == 404
+
+
+# --- adding a question the model missed -----------------------------------------------------------------
+
+
+async def test_expert_adds_a_question_they_found_in_the_letter(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    client = await client_for(world["expert"])
+    got = await read_letter(client, world, worker_db)
+    kind = got["questions"][0]["kind"]
+    body = {"text": "Did the practice review the results in time?", "para_ref": "5(a)", "kind": kind}
+    added = await client.post(url(world, "questions"), json=body)
+    assert added.status_code == 201, added.text
+    out = added.json()
+    assert out["source"] == "expert" and out["source_word_ids"] == [] and out["status"] == "suggested"
+    assert out["text_verbatim"] == body["text"] and out["para_ref"] == "5(a)" and out["kind"] == kind
+    assert out["number"] == max(q["number"] for q in got["questions"]) + 1
+    listed = (await client.get(url(world, "questions"))).json()["questions"]
+    assert out["id"] in {q["id"] for q in listed}
+
+
+async def test_added_question_is_refused_when_set_is_locked(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    client = await client_for(world["expert"])
+    got = await read_letter(client, world, worker_db)
+    await confirm_each(client, world, got)
+    assert (await client.post(url(world, "questions/confirm-all"))).status_code == 200
+    body = {"text": "A late question.", "kind": got["questions"][0]["kind"]}
+    assert (await client.post(url(world, "questions"), json=body)).status_code == 409
+
+
+async def test_assistant_cannot_add_a_question(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    client = await client_for(world["expert"])
+    got = await read_letter(client, world, worker_db)
+    body = {"text": "Not mine to add.", "kind": got["questions"][0]["kind"]}
+    assistant = await client_for(world["assistant"])
+    assert (await assistant.post(url(world, "questions"), json=body)).status_code == 403
+    outsider = await client_for(world["outsider"])
+    assert (await outsider.post(url(world, "questions"), json=body)).status_code == 404
+
+
+async def test_added_question_invalid_kind_is_rejected(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    client = await client_for(world["expert"])
+    await read_letter(client, world, worker_db)
+    added = await client.post(url(world, "questions"), json={"text": "Why?", "kind": "not_a_real_kind"})
+    assert added.status_code == 422
