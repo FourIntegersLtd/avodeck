@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Avodeck · Every page, accounted for.</title>
-<meta name="description" content="The records review for GP expert witnesses. Avodeck numbers every page of the bundle, puts every visit, result and prescription in its place, and links each one back to the words on the page.">
+<title>Avodeck · Never miss a page</title>
+<meta name="description" content="Avodeck helps doctors who give evidence in court get through thousands of pages of medical records. It numbers every page and links every appointment, test result and prescription to the exact words on the page.">
 <!-- Where pilot requests are POSTed (JSON: name, email, volume). Leave empty to fall back to email. -->
 <meta name="pilot-endpoint" content="">
 <meta name="pilot-email" content="">
@@ -13,7 +13,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;family=Outfit:wght@600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reenie+Beanie&amp;family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -30,6 +30,7 @@
       <a href="#safeguards">Safeguards</a>
       <a href="#questions">Questions</a>
       <a href="#pilot" class="btn btn-primary menu-only">Join the pilot</a>
+      <a href="http://localhost:5173/sign-in" data-app-path="/sign-in" class="btn btn-ghost menu-only">Sign in</a>
     </nav>
     <div class="header-actions">
       <a href="#pilot" class="btn btn-ghost btn-sm hide-sm">Join the pilot</a>
@@ -47,26 +48,26 @@
   <section id="top" class="hero">
     <div class="wrap">
       <div class="hero-copy">
-        <span class="eyebrow">The records review for GP expert witnesses</span>
-        <h1 class="hero-h">Every page,<br><em>accounted for.</em></h1>
-        <p class="hero-sub">Avodeck numbers every page of the bundle, puts every visit, result and prescription in its place, and links each one back to the words on the page.</p>
+        <h1 class="hero-h">Never miss <em>a page</em></h1>
+        <p class="hero-sub">Avodeck helps doctors who give evidence in court get through thousands of pages of medical records. It numbers every page and links every appointment, test result and prescription to the exact words on the page.</p>
         <div class="hero-actions">
           <a href="#pilot" class="btn btn-primary">Join the pilot <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
           <a href="#how" class="btn btn-ghost">See how it works</a>
         </div>      </div>
 
-      <div class="hero-visual" role="img" aria-label="Illustration: a consultation entry on page 118, with one phrase highlighted and linked to a checked fact">
-        <div class="record" aria-hidden="true">
-          <div class="record-head"><span>ASHWORTH, Margaret (Mrs)</span><span>Consultations</span></div>
-          <div class="dim">03-May-2024 09:12  Reception</div>
-          <div class="dim gap-b">Rx request: ferrous fumarate. Issued.</div>
-          <div class="strong">15-May-2024 10:42  Dr P  Surgery</div>
-          <div>Problem: Haemorrhoids (new)</div>
-          <div>History: c/o bright red <mark>PR bleeding x3/52</mark>, on paper.</div>
-          <div>Tired. Thinks piles.</div>
-          <div>Plan: fybogel, anusol. Rv if persists.</div>
-          <div class="dim gap-t">03-Jun-2024 08:55  Reception</div>
-          <div class="dim">Rx request: ferrous fumarate. Issued.</div>
+      <div class="hero-visual" role="img" aria-label="Illustration: a handwritten consultation entry on page 118, with one phrase highlighted and linked to a checked fact">
+        <div class="record handwritten" aria-hidden="true">
+          <div class="record-head"><span>ASHWORTH, Margaret (Mrs)</span><span class="note-tag">Handwriting</span></div>
+          <div class="hand">
+            <span class="dim">3/5/24  Rec. Rx ferrous fum.</span>
+            <span class="l-date">15/5/24  Dr P</span>
+            <span class="l2">c/o bright red <mark>PR bleeding x3/52</mark></span>
+            <span class="l3">on paper. Tired. Thinks piles</span>
+            <span class="l4">Abdo <s>tender</s> soft, NT</span>
+            <span class="l2">Plan: fybogel, anusol</span>
+            <span class="l3">R/v if persists</span>
+            <span class="dim">3/6/24  Rec. Rx ferrous fum.</span>
+          </div>
           <div class="record-foot">Page 118</div>
         </div>
         <div class="fact-card" aria-hidden="true">
@@ -74,8 +75,6 @@
           <span class="fact-title">15 May 2024 · rectal bleeding for three weeks</span>
           <span class="checked"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Checked by you</span>
         </div>
-        <div class="connector" aria-hidden="true"></div>
-        <div class="connector-dot" aria-hidden="true"></div>
       </div>
     </div>
   </section>
@@ -96,10 +95,9 @@
         <p class="lede">Somewhere in every bundle is the page the case turns on. Avodeck makes sure you find it.</p>
       </div>
       <ul class="diff-list">
-        <li><span class="diff-tag">p.1–2,000</span><span class="diff-body"><span class="diff-h">Sorted and numbered. Nothing thrown away.</span><span class="diff-p">Every page of the bundle gets its number. Duplicates are set aside, never deleted.</span></span></li>
-        <li><span class="diff-tag">p.214</span><span class="diff-body"><span class="diff-h">Every fact linked to the exact words in the records.</span><span class="diff-p">Visits, results and prescriptions, each one tied to the words it came from.</span></span></li>
-        <li><span class="diff-tag">15 May</span><span class="diff-body"><span class="diff-h">See each visit as it was seen on the day.</span><span class="diff-p">Only what the doctor could have known then. Later results stay hidden.</span></span></li>
-        <li><span class="diff-tag">TB 2,407</span><span class="diff-body"><span class="diff-h">Walk into court with page numbers that match.</span><span class="diff-p">When the trial bundle arrives, every page you rely on gets its new number.</span></span></li>
+        <li><span class="diff-tag">p.1–2,000</span><span class="diff-body"><span class="diff-h">Every page numbered.</span><span class="diff-p">Duplicates set aside, never deleted.</span></span></li>
+        <li><span class="diff-tag">p.214</span><span class="diff-body"><span class="diff-h">Every fact traced to its page.</span><span class="diff-p">Visits, results and prescriptions, linked to the exact words.</span></span></li>
+        <li><span class="diff-tag">15 May</span><span class="diff-body"><span class="diff-h">Each visit as it was on the day.</span><span class="diff-p">Later results stay hidden.</span></span></li>
       </ul>
     </div>
   </section>
