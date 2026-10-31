@@ -1,6 +1,9 @@
 set role app_migrator;
 
+-- the guard refuses failed -> expired, so it is off for this one update and replaced below
+alter table app.uploads disable trigger uploads_guard;
 update app.uploads set status = 'expired' where status = 'failed';
+alter table app.uploads enable trigger uploads_guard;
 
 create or replace function app.uploads_guard() returns trigger
   language plpgsql
