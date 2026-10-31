@@ -30,6 +30,8 @@ export interface ReaderApi {
   searches: Array<Record<string, unknown>>;
   /** Every bookmark or note saved (`PUT /pages/{n}/my-note`), in order. */
   noteSaves: Array<{ page: number; body: Record<string, unknown> }>;
+  /** Every request for another reading (`POST /pages/{n}/second-reading`), with its query string. */
+  secondReadingAsks: Array<{ page: number; query: string }>;
   read: boolean;
   verifyStatus?: number;
   verifyCode?: string;
@@ -72,6 +74,8 @@ export interface ReaderOpts {
   notes?: Array<{ page_no: number; bookmarked: boolean; note: string }>;
   /** The page's source type (default: the test page's own; null = never sorted). */
   sourceType?: string | null;
+  /** What another reading answers once asked for (default: queued). */
+  secondReading?: Schemas["SecondReadingOut"];
 }
 
 /** Mounts every reader endpoint for a case; returns what it saw. */
@@ -95,10 +99,12 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     moves: [],
     searches: [],
     noteSaves: [],
+    secondReadingAsks: [],
     facts: opts.facts ?? [fact(1), fact(2)],
     read: opts.alreadyRead ?? false,
   };
   let turn = opts.turn ?? 0;
+  let asked = false;
   const listed = (n: number) => ({ page_no: n, page_id: pageId(n), source_type: null, read: (opts.readPages ?? []).includes(n), in_period: null, unreadable: false, duplicate_of_page_no: null, turn: 0 });
   let notes = (opts.notes ?? []).map((n) => ({ ...n, updated_at: "2026-10-23T10:00:00Z" }));
   let queue = opts.queue ?? [queuePage(612), queuePage(640), queuePage(655)];
@@ -106,6 +112,12 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
   signedIn({ pack });
   server.use(
     http.get(c, () => json(theCase())),
+    http.post(`${c}/pages/:n/second-reading`, ({ params, request }) => {
+      api.secondReadingAsks.push({ page: Number(params.n), query: new URL(request.url).search });
+      asked = true;
+      return json({ job_id: "00000000-0000-4000-8000-000000000009" }, 202);
+    }),
+    http.get(`${c}/pages/:n/second-reading`, () => json(asked ? (opts.secondReading ?? { status: "queued", reason: null, lines: [] }) : { status: "none", reason: null, lines: [] })),
     http.get(`${c}/pages/unreadable`, () => json({ pages: queue, done: queue.filter((p) => p.done).length, total: queue.length })),
     http.get(`${c}/pages`, ({ request }) => {
       const query = new URL(request.url).searchParams;
