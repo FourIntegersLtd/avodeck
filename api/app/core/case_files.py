@@ -20,7 +20,7 @@ import shutil
 import tempfile
 import uuid
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
 from typing import BinaryIO
 
@@ -130,6 +130,25 @@ def warn_if_scratch_low() -> None:
         _log.warning("scratch space is low", extra={"free_mib": free // (1024 * 1024)})
 
 
+def _prepare_scratch() -> str:
+    """Create the scratch directory and warn if its disk is low (every spool, one statvfs); its path."""
+    directory = _scratch_dir()
+    warn_if_scratch_low()
+    return directory
+
+
+def _roll_to_disk(buffer: io.BytesIO, directory: str) -> BinaryIO:
+    """Move what is buffered into a new unlinked scratch file (in a thread: up to `max_memory` bytes)."""
+    disk = _open_unlinked(directory)
+    try:
+        disk.write(buffer.getbuffer())
+    except BaseException:
+        disk.close()
+        raise
+    buffer.close()
+    return disk
+
+
 def _open_unlinked(directory: str) -> BinaryIO:
     """A new `0600` file in `directory`, created exclusively and unlinked before it is returned."""
     flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0)
@@ -160,29 +179,19 @@ async def spool_chunks(
     `AVODECK_SCRATCH_SLOTS` process-wide slots is held for the whole block.
     """
     async with _slots:
-        global _warned
-        if not _warned:
-            _warned = True
-            warn_if_scratch_low()
-        directory = _scratch_dir()  # fail fast if scratch is unusable, even when this one fits in memory
+        directory = await anyio.to_thread.run_sync(_prepare_scratch)  # fails fast; warns when space is low
         f: BinaryIO = io.BytesIO()
         total = 0
         try:
-            async for chunk in chunks:
-                total += len(chunk)
-                if total > max_size:
-                    raise SpoolTooLarge
-                if isinstance(f, io.BytesIO) and total > max_memory:
-                    disk = _open_unlinked(directory)
-                    try:
-                        disk.write(f.getbuffer())
-                    except BaseException:
-                        disk.close()
-                        raise
-                    f.close()
-                    f = disk
-                await anyio.to_thread.run_sync(f.write, chunk)
-            f.seek(0)
+            async with aclosing(chunks) as source:  # type: ignore[type-var]  # async generators have aclose()
+                async for chunk in source:
+                    total += len(chunk)
+                    if total > max_size:
+                        raise SpoolTooLarge
+                    if isinstance(f, io.BytesIO) and total > max_memory:
+                        f = await anyio.to_thread.run_sync(_roll_to_disk, f, directory)
+                    await anyio.to_thread.run_sync(f.write, chunk)
+            await anyio.to_thread.run_sync(f.seek, 0)
             yield f
         finally:
             f.close()
@@ -190,6 +199,15 @@ async def spool_chunks(
 
 # Environment knobs (read at import time; used by spool)
 AVODECK_SCRATCH_DIR: str = os.environ.get("AVODECK_SCRATCH_DIR", "")
-AVODECK_SCRATCH_SLOTS: int = int(os.environ.get("AVODECK_SCRATCH_SLOTS", "2"))
+
+
+def scratch_slots(raw: str) -> int:
+    """Concurrent spools allowed: `raw` (the environment value) or 2; below 1 would hang every spool, so refused."""
+    value = int(raw) if raw.strip() else 2
+    if value < 1:
+        raise ValueError("AVODECK_SCRATCH_SLOTS must be at least 1")
+    return value
+
+
+AVODECK_SCRATCH_SLOTS: int = scratch_slots(os.environ.get("AVODECK_SCRATCH_SLOTS", ""))
 _slots = anyio.Semaphore(AVODECK_SCRATCH_SLOTS)
-_warned = False

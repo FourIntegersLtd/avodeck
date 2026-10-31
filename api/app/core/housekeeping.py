@@ -78,9 +78,21 @@ async def reconcile_upload_objects(
     every object in it is older than 8 days. A row with a `document_id` is never touched. Counts only are
     logged: never a path, a filename or any patient text.
     """
+    root = f"{case_prefix(case_id)}/uploads"
+    # A connection not scoped to this case sees no rows at all, so every folder would look row-less and
+    # old enough to delete. Refuse to do anything unless the scoping is proven.
+    cur = await conn.execute("select app.current_job_case_id() = %s", (case_id,))
+    scoped = await cur.fetchone()
+    if scoped is None or scoped[0] is not True:
+        _log.warning("upload reconcile skipped: connection is not scoped to the case")
+        return ReconcileResult()
     cur = await conn.execute("select id, status, document_id from app.uploads where case_id = %s", (case_id,))
     rows = {upload_id: (status, document_id) for upload_id, status, document_id in await cur.fetchall()}
-    root = f"{case_prefix(case_id)}/uploads"
+    # A completed document's bytes live at its upload prefix (documents.storage_path): never delete those.
+    cur = await conn.execute(
+        "select storage_path from app.documents where case_id = %s and storage_path is not null", (case_id,)
+    )
+    document_paths = [path for (path,) in await cur.fetchall()]
     cutoff = datetime.now(UTC) - ORPHAN_AGE
     deleted = left = failed = 0
     for name in await storage.list_folders(root):
@@ -100,8 +112,11 @@ async def reconcile_upload_objects(
                     left += 1
                     continue
             else:
+                if any(path == prefix or path.startswith(prefix + "/") for path in document_paths):
+                    left += 1
+                    continue
                 times = await storage.list_object_times(prefix)
-                if any(t is None or t > cutoff for t in times.values()):
+                if not times or any(t is None or t.tzinfo is None or t > cutoff for t in times.values()):
                     left += 1
                     continue
             paths = await storage.list_recursive(prefix)
@@ -114,7 +129,10 @@ async def reconcile_upload_objects(
                 # A savepoint: a database error here must not abort the caller's transaction.
                 async with conn.transaction():
                     await conn.execute("select app.mark_upload_cleaned(%s)", (upload_id,))
-            deleted += 1
+            if paths:
+                deleted += 1
+            else:
+                left += 1
         except StorageError:
             failed += 1
     _log.info("upload objects reconciled: deleted=%d left=%d failed=%d", deleted, left, failed)
@@ -132,11 +150,14 @@ async def sweep_uploads(conn: AsyncConnection, run_date: date) -> None:
         if storage is not None:
             for case_id in sorted({case_id for case_id, _ in touched}, key=str):
                 try:
-                    # The same worker connection, scoped to one case the way `Database.job` scopes it.
-                    await conn.execute("select set_config('app.job_case_id', %s, true)", (str(case_id),))
-                    await reconcile_upload_objects(conn, storage, case_id)
+                    # A savepoint, so a database error here cannot abort (and so roll back) the day's expiry.
+                    async with conn.transaction():
+                        # The same worker connection, scoped to one case the way `Database.job` scopes it.
+                        await conn.execute("select set_config('app.job_case_id', %s, true)", (str(case_id),))
+                        await reconcile_upload_objects(conn, storage, case_id)
                 except Exception:  # noqa: BLE001
                     _log.warning("upload reconcile failed, will retry")
+            await conn.execute("select set_config('app.job_case_id', '', true)")  # unscoped again
     finally:
         if storage is not None:
             await storage.aclose()

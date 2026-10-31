@@ -31,6 +31,17 @@ def upload_prefix(case_id: object, upload_id: object) -> str:
     return f"{case_prefix(case_id)}/uploads/{upload_id}"
 
 
+def _aware_time(raw: object) -> datetime | None:
+    """A Storage timestamp as an aware datetime; None when missing, unparsable or without an offset."""
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
+
+
 class StorageError(RuntimeError):
     """Storage refused or failed a call. Carries the HTTP status only."""
 
@@ -168,8 +179,7 @@ class SupabaseStorage:
                 if not item.get("id"):
                     folders.append(path)
                     continue
-                raw = item.get("created_at")
-                times[path] = datetime.fromisoformat(str(raw).replace("Z", "+00:00")) if raw else None
+                times[path] = _aware_time(item.get("created_at"))
         return times
 
     async def list_recursive(self, prefix: str) -> builtins.list[str]:
