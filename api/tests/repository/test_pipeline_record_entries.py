@@ -450,7 +450,9 @@ async def test_the_entries_job_asks_a_failing_page_twice_then_leaves_it_for_a_pe
         await h.drain()
         # A page extracted before entries existed: no flag, nothing read.
         admin.execute(
-            "update app.page_analysis set needs_human = false, reason = null where case_id = %s", (h.case_id,)
+            "update app.page_analysis set needs_human = false, reason = null, entries_failed_at = null"
+            " where case_id = %s",
+            (h.case_id,),
         )
         asked = len(bedrock.requests)
         await h.enqueue("extract_entries")
