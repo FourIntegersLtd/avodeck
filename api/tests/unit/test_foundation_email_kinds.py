@@ -15,11 +15,21 @@ from app.core.notifications import emails_at_once, notify
 pytestmark = pytest.mark.anyio
 
 # The kinds the app sends today (pipeline, close, after serving, organisations).
-KINDS_IN_USE = ("bundle_ready", "deletion_paused", "case.reassigned", "deadline.court_order", "deadline.questions")
+KINDS_IN_USE = ("bundle_ready", "deletion_paused", "case.reassigned")
 
 
 def test_no_stage_or_progress_kind_in_use_emails_at_once() -> None:
     for kind in KINDS_IN_USE:
+        assert not emails_at_once(kind), kind
+
+
+def test_a_deadline_reminder_emails_at_once_whatever_the_pack_calls_the_deadline() -> None:
+    for kind in ("deadline.court_order", "deadline.questions", "deadline.zz_fixture_step"):
+        assert emails_at_once(kind), kind
+
+
+def test_the_deadline_prefix_is_anchored_at_the_start_and_needs_its_dot() -> None:
+    for kind in ("x.deadline.foo", "deadline", "deadlines.foo", "zz.deadline.", "zz.ready", "zz.other"):
         assert not emails_at_once(kind), kind
 
 
