@@ -489,10 +489,10 @@ async def test_the_export_carries_requests_page_reads_and_methodology_counts(
     doc = seed.document(case)
     page = seed.page(case, doc, 41)
     fact = add_fact(admin, case, page, status="verified")
-    for _ in range(2):
+    for via in ("page", "transcript"):
         admin.execute(
-            "insert into app.page_reads (case_id, page_id, person_id, dwell_seconds) values (%s, %s, %s, 20)",
-            (case, page, expert),
+            "insert into app.page_reads (case_id, page_id, person_id, dwell_seconds, via) values (%s, %s, %s, 20, %s)",
+            (case, page, expert, via),
         )
     admin.execute(
         "insert into app.fact_verifications (case_id, fact_id, person_id, action) values (%s, %s, %s, 'correct')",
@@ -529,6 +529,7 @@ async def test_the_export_carries_requests_page_reads_and_methodology_counts(
     ]
     reads = table("logs/page-reads.csv")
     assert [(r["seq"], r["page_no"], r["dwell_seconds"]) for r in reads] == [("1", "41", "20"), ("2", "41", "20")]
+    assert [r["via"] for r in reads] == ["page", "transcript"]
     assert reads[0]["prev_hash"] == "0" * 64 and reads[1]["prev_hash"] == reads[0]["hash"] != ""
     assert {(r["action"], r["count"]) for r in table("logs/methodology.csv")} == {("correct", "1")}
     invoices = table("invoices.csv")

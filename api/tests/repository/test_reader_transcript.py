@@ -24,7 +24,8 @@ from app.core.contracts.reading import page_read_log
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.packs import default_library
-from app.features.reader import transcript
+from app.features.reader import repo, transcript
+from tests.support.contracts import add_fact
 from tests.support.db import scope_for
 from tests.support.identity import NAME, SENTENCE, leaked, record_identity
 from tests.support.packs import LAUNCH
@@ -89,7 +90,7 @@ async def test_an_entry_is_its_printed_lines_with_the_experts_corrections_in_pla
     assert got.folded is False
 
 
-async def test_pages_that_are_not_to_be_read_give_no_entries(
+async def test_copies_replaced_and_set_aside_pages_give_no_entries(
     api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
 ) -> None:
     doc = await add_document(aconn, world["case"])
@@ -97,7 +98,6 @@ async def test_pages_that_are_not_to_be_read_give_no_entries(
     await add_page(aconn, CRYPTO, world["case"], doc, 2, [Spec("zz_session", ("copy",))], duplicate_of=keep.page_id)
     await add_page(aconn, CRYPTO, world["case"], doc, 3, [Spec("zz_session", ("old",))], superseded_by=keep.page_id)
     await add_page(aconn, CRYPTO, world["case"], doc, 4, [Spec("zz_session", ("aside",))], quarantined=True)
-    await add_page(aconn, CRYPTO, world["case"], doc, 5, [Spec("zz_session", ("blur",))], unreadable=True)
     assert [e.page_no for e in (await listed(api_db, world)).entries] == [1]
 
 
@@ -129,15 +129,58 @@ async def test_names_and_dates_of_birth_are_stripped_from_every_entry(
     assert NAME.split()[1].casefold() not in " ".join(text).casefold()
 
 
-async def test_a_result_entry_names_the_result_groups_its_words_use(
+async def read_by_expert(api_db: Database, w: dict[str, Any], page_id: uuid.UUID) -> None:
+    async with api_db.request(scope_for(w["expert"])) as conn:
+        await repo.record_read(conn, w["case"], page_id, w["expert"], 30)
+
+
+async def test_a_result_entry_names_the_result_groups_of_its_verified_facts(
+    api_db: Database, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    one = await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_reading", ("ZZLEVEL was high",))])
+    two = await add_page(aconn, CRYPTO, world["case"], doc, 2, [Spec("zz_reading", ("ZZLEVEL was low",))])
+    three = await add_page(aconn, CRYPTO, world["case"], doc, 3, [Spec("zz_reading", ("nothing named",))])
+    add_fact(admin, world["case"], one.page_id, status="verified", value="ZZLEVEL", word_ids=one.word_ids[:1])
+    add_fact(admin, world["case"], two.page_id, status="suggested", value="ZZLEVEL", word_ids=two.word_ids[:1])
+    add_fact(admin, world["case"], three.page_id, status="verified", value="x", word_ids=three.word_ids[:1])
+    for built in (one, two, three):
+        await read_by_expert(api_db, world, built.page_id)
+    first, second, third = (await listed(api_db, world)).entries
+    assert first.results == ["zz_level"] and first.result_labels == ["zz.result.level"]
+    assert second.results == []  # not checked yet: the raw words are never matched
+    assert third.results == []
+
+
+async def test_a_verified_result_on_a_page_the_named_expert_has_not_read_is_not_named(
+    api_db: Database, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    one = await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_reading", ("ZZLEVEL was high",))])
+    add_fact(admin, world["case"], one.page_id, status="verified", value="ZZLEVEL", word_ids=one.word_ids[:1])
+    assert (await listed(api_db, world)).entries[0].results == []
+
+
+async def test_an_entry_names_its_kind_and_author_by_the_packs_label_keys(
     api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
 ) -> None:
     doc = await add_document(aconn, world["case"])
-    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_reading", ("ZZLEVEL was high",))])
-    await add_page(aconn, CRYPTO, world["case"], doc, 2, [Spec("zz_reading", ("nothing named",))])
-    first, second = (await listed(api_db, world)).entries
-    assert first.results == ["zz_level"]
-    assert second.results == []
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("a",), role="zz_practitioner")])
+    got = (await listed(api_db, world)).entries[0]
+    assert got.kind_label == "zz.entry.session"
+    assert got.author_label == "zz.author.practitioner"
+
+
+async def test_an_unreadable_page_that_has_entries_is_listed_but_one_with_none_is_a_picture_page(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("blur",))], unreadable=True)
+    await add_page(aconn, CRYPTO, world["case"], doc, 2, [])
+    await add_page(aconn, CRYPTO, world["case"], doc, 3, [Spec("zz_session", ("fine",))])
+    got = await listed(api_db, world)
+    assert [e.page_no for e in got.entries] == [1, 3]
+    assert got.picture_pages == [2]
 
 
 async def test_someone_without_access_sees_no_entries(
@@ -212,6 +255,55 @@ async def test_opening_the_picture_of_a_page_with_entries_does_not_read_it(
     doc = await add_document(aconn, world["case"])
     await add_page(aconn, CRYPTO, world["case"], doc, 3, [Spec("zz_session", ("a",))])
     assert await seen(api_db, world, world["expert"], page_no=3, picture_opened=True) == []
+
+
+async def test_a_picture_is_not_enough_while_the_entries_are_not_ready(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 3, [], analysed=False)
+    with pytest.raises(transcript.NotReady):
+        await seen(api_db, world, world["expert"], page_no=3, picture_opened=True)
+    async with api_db.request(scope_for(world["expert"])) as conn:
+        assert await page_read_log(conn, world["case"]) == []
+
+
+async def test_an_unreadable_page_with_entries_needs_its_entries_seen_and_its_picture_opened(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    built = await add_page(aconn, CRYPTO, world["case"], doc, 4, [Spec("zz_session", ("blur",))], unreadable=True)
+    expert, entry = world["expert"], built.entry_ids[0]
+    assert await seen(api_db, world, expert, entry_id=entry, dwell_ms=transcript.SEEN_MS) == []
+    assert await seen(api_db, world, expert, page_no=4, picture_opened=True) == [4]
+
+
+async def test_an_unreadable_page_with_entries_is_not_read_by_its_picture_alone(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 4, [Spec("zz_session", ("blur",))], unreadable=True)
+    assert await seen(api_db, world, world["expert"], page_no=4, picture_opened=True) == []
+
+
+@pytest.mark.parametrize("kind", ["quarantined", "duplicate", "superseded"])
+async def test_entries_on_a_page_that_is_not_to_be_read_are_refused(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any], kind: str
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    keep = await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("kept",))])
+    extra: dict[str, Any] = {
+        "quarantined": {"quarantined": True},
+        "duplicate": {"duplicate_of": keep.page_id},
+        "superseded": {"superseded_by": keep.page_id},
+    }[kind]
+    built = await add_page(aconn, CRYPTO, world["case"], doc, 2, [Spec("zz_session", ("x",))], **extra)
+    with pytest.raises(transcript.UnknownEntry):
+        await seen(api_db, world, world["expert"], entry_id=built.entry_ids[0], dwell_ms=transcript.SEEN_MS)
+    with pytest.raises(transcript.UnknownEntry):
+        await seen(api_db, world, world["expert"], page_no=2, picture_opened=True)
+    async with api_db.request(scope_for(world["expert"])) as conn:
+        assert await page_read_log(conn, world["case"]) == []
 
 
 async def test_each_person_reads_for_themselves(
