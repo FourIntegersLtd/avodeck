@@ -41213,16 +41213,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Finalizing",
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/UploadedDocument"
-                    },
-                    {
-                      "$ref": "#/components/schemas/Finalizing"
-                    }
-                  ],
-                  "title": "Response Complete Upload V1 Uploads  Upload Id  Complete Post"
+                  "$ref": "#/components/schemas/Finalizing"
                 }
               }
             },

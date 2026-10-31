@@ -267,7 +267,7 @@ async def test_a_database_error_on_one_row_does_not_abort_the_sweeps_transaction
         async def execute(self, query: str, params: object = None) -> object:
             if "mark_upload_cleaned" in query and params == (first,):
                 return await self.conn.execute("select 1 / 0")
-            return await self.conn.execute(query, params)  # type: ignore[arg-type]
+            return await self.conn.execute(query, params)  # type: ignore[call-overload]
 
         def transaction(self) -> object:
             return self.conn.transaction()
@@ -275,7 +275,7 @@ async def test_a_database_error_on_one_row_does_not_abort_the_sweeps_transaction
     async with worker_db.anonymous() as conn:
         await expire_uploads(Flaky(conn), date.today(), storage)  # type: ignore[arg-type]
         await conn.execute("select 1")  # the sweep's own transaction is still usable
-    got = dict(
+    got: dict[uuid.UUID, bool] = dict(
         admin.execute(
             "select id, cleaned_at is not null from app.uploads where id = any(%s)", ([first, second],)
         ).fetchall()

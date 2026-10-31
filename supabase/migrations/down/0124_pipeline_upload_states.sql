@@ -77,4 +77,24 @@ alter table app.uploads
   drop column finalize_job_id,
   drop column finalizing_at;
 
+-- Purge order: uploads no longer references jobs, so it goes back to where it was (just before pages)
+do $$
+declare
+  current_order text[] := app.case_purge_order();
+  restored text[] := '{}';
+  t text;
+begin
+  foreach t in array current_order loop
+    if t <> 'uploads' then
+      if t = 'pages' then
+        restored := array_append(restored, 'uploads');
+      end if;
+      restored := array_append(restored, t);
+    end if;
+  end loop;
+  execute 'create or replace function app.case_purge_order() returns text[] language sql immutable parallel safe'
+       || ' set search_path = '''' as $f$ select ' || quote_literal(restored::text) || '::text[] $f$';
+end
+$$;
+
 reset role;

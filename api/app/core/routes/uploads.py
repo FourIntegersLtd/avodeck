@@ -323,12 +323,14 @@ async def _claim(
         if status == "finalizing":
             if await _job_is_live(conn, row["finalize_job_id"]):  # type: ignore[arg-type]
                 return Finalizing(status="finalizing")
+            if row["expired"]:  # its job is dead and the 7 days are over: not revived (the sweep closes it)
+                raise _closed()
             # Its job failed or is gone: claim again with a fresh job.
             job = await registry.enqueue(conn, case_id, FINALIZE_UPLOAD)
             with _closed_when_refused():
                 cur = await conn.execute(
                     "update app.uploads set finalize_job_id = %s, finalizing_at = now()"
-                    " where id = %s and status = 'finalizing' returning id",
+                    " where id = %s and status = 'finalizing' and expires_at > now() returning id",
                     (job, row["id"]),
                 )
             if await cur.fetchone() is not None:
