@@ -75,11 +75,11 @@
   --page-width-wide: none;
   /* The one outer padding for every screen: bars and pages use these, screens never set their own. */
   --gutter: 40px;
-  --page-top: 32px;
-  --page-bottom: 48px;
+  --page-top: 48px;
+  --page-bottom: 64px;
 }
-@media (max-width: 1024px) { :root { --gutter: 24px; --page-top: 24px; --page-bottom: 40px; } }
-@media (max-width: 700px) { :root { --gutter: 16px; --page-top: 16px; --page-bottom: 32px; } }
+@media (max-width: 1024px) { :root { --gutter: 24px; --page-top: 32px; --page-bottom: 48px; } }
+@media (max-width: 700px) { :root { --gutter: 16px; --page-top: 24px; --page-bottom: 40px; } }
 
 /* Dark theme: every colour token again. Follows the device unless the person chose light. */
 @media (prefers-color-scheme: dark) {

@@ -8,6 +8,7 @@ import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { IconTile, LinkButton, LoadError, Loading, SegmentedControl, stepLabel } from "../../foundation/ui";
+import { HowCaseWorks } from "./HowCaseWorks";
 import { BalanceFooter, Icon, StepRing, caseHref, combination, usePacks, type CaseCard, type CasePack } from "./shared";
 
 export function Cases() {
@@ -40,10 +41,13 @@ export function Cases() {
           <p className="av-muted">{t(empty ? "cases.empty.intro" : "cases.intro")}</p>
         </div>
         {hasScreen("new_case") && !empty && (
-          <LinkButton to={screenPath("new_case")!}>
-            <Icon d="M12 5v14M5 12h14" />
-            {t("today.cases.new")}
-          </LinkButton>
+          <div className="av-today__actions">
+            <HowCaseWorks steps={stepKeys(packs.data)} />
+            <LinkButton to={screenPath("new_case")!}>
+              <Icon d="M12 5v14M5 12h14" />
+              {t("today.cases.new")}
+            </LinkButton>
+          </div>
         )}
       </div>
       {today.error && <LoadError onRetry={today.reload} />}
@@ -57,6 +61,13 @@ export function Cases() {
       )}
     </div>
   );
+}
+
+/** The steps in the first loaded case's pack; with none (no cases yet) the walkthrough uses its own order. */
+function stepKeys(packs: Map<string, CasePack> | undefined): string[] | undefined {
+  const first = packs?.values().next().value;
+  const keys = ((first?.workflow_steps ?? []) as Array<{ key: string }>).map((s) => s.key);
+  return keys.length > 0 ? keys : undefined;
 }
 
 function withParam(p: URLSearchParams, key: string, value: string) {
@@ -152,28 +163,26 @@ const CARDS = [
   { key: "team", d: "M16 11a3 3 0 1 0-6 0 3 3 0 0 0 6 0zM5 20c0-3 3-5 7-5s7 2 7 5" },
 ] as const;
 
-/** S03e: faded placeholder rows, one clear way to start, and three short reassurances. */
+/** S03e: one clear way to start, and three short reassurances. */
 function CasesEmpty() {
   return (
     <>
       <section className="av-card av-cases-empty">
-        <div aria-hidden="true">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="av-cases-empty__ghost" />
-          ))}
-        </div>
         <div className="av-cases-empty__message">
           <IconTile tone="mint">
             <Icon d="M6 3h9l4 4v14H6zM14 3v5h5" size={26} />
           </IconTile>
           <h2>{t("cases.empty.title")}</h2>
           <p className="av-muted">{t("cases.empty.body")}</p>
-          {hasScreen("new_case") && (
-            <LinkButton to={screenPath("new_case")!}>
-              <Icon d="M12 5v14M5 12h14" />
-              {t("cases.empty.start")}
-            </LinkButton>
-          )}
+          <div className="av-today__actions av-today__actions--centre">
+            {hasScreen("new_case") && (
+              <LinkButton to={screenPath("new_case")!}>
+                <Icon d="M12 5v14M5 12h14" />
+                {t("cases.empty.start")}
+              </LinkButton>
+            )}
+            <HowCaseWorks />
+          </div>
         </div>
       </section>
       <div className="av-cases-empty__cards">

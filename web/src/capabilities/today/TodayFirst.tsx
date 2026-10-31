@@ -6,7 +6,6 @@ import type { components } from "../../foundation/platform-client/schema";
 import { LinkButton } from "../../foundation/ui";
 import { Icon } from "./shared";
 
-const STEPS = [1, 2, 3, 4, 5] as const;
 const HAND = ["letter", "records", "date"] as const;
 
 /** `ready` is what the API says the person has done; the page counts nothing. */
@@ -91,27 +90,6 @@ export function TodayFirst({ ready }: { ready: components["schemas"]["Readiness"
           </section>
         </aside>
       </div>
-      <section aria-labelledby="how-works" className="av-section av-stack">
-        <div>
-          <h2 id="how-works">{t("today.first.how.title")}</h2>
-          <p className="av-muted">{t("today.first.how.intro")}</p>
-        </div>
-        <ol className="av-how">
-          {STEPS.map((n) => (
-            <li key={n} className="av-card av-how__step">
-              <p>
-                <strong>
-                  {n} {t(`today.first.how.${n}.title`)}
-                </strong>
-              </p>
-              <p className="av-muted">{t(`today.first.how.${n}.body`)}</p>
-            </li>
-          ))}
-        </ol>
-        <p>
-          <strong>{t("today.first.never.lead")}</strong> {t("today.first.never.body")}
-        </p>
-      </section>
     </div>
   );
 }
