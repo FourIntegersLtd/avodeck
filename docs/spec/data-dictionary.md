@@ -512,7 +512,16 @@ A joint expert is one with two or more current instructing parties; no separate 
 | seq | Its place in the case's list of reads |
 | at / dwell_seconds | When, and how long they spent on it |
 | counts_for_citing | Whether it was the named expert's read (only those let a fact be cited) |
+| via | How the page was read: `page` (on its own screen) or `transcript` (by reading its entries, 0215) |
 | prev_hash / hash | Links to the previous entry so any tampering is obvious |
+
+### transcript_views
+| Field | In plain words |
+|---|---|
+| page_id / person_id / entry_id | Which page, whose view, and which entry of the records transcript was on screen |
+| dwell_ms | How long the entry was on screen (milliseconds); the server adds these up to decide a page is read (1.5 seconds per entry) |
+| picture_opened | True when the person opened the picture of a page that has no entries; that also counts as reading it |
+| at | When it was reported. Never edited or removed (0215) |
 
 ### fact_flags
 | Field | In plain words |
