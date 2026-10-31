@@ -364,6 +364,62 @@ async def update_assumption(
     return out
 
 
+class AddQuestion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=3000)
+    para_ref: str | None = Field(default=None, max_length=20, pattern=r"^\d{1,3}(\([a-z]{1,4}\)|\(\d{1,2}\))?$")
+    kind: str = Field(pattern=CODE)
+
+
+@router.post("/cases/{case_id}/questions", status_code=201, response_model=QuestionOut)
+async def add_question(
+    case_id: uuid.UUID,
+    body: AddQuestion,
+    access: Confirm,
+    request: Request,
+    response: Response,
+    conn: DbConn,
+) -> QuestionOut:
+    """A question the model missed, added by the expert; it still needs confirming."""
+    latest = await _latest(conn, case_id)
+    if latest is None:
+        raise not_found()
+    await _refuse_if_locked(conn, case_id)
+    pack = await _pack(request, conn, case_id)
+    if body.kind not in {q["key"] for q in pack.question_types()}:
+        raise invalid("kind")
+    outside = body.kind in set(pack.outside_expertise_question_types())
+    parts = pack.outside_expertise_parts() or None
+    version_id = latest["id"]
+    cur = await conn.execute(
+        "insert into app.questions (case_id, instruction_version_id, source_instruction_version_id,"
+        " number, text_verbatim, source_word_ids, source, para_ref, kind, outside_expertise,"
+        " answer_parts, outside_expertise_source, short_title)"
+        " values (%s, %s, %s, (select coalesce(max(number), 0) + 1 from app.questions where case_id = %s),"
+        " %s, '{}'::text[], 'expert', %s, %s, %s, %s, %s, %s) returning id",
+        (
+            case_id,
+            version_id,
+            version_id,
+            case_id,
+            body.text,
+            body.para_ref,
+            body.kind,
+            outside,
+            parts if outside else None,
+            "expert" if outside else None,
+            short_title(body.text),
+        ),
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    new_id = row[0]
+    await audit.record(conn, action="question.added", target=f"question:{new_id}", case_id=case_id)
+    out = _question(await _row(conn, _Q, new_id, case_id))
+    response.headers["etag"] = etag(out.version)
+    return out
+
+
 class Confirmed(BaseModel):
     instruction_version_id: uuid.UUID
     locked: bool

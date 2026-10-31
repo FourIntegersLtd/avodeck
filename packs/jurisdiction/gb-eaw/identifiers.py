@@ -31,7 +31,7 @@ def valid_nhs_number(digits: str) -> bool:
 
 
 def find_identifiers(text: str) -> list[tuple[int, int, str]]:
-    """Return (start, end, kind) spans for NHS numbers, phones, hospital numbers, postcodes and labelled dates of birth."""
+    """Return (start, end, kind) spans for identifiers: NHS, phone, hospital, postcode, labelled DOB."""
     spans = []
     label_ends = [m.end() for m in NHS_LABEL.finditer(text)]
     for m in NHS_CANDIDATE.finditer(text):
