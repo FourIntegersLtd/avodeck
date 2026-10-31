@@ -242,19 +242,94 @@ def test_the_words_name_every_role_and_month() -> None:
         assert w[f"month.{month}"].strip()
 
 
-def test_the_html_uses_the_brand_colours_and_big_type_and_a_tall_button() -> None:
-    html = render(Mail("a@example.test", "org.invite", params_for("org.invite"))).html
-    assert html.startswith("<!DOCTYPE html>") and "Avodeck" in html
-    assert "#0F3D2C" in html and "#16201B" in html
-    sizes = [int(n) for n in re.findall(r"font-size:\s*(\d+)px", html)]
-    assert sizes and min(sizes) >= 17
-    assert "line-height: 52px" in html, "the button is at least 52px tall"
-    assert "<img" not in html, "the wordmark is text"
+def invite_html() -> str:
+    return render(Mail("a@example.test", "org.invite", params_for("org.invite"))).html
+
+
+def squash(text: str) -> str:
+    return re.sub(r"\s+", " ", text)
+
+
+def test_the_head_is_eventtzs_doctype_lang_charset_viewport_and_title() -> None:
+    html = invite_html()
+    assert html.startswith("<!DOCTYPE html>") and '<html lang="en">' in html
+    assert '<meta charset="utf-8"' in html
+    assert '<meta name="viewport" content="width=device-width, initial-scale=1"' in html
+    assert "<title>You are invited to join a team on Avodeck</title>" in html
+
+
+def test_the_outer_and_inner_tables_are_the_centred_600px_layout() -> None:
+    html = squash(invite_html())
+    presentation = 'role="presentation" cellpadding="0" cellspacing="0" border="0"'
+    assert html.count(f'<table {presentation} width="100%"') == 2
+    assert "width: 100%; background-color: #ffffff" in html
+    assert "max-width: 600px; width: 100%; background-color: #ffffff" in html
+    assert '<td align="center" style="padding: 0; margin: 0">' in html
+
+
+def test_the_header_content_footer_cells_and_the_spacer_have_eventtzs_paddings() -> None:
+    html = squash(invite_html())
+    assert "padding: 16px 20px; text-align: center" in html, "header cell"
+    assert "padding: 8px 20px 24px" in html, "content cell"
+    assert "padding: 4px 20px 40px; text-align: center" in html, "footer cell"
+    assert "height: 32px; line-height: 32px; font-size: 1px" in html, "bottom spacer row"
+    assert "&nbsp;" in html
+
+
+def test_the_wordmark_is_centred_brand_text_and_there_is_no_image() -> None:
+    html = squash(invite_html())
+    assert "color: #0F3D2C; font-size: 22px; font-weight: 700; letter-spacing: 0.02em" in html
+    assert ">Avodeck</p>" in html or "> Avodeck </p>" in html
+    assert "<img" not in html
+
+
+def test_the_headline_and_paragraphs_have_eventtzs_spacing_with_a_17px_body() -> None:
+    html = squash(invite_html())
+    assert "margin: 0 0 12px; color: #16201B; font-size: 26px; line-height: 1.25; font-weight: 600" in html
+    assert "margin: 0 0 16px; color: #16201B; font-size: 17px; line-height: 1.65" in html
+    body_sizes = {int(n) for n in re.findall(r"margin: 0 0 16px; color: #16201B; font-size: (\d+)px", html)}
+    assert body_sizes == {17}
+
+
+def test_the_pill_button_is_eventtzs_and_at_least_52px_tall() -> None:
+    html = squash(invite_html())
+    assert '<p style="margin: 24px 0 0">' in html
+    for piece in (
+        f'href="{LINK_PARAM}"',
+        "display: inline-block",
+        "background: #0F3D2C",
+        "color: #ffffff",
+        "text-decoration: none",
+        "padding: 14px 28px",
+        "border-radius: 980px",
+        "font-size: 15px",
+        "font-weight: 600",
+    ):
+        assert piece in html, piece
+    line_height = int(re.search(r"padding: 14px 28px;[^\"]*line-height: (\d+)px", html).group(1))  # type: ignore[union-attr]
+    assert 14 * 2 + line_height >= 52
+
+
+def test_the_footer_names_avodeck_and_claims_no_company_details() -> None:
+    mail = render(Mail("a@example.test", "org.invite", params_for("org.invite")))
+    html = squash(mail.html)
+    assert "This email was sent by Avodeck." in html
+    for invented in ("Privacy", "Terms", "registered", "Ltd", "Eventtz"):
+        assert invented not in html and invented not in mail.text
+
+
+def test_the_brand_ink_and_muted_colours_replace_eventtzs() -> None:
+    html = invite_html()
+    assert "#0F3D2C" in html and "#16201B" in html and "#5F6964" in html
+    for theirs in ("#3e1964", "#1d1d1f", "#6e6e73", "#8a8199"):
+        assert theirs not in html
 
 
 def test_the_text_part_has_the_headline_the_paragraphs_and_the_action() -> None:
     mail = render(Mail("a@example.test", "org.invite", params_for("org.invite")))
     assert "<" not in mail.text
+    lines = mail.text.rstrip("\n").split("\n")
+    assert lines[-1] == "Avodeck" and lines[-2] == "", "the text ends with the company line, as eventtz's does"
     assert mail.text.splitlines()[0] == mail.text.splitlines()[0].strip() and mail.text.splitlines()[0]
     assert LINK_PARAM in mail.text
 
