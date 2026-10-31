@@ -27,7 +27,8 @@ const real = { ...timing };
 beforeEach(() => {
   pauses.length = 0;
   clock = 0;
-  timing.sleep = async (ms) => {
+  timing.sleep = async (ms, signal) => {
+    if (signal?.aborted) throw new DOMException("stopped", "AbortError");
     pauses.push(ms);
     clock += ms;
   };
@@ -51,6 +52,7 @@ function api_(put: (n: number, body: Uint8Array, sha: string | null) => Response
     http.put("/v1/uploads/:id/chunks/:n", async ({ request, params }) =>
       put(Number(params.n), new Uint8Array(await request.arrayBuffer()), request.headers.get("x-chunk-sha256")),
     ),
+    http.post("/v1/uploads/:id/cancel", () => json({ status: "cancelled" })),
     http.post("/v1/uploads/:id/complete", async ({ request }) => {
       seen.complete = await request.json();
       return onComplete ? onComplete(seen.complete) : json({ document_id: DOC }, 201);
@@ -79,7 +81,7 @@ test("every part carries the hash of exactly the bytes sent, and the finish carr
   const got: Array<{ n: number; body: Uint8Array; sha: string | null }> = [];
   const seen = api_((n, body, header) => (got.push({ n, body, sha: header }), new HttpResponse(null, { status: 204 })));
   await expect(uploadInParts(CASE, file(), "records")).resolves.toBe(DOC);
-  expect(got.map((g) => g.n)).toEqual([1, 2, 3]);
+  expect(got.map((g) => g.n).sort()).toEqual([1, 2, 3]); // three parts in flight at once: any order
   for (const g of got) {
     expect(g.sha).toBe(sha(g.body));
     expect(g.body).toEqual(bytes.slice((g.n - 1) * CHUNK, g.n * CHUNK));
@@ -174,6 +176,7 @@ test("no more than three parts are in flight at once", async () => {
   let live = 0;
   let peak = 0;
   server.use(
+    http.post("/v1/uploads/:id/complete", () => json({ document_id: DOC }, 201)),
     http.put("/v1/uploads/:id/chunks/:n", async () => {
       peak = Math.max(peak, ++live);
       await new Promise((r) => setTimeout(r, 5));
@@ -269,7 +272,8 @@ test("a poll that says open resends only the missing parts, then completes again
   const calls = polled([view({ status: "open", received: [1, 3], missing: [2] }), view({ status: "finalizing" }), view({ status: "complete", document_id: DOC })]);
   const seen: string[] = [];
   await expect(uploadInParts(CASE, file(), "records", false, { onProgress: (p) => seen.push(p.phase) })).resolves.toBe(DOC);
-  expect(calls.puts).toEqual([1, 2, 3, 2]);
+  expect(calls.puts.slice(0, 3).sort()).toEqual([1, 2, 3]); // three parts in flight at once: any order
+  expect(calls.puts.slice(3)).toEqual([2]);
   expect(calls.completes).toHaveLength(2);
   expect(calls.completes[1]).not.toBe(calls.completes[0]);
   expect(seen).toContain("resuming");

@@ -1,7 +1,8 @@
 // Add more papers: pick files, say what they are and how and when they arrived, upload them as one
 // new delivery, follow the processing, and go back to the case home. Runs under both pack sets.
 import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { describe, expect, onTestFinished, test } from "vitest";
+import { timing } from "../../foundation/lib/chunkedUpload";
 import type { Schemas } from "../../foundation/platform-client";
 import { http, json, server, signedIn } from "../../test/api";
 import { fixturePack, launchPack } from "../../test/fixtures";
@@ -86,6 +87,12 @@ describe.each([
   }, 15000);
 
   test("a failed upload says so in plain words and keeps the files so the expert can try again", async () => {
+    // The start is tried again for five minutes of failing (chunkedUpload.ts); take the waiting out.
+    let clock = 0;
+    const real = { ...timing };
+    timing.sleep = async (ms) => void (clock += ms);
+    timing.now = () => clock;
+    onTestFinished(() => void Object.assign(timing, real));
     mock(pack, { failUpload: true });
     const { user } = renderAt(PATH);
     await user.upload(await screen.findByLabelText("Choose files"), pdf("a.pdf"));
