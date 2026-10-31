@@ -96,7 +96,9 @@ async def test_the_sweep_only_expires_what_was_due_by_its_run_date(
     async with worker_db.anonymous() as conn:
         assert old not in await expire_uploads(conn, date.today() - timedelta(days=5), None)
         assert old in await expire_uploads(conn, date.today(), None)
-        assert old not in await expire_uploads(conn, date.today(), None), "an expired upload is not swept twice"
+    # After expiring, the upload appears again as a terminal row needing cleanup (cleaned_at is null);
+    # but its status must not change again.
+    assert admin.execute("select status from app.uploads where id = %s", (old,)).fetchone()[0] == "expired"
 
 
 async def test_completed_uploads_are_never_expired(

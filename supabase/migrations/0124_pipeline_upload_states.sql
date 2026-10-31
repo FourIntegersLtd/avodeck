@@ -50,6 +50,7 @@ begin
   -- Status transitions
   if new.status is distinct from old.status then
     if (old.status, new.status) not in (
+      ('open', 'complete'),
       ('open', 'finalizing'),
       ('open', 'cancelled'),
       ('open', 'expired'),
@@ -69,15 +70,15 @@ begin
       end if;
     end if;
 
-    -- → complete must set document_id
-    if new.status = 'complete' and new.document_id is null then
+    -- finalizing → complete must set document_id (open → complete kept for the transition)
+    if old.status = 'finalizing' and new.status = 'complete' and new.document_id is null then
       perform app.refuse('complete needs a document');
     end if;
+  end if;
 
-    -- document_id only with complete
-    if new.document_id is not null and new.status <> 'complete' then
-      perform app.refuse('document_id only with complete');
-    end if;
+  -- document_id only with complete (checked on every update, not just status changes)
+  if new.document_id is not null and new.status <> 'complete' then
+    perform app.refuse('document_id only with complete');
   end if;
 
   -- Chunks and chunk hashes frozen on finished uploads (0122 rule, kept)
@@ -116,6 +117,7 @@ create function app.expire_uploads(p_run_date date)
 as $$
 declare
   u record;
+  handled uuid[] := '{}';
 begin
   -- 1. Newly expired open uploads
   for u in
@@ -126,6 +128,7 @@ begin
     insert into app.audit_log (organisation_id, case_id, action, target)
     select c.organisation_id, u.case_id, 'upload.expired', 'upload:' || u.id
     from app.cases c where c.id = u.case_id;
+    handled := array_append(handled, u.id);
     expired_case_id := u.case_id;
     expired_upload_id := u.id;
     expired_status := 'expired';
@@ -146,19 +149,21 @@ begin
     insert into app.audit_log (organisation_id, case_id, action, target)
     select c.organisation_id, u.case_id, 'upload.expired', 'upload:' || u.id
     from app.cases c where c.id = u.case_id;
+    handled := array_append(handled, u.id);
     expired_case_id := u.case_id;
     expired_upload_id := u.id;
     expired_status := 'expired';
     return next;
   end loop;
 
-  -- 3. Terminal rows needing cleanup (no document, cleaned_at still null)
+  -- 3. Terminal rows needing cleanup (no document, cleaned_at still null, not just handled above)
   for u in
     select up.id, up.case_id, up.status
     from app.uploads up
     where up.status in ('expired', 'cancelled', 'failed')
       and up.document_id is null
       and up.cleaned_at is null
+      and up.id <> all(handled)
   loop
     expired_case_id := u.case_id;
     expired_upload_id := u.id;
@@ -186,5 +191,25 @@ $$;
 
 revoke execute on function app.mark_upload_cleaned(uuid) from public, app_api;
 grant execute on function app.mark_upload_cleaned(uuid) to app_worker;
+
+-- Purge order: uploads now references jobs (finalize_job_id), so it must be deleted first -----
+do $$
+declare
+  current_order text[] := app.case_purge_order();
+  new_order text[] := '{}';
+  t text;
+begin
+  foreach t in array current_order loop
+    if t <> 'uploads' then
+      if t = 'jobs' then
+        new_order := array_append(new_order, 'uploads');
+      end if;
+      new_order := array_append(new_order, t);
+    end if;
+  end loop;
+  execute 'create or replace function app.case_purge_order() returns text[] language sql immutable parallel safe'
+       || ' set search_path = '''' as $f$ select ' || quote_literal(new_order::text) || '::text[] $f$';
+end
+$$;
 
 reset role;

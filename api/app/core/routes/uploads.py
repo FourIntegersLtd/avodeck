@@ -170,7 +170,8 @@ async def start_upload(
             "insert into app.uploads"
             " (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, append)"
             " values (%s, app.current_person_id(), %s, %s, %s, %s, %s, %s, %s)"
-            " returning id, case_id, status, size, chunk_size, chunk_count, received, document_id",
+            " returning id, case_id, status, size, chunk_size, chunk_count, received, document_id,"
+            " sha256, filename, kind, expires_at, failure",
             (case_id, body.kind, body.filename, body.size, body.sha256, CHUNK_SIZE, count, bool(body.append)),
         )
         row = await cur.fetchone()
