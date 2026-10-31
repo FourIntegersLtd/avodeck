@@ -37,6 +37,41 @@
         "title": "Acknowledged",
         "type": "object"
       },
+      "AddQuestion": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "para_ref": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "pattern": "^\\d{1,3}(\\([a-z]{1,4}\\)|\\(\\d{1,2}\\))?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Para Ref"
+          },
+          "text": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "kind"
+        ],
+        "title": "AddQuestion",
+        "type": "object"
+      },
       "Addition": {
         "additionalProperties": false,
         "properties": {
@@ -8394,6 +8429,20 @@
         "title": "LetterItem",
         "type": "object"
       },
+      "LetterPages": {
+        "properties": {
+          "page_count": {
+            "description": "Pages in the letter of instruction.",
+            "title": "Page Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page_count"
+        ],
+        "title": "LetterPages",
+        "type": "object"
+      },
       "LinkDecision": {
         "properties": {
           "status": {
@@ -14321,6 +14370,18 @@
             "description": "Who says the question is outside the expert's expertise.",
             "title": "Outside Expertise Source"
           },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The first page in source_word_ids (e.g. p2w14 \u2192 2).",
+            "title": "Page"
+          },
           "para_ref": {
             "anyOf": [
               {
@@ -14336,6 +14397,25 @@
             "description": "A label of at most 40 characters for tabs and lists (the model's, else its first clause).",
             "title": "Short Title",
             "type": "string"
+          },
+          "source": {
+            "default": "letter",
+            "description": "Who found this question: 'letter' or 'expert'.",
+            "title": "Source",
+            "type": "string"
+          },
+          "source_instruction_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The instruction version this question was extracted from (immutable).",
+            "title": "Source Instruction Version Id"
           },
           "source_word_ids": {
             "items": {
@@ -27339,6 +27419,137 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/instructions/{version_id}/pages": {
+      "get": {
+        "operationId": "letter_page_count_v1_cases__case_id__instructions__version_id__pages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LetterPages"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Letter Page Count",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/instructions/{version_id}/pages/{page_number}": {
+      "get": {
+        "operationId": "letter_page_image_v1_cases__case_id__instructions__version_id__pages__page_number__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_number",
+            "required": true,
+            "schema": {
+              "title": "Page Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "The page as a PNG picture."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Letter Page Image",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/invoices": {
       "get": {
         "operationId": "list_invoices_v1_cases__case_id__invoices_get",
@@ -31975,6 +32186,68 @@
           }
         },
         "summary": "List Questions",
+        "tags": [
+          "setup"
+        ]
+      },
+      "post": {
+        "description": "A question the model missed, added by the expert; it still needs confirming.",
+        "operationId": "add_question_v1_cases__case_id__questions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddQuestion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Add Question",
         "tags": [
           "setup"
         ]
