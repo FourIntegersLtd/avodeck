@@ -59,6 +59,7 @@
   "upload.phase.finalizing": "Saved. Preparing your pages…",
   "upload.phase.done": "Saved.",
   "upload.stop": "Stop this upload",
+  "upload.stop_earlier": "Stop sending the earlier file",
   "upload.resume.title": "You were part-way through adding a file",
   "upload.resume.body": "Choose the same file again and we will send only what is left.",
   "upload.resume.choose": "Choose the same file",

@@ -146,7 +146,7 @@ async def reconcile_upload_objects(
                 left += 1
         except Exception:  # noqa: BLE001 - a timeout or connection error is not a StorageError; next run retries
             failed += 1
-    _log.info("upload objects reconciled: deleted=%d left=%d failed=%d", deleted, left, failed)
+    _log.info("upload.reconciled", extra={"deleted": deleted, "left": left, "failed": failed})
     return ReconcileResult(deleted=deleted, left=left, failed=failed)
 
 

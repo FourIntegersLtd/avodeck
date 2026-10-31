@@ -132,7 +132,7 @@ export function AddPapers() {
         <p className="pl-lead">{w("add.lead")}</p>
       </header>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
-      <ResumeUpload caseId={caseId} onDocument={(id) => setRecovered((prev) => (prev.includes(id) ? prev : [...prev, id]))} />
+      <ResumeUpload caseId={caseId} append onDocument={(id) => setRecovered((prev) => (prev.includes(id) ? prev : [...prev, id]))} />
       <DropZone title={w("add.drop")} hint={w("add.drop_hint")} multiple disabled={busy} added={files.length > 0} onFiles={(more) => setFiles((prev) => [...prev, ...more])}>
         {files.length > 0 && (
           <ul className="pl-add__files" aria-label={w("add.files")}>

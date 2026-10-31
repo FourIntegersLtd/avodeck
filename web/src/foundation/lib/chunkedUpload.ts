@@ -161,7 +161,7 @@ export async function resumeFrom(caseId: string, found: Resumable, file: File | 
   if (found.state === "needs_file") {
     if (!file || file.size !== found.record.size || file.lastModified !== found.record.lastModified) throw wrongFile();
   }
-  return run(caseId, file, "records", false, options, found);
+  return run(caseId, file, found.record.kind, found.record.append, options, found);
 }
 
 async function run(caseId: string, file: File | null, kind: string, append: boolean, options: UploadOptions, resume?: Resumable): Promise<string> {
@@ -169,14 +169,17 @@ async function run(caseId: string, file: File | null, kind: string, append: bool
   // One pending record for this upload: each key is made before its request goes out and kept for its retries.
   const pending = {
     startKey: resume?.state === "complete" ? "" : (resume?.record.keys.startKey ?? key()),
-    completeKey: resume && resume.state !== "complete" ? resume.record.keys.completeKey : key(),
+    // Never taken from a record: the server remembers an earlier finish under its key and would answer the old 202
+    // without queueing a new check, so an upload it reopened could never be finished.
+    completeKey: key(),
     cancelKey: resume && resume.state !== "complete" ? resume.record.keys.cancelKey : key(),
     uploadId: null as string | null,
     closed: false,
   };
   let stored: string | null | undefined; // the id the record is filed under now (undefined: none yet)
+  const slot = resume && resume.state !== "complete" ? resume.record.slot : key();
   const forget = () => {
-    if (personId && stored !== undefined) removeUpload(personId, caseId, stored);
+    if (personId && stored !== undefined) removeUpload(personId, caseId, pending.uploadId ?? stored, slot);
     stored = undefined;
   };
   // After the server reopens an upload the bar holds where it was instead of going back.
@@ -213,7 +216,8 @@ async function run(caseId: string, file: File | null, kind: string, append: bool
       report("finalizing", 0.99);
       const settled = await pollUntilSettled(resume.record.uploadId!, resume.view.chunk_count ?? 0);
       if (typeof settled === "string") return finished(settled);
-      throw failedWith("upload_failed"); // reopened, and there is no file here to send the missing parts from
+      // Reopened for a missing part: the file is needed to send it, so the record stays and it is asked for.
+      throw new ApiError(409, "upload_needs_file");
     }
     if (!file) throw failedWith("upload_failed");
     report("hashing", 0);
@@ -224,7 +228,7 @@ async function run(caseId: string, file: File | null, kind: string, append: bool
     const expiryOf = (at?: string | null) => at ?? new Date(timing.now() + NEW_TTL_MS).toISOString();
     const keep = (uploadId: string | null, expiresAt: string) => {
       if (!personId) return;
-      saveUpload(personId, caseId, { uploadId, size: file.size, lastModified: file.lastModified, sha256, keys: { startKey: pending.startKey, completeKey: pending.completeKey, cancelKey: pending.cancelKey }, expiresAt });
+      saveUpload(personId, caseId, { uploadId, size: file.size, lastModified: file.lastModified, sha256, keys: { startKey: pending.startKey, completeKey: pending.completeKey, cancelKey: pending.cancelKey }, expiresAt, kind, append, slot });
       stored = uploadId;
     };
     // The record is written before the start request goes out, so a refresh at any moment can find it.
@@ -248,7 +252,7 @@ async function run(caseId: string, file: File | null, kind: string, append: bool
     if (personId && stored !== started.upload_id) {
       const earlier = stored;
       keep(started.upload_id, expiryOf((started as { expires_at?: string | null }).expires_at));
-      if (earlier === null) removeUpload(personId, caseId, null);
+      if (earlier === null) removeUpload(personId, caseId, null, slot);
     }
     const ranges = chunkRanges(file.size, started.chunk_size);
     // A part count the file cannot have is the server's mistake: stop with a real code (and cancel).
@@ -331,7 +335,7 @@ async function run(caseId: string, file: File | null, kind: string, append: bool
   } catch (err) {
     report("failed", 0);
     // Asked for the same file and given another: nothing is wrong with the upload, so it is kept for the right file.
-    if (err instanceof ApiError && err.code === "upload_wrong_file") throw err;
+    if (err instanceof ApiError && (err.code === "upload_wrong_file" || err.code === "upload_needs_file")) throw err;
     const closedByServer = pending.closed || (err instanceof ApiError && err.code === "upload_closed");
     if (!closedByServer) await cancel();
     forget();

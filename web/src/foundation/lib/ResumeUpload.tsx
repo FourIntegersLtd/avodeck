@@ -8,7 +8,8 @@ import { discardResumable, findResumable, resumeUpload, type Resumable } from ".
 import { UploadStatus } from "./UploadControls";
 import { useUpload } from "./useUpload";
 
-export function ResumeUpload({ caseId, onDocument }: { caseId: string; onDocument: (documentId: string) => void | Promise<void> }) {
+/** `append`: only uploads of that sort are offered (added papers are not a case's first files or its letter). */
+export function ResumeUpload({ caseId, append, onDocument }: { caseId: string; append: boolean; onDocument: (documentId: string) => void | Promise<void> }) {
   const upload = useUpload();
   const { personId } = upload;
   const [found, setFound] = useState<Resumable | null>(null);
@@ -26,7 +27,7 @@ export function ResumeUpload({ caseId, onDocument }: { caseId: string; onDocumen
     if (!personId) return;
     let live = true;
     void (async () => {
-      const next = await findResumable(personId, caseId).catch(() => null);
+      const next = await findResumable(personId, caseId, { append }).catch(() => null);
       if (!live || !next) return;
       if (next.state === "complete") return void (await finish(next.documentId, t("upload.resume.recovered")));
       setFound(next);
@@ -35,8 +36,14 @@ export function ResumeUpload({ caseId, onDocument }: { caseId: string; onDocumen
         try {
           await finish(await resumeUpload(caseId, next, null, upload.options()), t("upload.resume.recovered"));
         } catch (err) {
-          if (live) setError(errorMessage(err));
-          if (live) setFound(null);
+          if (!live) return;
+          if ((err as { code?: string }).code === "upload_needs_file") {
+            // The server reopened it for a part it lacks: the file is needed after all.
+            setFound(await findResumable(personId, caseId, { append }).catch(() => null));
+            return;
+          }
+          setError(errorMessage(err));
+          setFound(null);
         }
       }
     })();
@@ -81,7 +88,7 @@ export function ResumeUpload({ caseId, onDocument }: { caseId: string; onDocumen
           <Button variant="secondary" onClick={startAgain}>{t("upload.resume.start_again")}</Button>
         </Notice>
       )}
-      <UploadStatus upload={upload} />
+      <UploadStatus upload={upload} stopLabel={t("upload.stop_earlier")} />
     </>
   );
 }
