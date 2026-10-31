@@ -125,7 +125,7 @@ async def test_cancel_completed_upload_returns_409(
         resp = await client.put(f"/v1/uploads/{upload_id}/chunks/{n}", content=chunk, headers=headers)
         assert resp.status_code == 200, resp.text
     resp = await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": file.sha256()})
-    assert resp.status_code == 201, resp.text
+    assert resp.status_code == 202, resp.text
     # Cancel should fail
     resp = await client.post(f"/v1/uploads/{upload_id}/cancel")
     assert resp.status_code == 409

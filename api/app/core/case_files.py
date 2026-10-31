@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from psycopg import AsyncConnection
 
 from app.core.crypto import CaseCrypto, CiphertextInvalid
-from app.core.storage import StorageError, SupabaseStorage
+from app.core.storage import StorageNotFound, SupabaseStorage, upload_prefix
 
 
 class StoredFileMissing(Exception):
@@ -51,14 +51,18 @@ class StoredDocument:
     paths: list[str]
 
     @classmethod
-    def for_upload(cls, storage: SupabaseStorage, crypto: CaseCrypto, case_id: uuid.UUID, upload_id: uuid.UUID, chunk_count: int) -> StoredDocument:
+    def for_upload(
+        cls, storage: SupabaseStorage, crypto: CaseCrypto, case_id: uuid.UUID, upload_id: uuid.UUID, chunk_count: int
+    ) -> StoredDocument:
         """Build from an upload row: paths are `{prefix}/00001` … `{prefix}/{chunk_count:05d}`."""
-        prefix = f"cases/{case_id}/uploads/{upload_id}"
+        prefix = upload_prefix(case_id, upload_id)
         paths = [f"{prefix}/{n:05d}" for n in range(1, chunk_count + 1)]
         return cls(storage=storage, crypto=crypto, case_id=case_id, prefix=prefix, paths=paths)
 
     @classmethod
-    async def for_prefix(cls, storage: SupabaseStorage, crypto: CaseCrypto, case_id: uuid.UUID, prefix: str) -> StoredDocument:
+    async def for_prefix(
+        cls, storage: SupabaseStorage, crypto: CaseCrypto, case_id: uuid.UUID, prefix: str
+    ) -> StoredDocument:
         """Build from a Storage prefix, listing all objects (paginated)."""
         paths = sorted(await storage.list_recursive(prefix))
         return cls(storage=storage, crypto=crypto, case_id=case_id, prefix=prefix, paths=paths)
@@ -68,7 +72,7 @@ class StoredDocument:
         for path in self.paths:
             try:
                 blob = await self.storage.get(path)
-            except StorageError as exc:
+            except StorageNotFound as exc:  # any other storage error propagates: the caller may retry
                 raise StoredFileMissing(path) from exc
             try:
                 yield await self.crypto.decrypt(conn, self.case_id, blob, purpose=path)

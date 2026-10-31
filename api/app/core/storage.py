@@ -34,6 +34,10 @@ class StorageError(RuntimeError):
     """Storage refused or failed a call. Carries the HTTP status only."""
 
 
+class StorageNotFound(StorageError):
+    """The object is not there (HTTP 404, or the 400 Supabase sends with a 404 in its body)."""
+
+
 @dataclass(frozen=True)
 class StorageSettings:
     url: str
@@ -77,7 +81,17 @@ class SupabaseStorage:
     @staticmethod
     def _check(resp: httpx.Response) -> None:
         if resp.status_code >= 400:
+            if resp.status_code == 404 or (resp.status_code == 400 and SupabaseStorage._body_says_404(resp)):
+                raise StorageNotFound(f"storage answered {resp.status_code}")
             raise StorageError(f"storage answered {resp.status_code}")
+
+    @staticmethod
+    def _body_says_404(resp: httpx.Response) -> bool:
+        try:
+            body = resp.json()
+        except ValueError:
+            return False
+        return isinstance(body, dict) and str(body.get("statusCode")) == "404"
 
     async def ensure_bucket(self) -> None:
         """Create the private bucket if it is not there yet."""
@@ -115,9 +129,16 @@ class SupabaseStorage:
         return items
 
     async def list(self, prefix: str) -> list[str]:
-        """Full paths of the objects directly under `prefix`, in name order (first page only)."""
+        """Full paths of the objects directly under `prefix`, in name order, however many pages."""
         prefix = prefix.rstrip("/")
-        return [f"{prefix}/{item['name']}" for item in await self._list_page(prefix, 0) if item.get("id")]
+        found: builtins.list[str] = []
+        offset = 0
+        while True:
+            items = await self._list_page(prefix, offset)
+            found.extend(f"{prefix}/{item['name']}" for item in items if item.get("id"))
+            if len(items) < self.list_page_size:
+                return found
+            offset += len(items)
 
     async def list_recursive(self, prefix: str) -> builtins.list[str]:
         """Full paths of every object anywhere below `prefix`, however many.

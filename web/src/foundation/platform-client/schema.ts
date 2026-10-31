@@ -4937,7 +4937,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Complete Upload */
+        /**
+         * Complete Upload
+         * @description Claim the upload for finalisation: 202 while the worker checks the stored parts, 200 with the document
+         *     once it has (a repeat call). The whole file's SHA-256 is required (422 `file_sha_missing`).
+         */
         post: operations["complete_upload_v1_uploads__upload_id__complete_post"];
         delete?: never;
         options?: never;
@@ -7195,6 +7199,14 @@ export interface components {
             warnings: components["schemas"]["Warning"][];
             /** Warnings Status */
             warnings_status: string;
+        };
+        /** Finalizing */
+        Finalizing: {
+            /**
+             * Status
+             * @description `finalizing`: the file is being checked; poll the upload until it is `complete`.
+             */
+            status: string;
         };
         /** FindingDecision */
         FindingDecision: {
@@ -12404,7 +12416,10 @@ export interface components {
             kind: string;
             /** Sha256 */
             sha256: string;
-            /** Size */
+            /**
+             * Size
+             * @description Bytes. Zero is refused with `file_empty`.
+             */
             size: number;
         };
         /** UploadedDocument */
@@ -26219,13 +26234,22 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Successful Response */
-            201: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["UploadedDocument"];
+                };
+            };
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Finalizing"];
                 };
             };
             /** @description Validation Error */

@@ -70,7 +70,9 @@ def team(seed: Seed) -> dict[str, uuid.UUID]:
 def parts(admin: psycopg.Connection, case: uuid.UUID) -> int:
     found = row(admin, "select count(*) from app.documents where case_id = %s", case)
     assert found is not None
-    return int(found[0])  # type: ignore[call-overload]
+    count = found[0]
+    assert isinstance(count, int)
+    return count
 
 
 async def test_a_repeat_complete_with_a_different_file_hash_is_refused_and_the_document_is_untouched(

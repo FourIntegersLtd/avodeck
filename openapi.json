@@ -5976,6 +5976,20 @@
         "title": "FinalCheckOut",
         "type": "object"
       },
+      "Finalizing": {
+        "properties": {
+          "status": {
+            "description": "`finalizing`: the file is being checked; poll the upload until it is `complete`.",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "Finalizing",
+        "type": "object"
+      },
       "FindingDecision": {
         "properties": {
           "decision": {
@@ -20261,7 +20275,8 @@
             "type": "string"
           },
           "size": {
-            "exclusiveMinimum": 0.0,
+            "description": "Bytes. Zero is refused with `file_empty`.",
+            "minimum": 0.0,
             "title": "Size",
             "type": "integer"
           }
@@ -41152,6 +41167,7 @@
     },
     "/v1/uploads/{upload_id}/complete": {
       "post": {
+        "description": "Claim the upload for finalisation: 202 while the worker checks the stored parts, 200 with the document\nonce it has (a repeat call). The whole file's SHA-256 is required (422 `file_sha_missing`).",
         "operationId": "complete_upload_v1_uploads__upload_id__complete_post",
         "parameters": [
           {
@@ -41183,11 +41199,30 @@
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UploadedDocument"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Finalizing",
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/UploadedDocument"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Finalizing"
+                    }
+                  ],
+                  "title": "Response Complete Upload V1 Uploads  Upload Id  Complete Post"
                 }
               }
             },
