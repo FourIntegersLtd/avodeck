@@ -341,3 +341,119 @@ async def test_a_busy_model_leaves_the_request_waiting(
 
 async def _no_sleep(_: float) -> None:
     return None
+
+
+# --- review of PR 172 ---
+
+
+async def _asked(client: Any, w: dict[str, Any]) -> str:
+    return (await client.post(url(w, "?on_request=true"))).json()["job_id"]
+
+
+async def test_a_page_turned_since_it_was_asked_for_is_refused_even_when_the_frame_would_pass(
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    model: ScriptedBedrock,
+    world: dict[str, Any],
+) -> None:
+    page = await make_page(aconn, storage, crypto, world["case"], ["Seen", "today"])
+    client = await client_for(world["expert"])
+    job = await _asked(client, world)
+    admin.execute("update app.pages set rotation = 180 where id = %s", (page,))  # a half turn keeps the shape
+    await run(worker_db, admin, world, job)
+    assert (await client.get(url(world))).json() == {"status": "refused", "reason": "page_changed", "lines": []}
+    assert model.requests == []
+
+
+async def test_a_page_job_still_pending_refuses_because_the_picture_may_be_redrawn(
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    model: ScriptedBedrock,
+    world: dict[str, Any],
+) -> None:
+    await make_page(aconn, storage, crypto, world["case"], ["Seen", "today"])
+    client = await client_for(world["expert"])
+    job = await _asked(client, world)
+    admin.execute("insert into app.jobs (case_id, kind, status) values (%s, 'process_pages', 'queued')", (world["case"],))
+    await run(worker_db, admin, world, job)
+    assert (await client.get(url(world))).json()["reason"] == "page_changed"
+    assert model.requests == []
+
+
+class MissesTheName:
+    """OCR that did not find the patient's name on the picture."""
+
+    async def analyse(self, document: bytes, model: str) -> OcrResult:
+        words = tuple(OcrWord(f"p1w{n}", t, box(0.1 + n * 0.6, t), 0.8) for n, t in enumerate(["Seen", "today"], 1))
+        return OcrResult(model="layout", pages=(OcrPage(1, 4.0, 2.0, words),))
+
+
+async def test_a_name_in_the_experts_text_that_the_fresh_reading_missed_is_refused(
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    model: ScriptedBedrock,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(second_reading.services, "ocr", MissesTheName())
+    await record_identity(aconn, crypto, world["case"])
+    first, last = NAME.split()
+    await make_page(aconn, storage, crypto, world["case"], ["Seen", first, last], source="expert", typed=True)
+    client = await client_for(world["expert"])
+    job = (await client.post(url(world))).json()["job_id"]
+    await run(worker_db, admin, world, job)
+    assert (await client.get(url(world))).json() == {"status": "refused", "reason": "identifier_unmatched", "lines": []}
+    assert model.requests == []
+
+
+async def test_an_unexpected_error_marks_the_request_failed_with_a_code(
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(second_reading.services, "kit", AiKit(cell(), ScriptedBedrock([RuntimeError("boom")])))
+    await make_page(aconn, storage, crypto, world["case"], ["Seen", "today"])
+    client = await client_for(world["expert"])
+    job = await _asked(client, world)
+    await run(worker_db, admin, world, job)
+    assert (await client.get(url(world))).json() == {"status": "failed", "reason": "unexpected_error", "lines": []}
+
+
+async def test_a_job_that_began_before_a_new_request_cannot_overwrite_it(
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class AskedAgain(ScriptedBedrock):
+        async def invoke(self, request: Any) -> Any:
+            await aconn.execute("update app.second_readings set requested_at = requested_at + interval '1 minute'")
+            return await super().invoke(request)
+
+    monkeypatch.setattr(second_reading.services, "kit", AiKit(cell(), AskedAgain([response(LINES, 800, 20)])))
+    await make_page(aconn, storage, crypto, world["case"], ["Seen", "today"])
+    client = await client_for(world["expert"])
+    job = await _asked(client, world)
+    await run(worker_db, admin, world, job)
+    assert (await client.get(url(world))).json() == {"status": "queued", "reason": None, "lines": []}

@@ -9,6 +9,7 @@ the picture's hash, never the picture. Every value below is made up.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import io
 import json
 
@@ -246,3 +247,70 @@ def test_turned_words_follow_the_page_a_quarter_turn() -> None:
     [t] = turned_words([word], 4.0, 2.0, 90)
     assert t.polygon == (1.5, 1.0, 1.5, 2.0, 1.0, 2.0, 1.0, 1.0)
     assert turned_words([word], 4.0, 2.0, 0) == [word]
+
+
+# --- review of PR 172: gaps found in the first masking ---
+
+
+def test_a_word_the_expert_corrected_is_painted_across_its_whole_run(pack: MergedPack) -> None:
+    """The expert's reading sits on a run's first word and the rest are blank, but the ink is on every box."""
+    first = dataclasses.replace(word(2, "Adda", 0.8), text=NAME)
+    second = dataclasses.replace(word(3, "Pembertan", 1.4), text="")
+    words = [word(1, "Seen", 0.1), first, second, word(4, "chest", 2.8)]
+    m = mask.mask_page(
+        picture(),
+        words,
+        (WIDTH_IN, HEIGHT_IN),
+        spans_for(words, pack),
+        pad_px=2,
+        runs=[["p1w2", "p1w3"]],
+    )
+    assert m.masked_words == 2
+    for w in (first, second):
+        assert_black(decode(m), box_of(w))
+
+
+def test_a_low_confidence_word_that_nearly_spells_a_name_is_refused(pack: MergedPack) -> None:
+    """OCR missed the name (a span cannot find it), so a doubtful word close to a name token fails closed."""
+    for text in ("Pemberten", "Aba", "Vaie"):
+        words = [word(1, "Seen", 0.1), word(2, text, 0.8, confidence=0.3), word(3, "chest", 2.0)]
+        with pytest.raises(MaskUnsafe) as caught:
+            mask.mask_page(picture(), words, (WIDTH_IN, HEIGHT_IN), [], pad_px=2, names=[NAME])
+        assert caught.value.reason == "doubtful_word"
+
+
+def test_a_low_confidence_word_that_looks_like_a_date_is_refused(pack: MergedPack) -> None:
+    words = [word(1, "Seen", 0.1), word(2, "12/03/1954", 0.8, confidence=0.3), word(3, "chest", 2.5)]
+    with pytest.raises(MaskUnsafe) as caught:
+        mask.mask_page(picture(), words, (WIDTH_IN, HEIGHT_IN), [], pad_px=2, names=[NAME])
+    assert caught.value.reason == "doubtful_word"
+
+
+def test_a_low_confidence_word_unlike_any_identifier_is_not_a_reason_to_refuse(pack: MergedPack) -> None:
+    words = [word(1, "Seen", 0.1), word(2, "chest", 0.8, confidence=0.3), word(3, "clear", 2.0)]
+    m = mask.mask_page(picture(), words, (WIDTH_IN, HEIGHT_IN), [], pad_px=2, names=[NAME])
+    assert m.masked_words == 0
+
+
+def test_a_masked_picture_cannot_be_rebuilt_with_replace(pack: MergedPack) -> None:
+    m = masked(page_words_on_a_line(), pack)
+    raw = picture()
+    with pytest.raises((TypeError, ValueError)):
+        dataclasses.replace(m, data=raw)  # the hash no longer matches
+    with pytest.raises((TypeError, ValueError)):
+        dataclasses.replace(m, data=raw, sha256=hashlib.sha256(raw).hexdigest())  # matching hash, old seal
+    assert dataclasses.replace(m, masked_words=m.masked_words) == m
+
+
+async def test_run_image_checks_the_hash_again_before_sending(
+    api_db: Database, admin: psycopg.Connection, pack: MergedPack, seed: Seed
+) -> None:
+    expert = seed.person()
+    case_id = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
+    m = masked(page_words_on_a_line(), pack)
+    object.__setattr__(m, "data", picture())  # something that got past the frozen dataclass
+    model = ScriptedBedrock([response({"lines": []})])
+    async with api_db.request(scope_for(expert)) as conn:
+        with pytest.raises(TypeError):
+            await AiKit(cell(), model).run_image(conn, TASK, m, pack=pack, case_id=case_id)
+    assert model.requests == []
