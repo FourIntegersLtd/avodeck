@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from app.core.contracts.events import DocumentUploaded, events
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
-from app.core.storage import StorageError, CaseFileStorage, upload_prefix
+from app.core.storage import CaseFileStorage, StorageError, upload_prefix
 from tests.support.db import ClientFor
 from tests.support.files import MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed

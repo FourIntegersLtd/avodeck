@@ -29,7 +29,7 @@ import anyio.to_thread
 from psycopg import AsyncConnection
 
 from app.core.crypto import CaseCrypto, CiphertextInvalid
-from app.core.storage import StorageNotFound, CaseFileStorage, upload_prefix
+from app.core.storage import CaseFileStorage, StorageNotFound, upload_prefix
 
 _log = logging.getLogger(__name__)
 MAX_FILE_SIZE = 500 * 1024 * 1024  # the upload limit; the routes import it from here

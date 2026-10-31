@@ -84,7 +84,9 @@ def test_no_migration_alters_a_table_a_later_one_creates() -> None:
     assert early == [], f"a fresh database runs these in order: {early}"
 
 
-ADD_COLUMN = re.compile(r"alter table (?:if exists )?(?:only )?app\.([a-z_0-9]+)\s+add column (?:if not exists )?([a-z_0-9]+)")
+ADD_COLUMN = re.compile(
+    r"alter table (?:if exists )?(?:only )?app\.([a-z_0-9]+)\s+add column (?:if not exists )?([a-z_0-9]+)"
+)
 CREATE_BODY = re.compile(r"create table (?:if not exists )?app\.([a-z_0-9]+)\s*\(([\s\S]*?)\n\);", re.MULTILINE)
 COLUMN_LINE = re.compile(r"^\s{2,}([a-z_0-9]+)\s+[a-z\"]")
 NOT_A_COLUMN = {"constraint", "primary", "unique", "foreign", "check", "exclude", "like", "references"}

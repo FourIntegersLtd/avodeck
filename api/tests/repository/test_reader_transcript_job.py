@@ -21,7 +21,7 @@ from fastapi import FastAPI
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.jobs import JobContext
-from app.core.storage import StorageError, CaseFileStorage
+from app.core.storage import CaseFileStorage, StorageError
 from app.features.reader import repo, transcript_jobs
 from tests.support.db import scope_for
 from tests.support.files import build_app, local_storage
