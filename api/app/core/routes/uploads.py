@@ -68,6 +68,11 @@ class Upload(BaseModel):
     received: list[int]
     missing: list[int]
     document_id: uuid.UUID | None
+    failure: str | None = Field(default=None, description="Why the upload failed (code only).")
+    expires_at: str | None = Field(default=None, description="ISO 8601 expiry time.")
+    sha256: str | None = Field(default=None, description="The whole file's SHA-256 sent at upload start.")
+    filename: str | None = Field(default=None, description="Original filename.")
+    kind: str | None = Field(default=None, description="Document kind from the case's packs.")
 
 
 class CompleteUpload(BaseModel):
@@ -115,6 +120,7 @@ def _chunk_path(prefix: str, n: int) -> str:
 def _upload(row: dict[str, object]) -> Upload:
     received: list[int] = sorted(row["received"])  # type: ignore[call-overload]
     count = int(row["chunk_count"])  # type: ignore[call-overload]
+    expires_at = row.get("expires_at")
     return Upload(
         upload_id=row["id"],  # type: ignore[arg-type]
         case_id=row["case_id"],  # type: ignore[arg-type]
@@ -125,6 +131,11 @@ def _upload(row: dict[str, object]) -> Upload:
         received=received,
         missing=sorted(set(range(1, count + 1)) - set(received)),
         document_id=row["document_id"],  # type: ignore[arg-type]
+        failure=row.get("failure"),  # type: ignore[arg-type]
+        expires_at=expires_at.isoformat() if expires_at else None,  # type: ignore[union-attr]
+        sha256=row.get("sha256"),  # type: ignore[arg-type]
+        filename=row.get("filename"),  # type: ignore[arg-type]
+        kind=row.get("kind"),  # type: ignore[arg-type]
     )
 
 
@@ -133,7 +144,8 @@ async def _load(conn: AsyncConnection, upload_id: uuid.UUID) -> dict[str, object
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
             "select id, case_id, status, size, sha256, chunk_size, chunk_count, received, chunk_sha256, document_id,"
-            " kind, filename, append, expires_at < now() as expired from app.uploads where id = %s",
+            " kind, filename, append, expires_at, failure, finalize_job_id,"
+            " expires_at < now() as expired from app.uploads where id = %s",
             (upload_id,),
         )
         row = await cur.fetchone()
@@ -348,6 +360,22 @@ async def complete_upload(
     await audit.record(conn, action="document.uploaded", target=f"document:{document_id}", case_id=case_id)
     await events.publish(conn, DocumentUploaded(case_id=case_id, document_id=document_id, appended=bool(row["append"])))
     return UploadedDocument(document_id=document_id, sha256=stored_sha, size=upload.size)
+
+
+@uploads_router.post("/v1/uploads/{upload_id}/cancel", response_model=Upload)
+async def cancel_upload(upload_id: uuid.UUID, conn: DbConn) -> Upload:
+    """Cancel an open upload. Its stored parts are left to the daily sweep (`cleaned_at` null)."""
+    row = await _load(conn, upload_id)
+    if row["status"] != "open":
+        raise ApiError("upload_closed", "This upload has already finished.", 409)
+    cur = await conn.execute(
+        "update app.uploads set status = 'cancelled' where id = %s and status = 'open' returning id",
+        (upload_id,),
+    )
+    if await cur.fetchone() is None:
+        raise ApiError("upload_closed", "This upload has already finished.", 409)
+    await audit.record(conn, action="upload.cancelled", target=f"upload:{upload_id}", case_id=row["case_id"])
+    return _upload({**row, "status": "cancelled"})
 
 
 @uploads_router.get("/v1/cases/{case_id}/documents/{document_id}/file", response_class=StreamingResponse)
