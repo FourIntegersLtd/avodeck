@@ -18,7 +18,7 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `case.view_metadata` (label, dates, status) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `case.view_content` (pages, facts, opinions) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ (every view audited) | ✓ | — |
 | `case.edit_setup` (parties, instructing parties, links (the linked case must also be one the person can see), hearings, directions, prefill suggestions) | ✓ | — | — | ✓ | — | — | — | — |
-| `case.upload` (records, instructions, exhibits) | ✓ | — | — | ✓ | — | — | — | — |
+| `case.upload` (records, instructions, exhibits; also starting, sending parts of, completing, cancelling and downloading an upload) | ✓ | — | — | ✓ | — | — | — | — |
 | `case.manage_members` | ✓ | — | — | — | — | — | — | ✓ |
 | `case.reassign_named_expert` (before serving; after serving, create a replacement case instead) 🔒 | — | — | — | — | — | — | — | ✓ |
 | `case.hold` (put on hold, resume) | ✓ | — | — | ✓ | — | — | — | — |
