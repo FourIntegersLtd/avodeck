@@ -30,6 +30,18 @@ NOTIFY_TEMPLATE = NOTIFICATION_NEW
 DIGEST_TEMPLATE = NOTIFICATION_DIGEST
 DAILY = "notifications_daily"
 
+# Email is for what matters: something the person must act on, their own security or account, or a
+# permanent record. Those have their own templates and are sent where they happen (invite, invoice, email
+# change, backup code, account created, support access, spot-check code, certificate of deletion, a case
+# newly assigned). A notification `kind` reaches email at once only if it is listed here; none is yet.
+# Stage and progress news (bundle_ready, deletion_paused, deadline.*, case.reassigned) stays in the app,
+# and in the daily email for people who chose one. Add a kind only with foundation's approval.
+EMAIL_KINDS: frozenset[str] = frozenset()
+
+
+def emails_at_once(kind: str) -> bool:
+    return kind in EMAIL_KINDS
+
 
 async def send_mail(mailer: Mailer, mail: Mail) -> None:
     """Email is best effort: a failure is logged by type only and the message stays in the app."""
@@ -60,7 +72,7 @@ async def notify(
     if row is None:
         return None
     message_id, email = row
-    if email:
+    if email and emails_at_once(kind):
         await send_mail(mailer, Mail(to=email, template=NOTIFY_TEMPLATE, params={"kind": kind}))
     return message_id  # type: ignore[no-any-return]
 
