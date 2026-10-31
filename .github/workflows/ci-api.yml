@@ -31,7 +31,14 @@ jobs:
       - uses: ./.github/actions/api-install
       - uses: supabase/setup-cli@v1
         with: { version: 2.121.0 }  # pinned: "latest" asks the GitHub API and hits its rate limit
-      - run: supabase start -x studio,postgres-meta,edge-runtime,logflare,vector,realtime,supavisor,imgproxy
+      # retried: five jobs pull images at once and Docker Hub sometimes answers "toomanyrequests"
+      - run: |
+          for i in 1 2 3 4; do
+            supabase start -x studio,postgres-meta,edge-runtime,logflare,vector,realtime,supavisor,imgproxy && exit 0
+            supabase stop --no-backup > /dev/null 2>&1 || true
+            sleep $((i * 30))
+          done
+          exit 1
       - name: This shard's test files and the test ids it collects
         run: |
           python3 scripts/shard_api_tests.py ${{ matrix.shard }} 4 > "$RUNNER_TEMP/files.txt"
@@ -62,7 +69,14 @@ jobs:
       - uses: ./.github/actions/api-install
       - uses: supabase/setup-cli@v1
         with: { version: 2.121.0 }
-      - run: supabase start -x studio,postgres-meta,edge-runtime,logflare,vector,realtime,supavisor,imgproxy
+      # retried: five jobs pull images at once and Docker Hub sometimes answers "toomanyrequests"
+      - run: |
+          for i in 1 2 3 4; do
+            supabase start -x studio,postgres-meta,edge-runtime,logflare,vector,realtime,supavisor,imgproxy && exit 0
+            supabase stop --no-backup > /dev/null 2>&1 || true
+            sleep $((i * 30))
+          done
+          exit 1
       # Node and pnpm: the red-then-green check runs web test commits with vitest.
       - uses: pnpm/action-setup@v4
         with: { package_json_file: web/package.json }
