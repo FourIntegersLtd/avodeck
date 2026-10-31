@@ -1,15 +1,40 @@
 // A file goes up in parts, each with its own SHA-256, and the whole file's SHA-256 (read in a separate
 // pass, never all in memory) is sent when the upload finishes, so the server can prove what it stored.
 import { createHash } from "node:crypto";
-import { expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test } from "vitest";
 import { ApiError } from "../platform-client";
 import { http, HttpResponse, json, server } from "../../test/api";
-import { chunkRanges, hashFile, uploadInParts } from "./chunkedUpload";
+import {
+  backoffCeiling,
+  CHUNK_CONCURRENCY,
+  chunkRanges,
+  hashFile,
+  pollDelay,
+  timing,
+  uploadInParts,
+  type UploadProgress,
+} from "./chunkedUpload";
 
 const CASE = "a1111111-1111-4111-8111-111111111111";
 const UP = "a6666666-6666-4666-8666-666666666666";
 const DOC = "b7777777-7777-4777-8777-777777777777";
 const CHUNK = 7;
+
+// No real waiting: every pause is recorded and moves a fake clock on.
+const pauses: number[] = [];
+let clock = 0;
+const real = { ...timing };
+beforeEach(() => {
+  pauses.length = 0;
+  clock = 0;
+  timing.sleep = async (ms) => {
+    pauses.push(ms);
+    clock += ms;
+  };
+  timing.now = () => clock;
+  timing.random = () => 1;
+});
+afterEach(() => Object.assign(timing, real));
 
 /** 20 bytes: not a multiple of the 7-byte part size, so the last part is short. */
 const bytes = Uint8Array.from({ length: 20 }, (_, i) => (i * 37 + 11) % 256);
@@ -76,13 +101,6 @@ test("a part the server says was damaged is sent again from the same bytes, with
   expect(sent).toEqual(Array(3).fill(sha(bytes.slice(7, 14))));
 });
 
-test("a part that stays damaged fails after a few tries", async () => {
-  let tries = 0;
-  api_((n) => (n === 1 ? (++tries, HttpResponse.json({ error: { code: "chunk_corrupted" } }, { status: 422 })) : new HttpResponse(null, { status: 204 })));
-  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "chunk_corrupted" });
-  expect(tries).toBe(4);
-});
-
 test("a file that does not verify is reported, not retried", async () => {
   let finishes = 0;
   api_(
@@ -93,4 +111,203 @@ test("a file that does not verify is reported, not retried", async () => {
   expect(err).toBeInstanceOf(ApiError);
   expect(err).toMatchObject({ code: "file_hash_mismatch" });
   expect(finishes).toBe(1);
+});
+
+// ---- retries and backoff -------------------------------------------------------------------------
+
+const corrupted = () => HttpResponse.json({ error: { code: "chunk_corrupted" } }, { status: 422 });
+const fail = (status: number, code: string) => HttpResponse.json({ error: { code } }, { status });
+const ok204 = () => new HttpResponse(null, { status: 204 });
+
+test("backoff doubles from half a second and is capped at thirty", () => {
+  expect([1, 2, 3, 4, 5, 6, 7, 8].map(backoffCeiling)).toEqual([500, 1000, 2000, 4000, 8000, 16000, 30000, 30000]);
+});
+
+test("each wait is a random share of the ceiling (full jitter)", async () => {
+  timing.random = () => 0.5;
+  let tries = 0;
+  api_((n) => (n === 1 && ++tries < 4 ? corrupted() : ok204()));
+  await uploadInParts(CASE, file(), "records");
+  expect(pauses).toEqual([250, 500, 1000]);
+});
+
+test("a part that stays damaged is given up on after five minutes of trying, not after a count", async () => {
+  let tries = 0;
+  api_((n) => (n === 1 ? (++tries, corrupted()) : ok204()));
+  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "chunk_corrupted" });
+  expect(clock).toBeGreaterThanOrEqual(5 * 60_000);
+  expect(clock).toBeLessThan(5 * 60_000 + 30_000);
+  expect(tries).toBeGreaterThan(10);
+});
+
+test.each([
+  [0, "network_error"],
+  [408, "request_timeout"],
+  [429, "rate_limited"],
+  [503, "unavailable"],
+  [409, "upload_busy"],
+])("a %i (%s) on a part is retried", async (status, code) => {
+  let tries = 0;
+  api_((n) => (n === 2 && ++tries === 1 ? (status === 0 ? HttpResponse.error() : fail(status, code)) : ok204()));
+  await expect(uploadInParts(CASE, file(), "records")).resolves.toBe(DOC);
+  expect(tries).toBe(2);
+});
+
+test.each([400, 403, 404, 413, 422])("a plain %i on a part is not retried", async (status) => {
+  let tries = 0;
+  api_((n) => (n === 1 ? (++tries, fail(status, "chunk_size_wrong")) : ok204()));
+  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ status });
+  expect(tries).toBe(1);
+  expect(pauses).toEqual([]);
+});
+
+test("upload_closed ends the whole upload at once", async () => {
+  let puts = 0;
+  api_(() => (++puts, fail(409, "upload_closed")));
+  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "upload_closed" });
+  expect(puts).toBeLessThanOrEqual(CHUNK_CONCURRENCY);
+});
+
+test("no more than three parts are in flight at once", async () => {
+  expect(CHUNK_CONCURRENCY).toBe(3);
+  server.use(http.post("/v1/cases/:caseId/uploads", () => json({ upload_id: UP, chunk_size: 1, chunk_count: 20 }, 201)));
+  let live = 0;
+  let peak = 0;
+  server.use(
+    http.put("/v1/uploads/:id/chunks/:n", async () => {
+      peak = Math.max(peak, ++live);
+      await new Promise((r) => setTimeout(r, 5));
+      live -= 1;
+      return ok204();
+    }),
+  );
+  await uploadInParts(CASE, file(), "records");
+  expect(peak).toBe(3);
+});
+
+// ---- keys ------------------------------------------------------------------------------------------
+
+test("the start and complete keys are made once and reused on every retry", async () => {
+  const starts: Array<string | null> = [];
+  const completes: Array<string | null> = [];
+  let startTries = 0;
+  let completeTries = 0;
+  server.use(
+    http.post("/v1/cases/:caseId/uploads", ({ request }) => {
+      starts.push(request.headers.get("idempotency-key"));
+      return ++startTries === 1 ? fail(503, "unavailable") : json({ upload_id: UP, chunk_size: CHUNK, chunk_count: 3 }, 201);
+    }),
+    http.put("/v1/uploads/:id/chunks/:n", ok204),
+    http.post("/v1/uploads/:id/complete", ({ request }) => {
+      completes.push(request.headers.get("idempotency-key"));
+      return ++completeTries < 3 ? fail(409, "upload_busy") : json({ document_id: DOC }, 201);
+    }),
+  );
+  await uploadInParts(CASE, file(), "records");
+  expect(starts).toHaveLength(2);
+  expect(starts[0]).toBeTruthy();
+  expect(starts[1]).toBe(starts[0]);
+  expect(completes).toHaveLength(3);
+  expect(completes[0]).toBeTruthy();
+  expect(new Set(completes).size).toBe(1);
+  expect(completes[0]).not.toBe(starts[0]);
+});
+
+// ---- the 202 and the poll --------------------------------------------------------------------------
+
+type Poll = Record<string, unknown>;
+const view = (over: Poll): Poll => ({ upload_id: UP, case_id: CASE, size: 20, chunk_size: CHUNK, chunk_count: 3, received: [1, 2, 3], missing: [], document_id: null, ...over });
+
+/** The parts, a 202 from complete, then the polls in order (the last one repeats). */
+function polled(polls: Poll[], put: (n: number) => Response = ok204) {
+  const calls = { puts: [] as number[], completes: [] as Array<string | null>, polls: 0, cancels: [] as Array<string | null> };
+  server.use(
+    http.post("/v1/cases/:caseId/uploads", () => json({ upload_id: UP, chunk_size: CHUNK, chunk_count: 3 }, 201)),
+    http.put("/v1/uploads/:id/chunks/:n", ({ params }) => (calls.puts.push(Number(params.n)), put(Number(params.n)))),
+    http.post("/v1/uploads/:id/complete", ({ request }) => (calls.completes.push(request.headers.get("idempotency-key")), json({ status: "finalizing" }, 202))),
+    http.get("/v1/uploads/:id", () => json(polls[Math.min(calls.polls++, polls.length - 1)]!)),
+    http.post("/v1/uploads/:id/cancel", ({ request }) => (calls.cancels.push(request.headers.get("idempotency-key")), json(view({ status: "cancelled" })))),
+  );
+  return calls;
+}
+
+test("poll waits two seconds, backing off to ten", () => {
+  expect([0, 1, 2, 3, 4, 5, 6].map(pollDelay)).toEqual([2000, 3000, 4500, 6750, 10000, 10000, 10000]);
+});
+
+test("complete answers 202, then the upload is polled until it says complete", async () => {
+  const calls = polled([view({ status: "finalizing" }), view({ status: "finalizing" }), view({ status: "complete", document_id: DOC })]);
+  await expect(uploadInParts(CASE, file(), "records")).resolves.toBe(DOC);
+  expect(calls.polls).toBe(3);
+  expect(pauses.slice(-3)).toEqual([2000, 3000, 4500].slice(0, 3));
+  expect(calls.cancels).toEqual([]);
+});
+
+test("progress never reaches 100% before the server says complete", async () => {
+  polled([view({ status: "finalizing" }), view({ status: "complete", document_id: DOC })]);
+  const seen: UploadProgress[] = [];
+  await uploadInParts(CASE, file(), "records", false, { onProgress: (p) => seen.push({ ...p }) });
+  const done = seen.findIndex((p) => p.phase === "done");
+  expect(done).toBe(seen.length - 1);
+  expect(seen.slice(0, done).every((p) => p.fraction < 1)).toBe(true);
+  expect(seen[done]!.fraction).toBe(1);
+  const phases = seen.map((p) => p.phase);
+  expect(phases[0]).toBe("hashing");
+  expect(phases).toContain("uploading");
+  expect(phases).toContain("finalizing");
+});
+
+test("a part waiting to be sent again is reported as retrying", async () => {
+  let tries = 0;
+  polled([view({ status: "complete", document_id: DOC })], (n) => (n === 1 && ++tries === 1 ? fail(503, "unavailable") : ok204()));
+  const seen: string[] = [];
+  await uploadInParts(CASE, file(), "records", false, { onProgress: (p) => seen.push(p.phase) });
+  expect(seen).toContain("retrying");
+});
+
+test("a poll that says open resends only the missing parts, then completes again with a new key", async () => {
+  const calls = polled([view({ status: "open", received: [1, 3], missing: [2] }), view({ status: "finalizing" }), view({ status: "complete", document_id: DOC })]);
+  const seen: string[] = [];
+  await expect(uploadInParts(CASE, file(), "records", false, { onProgress: (p) => seen.push(p.phase) })).resolves.toBe(DOC);
+  expect(calls.puts).toEqual([1, 2, 3, 2]);
+  expect(calls.completes).toHaveLength(2);
+  expect(calls.completes[1]).not.toBe(calls.completes[0]);
+  expect(seen).toContain("resuming");
+});
+
+test("a failed upload shows the reason the server gave and does not send a cancel", async () => {
+  const calls = polled([view({ status: "failed", failure: "file_hash_mismatch" })]);
+  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "file_hash_mismatch" });
+  expect(calls.cancels).toEqual([]);
+});
+
+test("a failed upload with a code we do not know is still an ApiError with a plain fallback", async () => {
+  polled([view({ status: "failed", failure: "something_new" })]);
+  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "upload_failed" });
+});
+
+test.each(["cancelled", "expired"])("a %s upload stops without a cancel", async (status) => {
+  const calls = polled([view({ status })]);
+  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: status === "expired" ? "upload_expired" : "upload_closed" });
+  expect(calls.cancels).toEqual([]);
+});
+
+// ---- cancel ----------------------------------------------------------------------------------------
+
+test("abandoning an upload sends a cancel once, with its own key, and stops", async () => {
+  const calls = polled([view({ status: "finalizing" })]);
+  const abort = new AbortController();
+  const progress = (p: UploadProgress) => {
+    if (p.phase === "finalizing") abort.abort();
+  };
+  await expect(uploadInParts(CASE, file(), "records", false, { signal: abort.signal, onProgress: progress })).rejects.toMatchObject({ name: "AbortError" });
+  expect(calls.cancels).toHaveLength(1);
+  expect(calls.cancels[0]).toBeTruthy();
+  expect(calls.cancels[0]).not.toBe(calls.completes[0]);
+});
+
+test("a part that fails for good cancels the upload", async () => {
+  const calls = polled([view({ status: "complete", document_id: DOC })], (n) => (n === 2 ? fail(422, "chunk_size_wrong") : ok204()));
+  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "chunk_size_wrong" });
+  expect(calls.cancels).toHaveLength(1);
 });
