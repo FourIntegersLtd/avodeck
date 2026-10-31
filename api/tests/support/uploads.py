@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import hashlib
+import os
 import uuid
 from collections.abc import AsyncIterator, Awaitable
 from contextlib import asynccontextmanager
@@ -80,6 +82,38 @@ async def run_finalize(
     async with worker_database(worker_dsn) as database:
         ctx = JobContext(database, job_id, case_id, "finalize_upload", attempt)  # type: ignore[arg-type]
         await finalize(ctx, storage, crypto)
+
+
+@functools.lru_cache(maxsize=1)
+def _dsns() -> dict[str, str]:
+    """The same connection strings as conftest's `test_database_dsns`, for helpers without fixtures."""
+    from pathlib import Path
+
+    from tests.support.local_supabase import local_db_port, test_dsns
+
+    names = ("TEST_DATABASE_ADMIN_URL", "TEST_DATABASE_URL", "TEST_DATABASE_URL_DIRECT")
+    repo = Path(__file__).resolve().parents[2]
+    port = "" if all(os.environ.get(n) for n in names) else local_db_port(repo)
+    return test_dsns(port, os.environ)
+
+
+async def complete_and_finalize(client: httpx.AsyncClient, upload: str, digest: str) -> str:
+    """Complete the upload, run its `finalize_upload` job inline, and return the document id.
+
+    For helpers that hold only a client: the storage and case encryption come from the app it talks
+    to, and the database from the test connection strings, as the fixtures do.
+    """
+    done = await complete(client, upload, digest)
+    assert done.status_code == 202, done.text
+    app = client._transport.app  # type: ignore[attr-defined]  # the test app behind httpx's ASGI transport
+    dsns = _dsns()
+    with psycopg.connect(dsns["TEST_DATABASE_ADMIN_URL"], autocommit=True, connect_timeout=5) as admin:
+        await run_finalize(dsns["TEST_DATABASE_URL_DIRECT"], admin, upload, app.state.storage, app.state.crypto)
+    status = await client.get(f"/v1/uploads/{upload}")
+    assert status.status_code == 200, status.text
+    document = status.json()["document_id"]
+    assert document is not None, status.text
+    return str(document)
 
 
 LOCK = "pg_advisory_{}lock(hashtextextended(%s::text, 0))"

@@ -42,7 +42,6 @@ async def test_an_empty_file_is_clean() -> None:
 
 def test_the_cell_config_chooses_the_scanner() -> None:
     assert isinstance(scanner_from_env({"VIRUS_SCANNER": "recorded"}), RecordedScanner)
-    with pytest.raises(ConfigError):
-        scanner_from_env({})
+    assert isinstance(scanner_from_env({}), RecordedScanner)  # unset and no clamd host: the recorded scanner
     with pytest.raises(ConfigError):
         scanner_from_env({"VIRUS_SCANNER": "elsewhere"})

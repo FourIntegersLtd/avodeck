@@ -21,6 +21,7 @@ from app.core.storage import SupabaseStorage
 from tests.support.db import ClientFor
 from tests.support.files import MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
+from tests.support.uploads import complete_and_finalize
 
 pytestmark = pytest.mark.anyio
 
@@ -61,9 +62,7 @@ async def uploaded(client_for: ClientFor, team: dict[str, uuid.UUID], admin: psy
                 headers={**headers, "x-chunk-sha256": hashlib.sha256(data).hexdigest()},
             )
         ).status_code == 200
-    document = (await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": file.sha256()})).json()[
-        "document_id"
-    ]
+    document = await complete_and_finalize(client, upload_id, file.sha256())
     row = admin.execute("select storage_path from app.documents where id = %s", (document,)).fetchone()
     assert row is not None
     return f"/v1/cases/{team['case']}/documents/{document}/file", row[0]
