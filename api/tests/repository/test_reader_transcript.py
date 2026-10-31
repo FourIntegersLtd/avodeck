@@ -26,6 +26,7 @@ from app.core.db import Database
 from app.core.packs import default_library
 from app.features.reader import transcript
 from tests.support.db import scope_for
+from tests.support.packs import LAUNCH
 from tests.support.identity import NAME, SENTENCE, leaked, record_identity
 from tests.support.seed import Seed
 from tests.support.transcript_world import Spec, add_document, add_page
@@ -109,8 +110,11 @@ async def test_an_administrative_entry_folds_to_one_short_line(
 
 
 async def test_names_and_dates_of_birth_are_stripped_from_every_entry(
-    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+    api_db: Database, aconn: psycopg.AsyncConnection, seed: Seed
 ) -> None:
+    expert = seed.person()
+    case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
+    world = {"case": case, "expert": expert}
     await record_identity(aconn, CRYPTO, world["case"])
     doc = await add_document(aconn, world["case"])
     await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", (SENTENCE,))])

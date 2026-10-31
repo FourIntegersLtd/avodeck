@@ -692,3 +692,6 @@ async def my_notes(
 
 def _summary(r: dict) -> dict:  # type: ignore[type-arg]
     return {k: r[k] for k in ("source_type", "read", "in_period", "unreadable", "duplicate_of_page_no", "turn")}
+
+
+from app.features.reader import transcript_routes  # noqa: E402,F401  (adds the transcript routes to `router`)

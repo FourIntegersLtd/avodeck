@@ -24,6 +24,7 @@ from app.core.jobs import JobContext
 from app.core.storage import StorageError, SupabaseStorage
 from app.features.reader import transcript_jobs
 from tests.support.files import build_app, local_storage
+from tests.support.packs import LAUNCH
 from tests.support.identity import SENTENCE, leaked, record_identity
 from tests.support.seed import Seed
 from tests.support.transcript_world import Spec, add_document, add_page
@@ -97,8 +98,11 @@ async def test_the_file_holds_the_entries_in_order_without_names_or_birth_dates(
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
     crypto: CaseCrypto,
-    world: dict[str, Any],
+    seed: Seed,
 ) -> None:
+    expert = seed.person()
+    case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
+    world = {"case": case, "expert": expert}
     await record_identity(aconn, crypto, world["case"])
     doc = await add_document(aconn, world["case"])
     await add_page(aconn, crypto, world["case"], doc, 2, [Spec("zz_session", ("second entry",), day=date(2020, 2, 1))])

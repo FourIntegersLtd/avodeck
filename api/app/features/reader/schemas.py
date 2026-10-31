@@ -263,3 +263,42 @@ class MyNote(BaseModel):
 
 class MyNotes(BaseModel):
     notes: list[MyNote]
+
+
+# --- reading by transcript (ADR 0028): printed lines only, never a fact or a suggestion (rule 3) ---------
+
+
+class TranscriptEntryOut(BaseModel):
+    id: uuid.UUID
+    page_no: int
+    kind: str
+    folded: bool
+    author_role: str | None
+    specialty: str | None
+    event_date: date | None
+    date_basis: str | None
+    lines: list[str]
+    results: list[str]
+
+
+class TranscriptList(BaseModel):
+    status: Literal["idle", "preparing", "ready", "failed"]
+    total: int
+    entries: list[TranscriptEntryOut]
+
+
+class SeenIn(BaseModel):
+    entry_id: uuid.UUID | None = None
+    dwell_ms: int = Field(default=0, ge=0, le=600_000)
+    page_no: int | None = Field(default=None, ge=1)
+    picture_opened: bool = False
+
+    @model_validator(mode="after")
+    def _one_kind_of_view(self) -> SeenIn:
+        if (self.entry_id is not None) == (self.picture_opened and self.page_no is not None):
+            raise ValueError("name an entry, or a page whose picture was opened")
+        return self
+
+
+class SeenOut(BaseModel):
+    pages_read: list[int]
