@@ -179,6 +179,22 @@ const WORDS = {
   "unreadable.error.unavailable": "Your typing isn't saved yet: we can't take it in just now. Please try again later.",
   "unreadable.error.generic": "That didn't work. Please try again.",
 
+  "transcript.heading": "Read by transcript",
+  "transcript.lead": "Every entry in date order. An entry counts as read once it has been on your screen for a moment. Suggestions appear on the page itself, once you have read it.",
+  "transcript.page_by_page": "Read page by page instead",
+  "transcript.by_transcript": "Read by transcript",
+  "transcript.download": "Download as Word",
+  "transcript.preparing_file": "Preparing your file",
+  "transcript.downloaded": "Your Word file has been downloaded.",
+  "transcript.download_slow": "Your file is taking longer than usual. Please try again in a minute.",
+  "transcript.preparing": "We're getting the record ready to read. This can take a minute.",
+  "transcript.failed": "We couldn't get the record ready.",
+  "transcript.try_again": "Try again",
+  "transcript.none": "No entries to show yet.",
+  "transcript.more": "Show more entries",
+  "transcript.see_page": "See the page",
+  "transcript.undated": "No date",
+  "transcript.entry_label": "Entry on page {{page}}",
 } as const;
 
 // Today's items use `reader.today.*`, which live in the base file (en-GB.json).

@@ -16213,6 +16213,64 @@
         "title": "SectionText",
         "type": "object"
       },
+      "SeenIn": {
+        "properties": {
+          "dwell_ms": {
+            "default": 0,
+            "maximum": 600000.0,
+            "minimum": 0.0,
+            "title": "Dwell Ms",
+            "type": "integer"
+          },
+          "entry_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Id"
+          },
+          "page_no": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page No"
+          },
+          "picture_opened": {
+            "default": false,
+            "title": "Picture Opened",
+            "type": "boolean"
+          }
+        },
+        "title": "SeenIn",
+        "type": "object"
+      },
+      "SeenOut": {
+        "properties": {
+          "pages_read": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Pages Read",
+            "type": "array"
+          }
+        },
+        "required": [
+          "pages_read"
+        ],
+        "title": "SeenOut",
+        "type": "object"
+      },
       "SendIn": {
         "additionalProperties": false,
         "properties": {
@@ -19771,6 +19829,100 @@
         "title": "TrainingCreate",
         "type": "object"
       },
+      "TranscriptEntryOut": {
+        "properties": {
+          "author_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Role"
+          },
+          "date_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Basis"
+          },
+          "event_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "folded": {
+            "title": "Folded",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "specialty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Specialty"
+          }
+        },
+        "required": [
+          "id",
+          "page_no",
+          "kind",
+          "folded",
+          "author_role",
+          "specialty",
+          "event_date",
+          "date_basis",
+          "lines",
+          "results"
+        ],
+        "title": "TranscriptEntryOut",
+        "type": "object"
+      },
       "TranscriptIn": {
         "properties": {
           "context": {
@@ -19798,6 +19950,38 @@
           "duration_seconds"
         ],
         "title": "TranscriptIn",
+        "type": "object"
+      },
+      "TranscriptList": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/TranscriptEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "idle",
+              "preparing",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "total",
+          "entries"
+        ],
+        "title": "TranscriptList",
         "type": "object"
       },
       "TranscriptSaved": {
@@ -35587,6 +35771,257 @@
         "summary": "Timeline Overview",
         "tags": [
           "understand"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/transcript/download": {
+      "post": {
+        "operationId": "transcript_download_request_v1_cases__case_id__transcript_download_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Transcript Download Request",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/transcript/download/{job_id}": {
+      "get": {
+        "operationId": "transcript_download_v1_cases__case_id__transcript_download__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Transcript Download",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/transcript/entries": {
+      "get": {
+        "operationId": "transcript_entries_v1_cases__case_id__transcript_entries_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Transcript Entries",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/transcript/seen": {
+      "post": {
+        "operationId": "transcript_seen_v1_cases__case_id__transcript_seen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeenOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Transcript Seen",
+        "tags": [
+          "reader"
         ]
       }
     },

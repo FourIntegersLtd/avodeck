@@ -3433,6 +3433,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/transcript/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transcript Download Request */
+        post: operations["transcript_download_request_v1_cases__case_id__transcript_download_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/transcript/download/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Transcript Download */
+        get: operations["transcript_download_v1_cases__case_id__transcript_download__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/transcript/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Transcript Entries */
+        get: operations["transcript_entries_v1_cases__case_id__transcript_entries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/transcript/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transcript Seen */
+        post: operations["transcript_seen_v1_cases__case_id__transcript_seen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/transcripts": {
         parameters: {
             query?: never;
@@ -10886,6 +10954,28 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** SeenIn */
+        SeenIn: {
+            /**
+             * Dwell Ms
+             * @default 0
+             */
+            dwell_ms: number;
+            /** Entry Id */
+            entry_id?: string | null;
+            /** Page No */
+            page_no?: number | null;
+            /**
+             * Picture Opened
+             * @default false
+             */
+            picture_opened: boolean;
+        };
+        /** SeenOut */
+        SeenOut: {
+            /** Pages Read */
+            pages_read: number[];
+        };
         /** SendIn */
         SendIn: {
             /** To */
@@ -12201,6 +12291,32 @@ export interface components {
             /** Year */
             year?: number | null;
         };
+        /** TranscriptEntryOut */
+        TranscriptEntryOut: {
+            /** Author Role */
+            author_role: string | null;
+            /** Date Basis */
+            date_basis: string | null;
+            /** Event Date */
+            event_date: string | null;
+            /** Folded */
+            folded: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Lines */
+            lines: string[];
+            /** Page No */
+            page_no: number;
+            /** Results */
+            results: string[];
+            /** Specialty */
+            specialty: string | null;
+        };
         /** TranscriptIn */
         TranscriptIn: {
             /**
@@ -12212,6 +12328,18 @@ export interface components {
             duration_seconds: number;
             /** Text */
             text: string;
+        };
+        /** TranscriptList */
+        TranscriptList: {
+            /** Entries */
+            entries: components["schemas"]["TranscriptEntryOut"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "idle" | "preparing" | "ready" | "failed";
+            /** Total */
+            total: number;
         };
         /** TranscriptSaved */
         TranscriptSaved: {
@@ -22116,6 +22244,174 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Overview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    transcript_download_request_v1_cases__case_id__transcript_download_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    transcript_download_v1_cases__case_id__transcript_download__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    transcript_entries_v1_cases__case_id__transcript_entries_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    transcript_seen_v1_cases__case_id__transcript_seen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeenIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeenOut"];
                 };
             };
             /** @description Validation Error */

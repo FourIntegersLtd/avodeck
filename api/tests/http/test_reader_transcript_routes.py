@@ -123,7 +123,9 @@ async def test_seeing_too_little_reads_nothing(
     doc = await add_document(aconn, world["case"])
     built = await add_page(aconn, CRYPTO, world["case"], doc, 4, [Spec("zz_session", ("a b",))])
     client = await client_for(world["expert"])
-    resp = await client.post(f"{base(world)}/transcript/seen", json={"entry_id": str(built.entry_ids[0]), "dwell_ms": 5})
+    resp = await client.post(
+        f"{base(world)}/transcript/seen", json={"entry_id": str(built.entry_ids[0]), "dwell_ms": 5}
+    )
     assert resp.json() == {"pages_read": []}
     assert (await client.get(f"{base(world)}/pages/4/facts")).status_code == 423
 

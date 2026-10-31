@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reading by transcript</title>
+<style>
+body{margin:0;background:#F6F7F5;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#16201B;font-size:17px;line-height:1.5}
+a{color:#1E6B4E}
+.bar{background:#fff;border-bottom:1px solid #DDE3DF;padding:12px 40px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;min-height:80px;box-sizing:border-box}
+.bar strong{font-size:19px}
+.btn{display:inline-flex;align-items:center;min-height:52px;padding:0 20px;border-radius:10px;font-weight:700;font-size:17px;text-decoration:none;border:2px solid #1E6B4E;background:#1E6B4E;color:#fff}
+.btn.sec{background:#fff;color:#1E6B4E}
+main{max-width:860px;margin:24px auto;padding:0 24px}
+.entry{background:#fff;border:1px solid #DDE3DF;border-radius:12px;padding:16px 20px;margin-bottom:14px}
+.entry h2{font-size:17px;margin:0 0 6px;color:#4F5953}
+.entry p{margin:0;font-size:19px}
+.entry.seen{border-color:#1E6B4E;background:#F2F8F5}
+.entry.folded p{color:#4F5953;font-size:17px}
+.page-ref{font-family:'IBM Plex Mono',monospace;font-size:15px}
+.chip{display:inline-block;background:#E6F2EC;color:#0F3D2C;border-radius:999px;padding:2px 12px;font-size:15px;margin-left:8px}
+.progress{height:10px;border-radius:5px;background:#DDE3DF;flex:1 1 240px}
+.progress i{display:block;height:100%;width:38%;background:#1E6B4E;border-radius:5px}
+</style>
+</head>
+<body>
+<!-- Screen 9b: Reading by transcript. Board for slice B (ADR 0028). Same header as S09. -->
+<div class="bar">
+  <strong>Reading the record</strong>
+  <a class="btn sec" href="S09-Reader.dc.html">Read page by page instead</a>
+  <span class="progress" role="progressbar" aria-label="Pages you've read" aria-valuenow="38" aria-valuemin="0" aria-valuemax="100"><i></i></span>
+  <span>Pages you've read: 152 of 400</span>
+  <a class="btn" href="#download">Download as Word</a>
+</div>
+<main>
+  <p>Every entry in date order. An entry counts as read once it has been on your screen for a moment. Suggestions appear on the page itself, once you have read it.</p>
+  <article class="entry seen" aria-label="Entry on page 12">
+    <h2><span class="page-ref">p.12</span> 3 March 2021 &middot; Consultation <span class="chip">Doctor</span></h2>
+    <p>Reviewed. Bowel habit unchanged. Advice given. Review in two weeks.</p>
+    <a href="S09-Reader.dc.html">See the page</a>
+  </article>
+  <article class="entry" aria-label="Entry on page 13">
+    <h2><span class="page-ref">p.13</span> 9 March 2021 &middot; Result <span class="chip">HbA1c</span></h2>
+    <p>HbA1c 48 mmol/mol.</p>
+    <a href="S09-Reader.dc.html">See the page</a>
+  </article>
+  <article class="entry folded" aria-label="Administrative entry on page 14">
+    <h2><span class="page-ref">p.14</span> Appointment booking</h2>
+    <p>Appointment booked for the following Tuesday&hellip;</p>
+  </article>
+  <p><a class="btn sec" href="#more">Show more entries</a></p>
+  <section id="states" aria-label="Other states">
+    <div class="entry"><p>We're getting the record ready to read. This can take a minute.</p></div>
+    <div class="entry"><p>We couldn't get the record ready. <a href="#again">Try again</a></p></div>
+    <div class="entry"><p>No entries to show yet. <a href="S09-Reader.dc.html">Read page by page</a></p></div>
+  </section>
+</main>
+</body>
+</html>

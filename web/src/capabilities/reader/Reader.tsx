@@ -732,12 +732,18 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
       onCancelTimelineDate={() => { setTimelineDraft(null); setFormError(null); }}
     />
   );
-  const hardLink =
-    hard > 0 ? (
-      <Link className="rd-hard" to={`/cases/${caseId}/read/couldnt-read`}>
-        {w("read.couldnt_read", { count: hard })}
+  const hardLink = (
+    <>
+      <Link className="rd-hard" to={`/cases/${caseId}/read/transcript`}>
+        {w("transcript.by_transcript")}
       </Link>
-    ) : null;
+      {hard > 0 && (
+        <Link className="rd-hard" to={`/cases/${caseId}/read/couldnt-read`}>
+          {w("read.couldnt_read", { count: hard })}
+        </Link>
+      )}
+    </>
+  );
   const sourceColour = (pack.source_types as Array<{ key: string; colour?: string }>).find((s) => s.key === page.source_type)?.colour;
   const readCount = progress.data ? count(progress.data.read, pack.locale) : "";
 

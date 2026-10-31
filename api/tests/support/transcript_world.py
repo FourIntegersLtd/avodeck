@@ -95,7 +95,18 @@ async def add_page(
         await aconn.execute(
             "insert into app.record_entries (id, page_id, case_id, kind, first_n, last_n, author_role, specialty,"
             " event_date, date_basis, extraction_version) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'v1')",
-            (entry, page, case, spec.kind, first, n, spec.role, spec.specialty, spec.day, "printed" if spec.day else None),
+            (
+                entry,
+                page,
+                case,
+                spec.kind,
+                first,
+                n,
+                spec.role,
+                spec.specialty,
+                spec.day,
+                "printed" if spec.day else None,
+            ),
         )
         built.entry_ids.append(entry)
     return built

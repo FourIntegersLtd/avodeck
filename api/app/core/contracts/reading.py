@@ -82,7 +82,8 @@ async def page_read_log(conn: AsyncConnection, case_id: uuid.UUID) -> list[PageR
 
     Runs on the caller's connection, so row-level security applies: no access, no reads."""
     cur = await conn.execute(
-        "select p.bundle_page_no, r.person_id, r.at, r.dwell_seconds, r.counts_for_citing, r.seq, r.prev_hash, r.hash, r.via"
+        "select p.bundle_page_no, r.person_id, r.at, r.dwell_seconds, r.counts_for_citing, r.seq, r.prev_hash, r.hash,"
+        " r.via"
         " from app.page_reads r join app.pages p on p.id = r.page_id where r.case_id = %s order by r.seq",
         (case_id,),
     )

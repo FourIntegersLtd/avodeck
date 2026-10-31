@@ -26,7 +26,11 @@ from app.core.crypto import CaseCrypto
 
 
 async def record_read(
-    conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, person_id: uuid.UUID, dwell_seconds: int,
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    person_id: uuid.UUID,
+    dwell_seconds: int,
     via: str = "page",
 ) -> None:
     """Append one read to the case's read log (the database numbers, times and hashes it)."""

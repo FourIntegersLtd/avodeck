@@ -24,8 +24,8 @@ from app.core.jobs import JobContext
 from app.core.storage import StorageError, SupabaseStorage
 from app.features.reader import transcript_jobs
 from tests.support.files import build_app, local_storage
-from tests.support.packs import LAUNCH
 from tests.support.identity import SENTENCE, leaked, record_identity
+from tests.support.packs import LAUNCH
 from tests.support.seed import Seed
 from tests.support.transcript_world import Spec, add_document, add_page
 

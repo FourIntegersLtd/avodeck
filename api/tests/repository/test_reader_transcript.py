@@ -26,8 +26,8 @@ from app.core.db import Database
 from app.core.packs import default_library
 from app.features.reader import transcript
 from tests.support.db import scope_for
-from tests.support.packs import LAUNCH
 from tests.support.identity import NAME, SENTENCE, leaked, record_identity
+from tests.support.packs import LAUNCH
 from tests.support.seed import Seed
 from tests.support.transcript_world import Spec, add_document, add_page
 
@@ -75,7 +75,12 @@ async def test_an_entry_is_its_printed_lines_with_the_experts_corrections_in_pla
 ) -> None:
     doc = await add_document(aconn, world["case"])
     built = await add_page(
-        aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("first line here", "second line"), role="zz_practitioner")]
+        aconn,
+        CRYPTO,
+        world["case"],
+        doc,
+        1,
+        [Spec("zz_session", ("first line here", "second line"), role="zz_practitioner")],
     )
     got = (await listed(api_db, world)).entries[0]
     assert got.lines == ["first line here", "second line"]
@@ -167,7 +172,9 @@ async def test_a_page_is_read_when_every_entry_on_it_has_been_seen_long_enough(
     api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
 ) -> None:
     doc = await add_document(aconn, world["case"])
-    built = await add_page(aconn, CRYPTO, world["case"], doc, 7, [Spec("zz_session", ("a",)), Spec("zz_session", ("b",))])
+    built = await add_page(
+        aconn, CRYPTO, world["case"], doc, 7, [Spec("zz_session", ("a",)), Spec("zz_session", ("b",))]
+    )
     first, second = built.entry_ids
     expert = world["expert"]
     assert await seen(api_db, world, expert, entry_id=first, dwell_ms=transcript.SEEN_MS) == []
