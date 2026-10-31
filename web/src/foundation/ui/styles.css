@@ -87,6 +87,7 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--green); }
 .av-case-bar__sub { color: var(--ink-soft); }
 .av-case-bar__steps { margin-left: auto; }
 .av-case-bar__actions { display: flex; gap: var(--space-4); align-items: center; }
+.av-upload-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); }
 .av-case-bar__actions a { display: inline-flex; align-items: center; min-height: 52px; font-size: 17px; }
 .av-steps { list-style: none; margin: 0; padding: 3px; display: flex; flex-wrap: wrap; gap: 2px; background: var(--well); border-radius: 12px; }
 .av-step { display: flex; align-items: center; min-height: var(--button-min-height); }

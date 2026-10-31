@@ -20,6 +20,7 @@ import contextlib
 import dataclasses
 import hashlib
 import hmac
+import logging
 import re
 import uuid
 from collections.abc import AsyncIterator, Iterator
@@ -51,6 +52,7 @@ SHA256_HEX = re.compile(r"[0-9a-fA-F]{64}")
 CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 MAX_OPEN_UPLOADS = 20  # per person, open or finalizing
 
+_log = logging.getLogger(__name__)
 uploads_router = router(tags=["uploads"])
 
 
@@ -191,6 +193,11 @@ async def start_upload(
         )
         row = await cur.fetchone()
     assert row is not None
+    # Ids, counts and sizes only: never the file name (rule 6).
+    _log.info(
+        "upload.started",
+        extra={"upload_id": str(row["id"]), "case_id": str(case_id), "chunk_count": count, "size": body.size},
+    )
     return _upload(row)
 
 
@@ -256,6 +263,8 @@ async def put_chunk(
     # Lock, then look again: completing may have finished (or failed) the upload while this part was read.
     _open(await _load_locked(conn, upload_id))
     case_id: uuid.UUID = row["case_id"]  # type: ignore[assignment]
+    if n in (row["received"] or []):  # type: ignore[operator]
+        _log.info("upload.chunk_resent", extra={"upload_id": str(upload_id), "case_id": str(case_id), "part": n})
     path = _chunk_path(_prefix(case_id, upload_id), n)
     await storage.put(path, await crypto.encrypt(conn, case_id, data, purpose=path))
     with _closed_when_refused():

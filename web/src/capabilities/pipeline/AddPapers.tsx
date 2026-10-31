@@ -6,6 +6,8 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { uploadInParts } from "../../foundation/lib/upload";
+import { ResumeUpload } from "../../foundation/lib/ResumeUpload";
+import { UploadStatus } from "../../foundation/lib/UploadControls";
 import { useUpload } from "../../foundation/lib/useUpload";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, ChoicePills, DropZone, LinkButton, Notice, ProgressBar, Spinner, TextField } from "../../foundation/ui";
@@ -30,6 +32,7 @@ export function AddPapers() {
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<{ id: string; latest: Partial<Job> } | null>(null);
   const saved = useRef(new Map<File, string>());
+  const [recovered, setRecovered] = useState<string[]>([]);
   const upload = useUpload();
 
   const jobId = job?.id;
@@ -68,12 +71,18 @@ export function AddPapers() {
   async function send() {
     setBusy(true);
     setError(null);
+    upload.begin();
     const failed: string[] = [];
     for (const file of files) {
       if (saved.current.has(file)) continue;
       try {
         saved.current.set(file, await uploadInParts(caseId, file, kind, true, upload.options()));
       } catch {
+        // Stopped on purpose: back to ready with nothing said; what was already saved stays saved.
+        if (upload.stopped()) {
+          setBusy(false);
+          return;
+        }
         failed.push(file.name);
       }
     }
@@ -83,7 +92,7 @@ export function AddPapers() {
       return;
     }
     try {
-      const ids = files.map((f) => saved.current.get(f)!);
+      const ids = [...recovered, ...files.map((f) => saved.current.get(f)!)];
       for (const id of ids) {
         await unwrap(api.PATCH("/v1/cases/{case_id}/documents/{document_id}", { params: { path: { case_id: caseId, document_id: id } }, body: { obtained_how: w(`add.how.${how as (typeof HOW)[number]}`), received_on: when || null } }));
       }
@@ -123,6 +132,7 @@ export function AddPapers() {
         <p className="pl-lead">{w("add.lead")}</p>
       </header>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
+      <ResumeUpload caseId={caseId} append onDocument={(id) => setRecovered((prev) => (prev.includes(id) ? prev : [...prev, id]))} />
       <DropZone title={w("add.drop")} hint={w("add.drop_hint")} multiple disabled={busy} added={files.length > 0} onFiles={(more) => setFiles((prev) => [...prev, ...more])}>
         {files.length > 0 && (
           <ul className="pl-add__files" aria-label={w("add.files")}>
@@ -139,7 +149,8 @@ export function AddPapers() {
       <ChoicePills label={w("add.how")} name="how" value={how} onChange={setHow} options={hows} />
       <TextField label={w("add.when")} name="received_on" type="date" value={when} max={today()} onChange={(e) => setWhen(e.currentTarget.value)} />
       <div className="pl-actions">
-        <Button onClick={send} disabled={files.length === 0} busy={busy}>{busy ? (upload.status ?? w("add.sending")) : w("add.go")}</Button>
+        <UploadStatus upload={upload} withStatus={false} />
+        <Button onClick={send} disabled={files.length === 0 && recovered.length === 0} busy={busy}>{busy ? (upload.status ?? w("add.sending")) : w("add.go")}</Button>
       </div>
     </div>
   );

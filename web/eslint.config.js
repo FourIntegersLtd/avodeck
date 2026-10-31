@@ -48,6 +48,11 @@ export default tseslint.config(
     files: [WITNESS_BOX_STORE],
     rules: { "no-restricted-globals": ["error", ...RESTRICTED_GLOBALS.filter((g) => g.name !== "indexedDB")] },
   },
+  {
+    // The running upload's record (ids, size, hash, keys, expiry) is the one thing kept in localStorage.
+    files: ["src/foundation/lib/uploadStore.ts"],
+    rules: { "no-restricted-globals": ["error", ...RESTRICTED_GLOBALS.filter((g) => g.name !== "localStorage")] },
+  },
   layer("foundation", ["capabilities", "app"]),
   layer("capabilities", ["app"]),
 );

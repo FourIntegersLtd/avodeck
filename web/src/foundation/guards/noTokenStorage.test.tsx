@@ -1,7 +1,9 @@
 // web/AGENTS.md: auth is a cookie set by FastAPI. The web app never writes tokens to
 // localStorage or sessionStorage, and never writes cookies itself. The one exception (web/AGENTS.md,
 // screen 25): the sealed witness-box copy may be kept in IndexedDB, by its own module only, and that
-// module may touch no other storage and no token.
+// module may touch no other storage and no token. The second exception: the running upload's small record
+// (ids, size, hash, keys, expiry; never a name, contents or a token) may sit in localStorage, by
+// `uploadStore.ts` only, so a refresh can pick the upload up again.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { screen, waitFor } from "@testing-library/react";
@@ -12,12 +14,16 @@ import { files, isTest, WEB } from "./walk";
 
 const STORAGE = /\b(localStorage|sessionStorage|indexedDB)\b|document\.cookie\s*=(?!=)/;
 const NOT_INDEXED_DB = /\b(localStorage|sessionStorage)\b|document\.cookie\s*=(?!=)|token/i;
+const NOT_LOCAL_ONLY = /\b(sessionStorage|indexedDB)\b|document\.cookie\s*=(?!=)|token|filename|\.name\b/i;
+/** The only module allowed localStorage: it keeps the running upload's record, and nothing else. */
+const UPLOAD_STORE = "src/foundation/lib/uploadStore.ts";
 /** The only module allowed IndexedDB: it keeps the S25 copy, still sealed, on the device. */
 const WITNESS_BOX_STORE = "src/capabilities/trial/witnessBoxStore.ts";
 
 /** The sources (paths relative to web/) that break the storage rule. */
 function storageHits(sources: { rel: string; text: string }[]): string[] {
-  return sources.filter(({ rel, text }) => (rel === WITNESS_BOX_STORE ? NOT_INDEXED_DB : STORAGE).test(text)).map((s) => s.rel);
+  const rule = (rel: string) => (rel === WITNESS_BOX_STORE ? NOT_INDEXED_DB : rel === UPLOAD_STORE ? NOT_LOCAL_ONLY : STORAGE);
+  return sources.filter(({ rel, text }) => rule(rel).test(text)).map((s) => s.rel);
 }
 
 afterEach(() => vi.restoreAllMocks());
@@ -40,6 +46,19 @@ test("only the witness-box copy's own module may use IndexedDB, and for nothing 
   ];
   expect(storageHits(refused)).toEqual(refused.map((s) => s.rel));
   expect(storageHits([{ rel: WITNESS_BOX_STORE, text: "indexedDB.open('avodeck-witness-box', 1)" }])).toEqual([]);
+});
+
+test("only the upload record's own module may use localStorage, and for nothing else", () => {
+  const refused = [
+    { rel: "src/foundation/lib/session.tsx", text: "localStorage.setItem('a', 'b')" },
+    { rel: "src/foundation/lib/uploadStore.tsx", text: "localStorage.setItem('a', 'b')" },
+    { rel: UPLOAD_STORE, text: "sessionStorage.setItem('a', 'b')" },
+    { rel: UPLOAD_STORE, text: "localStorage.setItem('a', accessToken)" },
+    { rel: UPLOAD_STORE, text: "localStorage.setItem('a', file.name)" },
+    { rel: UPLOAD_STORE, text: "document.cookie = 'a=b'" },
+  ];
+  expect(storageHits(refused)).toEqual(refused.map((s) => s.rel));
+  expect(storageHits([{ rel: UPLOAD_STORE, text: "localStorage.setItem(key, JSON.stringify({ size }))" }])).toEqual([]);
 });
 
 test("signing in with a password and a code stores nothing in the browser", async () => {

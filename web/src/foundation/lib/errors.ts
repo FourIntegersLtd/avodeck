@@ -14,6 +14,7 @@ const SHARED: Record<string, string> = {
   file_too_large: "errors.file_too_large",
   upload_closed: "errors.upload_closed",
   upload_expired: "errors.upload_expired",
+  upload_wrong_file: "errors.upload_wrong_file",
   upload_failed: "errors.upload_failed",
   upload_busy: "errors.upload_failed",
   hash_failed: "errors.upload_failed",
