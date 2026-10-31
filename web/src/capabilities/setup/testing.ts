@@ -104,6 +104,7 @@ export function question(over: Partial<Schemas["QuestionOut"]> = {}): Schemas["Q
     version: 1,
     source_word_ids: ["p2-w10"],
     instruction_version_id: "b1111111-1111-4111-8111-111111111111",
+    source: "letter",
     page: 2,
     ...over,
   };
