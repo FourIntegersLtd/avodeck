@@ -27,6 +27,9 @@ from app.features.organisations.schemas import (
     SupportAccountWithPassword,
     SupportCaseDetail,
     SupportCaseList,
+    SupportCellStatus,
+    SupportOrganisation,
+    SupportPersonList,
 )
 
 Staff = Annotated[SupportStaff, Depends(require_support_staff)]
@@ -59,6 +62,31 @@ async def record_custody_transfer(body: CustodyTransferCreate, conn: DbConn, sta
 async def look_up_case(case_id: uuid.UUID, request: Request, conn: DbConn, _: Lookup) -> SupportCaseDetail:
     """The case's grants and where it is stuck: counts, codes, statuses, dates and ids only (rule 6)."""
     return await support.console_case(conn, request.app.state.packs, case_id)
+
+
+@router.get("/support/people", response_model=SupportPersonList)
+async def look_up_people(
+    conn: DbConn, _: Lookup, q: Annotated[str, Query(min_length=1, max_length=320)]
+) -> SupportPersonList:
+    """An account's state by its sign-in email: MFA, backup codes, email change, custodian, closure blockers."""
+    return SupportPersonList(people=await support.console_people(conn, q))
+
+
+@router.get("/support/organisations/{organisation_id}", response_model=SupportOrganisation)
+async def look_up_organisation(organisation_id: uuid.UUID, conn: DbConn, _: Lookup) -> SupportOrganisation:
+    """Members, invites, owners, open cases and reassignments; never a name, an email or an invite token."""
+    return await support.console_organisation(conn, organisation_id)
+
+
+@router.get("/support/cell/status", response_model=SupportCellStatus)
+async def cell_status(request: Request, conn: DbConn, _: Lookup) -> SupportCellStatus:
+    """Speech and the key service set up, the worker's heartbeat, and how much work waits or is paused."""
+    state = request.app.state
+    return await support.console_cell(
+        conn,
+        speech_ok=getattr(state, "speech", None) is not None,
+        key_service_ok=getattr(state, "crypto", None) is not None,
+    )
 
 
 @router.get("/support/accounts", response_model=SupportAccountList)

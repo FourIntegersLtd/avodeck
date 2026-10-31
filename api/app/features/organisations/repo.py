@@ -4,6 +4,7 @@ row-level security lets the person change; foundation tables only in the columns
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 from typing import Any
 
 from psycopg import AsyncConnection
@@ -240,6 +241,22 @@ async def support_cases(conn: AsyncConnection, case_id: uuid.UUID | None, email:
 async def support_case_diagnostics(conn: AsyncConnection, case_id: uuid.UUID) -> dict[str, Any] | None:
     found = await value(conn, "select app.support_case_diagnostics(%s)", (case_id,))
     return dict(found) if found is not None else None
+
+
+async def support_person(
+    conn: AsyncConnection, email: str, max_failures: int, window: timedelta
+) -> list[dict[str, Any]]:
+    found = await value(conn, "select app.support_person(%s, %s, %s)", (email, max_failures, window))
+    return list(found or [])
+
+
+async def support_organisation(conn: AsyncConnection, org_id: uuid.UUID) -> dict[str, Any] | None:
+    found = await value(conn, "select app.support_organisation(%s)", (org_id,))
+    return dict(found) if found is not None else None
+
+
+async def support_cell_status(conn: AsyncConnection) -> dict[str, Any]:
+    return dict(await value(conn, "select app.support_cell_status()") or {})
 
 
 async def support_case_grants(conn: AsyncConnection, case_id: uuid.UUID) -> list[dict[str, Any]]:

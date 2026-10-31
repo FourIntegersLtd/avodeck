@@ -199,6 +199,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | person_id | The person who works for Avodeck support (they sign in like anyone else, with MFA) |
 | added_at / removed_at | When they joined support and when they left it; only current staff can use a grant |
 
+The support console stores nothing of its own. Its person look-up shows, for an account: when it closed, whether MFA is set up (from the latest sign-in), until when the code step is locked after too many wrong codes, how many backup codes are left, the last completed MFA, whether a new email waits to be confirmed, whether a records custodian is named, and which cases stop the account closing. Its organisation look-up shows members' roles and dates, invites' state (pending, accepted, cancelled, or expired once past `expires_at`), sent and expiry dates, owners, open cases and named expert changes. Its service check shows whether dictation and the key service are set up, seconds since the worker last checked in, and how many jobs wait or are paused. No names, emails, invite tokens or dates of birth.
 ### support_accounts
 | Field | In plain words |
 |---|---|

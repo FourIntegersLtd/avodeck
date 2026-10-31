@@ -18626,6 +18626,47 @@
         "title": "SupportCaseList",
         "type": "object"
       },
+      "SupportCellStatus": {
+        "description": "How the cell is running. `speech_ok`, `key_service_ok`: set up in this cell.",
+        "properties": {
+          "key_service_ok": {
+            "title": "Key Service Ok",
+            "type": "boolean"
+          },
+          "paused_jobs": {
+            "title": "Paused Jobs",
+            "type": "integer"
+          },
+          "queue_depth": {
+            "title": "Queue Depth",
+            "type": "integer"
+          },
+          "speech_ok": {
+            "title": "Speech Ok",
+            "type": "boolean"
+          },
+          "worker_heartbeat_age_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Heartbeat Age Seconds"
+          }
+        },
+        "required": [
+          "speech_ok",
+          "key_service_ok",
+          "worker_heartbeat_age_seconds",
+          "queue_depth",
+          "paused_jobs"
+        ],
+        "title": "SupportCellStatus",
+        "type": "object"
+      },
       "SupportClose": {
         "properties": {
           "delete_after": {
@@ -18990,6 +19031,56 @@
         "title": "SupportInstructionVersion",
         "type": "object"
       },
+      "SupportInvite": {
+        "description": "An invite's state; never its token or the invitee's email.",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "expert",
+              "assistant",
+              "viewer"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "title": "Sent At",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "accepted",
+              "cancelled",
+              "expired"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "state",
+          "sent_at",
+          "expires_at"
+        ],
+        "title": "SupportInvite",
+        "type": "object"
+      },
       "SupportJob": {
         "properties": {
           "attempts": {
@@ -19098,6 +19189,51 @@
         "title": "SupportJob",
         "type": "object"
       },
+      "SupportMember": {
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "expert",
+              "assistant",
+              "viewer"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person_id",
+          "role",
+          "started_at",
+          "ended_at"
+        ],
+        "title": "SupportMember",
+        "type": "object"
+      },
       "SupportNamedExpertChange": {
         "properties": {
           "changed_at": {
@@ -19175,6 +19311,83 @@
         "title": "SupportOfflinePackage",
         "type": "object"
       },
+      "SupportOrganisation": {
+        "description": "An organisation for the console: never its name.",
+        "properties": {
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "invites": {
+            "items": {
+              "$ref": "#/components/schemas/SupportInvite"
+            },
+            "title": "Invites",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "personal",
+              "team"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/SupportMember"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "open_case_count": {
+            "title": "Open Case Count",
+            "type": "integer"
+          },
+          "organisation_id": {
+            "format": "uuid",
+            "title": "Organisation Id",
+            "type": "string"
+          },
+          "owner_count": {
+            "title": "Owner Count",
+            "type": "integer"
+          },
+          "reassignments": {
+            "items": {
+              "$ref": "#/components/schemas/SupportReassignment"
+            },
+            "title": "Reassignments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "organisation_id",
+          "kind",
+          "created_at",
+          "closed_at",
+          "owner_count",
+          "open_case_count",
+          "members",
+          "invites",
+          "reassignments"
+        ],
+        "title": "SupportOrganisation",
+        "type": "object"
+      },
       "SupportPages": {
         "properties": {
           "needs_clearer_copy": {
@@ -19213,6 +19426,118 @@
         "title": "SupportPages",
         "type": "object"
       },
+      "SupportPerson": {
+        "description": "An account's state for a support call: flags, counts, dates and ids, never a name or an email.",
+        "properties": {
+          "blocking_case_ids_for_closure": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Blocking Case Ids For Closure",
+            "type": "array"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "custodian_set": {
+            "title": "Custodian Set",
+            "type": "boolean"
+          },
+          "last_mfa_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Mfa At"
+          },
+          "mfa_enrolled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mfa Enrolled"
+          },
+          "mfa_locked_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mfa Locked Until"
+          },
+          "pending_email_change": {
+            "title": "Pending Email Change",
+            "type": "boolean"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "recovery_codes_left": {
+            "title": "Recovery Codes Left",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "person_id",
+          "created_at",
+          "closed_at",
+          "mfa_enrolled",
+          "mfa_locked_until",
+          "recovery_codes_left",
+          "last_mfa_at",
+          "pending_email_change",
+          "custodian_set",
+          "blocking_case_ids_for_closure"
+        ],
+        "title": "SupportPerson",
+        "type": "object"
+      },
+      "SupportPersonList": {
+        "properties": {
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/SupportPerson"
+            },
+            "title": "People",
+            "type": "array"
+          }
+        },
+        "required": [
+          "people"
+        ],
+        "title": "SupportPersonList",
+        "type": "object"
+      },
       "SupportQuestions": {
         "properties": {
           "instruction_versions": {
@@ -19237,6 +19562,26 @@
           "instruction_versions"
         ],
         "title": "SupportQuestions",
+        "type": "object"
+      },
+      "SupportReassignment": {
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "changed_at": {
+            "format": "date-time",
+            "title": "Changed At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "changed_at"
+        ],
+        "title": "SupportReassignment",
         "type": "object"
       },
       "SupportReport": {
@@ -41752,6 +42097,38 @@
         ]
       }
     },
+    "/v1/support/cell/status": {
+      "get": {
+        "description": "Speech and the key service set up, the worker's heartbeat, and how much work waits or is paused.",
+        "operationId": "cell_status_v1_support_cell_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportCellStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Cell Status",
+        "tags": [
+          "organisations"
+        ]
+      }
+    },
     "/v1/support/custody-transfers": {
       "post": {
         "description": "(legal check) Behind the flag `support_custody_transfer` until the legal review of custody is done.",
@@ -41927,6 +42304,115 @@
         "summary": "Resume Job",
         "tags": [
           "support"
+        ]
+      }
+    },
+    "/v1/support/organisations/{organisation_id}": {
+      "get": {
+        "description": "Members, invites, owners, open cases and reassignments; never a name, an email or an invite token.",
+        "operationId": "look_up_organisation_v1_support_organisations__organisation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organisation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Organisation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportOrganisation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Look Up Organisation",
+        "tags": [
+          "organisations"
+        ]
+      }
+    },
+    "/v1/support/people": {
+      "get": {
+        "description": "An account's state by its sign-in email: MFA, backup codes, email change, custodian, closure blockers.",
+        "operationId": "look_up_people_v1_support_people_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 320,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportPersonList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Look Up People",
+        "tags": [
+          "organisations"
         ]
       }
     },
