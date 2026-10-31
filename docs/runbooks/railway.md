@@ -79,8 +79,12 @@ two minutes to answer and check nothing between the browser and the API cuts it 
 
 Browser side, measured 2026-10-31 on the built page under the production CSP (`web/e2e/pipeline/upload-large.spec.ts`, a real 121 MB 900-page bundle): whole-file SHA-256 correct, 2.5 s to hash, 15 chunks totalling exactly the file size, 6 MB JS heap at the end, no CSP or WebAssembly violation. Nothing is buffered, so a 500 MB bundle should hash in about 10 s with the same memory.
 
-`AVODECK_SCRATCH_DIR` and `AVODECK_SCRATCH_SLOTS` are read only by `StoredDocument.spool()`, which is
-still a stub; they need no value until a consumer uses it.
+`AVODECK_SCRATCH_DIR` and `AVODECK_SCRATCH_SLOTS` are read by `StoredDocument.spool()` (decrypted bytes
+for seekable consumers; nothing calls it yet). `AVODECK_SCRATCH_DIR` is the scratch directory (default the
+system temp; created `0700`), `AVODECK_SCRATCH_SLOTS` the number of spools at once (default 2, at least 1).
+Files are unlinked the moment they are opened, so none survives a restart. Each spool logs a warning (a size
+only) when the scratch disk has under 1 GiB free. Confirm Railway's disk encryption at rest before a consumer
+adopts it (threat-model T-spool).
 
 ## Check a deploy
 

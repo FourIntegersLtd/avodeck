@@ -36,7 +36,7 @@ from pydantic import BaseModel, Field
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, check_case_access, require_case_access
-from app.core.case_files import StoredDocument, StoredFileMissing
+from app.core.case_files import MAX_FILE_SIZE, StoredDocument, StoredFileMissing
 from app.core.crypto import CaseCrypto, StoredFileChanged
 from app.core.errors import CONFLICT_SQLSTATE, ApiError
 from app.core.http import CurrentScope, DbConn, router
@@ -45,7 +45,6 @@ from app.core.storage import SupabaseStorage, upload_prefix
 from app.core.uploads import FINALIZE_UPLOAD
 
 CHUNK_SIZE = 8 * 1024 * 1024
-MAX_FILE_SIZE = 500 * 1024 * 1024
 CODE = r"^[a-z][a-z0-9_]{0,39}$"
 
 LOCK_WAIT_MS = 5000  # the longest a call waits for another call on the same upload
