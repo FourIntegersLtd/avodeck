@@ -1,4 +1,4 @@
--- 0121 pipeline: proof that a stored file is the file that was sent (F30, F31; architecture 5.3).
+-- 0122 pipeline: proof that a stored file is the file that was sent (F30, F31; architecture 5.3).
 --
 -- Each part's SHA-256, worked out by the server from the bytes it received, is kept per part number in
 -- `uploads.chunk_sha256` ({"1": "<hex>", ...}); a part sent again replaces its entry. A column rather than a
