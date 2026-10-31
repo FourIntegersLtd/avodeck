@@ -71,5 +71,11 @@ What this costs, and how each part is paid:
   chunk `PUT` may cost one extra small request. Accepted.
 - `VITE_API_ORIGIN` is baked in at build time. An empty value now produces a build that calls a dead
   `/v1` path, so it is a required Vercel setting, written in the runbook.
+- Preview deployments cannot sign in: a `*.vercel.app` host is cross-site, so a `Strict` cookie is not
+  sent, and listing a preview origin would stop the API booting. Previews are unsupported.
+- The API now sends the four browser headers Vercel used to add on every answer (nosniff, `DENY`,
+  `frame-ancestors 'none'`, `no-referrer`), pinned by a guard: otherwise a sibling host could frame a
+  report PDF with the session cookie attached. A failure the code did not expect is answered outside our
+  middleware, so that handler adds them itself.
 - Rollback: revert the `vercel.json` and `VITE_API_ORIGIN` change and redeploy the web app. CORS, the
   cookie domain and the heartbeats all work unchanged on the same-origin setup, so they stay.

@@ -1,4 +1,4 @@
-"""CORS for the web app's own origins, and nothing else (ADR 0031).
+"""CORS for the web app's own origins, and the browser-facing response headers (ADR 0031).
 
 The browser reaches this API on its own host (`api.avodeck.com`) rather than through a rewrite on the
 web app's origin, because a proxied request is cut off at 120 s on every Vercel plan and carries no
@@ -18,6 +18,11 @@ What the API says is deliberately narrow:
   browser drop the request before the API ever sees it, and a response header missing from
   `Expose-Headers` is invisible to the page even though it arrived.
 
+Every answer also carries the headers Vercel used to add on the way through `avodeck.com`: do not
+sniff the type, do not frame it, send no referrer. Nothing adds them now that the browser reaches
+this host directly, and without them a sibling host could frame a report PDF — the request is
+same-site, so the session cookie would go with it.
+
 This does not replace the Origin check in `core/http.py`: CORS is what a browser enforces, and the
 Origin check is what the server enforces. Both run.
 """
@@ -32,13 +37,32 @@ from app.core.http import allowed_origins, origin_allowed
 ALLOW_METHODS = "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS"
 # Every header the generated client and the chunked upload send (web/src/foundation/platform-client,
 # web/src/foundation/lib/chunkedUpload.ts). Adding a request header to the frontend means adding it here.
-ALLOW_HEADERS = "content-type, x-csrf-token, idempotency-key, if-match, x-chunk-sha256, x-request-id"
+ALLOW_HEADERS = "content-type, x-csrf-token, idempotency-key, if-match, x-chunk-sha256"
 # Every response header the page reads: the ETag it sends back as If-Match, and whether an
 # Idempotency-Key answer was a replay.
 EXPOSE_HEADERS = "etag, idempotent-replayed"
 # Chrome caps the preflight cache at 7200 s and Safari at around 600 s, so a chunk upload re-preflights
 # now and then whatever we ask for. It is one small request against a saved 8 MiB one.
 MAX_AGE = "7200"
+# What Vercel put on every answer while it was in front of the API (web/vercel.json). A meta CSP cannot
+# forbid framing, so `frame-ancestors` has to come as a header.
+BROWSER_HEADERS = {
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "content-security-policy": "frame-ancestors 'none'",
+    "referrer-policy": "no-referrer",
+}
+
+
+def browser_headers(headers: MutableHeaders, origin: str | None, allowed: bool) -> None:
+    """Put the CORS and don't-sniff-or-frame headers on one answer, wherever it was built."""
+    for name, value in BROWSER_HEADERS.items():
+        headers.setdefault(name, value)
+    headers.append("vary", "origin")
+    if allowed and origin is not None:
+        headers["access-control-allow-origin"] = origin
+        headers["access-control-allow-credentials"] = "true"
+        headers["access-control-expose-headers"] = EXPOSE_HEADERS
 
 
 class Cors:
@@ -60,12 +84,7 @@ class Cors:
 
         async def with_cors(message: Message) -> None:
             if message["type"] == "http.response.start":
-                out = MutableHeaders(scope=message)
-                out.append("vary", "origin")
-                if allowed and origin is not None:
-                    out["access-control-allow-origin"] = origin
-                    out["access-control-allow-credentials"] = "true"
-                    out["access-control-expose-headers"] = EXPOSE_HEADERS
+                browser_headers(MutableHeaders(scope=message), origin, allowed)
             await send(message)
 
         await self.app(scope, receive, with_cors)
@@ -81,6 +100,7 @@ class Cors:
                         (b"content-type", b"application/json"),
                         (b"content-length", str(len(body)).encode()),
                         (b"vary", b"origin"),
+                        *_browser_header_pairs(),
                     ],
                 }
             )
@@ -97,7 +117,12 @@ class Cors:
                     (b"access-control-allow-headers", ALLOW_HEADERS.encode()),
                     (b"access-control-max-age", MAX_AGE.encode()),
                     (b"vary", b"origin"),
+                    *_browser_header_pairs(),
                 ],
             }
         )
         await send({"type": "http.response.body", "body": b""})
+
+
+def _browser_header_pairs() -> list[tuple[bytes, bytes]]:
+    return [(name.encode(), value.encode()) for name, value in BROWSER_HEADERS.items()]

@@ -178,6 +178,7 @@ def allowed_origins(app: Any) -> tuple[str, ...]:
 
 
 def origin_matches(origin: str, allowed: str) -> bool:
+    origin = origin.lower()  # a browser lowercases the host; the allow-list is stored lowercased too
     return origin == allowed or _local_dev_origin_alias(origin, allowed)
 
 

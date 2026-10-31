@@ -37,7 +37,7 @@ Not run by Railway. From the founder's Mac, before deploying code that needs the
 The browser calls the API **directly** on `https://api.avodeck.com` (ADR 0031). Vercel serves static files
 only and proxies nothing, so Vercel's 120 s limit on a proxied request no longer applies to anything.
 
-Required on the Vercel project (Production, and any preview that should work):
+Required on the Vercel project, **Production** only (a Config value, not a Secret: it is baked into the public bundle):
 
 ```
 VITE_API_ORIGIN=https://api.avodeck.com
@@ -45,6 +45,11 @@ VITE_API_ORIGIN=https://api.avodeck.com
 
 It is baked into the bundle at build time by `cspPlugin` (`web/csp.ts`), so a change needs a redeploy, and
 an empty value ships a build that calls a dead `/v1` path on the web host.
+
+**Preview deployments cannot sign in.** A `*.vercel.app` preview is cross-*site* to `api.avodeck.com`, so
+the `SameSite=Strict` session cookie is neither stored nor sent, and adding a preview origin to
+`APP_ORIGIN` stops the API booting (`COOKIE_DOMAIN` must cover every allowed origin). Test against
+production or locally.
 
 One Vercel project (`avodeck-site`, root directory `web`) serves `avodeck.com`: `web/scripts/add-landing.sh`
 puts the landing page (`site/`) at `/` and `/privacy`, and the app's `index.html` becomes `app.html`, the

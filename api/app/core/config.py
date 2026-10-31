@@ -83,7 +83,7 @@ class AuthSettings:
 
 
 def _app_origins(value: str) -> tuple[str, ...]:
-    origins = tuple(part.strip().rstrip("/") for part in value.split(",") if part.strip())
+    origins = tuple(part.strip().rstrip("/").lower() for part in value.split(",") if part.strip())
     if not origins:
         raise ConfigError("APP_ORIGIN is not set")
     for origin in origins:

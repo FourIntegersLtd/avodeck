@@ -13,6 +13,7 @@ import psycopg
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.datastructures import MutableHeaders
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.routing import Match, Route
 
@@ -121,7 +122,17 @@ async def _unexpected_error(request: Request, exc: Exception) -> JSONResponse:
     """Any other failure: 500 with a fixed message. Logged with its type and stack only (core/logs.py)."""
     route = getattr(request.scope.get("route"), "path", "unmatched")
     logger.error("unhandled %s on %s %s", type(exc).__name__, request.method, route, exc_info=exc)
-    return error_response(500, "server_error", "Something went wrong. Please try again.")
+    response = error_response(500, "server_error", "Something went wrong. Please try again.")
+    # Starlette answers this one in ServerErrorMiddleware, outside every middleware we add, so the Cors
+    # wrapper never sees it. Without the headers the browser blocks the answer and the page shows "check
+    # your connection" instead of "something went wrong, try again".
+    from app.core.cors import browser_headers  # local: core.http imports this module
+    from app.core.http import allowed_origins, origin_allowed
+
+    origin = request.headers.get("origin")
+    allowed = origin is not None and origin_allowed(origin, allowed_origins(request.app))
+    browser_headers(MutableHeaders(raw=response.raw_headers), origin, allowed)
+    return response
 
 
 ERROR_SCHEMAS: dict[str, Any] = {

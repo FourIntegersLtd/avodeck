@@ -145,6 +145,9 @@ async def browser(app: FastAPI) -> AsyncIterator[Callable[[], Awaitable[httpx.As
             client = httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app),
                 base_url="https://test",
+                # A browser names its origin on every request, and the API refuses a change without one
+                # now that it has an origin of its own (ADR 0031).
+                headers={"origin": APP_ORIGIN},
                 event_hooks={"request": [add_csrf]},
             )
             return await stack.enter_async_context(client)
@@ -162,6 +165,7 @@ async def client_with(app: FastAPI) -> AsyncIterator[Callable[..., Awaitable[htt
                 headers["cookie"] = cookie_header(session)
                 if csrf:
                     headers[CSRF_HEADER] = session.csrf
+            headers.setdefault("origin", APP_ORIGIN)  # as a browser does (ADR 0031); pass origin= to change it
             client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://test", headers=headers)
             return await stack.enter_async_context(client)
 
