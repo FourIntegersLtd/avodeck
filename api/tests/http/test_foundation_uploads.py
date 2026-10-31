@@ -59,8 +59,16 @@ async def put_chunk(client: httpx.AsyncClient, upload: str, n: int, data: bytes,
     return await client.put(
         f"/v1/uploads/{upload}/chunks/{n}",
         content=data,
-        headers={"content-type": "application/octet-stream", **headers},
+        headers={
+            "content-type": "application/octet-stream",
+            "x-chunk-sha256": hashlib.sha256(data).hexdigest(),
+            **headers,
+        },
     )
+
+
+async def finish(client: httpx.AsyncClient, upload: str, file: SyntheticFile) -> httpx.Response:
+    return await client.post(f"/v1/uploads/{upload}/complete", json={"sha256": file.sha256()})
 
 
 def no_storage_link(resp: httpx.Response, auth_env: dict[str, str]) -> None:
@@ -104,7 +112,7 @@ async def test_a_300_mb_pdf_uploads_in_8_mb_chunks_resumes_after_a_dropped_chunk
     assert resp.json()["missing"] == [20]
     assert len(resp.json()["received"]) == 37
 
-    resp = await client.post(f"/v1/uploads/{upload_id}/complete")
+    resp = await finish(client, upload_id, file)
     assert resp.status_code == 409, resp.text
     assert resp.json()["error"]["code"] == "chunks_missing"
     assert resp.json()["error"]["missing"] == [20]
@@ -112,7 +120,7 @@ async def test_a_300_mb_pdf_uploads_in_8_mb_chunks_resumes_after_a_dropped_chunk
     resp = await put_chunk(client, upload_id, 20, file.chunk(20))
     assert resp.status_code == 200, resp.text
 
-    resp = await client.post(f"/v1/uploads/{upload_id}/complete")
+    resp = await finish(client, upload_id, file)
     assert resp.status_code == 201, resp.text
     no_storage_link(resp, auth_env)
     done = resp.json()
@@ -154,9 +162,9 @@ async def test_completing_records_an_audit_row_and_a_second_complete_returns_the
     client = await client_for(team["expert"])
     upload_id = (await start(client, team["case"], file)).json()["upload_id"]
     assert (await put_chunk(client, upload_id, 1, file.chunk(1))).status_code == 200
-    first = await client.post(f"/v1/uploads/{upload_id}/complete")
+    first = await finish(client, upload_id, file)
     assert first.status_code == 201, first.text
-    again = await client.post(f"/v1/uploads/{upload_id}/complete")
+    again = await finish(client, upload_id, file)
     assert again.status_code == 200, again.text
     assert again.json()["document_id"] == first.json()["document_id"]
     count = admin.execute("select count(*) from app.documents where case_id = %s", (team["case"],)).fetchone()
@@ -175,7 +183,7 @@ async def test_a_file_whose_sha256_does_not_match_is_refused_and_not_registered(
     client = await client_for(team["expert"])
     upload_id = (await start(client, team["case"], file, sha256="a" * 64)).json()["upload_id"]
     await put_chunk(client, upload_id, 1, file.chunk(1))
-    resp = await client.post(f"/v1/uploads/{upload_id}/complete")
+    resp = await finish(client, upload_id, file)
     assert resp.status_code == 422, resp.text
     assert resp.json()["error"]["code"] == "sha256_mismatch"
     assert admin.execute("select count(*) from app.documents where case_id = %s", (team["case"],)).fetchone() == (0,)

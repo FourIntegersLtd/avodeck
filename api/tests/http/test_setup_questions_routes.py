@@ -151,10 +151,12 @@ async def upload(client: Any, case: uuid.UUID, data: bytes, filename: str) -> st
     assert started.status_code == 201, started.status_code
     upload_id = started.json()["upload_id"]
     put = await client.put(
-        f"/v1/uploads/{upload_id}/chunks/1", content=data, headers={"content-type": "application/octet-stream"}
+        f"/v1/uploads/{upload_id}/chunks/1",
+        content=data,
+        headers={"content-type": "application/octet-stream", "x-chunk-sha256": hashlib.sha256(data).hexdigest()},
     )
     assert put.status_code == 200
-    done = await client.post(f"/v1/uploads/{upload_id}/complete")
+    done = await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": hashlib.sha256(data).hexdigest()})
     assert done.status_code in (200, 201)
     return str(done.json()["document_id"])
 

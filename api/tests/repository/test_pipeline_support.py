@@ -239,10 +239,13 @@ class Harness:
             sent = await self.client.put(
                 f"/v1/uploads/{upload_id}/chunks/{n}",
                 content=data[at : at + CHUNK],
-                headers={"content-type": "application/octet-stream"},
+                headers={
+                    "content-type": "application/octet-stream",
+                    "x-chunk-sha256": hashlib.sha256(data[at : at + CHUNK]).hexdigest(),
+                },
             )
             assert sent.status_code == 200, sent.status_code
-        done = await self.client.post(f"/v1/uploads/{upload_id}/complete")
+        done = await self.client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": body["sha256"]})
         assert done.status_code == 201, done.status_code
         return uuid.UUID(done.json()["document_id"])
 

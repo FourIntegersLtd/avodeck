@@ -6192,6 +6192,14 @@ export interface components {
             /** Comments */
             comments: components["schemas"]["CommentOut"][];
         };
+        /** CompleteUpload */
+        CompleteUpload: {
+            /**
+             * Sha256
+             * @description The whole file's SHA-256 (64 hex characters), worked out by the sender.
+             */
+            sha256?: string | null;
+        };
         /** ConcordanceOut */
         ConcordanceOut: {
             bundle: components["schemas"]["BundleOut"] | null;
@@ -26038,7 +26046,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CompleteUpload"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {

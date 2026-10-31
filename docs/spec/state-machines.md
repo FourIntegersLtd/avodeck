@@ -122,10 +122,11 @@ Every step is idempotent, so retrying from the start is always safe. Finished st
 
 ```
 open ──complete (all chunks in, sha256 matches)──▶ complete
-  └──7 days unfinished──▶ expired
+  ├──7 days unfinished──▶ expired
+  └──stored file does not match the sha256 sent with `complete`──▶ failed
 ```
 
-Chunks can be sent (and re-sent) only while `open`. Completing twice returns the same document. Enforced by `app.uploads_guard` (SQLSTATE `AV409`). The daily `expire_uploads` schedule (`core/housekeeping.py`, keyed by date, F28) expires open uploads past `expires_at`, deletes their chunks from Storage and writes `upload.expired` to the audit log.
+Chunks can be sent (and re-sent) only while `open`. Completing twice returns the same document. A `failed` upload is closed for good (409 `upload_closed`); its stored parts are deleted and no document exists (F43). Enforced by `app.uploads_guard` (SQLSTATE `AV409`). The daily `expire_uploads` schedule (`core/housekeeping.py`, keyed by date, F28) expires open uploads past `expires_at`, deletes their chunks from Storage and writes `upload.expired` to the audit log.
 
 ## Finding (`findings.decision`)
 
