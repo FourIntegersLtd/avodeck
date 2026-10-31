@@ -25,6 +25,7 @@ import {
   Loading,
   Notice,
   PageRef,
+  SectionIcon,
   SegmentedControl,
 } from "../../foundation/ui";
 import {
@@ -483,6 +484,7 @@ function Editor({
             </section>
           )}
           <section className="av-card av-stack" aria-labelledby="points-title">
+            <SectionIcon glyph="flag" />
             <h3 id="points-title">{w("opinion.points")}</h3>
             <p>
               {sides

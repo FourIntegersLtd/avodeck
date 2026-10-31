@@ -6,7 +6,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, Dialog, LoadError, Loading, TextField, TextLink, ToggleSwitch } from "../../foundation/ui";
+import { BackLink, Button, Dialog, LoadError, Loading, TextField, SectionIcon, TextLink, ToggleSwitch } from "../../foundation/ui";
 import { MessageNotice, NotFoundPage, useAct } from "./common";
 import { People } from "./People";
 import { w, yearsText, type OrgKey } from "./words";
@@ -115,6 +115,7 @@ function Rules({ org, manage, onPolicy }: { org: Org; manage: boolean; onPolicy:
   if (org.kind === "personal") {
     return (
       <section aria-labelledby="rules-title" className="av-card av-org-card">
+        <SectionIcon glyph="shield" />
         <h2 id="rules-title">{w("rules.title", { name: org.name })}</h2>
         <p className="av-muted">{w("rules.not_for_personal")}</p>
       </section>
@@ -141,6 +142,7 @@ function Rules({ org, manage, onPolicy }: { org: Org; manage: boolean; onPolicy:
   const on = Boolean(policy.required_template_id);
   return (
     <section aria-labelledby="rules-title" className="av-card av-org-card">
+      <SectionIcon glyph="shield" />
       <h2 id="rules-title">{w("rules.title", { name: org.name })}</h2>
       <MessageNotice message={message} />
       <div className="av-row-item">
@@ -190,6 +192,7 @@ function Billing({ orgId }: { orgId: string }) {
   const bank = screenPath("billing_profile", { params: { organisation_id: orgId } });
   return (
     <section aria-labelledby="billing-title" className="av-card av-org-card">
+      <SectionIcon glyph="invoice" />
       <h2 id="billing-title">{w("billing.title")}</h2>
       {found.error && <LoadError onRetry={found.reload} />}
       {!found.data && !found.error && <Loading inline />}

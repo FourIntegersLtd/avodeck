@@ -7,7 +7,7 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, LoadError, Loading, Notice, PageRef, SegmentedControl, TextLink } from "../../foundation/ui";
+import { BackLink, Button, LoadError, Loading, Notice, PageRef, SectionIcon, SegmentedControl, TextLink } from "../../foundation/ui";
 import { can, casePath, partyWord } from "./data";
 import { formatNumber } from "./format";
 import { Thumbnail } from "./Thumbnail";
@@ -147,6 +147,7 @@ export function NotThisPatient() {
             ))}
           </ul>
           <section className="av-card pl-explain-card">
+            <SectionIcon glyph="question" />
             <h2>{w("quarantine.explain")}</h2>
             <ul className="pl-plain pl-explain">
               <li><span className="pl-strong">{w("quarantine.e_numbers")}</span> <span>{w("quarantine.e_numbers_note")}</span></li>

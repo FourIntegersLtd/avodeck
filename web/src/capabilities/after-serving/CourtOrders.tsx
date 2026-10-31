@@ -9,7 +9,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, Callout, Checkbox, Dialog, LinkButton, LoadError, Loading, Notice, TextField, useBusy } from "../../foundation/ui";
+import { BackLink, Button, Callout, Checkbox, Dialog, LinkButton, LoadError, Loading, Notice, SectionIcon, TextField, useBusy } from "../../foundation/ui";
 import { dateRange, keyName, longDate, Select, shortDate, useLocale, versionTag } from "./shared";
 import { w } from "./words";
 
@@ -66,6 +66,7 @@ export function CourtOrders() {
       {directions.data.directions.some((d) => d.stay) && <Notice tone="warning"><p>{w("orders.stayed")}</p></Notice>}
 
       <section className="av-after-panel av-after-panel--roomy av-stack" aria-labelledby="hearings-title">
+        <SectionIcon glyph="calendar" />
         <h3 id="hearings-title">{w("hearings.title")}</h3>
         {hearings.data.hearings.length === 0 && <p>{w("hearings.none")}</p>}
         <ul className="av-after-hearings">
@@ -77,6 +78,7 @@ export function CourtOrders() {
       </section>
 
       <section className="av-after-panel av-after-panel--roomy av-stack" aria-labelledby="orders-list">
+        <SectionIcon glyph="gavel" />
         <h3 id="orders-list">{w("orders.list")}</h3>
         {directions.data.directions.length === 0 && <p>{w("orders.none")}</p>}
         <ul className="av-after-orders">

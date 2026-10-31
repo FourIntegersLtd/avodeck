@@ -10,7 +10,7 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { accountSections } from "../../foundation/lib/slots";
-import { BackLink, Button, Checkbox, LoadError, Loading, Notice, TextField, TextLink, useBusy } from "../../foundation/ui";
+import { BackLink, Button, Checkbox, LoadError, Loading, Notice, SectionIcon, TextField, TextLink, useBusy } from "../../foundation/ui";
 
 export function Account() {
   const { me } = useSession();
@@ -72,6 +72,7 @@ function Organisations({ memberships }: { memberships: Schemas["Membership"][] }
     hasScreen(key) ? screenPath(key, { params: { organisation_id: m.organisation_id } }) : null;
   return (
     <section aria-labelledby="your-organisations" className="av-card av-account-card">
+      <SectionIcon glyph="people" />
       <h2 id="your-organisations">{t("account.orgs.title")}</h2>
       <ul className="av-rows" role="list">
         {memberships.map((m) => {
@@ -120,6 +121,7 @@ function SigningIn({ email, passwordChangedAt, locale, act }: { email: string; p
   };
   return (
     <section aria-labelledby="signing-in" className="av-card av-account-card">
+      <SectionIcon glyph="lock" />
       <h2 id="signing-in">{t("account.sign_in.title")}</h2>
       <div className="av-rows">
         <div className="av-row-item">

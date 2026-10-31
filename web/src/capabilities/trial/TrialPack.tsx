@@ -9,7 +9,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, Callout, LinkButton, LoadError, Loading, Notice, PageRef, TextField } from "../../foundation/ui";
+import { BackLink, Button, Callout, LinkButton, LoadError, Loading, Notice, PageRef, SectionIcon, TextField } from "../../foundation/ui";
 import { longDate, num, partyWord, printBlob, saveBlob, tag, trialRef, vocab } from "./data";
 import { TrialFrame, TrialPage, TrialTitle, type Frame } from "./frame";
 import { forgetCopy, hasCopy, PIN_PATTERN, saveCopy } from "./offline";
@@ -314,6 +314,7 @@ function Contents({ frame, latest, pages, onChanged, preview }: { frame: Frame; 
       <div className="av-trial-split">
         <div className="av-stack">
           <section aria-labelledby="trial-what-goes-in" className="av-card av-trial-checklist">
+            <SectionIcon glyph="checklist" />
             <h2 id="trial-what-goes-in" className="av-trial-checklist__head">{w("pack.sections.heading")}</h2>
             {SECTIONS.map((s) => (
               <Choice key={s} label={sectionLabel(s, frame)} hint={w(`pack.section.${s}_hint` as TrialKey)} pages={countOf(s)} checked={chosen.has(s)} onChange={() => toggle(s)} disabled={!canBuild} />
@@ -550,6 +551,7 @@ function OfflineCopy({ frame }: { frame: Frame }) {
   const shown = removed ? [] : copies;
   return (
     <section aria-labelledby={id} className="av-card av-stack">
+      <SectionIcon glyph="lock" />
       <h2 id={id}>{w("pack.offline.heading")}</h2>
       <p>{w("pack.offline.lead")}</p>
       {list.error && <LoadError onRetry={list.reload} />}

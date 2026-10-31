@@ -10,7 +10,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, CaseHeader, Dialog, LoadError, Loading, Notice, TextField, useBusy } from "../../foundation/ui";
+import { Button, CaseHeader, Dialog, LoadError, Loading, Notice, SectionIcon, TextField, useBusy } from "../../foundation/ui";
 import "./close.css";
 import { w, type CloseKey } from "./words";
 
@@ -131,10 +131,11 @@ function partyWord(pack: Schemas["CasePack"], key: string | null | undefined): s
   return pack.instructing_party_types.find((p) => p.key === key)?.label ?? null;
 }
 
-function Section({ title, step, children }: { title: string; step?: number; children: ReactNode }) {
+function Section({ title, step, icon, children }: { title: string; step?: number; icon?: boolean; children: ReactNode }) {
   const id = useId();
   return (
     <section className="av-card av-stack av-close-card" aria-labelledby={id}>
+      {icon && <SectionIcon glyph="shieldCheck" />}
       <div className="av-close-card__head">
         {step !== undefined && <span className="av-close-card__step">{step}</span>}
         <h2 id={id}>{title}</h2>
@@ -549,7 +550,7 @@ function Certificate({ caseId, locale }: { caseId: string; locale: string | unde
   const files = Number(counts.storage_objects ?? 0);
   const items = Object.entries(counts).reduce((sum, [k, v]) => (k === "storage_objects" ? sum : sum + Number(v ?? 0)), 0);
   return (
-    <Section title={w("proof.certificate")}>
+    <Section title={w("proof.certificate")} icon>
       <dl className="av-close-facts">
         <dt>{w("proof.when")}</dt>
         <dd>{formatDate(cert.data.deleted_at, locale)}</dd>

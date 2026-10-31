@@ -8,7 +8,7 @@ import { t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, DictationBox, Dialog, LinkButton, LoadError, Loading, Notice, PageRef, QChip, SegmentedControl, StatusBadge, Updating, useBusy } from "../../foundation/ui";
+import { BackLink, Button, DictationBox, Dialog, LinkButton, LoadError, Loading, Notice, PageRef, QChip, SectionIcon, SegmentedControl, StatusBadge, Updating, useBusy } from "../../foundation/ui";
 import { Comments } from "./Comments";
 import { GuidanceChanged, longDate, statusOf, TextArea, useCan, useKindWord } from "./shared";
 import { w } from "./words";
@@ -360,6 +360,7 @@ export function Consultation() {
         {c.entry.page_no != null && <PagePanel caseId={caseId} pageNo={c.entry.page_no} marks={c.page_marks ?? []} />}
         <div className="av-stack av-understand-area-aside">
           <section aria-labelledby="consult-seen" className="av-card av-stack av-understand-card">
+            <SectionIcon glyph="person" />
             <h2 id="consult-seen">{c.seen_title ?? w("consultation.seen")}</h2>
             {c.visible.length === 0 ? <p className="av-muted">{w("consultation.seen_none")}</p> : <SeenEntries items={c.visible} visitPage={c.entry.page_no} onChange={change} />}
             <details className="av-understand-later" open={!asSeen || undefined}>

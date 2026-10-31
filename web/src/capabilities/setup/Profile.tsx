@@ -27,6 +27,7 @@ import {
   Loading,
   Notice,
   ProgressRing,
+  SectionIcon,
   StaleChoice,
   TextField,
   useBusy,
@@ -257,6 +258,7 @@ function ProfileView(props: ViewProps) {
           aria-labelledby="setup-goes-with-you"
           className="av-card av-stack av-setup-section"
         >
+          <SectionIcon glyph="folder" />
           <div className="av-row av-row--spread av-setup-sechead">
             <div>
               <h2 id="setup-goes-with-you">

@@ -274,6 +274,14 @@ a.av-step__hit:hover .av-step--current .av-step__pill { background: var(--surfac
 .av-icon-tile { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 16px; }
 .av-icon-tile--mint { background: var(--green-tint); color: var(--green); }
 .av-icon-tile--amber { background: var(--amber-tint); color: var(--amber); }
+
+/* A section icon leading a card sits beside its heading, not above it (media-object layout).
+   Float only: never set the heading sibling's display, so a flex head row (av-row--spread,
+   av-row-item--head, av-close-card__head) keeps its layout and sits to the right of the tile. */
+.av-card > .av-icon-tile:first-child { float: left; margin: 0 var(--space-4) 0 0; }
+.av-card > .av-icon-tile:first-child + * { margin-top: 0; }
+.av-card > .av-icon-tile:first-child + * ~ * { clear: left; }
+.av-card:has(> .av-icon-tile:first-child)::after { content: ""; display: block; clear: left; }
 .av-callout { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; padding: 22px 26px; background: var(--surface); border: 2px solid var(--amber-border); border-radius: var(--radius-large); color: var(--ink); }
 .av-callout .av-icon-tile { width: 48px; height: 48px; border-radius: 14px; color: var(--amber-bright); }
 .av-callout__text { flex: 1 1 360px; min-width: 0; }

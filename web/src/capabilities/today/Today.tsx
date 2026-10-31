@@ -5,7 +5,7 @@ import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { LinkButton, LoadError, Loading, stepLabel } from "../../foundation/ui";
+import { LinkButton, LoadError, Loading, SectionIcon, stepLabel } from "../../foundation/ui";
 import { NeedsYou } from "./NeedsYou";
 import { TodayFirst } from "./TodayFirst";
 import { Icon, StepRing, caseHref, usePacks, type CaseCard } from "./shared";
@@ -68,6 +68,7 @@ function Calm({ data, timezone, locale }: { data: Schemas["Today"]; timezone: st
       <aside className="av-today__aside">
         {pick && (
           <section aria-labelledby="pick-up" className="av-card av-stack">
+            <SectionIcon glyph="folder" />
             <h2 id="pick-up">{t("today.pickup.title")}</h2>
             <div className="av-pickup">
               {pick.stage && packs.data?.get(`${pick.jurisdiction}/${pick.case_type}/${pick.specialty}`) && (

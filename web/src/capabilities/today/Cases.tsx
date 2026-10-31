@@ -7,7 +7,7 @@ import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { IconTile, LinkButton, LoadError, Loading, SegmentedControl, stepLabel } from "../../foundation/ui";
+import { LinkButton, LoadError, Loading, SectionIcon, SegmentedControl, stepLabel } from "../../foundation/ui";
 import { HowCaseWorks } from "./HowCaseWorks";
 import { BalanceFooter, Icon, StepRing, caseHref, combination, usePacks, type CaseCard, type CasePack } from "./shared";
 
@@ -158,9 +158,9 @@ function Row({ card, pack, locale }: { card: CaseCard; pack: CasePack | undefine
 }
 
 const CARDS = [
-  { key: "papers", d: "M6 3h9l4 4v14H6zM14 3v5h5" },
-  { key: "safe", d: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" },
-  { key: "team", d: "M16 11a3 3 0 1 0-6 0 3 3 0 0 0 6 0zM5 20c0-3 3-5 7-5s7 2 7 5" },
+  { key: "papers", glyph: "page" },
+  { key: "safe", glyph: "shield" },
+  { key: "team", glyph: "people" },
 ] as const;
 
 /** S03e: one clear way to start, and three short reassurances. */
@@ -169,9 +169,7 @@ function CasesEmpty() {
     <>
       <section className="av-card av-cases-empty">
         <div className="av-cases-empty__message">
-          <IconTile tone="mint">
-            <Icon d="M6 3h9l4 4v14H6zM14 3v5h5" size={26} />
-          </IconTile>
+          <SectionIcon glyph="folder" />
           <h2>{t("cases.empty.title")}</h2>
           <p className="av-muted">{t("cases.empty.body")}</p>
           <div className="av-today__actions av-today__actions--centre">
@@ -188,9 +186,7 @@ function CasesEmpty() {
       <div className="av-cases-empty__cards">
         {CARDS.map((c) => (
           <section key={c.key} className="av-card av-stack">
-            <IconTile tone="mint">
-              <Icon d={c.d} size={26} />
-            </IconTile>
+            <SectionIcon glyph={c.glyph} />
             <h3>{t(`cases.empty.${c.key}.title`)}</h3>
             <p className="av-muted">{t(`cases.empty.${c.key}.body`)}</p>
           </section>

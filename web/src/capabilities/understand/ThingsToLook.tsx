@@ -7,7 +7,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
-import { Button, DictationBox, Dialog, IconTile, LinkButton, LoadError, Loading, Notice, PageRef, SegmentedControl, TextField, ToggleSwitch, useBusy } from "../../foundation/ui";
+import { Button, DictationBox, Dialog, IconTile, LinkButton, LoadError, Loading, Notice, PageRef, SectionIcon, SegmentedControl, TextField, ToggleSwitch, useBusy } from "../../foundation/ui";
 import { useParams } from "react-router-dom";
 import { LinkReview } from "./LinkReview";
 import { hasIcon, LineIcon } from "./laneIcons";
@@ -229,6 +229,7 @@ function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }
   });
   return (
     <section aria-labelledby="things-checks" className="av-card av-stack av-understand-checks">
+      <SectionIcon glyph="checklist" />
       <div>
         <h2 id="things-checks">{w("things.checks")}</h2>
         <p className="av-muted">{w("things.checks_hint")}</p>

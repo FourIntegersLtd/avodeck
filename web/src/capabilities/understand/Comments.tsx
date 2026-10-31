@@ -4,7 +4,7 @@ import { useState } from "react";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap } from "../../foundation/platform-client";
-import { Button, Notice, Updating } from "../../foundation/ui";
+import { Button, Notice, SectionIcon, Updating } from "../../foundation/ui";
 import { casePath, TextArea } from "./shared";
 import { w } from "./words";
 
@@ -42,6 +42,7 @@ export function Comments({ caseId, targetKind, targetId }: { caseId: string; tar
 
   return (
     <section aria-labelledby="understand-comments" className="av-card av-stack" aria-busy={updating}>
+      <SectionIcon glyph="question" />
       <h2 id="understand-comments">{w("comments.title")}</h2>
       <Notice tone="warning">
         <p>{w("comments.warning")}</p>

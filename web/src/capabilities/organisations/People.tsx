@@ -2,7 +2,7 @@
 import { useState, type FormEvent } from "react";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { useStepUp } from "../../foundation/lib/stepUp";
-import { Button, Dialog, TextField, initials } from "../../foundation/ui";
+import { Button, Dialog, SectionIcon, TextField, initials } from "../../foundation/ui";
 import { MessageNotice, shortDate, useAct } from "./common";
 import { casesText, w, type OrgKey } from "./words";
 
@@ -56,6 +56,7 @@ export function People({ orgId, members, manage, assignable, me, reload }: Props
 
   return (
     <section aria-labelledby="people-title" className="av-card av-org-card">
+      <SectionIcon glyph="people" />
       <div className="av-row-item av-row-item--head">
         <h2 id="people-title">{w("people.title", { count: members.length })}</h2>
         <span className="av-muted">{w("people.columns")}</span>

@@ -8,7 +8,7 @@ import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
-import { BackLink, Button, ChoicePills, Checkbox, LoadError, Loading, Notice, PageRef, TextField } from "../../foundation/ui";
+import { BackLink, Button, ChoicePills, Checkbox, LoadError, Loading, Notice, PageRef, SectionIcon, TextField } from "../../foundation/ui";
 import { longDate, pdfBody, saveBlob, shortDate, tag, vocab } from "./data";
 import { PdfPicker, TrialFrame, TrialPage, TrialTitle, type Frame } from "./frame";
 import { w } from "./words";
@@ -290,6 +290,7 @@ function Declarations({ lines, footer }: { lines: string[]; footer: ReactNode })
   if (lines.length === 0) return null;
   return (
     <section aria-labelledby={id} className="av-card av-stack av-trial-decl">
+      <SectionIcon glyph="signature" />
       <h2 id={id}>{w("meeting.declarations.heading")}</h2>
       <ul className="av-trial-list av-trial-list--plain">
         {lines.map((line) => <li key={line}><Checkbox label={line} checked disabled readOnly /></li>)}
