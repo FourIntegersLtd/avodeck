@@ -100,7 +100,9 @@ jobs:
         run: |
           cat dl/shard-*/out/collected-*.txt | sort > union.txt
           sort -u union.txt | diff - union.txt > /dev/null || { echo "ids collected by more than one shard:"; uniq -d union.txt | head; exit 1; }
-          diff dl/collected-all/collected-all.txt union.txt > diff.txt || { echo "shards differ from the full collection:"; head -40 diff.txt; exit 1; }
+          # a few parametrised tests put a random uuid in their id, so compare with uuids masked
+          mask() { sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/<uuid>/g' "$1" | sort; }
+          diff <(mask dl/collected-all/collected-all.txt) <(mask union.txt) > diff.txt || { echo "shards differ from the full collection:"; head -40 diff.txt; exit 1; }
           echo "$(wc -l < union.txt) test ids, each in exactly one shard"
       - name: Combined coverage floor
         working-directory: api
@@ -109,8 +111,10 @@ jobs:
           poetry run coverage combine cov-*.dat
           poetry run coverage report --fail-under=85 | tail -5
       - name: Durations for api/.test_durations.json (commit it to rebalance)
+        if: always()
         run: python3 scripts/shard_api_tests.py --durations dl/shard-*/out/junit-*.xml > durations.json
       - uses: actions/upload-artifact@v4
+        if: always()
         with: { name: test-durations, path: durations.json }
 
   # The required check keeps its name.
