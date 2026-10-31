@@ -23,7 +23,7 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `case.reassign_named_expert` (before serving; after serving, create a replacement case instead) 🔒 | — | — | — | — | — | — | — | ✓ |
 | `case.hold` (put on hold, resume) | ✓ | — | — | ✓ | — | — | — | — |
 | `case.change_jurisdiction` (jurisdiction, case type, specialty; before serving) 🔒 | ✓ | — | — | — | — | — | — | — |
-| `conflict.declare` (conflict answers and declarations) | ✓ | — | — | — | — | — | — | — |
+| `conflict.declare` (conflict answers and declarations; also the person's own name and date of birth, `PUT /subject/identity`) | ✓ | — | — | — | — | — | — | — |
 | `page.read` (counts towards citing) | ✓ | own reads only | own reads only | own reads only | — | — | — | — |
 | `page.quarantine`, `page.replace` (also splits a two-page scan), `page.rotate` | ✓ | — | — | ✓ (suggest only; named expert confirms quarantine) | — | — | — | — |
 | `page.review_duplicate` (set a page aside as a copy, or bring it back) | ✓ | — | — | ✓ | — | — | — | — |

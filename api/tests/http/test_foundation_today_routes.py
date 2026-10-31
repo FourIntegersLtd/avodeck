@@ -288,9 +288,7 @@ async def test_due_this_month_ignores_q_and_counts_open_cases_only(
     client_for: ClientFor, named: dict[str, uuid.UUID], seed: Seed
 ) -> None:
     _label(seed, named["mine"], "Due", _first_of_month("UTC"))
-    seed.admin.execute(
-        "update app.cases set due_date = %s where id = %s", (_first_of_month("UTC"), named["settled"])
-    )
+    seed.admin.execute("update app.cases set due_date = %s where id = %s", (_first_of_month("UTC"), named["settled"]))
     client = await client_for(named["expert"])
     assert (await client.get("/v1/today", params={"q": "brown"})).json()["due_this_month"] == 1
 

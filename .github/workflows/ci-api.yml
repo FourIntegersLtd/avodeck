@@ -63,6 +63,17 @@ jobs:
   # Runs once: lint, types, packs, guards, OpenAPI fuzzing, Red-then-green, and the full collection for the split check.
   api-once:
     runs-on: ubuntu-latest
+    # A real clamd for the one `@pytest.mark.clamd` test (EICAR); other tests use the recorded scanner.
+    services:
+      clamav:
+        image: clamav/clamav:1.4
+        ports: ["3310:3310"]
+        options: >-
+          --health-cmd "clamdcheck.sh" --health-interval 10s --health-timeout 5s
+          --health-retries 30 --health-start-period 120s
+    env:
+      CLAMD_HOST: 127.0.0.1
+      CLAMD_PORT: "3310"
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
