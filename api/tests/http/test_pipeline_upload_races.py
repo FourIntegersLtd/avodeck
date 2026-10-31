@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable
 
 import httpx
 import psycopg
@@ -21,6 +21,7 @@ from fastapi import FastAPI
 
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
+from app.core.routes import uploads
 from app.core.storage import SupabaseStorage, upload_prefix
 from tests.support.db import ClientFor
 from tests.support.files import MB, SyntheticFile, build_app, local_storage
@@ -36,18 +37,6 @@ async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
         yield store
     finally:
         await store.aclose()
-
-
-@pytest.fixture
-async def api_db(api_dsn: str) -> AsyncIterator[Database]:
-    """A pool with room for two calls at once: a failing complete borrows a second connection (to close the
-    upload outside its own, rolled-back transaction), so the shared pool of two would starve."""
-    database = Database(api_dsn, max_size=6)
-    await database.open()
-    try:
-        yield database
-    finally:
-        await database.close()
 
 
 @pytest.fixture
@@ -166,6 +155,47 @@ async def test_the_database_refuses_changes_to_the_chunk_data_of_a_finished_uplo
     assert kept == (file.count,)
 
 
+LOCK = "pg_advisory_{}lock(hashtextextended(%s::text, 0))"
+
+
+def hold(admin: psycopg.Connection, upload: str) -> None:
+    """Take the upload's lock from outside, so calls pile up behind it in a known order."""
+    admin.execute(f"select {LOCK.format('')}", (upload,))
+
+
+def release(admin: psycopg.Connection, upload: str) -> None:
+    admin.execute(f"select {LOCK.format('un')}", (upload,))
+
+
+async def waiters(admin: psycopg.Connection, count: int) -> None:
+    """Wait until `count` calls are queued on an advisory lock."""
+    for _ in range(400):
+        queued = row(admin, "select count(*) from pg_locks where locktype = 'advisory' and not granted")
+        if queued is not None and queued[0] >= count:  # type: ignore[operator]
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError("the calls never queued on the upload's lock")
+
+
+async def one_after_another(
+    admin: psycopg.Connection, upload: str, calls: list[Awaitable[httpx.Response]]
+) -> list[httpx.Response]:
+    """Start the calls one at a time behind a held lock (each queued before the next starts), then let go."""
+    hold(admin, upload)
+    tasks = []
+    try:
+        for queued, call in enumerate(calls, start=1):
+            tasks.append(asyncio.ensure_future(call))
+            await waiters(admin, queued)
+    finally:
+        release(admin, upload)
+    return list(await asyncio.gather(*tasks))
+
+
+def complete(client: httpx.AsyncClient, upload: str, digest: str) -> Awaitable[httpx.Response]:
+    return client.post(f"/v1/uploads/{upload}/complete", json={"sha256": digest})
+
+
 async def test_two_correct_completes_at_once_make_one_document_and_keep_its_parts(
     client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, storage: SupabaseStorage
 ) -> None:
@@ -173,64 +203,152 @@ async def test_two_correct_completes_at_once_make_one_document_and_keep_its_part
     one, two = await client_for(team["expert"]), await client_for(team["expert"])
     upload = await start(one, team["case"], file)
     await put_all(one, upload, file)
-    body = {"sha256": file.sha256()}
-    a, b = await asyncio.gather(
-        one.post(f"/v1/uploads/{upload}/complete", json=body), two.post(f"/v1/uploads/{upload}/complete", json=body)
+    first, second = await one_after_another(
+        admin, upload, [complete(one, upload, file.sha256()), complete(two, upload, file.sha256())]
     )
-    assert sorted([a.status_code, b.status_code]) == [200, 201], (a.text, b.text)
-    assert a.json()["document_id"] == b.json()["document_id"]
+    assert (first.status_code, second.status_code) == (201, 200), (first.text, second.text)
+    assert first.json()["document_id"] == second.json()["document_id"]
     assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (1,)
     assert len(await storage.list(upload_prefix(team["case"], uuid.UUID(upload)))) == file.count
 
 
-async def test_a_wrong_hash_complete_racing_a_correct_one_never_deletes_a_registered_documents_parts(
+async def test_a_wrong_hash_complete_after_a_correct_one_is_refused_and_keeps_the_document_and_its_parts(
     client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, storage: SupabaseStorage
 ) -> None:
     file = SyntheticFile(17 * MB, seed=48)
     one, two = await client_for(team["expert"]), await client_for(team["expert"])
     upload = await start(one, team["case"], file)
     await put_all(one, upload, file)
-    good, bad = await asyncio.gather(
-        one.post(f"/v1/uploads/{upload}/complete", json={"sha256": file.sha256()}),
-        two.post(f"/v1/uploads/{upload}/complete", json={"sha256": "c" * 64}),
+    good, bad = await one_after_another(
+        admin, upload, [complete(one, upload, file.sha256()), complete(two, upload, "c" * 64)]
     )
-    parts = await storage.list(upload_prefix(team["case"], uuid.UUID(upload)))
-    documents = row(admin, "select count(*) from app.documents where case_id = %s", team["case"])
-    if good.status_code == 201:  # the correct call won: the document and every part stay
-        assert (bad.status_code, bad.json()["error"]["code"]) == (409, "file_hash_mismatch"), bad.text
-        assert documents == (1,) and len(parts) == file.count
-        assert row(admin, "select status from app.uploads where id = %s", upload) == ("complete",)
-    else:  # the wrong call won: the upload is closed, nothing registered, and the right one is told so
-        assert (bad.status_code, bad.json()["error"]["code"]) == (422, "file_hash_mismatch"), bad.text
-        assert (good.status_code, good.json()["error"]["code"]) == (409, "upload_closed"), good.text
-        assert documents == (0,)
-        assert row(admin, "select status from app.uploads where id = %s", upload) == ("failed",)
+    assert good.status_code == 201, good.text
+    assert (bad.status_code, bad.json()["error"]["code"]) == (409, "file_hash_mismatch"), bad.text
+    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (1,)
+    assert row(admin, "select status from app.uploads where id = %s", upload) == ("complete",)
+    assert len(await storage.list(upload_prefix(team["case"], uuid.UUID(upload)))) == file.count
 
 
-async def test_a_part_sent_while_the_upload_is_completing_never_leaves_a_document_that_disagrees_with_its_bytes(
+async def test_a_correct_complete_after_a_wrong_hash_one_finds_the_upload_closed_and_its_parts_deleted(
+    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, storage: SupabaseStorage
+) -> None:
+    file = SyntheticFile(17 * MB, seed=49)
+    one, two = await client_for(team["expert"]), await client_for(team["expert"])
+    upload = await start(one, team["case"], file)
+    await put_all(one, upload, file)
+    bad, good = await one_after_another(
+        admin, upload, [complete(one, upload, "c" * 64), complete(two, upload, file.sha256())]
+    )
+    assert (bad.status_code, bad.json()["error"]["code"]) == (422, "file_hash_mismatch"), bad.text
+    assert (good.status_code, good.json()["error"]["code"]) == (409, "upload_closed"), good.text
+    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (0,)
+    assert row(admin, "select status, document_id from app.uploads where id = %s", upload) == ("failed", None)
+    assert await storage.list(upload_prefix(team["case"], uuid.UUID(upload))) == []
+
+
+async def test_a_part_queued_behind_completing_is_refused_and_the_document_matches_its_bytes(
     client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection
 ) -> None:
-    for round_ in range(3):
-        file = SyntheticFile(17 * MB, seed=60 + round_)
-        one, two = await client_for(team["expert"]), await client_for(team["expert"])
-        upload = await start(one, team["case"], file)
+    file = SyntheticFile(17 * MB, seed=50)
+    one, two = await client_for(team["expert"]), await client_for(team["expert"])
+    upload = await start(one, team["case"], file)
+    await put_all(one, upload, file)
+    other = b"x" * len(file.chunk(2))
+    done, late = await one_after_another(
+        admin, upload, [complete(one, upload, file.sha256()), put(two, upload, 2, other)]
+    )
+    assert done.status_code == 201, done.text
+    assert (late.status_code, late.json()["error"]["code"]) == (409, "upload_closed"), late.text
+    digest = hashlib.sha256()
+    async with one.stream("GET", f"/v1/cases/{team['case']}/documents/{done.json()['document_id']}/file") as got:
+        async for piece in got.aiter_bytes():
+            digest.update(piece)
+    assert digest.hexdigest() == file.sha256()
+    assert row(admin, "select sha256 from app.documents where id = %s", done.json()["document_id"]) == (file.sha256(),)
+
+
+async def test_a_part_that_lands_before_the_whole_file_hash_is_taken_makes_the_complete_fail(
+    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, storage: SupabaseStorage
+) -> None:
+    file = SyntheticFile(17 * MB, seed=51)
+    one, two = await client_for(team["expert"]), await client_for(team["expert"])
+    upload = await start(one, team["case"], file)
+    await put_all(one, upload, file)
+    other = b"x" * len(file.chunk(2))
+    late, done = await one_after_another(
+        admin, upload, [put(two, upload, 2, other), complete(one, upload, file.sha256())]
+    )
+    assert late.status_code == 200, late.text
+    assert (done.status_code, done.json()["error"]["code"]) == (422, "file_hash_mismatch"), done.text
+    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (0,)
+    assert row(admin, "select status, document_id from app.uploads where id = %s", upload) == ("failed", None)
+    assert await storage.list(upload_prefix(team["case"], uuid.UUID(upload))) == []
+
+
+async def test_failing_completes_at_once_do_not_exhaust_the_connection_pool(
+    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, storage: SupabaseStorage
+) -> None:
+    """The shared test pool holds two connections: a failing call that needed a second one would starve."""
+    one, two = await client_for(team["expert"]), await client_for(team["expert"])
+    files = [SyntheticFile(17 * MB, seed=52), SyntheticFile(17 * MB, seed=53)]
+    uploads = [await start(one, team["case"], f) for f in files]
+    for upload, file in zip(uploads, files, strict=True):
         await put_all(one, upload, file)
-        other = b"x" * len(file.chunk(2))
-        done, late = await asyncio.gather(
-            one.post(f"/v1/uploads/{upload}/complete", json={"sha256": file.sha256()}),
-            put(two, upload, 2, other),
-        )
-        assert not (done.status_code == 201 and late.status_code == 200), (done.text, late.text)
-        if done.status_code == 201:  # completing came first: the part was refused, the stored bytes are the file
-            assert late.json()["error"]["code"] == "upload_closed"
-            digest = hashlib.sha256()
-            url = f"/v1/cases/{team['case']}/documents/{done.json()['document_id']}/file"
-            async with one.stream("GET", url) as got:
-                async for piece in got.aiter_bytes():
-                    digest.update(piece)
-            assert digest.hexdigest() == file.sha256()
-            stored = row(admin, "select sha256 from app.documents where id = %s", done.json()["document_id"])
-            assert stored == (file.sha256(),)
-        else:  # the part came first: the bytes changed, so the whole-file check refused it and no document exists
-            assert done.json()["error"]["code"] == "file_hash_mismatch", done.text
-            assert row(admin, "select status, document_id from app.uploads where id = %s", upload) == ("failed", None)
+    first, second = await asyncio.wait_for(
+        asyncio.gather(complete(one, uploads[0], "c" * 64), complete(two, uploads[1], "c" * 64)), timeout=20
+    )
+    assert [r.json()["error"]["code"] for r in (first, second)] == ["file_hash_mismatch"] * 2
+    for upload in uploads:
+        assert row(admin, "select status from app.uploads where id = %s", upload) == ("failed",)
+        assert await storage.list(upload_prefix(team["case"], uuid.UUID(upload))) == []
+
+
+async def test_a_call_waits_only_a_few_seconds_for_the_uploads_lock_then_says_it_is_busy(
+    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file = SyntheticFile(17 * MB, seed=54)
+    client = await client_for(team["expert"])
+    upload = await start(client, team["case"], file)
+    await put_all(client, upload, file)
+    monkeypatch.setattr(uploads, "LOCK_WAIT_MS", 300)
+    hold(admin, upload)
+    try:
+        finish = await complete(client, upload, file.sha256())
+        part = await put(client, upload, 2, file.chunk(2))
+    finally:
+        release(admin, upload)
+    for resp in (finish, part):
+        assert (resp.status_code, resp.json()["error"]["code"]) == (409, "upload_busy"), resp.text
+    assert row(admin, "select status from app.uploads where id = %s", upload) == ("open",)
+    again = await complete(client, upload, file.sha256())  # nothing was left half-done
+    assert again.status_code == 201, again.text
+
+
+async def test_an_upload_expired_by_the_sweep_part_way_through_completing_is_reported_closed_not_a_server_error(
+    client_for: ClientFor,
+    team: dict[str, uuid.UUID],
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    file = SyntheticFile(17 * MB, seed=55)
+    client = await client_for(team["expert"])
+    upload = await start(client, team["case"], file)
+    await put_all(client, upload, file)
+    reading, go = asyncio.Event(), asyncio.Event()
+    real_get = storage.get
+
+    async def gated(path: str) -> bytes:
+        reading.set()
+        await go.wait()
+        return await real_get(path)
+
+    monkeypatch.setattr(storage, "get", gated)
+    call = asyncio.ensure_future(complete(client, upload, file.sha256()))
+    await reading.wait()
+    admin.execute("update app.uploads set status = 'expired' where id = %s", (upload,))  # the daily sweep
+    go.set()
+    resp = await call
+    assert (resp.status_code, resp.json()["error"]["code"]) == (409, "upload_closed"), resp.text
+    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (0,)
+    assert row(admin, "select status, document_id from app.uploads where id = %s", upload) == ("expired", None)
