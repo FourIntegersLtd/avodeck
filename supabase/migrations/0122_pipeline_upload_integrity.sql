@@ -35,6 +35,10 @@ begin
   if old.status <> 'open' and new.received is distinct from old.received then
     perform app.refuse('chunks cannot be added to a finished upload');
   end if;
+  -- The kept hashes are the proof for a finished upload: they cannot be rewritten once it is not open.
+  if old.status <> 'open' and new.chunk_sha256 is distinct from old.chunk_sha256 then
+    perform app.refuse('chunk hashes cannot be changed on a finished upload');
+  end if;
   return new;
 end
 $$;

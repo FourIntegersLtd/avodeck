@@ -124,13 +124,12 @@ def _upload(row: dict[str, object]) -> Upload:
     )
 
 
-async def _load(conn: AsyncConnection, upload_id: uuid.UUID, *, lock: bool = False) -> dict[str, object]:
+async def _load(conn: AsyncConnection, upload_id: uuid.UUID) -> dict[str, object]:
     """The upload, if the person may upload to its case; 404 otherwise (as for any case resource)."""
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
-            "select id, case_id, status, size, sha256, chunk_size, chunk_count, received, document_id, kind,"
-            " filename, append, expires_at < now() as expired from app.uploads where id = %s"
-            + (" for update" if lock else ""),
+            "select id, case_id, status, size, sha256, chunk_size, chunk_count, received, chunk_sha256, document_id,"
+            " kind, filename, append, expires_at < now() as expired from app.uploads where id = %s",
             (upload_id,),
         )
         row = await cur.fetchone()
@@ -168,6 +167,17 @@ async def get_upload(upload_id: uuid.UUID, conn: DbConn) -> Upload:
     return _upload(await _load(conn, upload_id))
 
 
+async def _load_locked(conn: AsyncConnection, upload_id: uuid.UUID) -> dict[str, object]:
+    """The upload, read again once this transaction holds the upload's lock (held until it ends).
+
+    An advisory lock, not `for update` on the row: a failed check closes the upload from a second
+    transaction (`_fail`), which would wait on a row lock forever. Receiving a part and completing both take
+    it, so a part cannot land between completing's read of the parts and the document being made."""
+    await _load(conn, upload_id)  # not found / no access, before anything is locked
+    await conn.execute("select pg_advisory_xact_lock(hashtextextended(%s::text, 0))", (str(upload_id),))
+    return await _load(conn, upload_id)
+
+
 def _open(row: dict[str, object]) -> None:
     if row["status"] != "open" or row["expired"]:
         raise ApiError("upload_closed", "This upload has finished. Start the upload again.", 409)
@@ -193,6 +203,8 @@ async def put_chunk(
     part_sha = hashlib.sha256(data).hexdigest()
     if not hmac.compare_digest(part_sha, sent_sha.lower()):
         raise ApiError("chunk_corrupted", "This part was damaged on the way. Send it again.", 422)
+    # Lock, then look again: completing may have finished (or failed) the upload while this part was read.
+    _open(await _load_locked(conn, upload_id))
     case_id: uuid.UUID = row["case_id"]  # type: ignore[assignment]
     path = _chunk_path(_prefix(case_id, upload_id), n)
     await storage.put(path, await crypto.encrypt(conn, case_id, data, purpose=path))
@@ -207,22 +219,23 @@ async def put_chunk(
     return ChunkReceived(received=list(updated[0]))
 
 
-async def _fail(request: Request, upload: Upload, storage: SupabaseStorage, expected: str, stored: str) -> None:
+async def _fail(request: Request, upload: Upload, storage: SupabaseStorage, why: dict[str, object]) -> None:
     """Close an upload whose stored bytes do not match, for good, in its own transaction (the request's is
-    rolled back by the error), and delete its stored parts. Logs ids and both hashes, never any content."""
+    rolled back by the error), and delete its stored parts, but only if this call is the one that closed it:
+    an upload another call has already finished keeps its parts. Logs ids and hashes (or a part number),
+    never any content."""
     async with request.app.state.database.request(request.state.scope) as other:
-        await other.execute(
-            "update app.uploads set status = 'failed' where id = %s and status = 'open'", (upload.upload_id,)
+        cur = await other.execute(
+            "update app.uploads set status = 'failed' where id = %s and status = 'open' returning id",
+            (upload.upload_id,),
         )
+        closed = await cur.fetchone()
+    if closed is None:
+        return
     audit.record_detached(action="upload.failed", target=f"upload:{upload.upload_id}", case_id=upload.case_id)
     _log.warning(
-        "upload failed its whole-file check",
-        extra={
-            "upload_id": str(upload.upload_id),
-            "case_id": str(upload.case_id),
-            "expected_sha256": expected,
-            "stored_sha256": stored,
-        },
+        "upload failed its stored-bytes check",
+        extra={"upload_id": str(upload.upload_id), "case_id": str(upload.case_id), **why},
     )
     prefix = _prefix(upload.case_id, upload.upload_id)
     try:
@@ -243,11 +256,16 @@ async def complete_upload(
     crypto: Crypto,
     body: CompleteUpload | None = None,
 ) -> UploadedDocument:
-    row = await _load(conn, upload_id)
-    claimed = (body.sha256 if body is not None else None) or ""
+    await _load(conn, upload_id)  # not found / no access first, whatever else is wrong
+    claimed = ((body.sha256 if body is not None else None) or "").lower()
     if not SHA256_HEX.fullmatch(claimed):
         raise ApiError("file_sha_missing", "The file's checksum was not sent. Add the file again.", 422)
-    if row["status"] == "complete":  # a repeat call: the same document, nothing re-read
+    # Held until this transaction ends, so the parts cannot change between being read and the document made,
+    # and a second complete waits here and then sees the first one's result.
+    row = await _load_locked(conn, upload_id)
+    if row["status"] == "complete":  # a repeat call: the same document, nothing re-read, if it is the same file
+        if not hmac.compare_digest(str(row["sha256"]), claimed):
+            raise ApiError("file_hash_mismatch", "This is not the file that was added. Add it again.", 409)
         response.status_code = 200
         return UploadedDocument(document_id=row["document_id"], sha256=row["sha256"], size=row["size"])  # type: ignore[arg-type]
     _open(row)
@@ -258,22 +276,22 @@ async def complete_upload(
     prefix = _prefix(case_id, upload_id)
     # Read back the stored parts in order, one at a time, into one running hash: never the whole file at once.
     digest = hashlib.sha256()
+    part_hashes: dict[str, str] = row["chunk_sha256"]  # type: ignore[assignment]
     for n in range(1, upload.chunk_count + 1):
         path = _chunk_path(prefix, n)
-        digest.update(await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path))
+        data = await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path)
+        # Each part must still be the bytes whose hash was kept when it arrived.
+        if not hmac.compare_digest(hashlib.sha256(data).hexdigest(), part_hashes.get(str(n), "")):
+            await _fail(request, upload, storage, {"part": n})
+            raise ApiError("chunk_hash_mismatch", "A part changed after it arrived. Add the file again.", 422, part=n)
+        digest.update(data)
     stored_sha = digest.hexdigest()
-    if not hmac.compare_digest(stored_sha, claimed.lower()):
-        await _fail(request, upload, storage, claimed.lower(), stored_sha)
+    if not hmac.compare_digest(stored_sha, claimed):
+        await _fail(request, upload, storage, {"expected_sha256": claimed, "stored_sha256": stored_sha})
         raise ApiError("file_hash_mismatch", "The file did not verify after it was added. Add it again.", 422)
     if not hmac.compare_digest(stored_sha, str(row["sha256"])):
-        await _fail(request, upload, storage, str(row["sha256"]), stored_sha)
+        await _fail(request, upload, storage, {"expected_sha256": str(row["sha256"]), "stored_sha256": stored_sha})
         raise ApiError("sha256_mismatch", "The file changed on the way. Upload it again.", 422)
-    # Another call may have finished it while this one was reading: lock the row, then look again.
-    row = await _load(conn, upload_id, lock=True)
-    if row["status"] == "complete":
-        response.status_code = 200
-        return UploadedDocument(document_id=row["document_id"], sha256=row["sha256"], size=row["size"])  # type: ignore[arg-type]
-    _open(row)
     cur = await conn.execute(
         "insert into app.documents (case_id, kind, filename, storage_path, sha256, sha256_verified_at, uploaded_by)"
         " values (%s, %s, %s, %s, %s, now(), app.current_person_id()) returning id",

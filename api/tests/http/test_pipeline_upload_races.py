@@ -39,6 +39,18 @@ async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
 
 
 @pytest.fixture
+async def api_db(api_dsn: str) -> AsyncIterator[Database]:
+    """A pool with room for two calls at once: a failing complete borrows a second connection (to close the
+    upload outside its own, rolled-back transaction), so the shared pool of two would starve."""
+    database = Database(api_dsn, max_size=6)
+    await database.open()
+    try:
+        yield database
+    finally:
+        await database.close()
+
+
+@pytest.fixture
 def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage) -> FastAPI:
     return build_app(api_db, auth_env, storage=storage, crypto=CaseCrypto(LocalKeyProvider.generate()))
 
@@ -72,7 +84,7 @@ async def put_all(client: httpx.AsyncClient, upload: str, file: SyntheticFile) -
 
 
 def row(admin: psycopg.Connection, sql: str, *args: object) -> tuple[object, ...] | None:
-    return admin.execute(sql, args).fetchone()  # type: ignore[arg-type]
+    return admin.execute(sql, args).fetchone()
 
 
 async def test_a_repeat_complete_with_a_different_file_hash_is_refused_and_the_document_is_untouched(
@@ -146,7 +158,7 @@ async def test_the_database_refuses_changes_to_the_chunk_data_of_a_finished_uplo
         "update app.uploads set received = '{}' where id = %s",
     ):
         with pytest.raises(psycopg.Error):
-            admin.execute(sql, (upload,))  # type: ignore[arg-type]
+            admin.execute(sql, (upload,))
         admin.rollback()
     kept = row(
         admin, "select count(*) from jsonb_object_keys((select chunk_sha256 from app.uploads where id = %s))", upload

@@ -1082,7 +1082,7 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | case_id / person_id | Which case the file is for and who is sending it |
 | kind / filename / size / sha256 | What the file is (a kind from the case's packs), its name, size and checksum |
 | chunk_size / chunk_count / received | The 8 MB parts it is sent in, how many, and which have arrived |
-| chunk_sha256 | The fingerprint the server worked out for each part it received, by part number; a part sent again replaces its entry |
+| chunk_sha256 | The fingerprint the server worked out for each part it received, by part number; a part sent again replaces its entry; the database refuses any change once the upload is no longer open |
 | status | `open`, `complete`, `expired` or `failed` (the stored file did not match its fingerprint; closed for good) |
 | document_id | The document it became when complete |
 | append | Whether these are later records added to a case that already has its bundle (their pages are numbered after the last page) |
