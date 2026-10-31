@@ -1,9 +1,10 @@
--- 1015 (foundation work): `uploads` is purged immediately before `jobs` (app.case_purge_order(), migration 0017),
+-- 1019 (foundation work): `uploads` is purged immediately before `jobs` (app.case_purge_order(), migration 0017),
 -- as in `PURGE_ORDER` in api/app/core/contracts/case_tables.py. uploads.finalize_job_id (0124) references jobs,
 -- so uploads must be deleted first.
 -- Written here, not in the pipeline range, because 0499, 0599, 0699, 0799 and 0999 each replace the order
 -- with a fixed list and would wipe a splice made at 0124; 1014 documents the same trap. Named for the
--- range it sits in, as the migration-range guard requires; foundation owns the change, as with 1014.
+-- range it sits in, as the migration-range guard requires; foundation owns the change, as with 1014. It was
+-- 1015 until slice B's 1015-1018 splices landed on main, and sits after them so it runs last.
 -- The next migration that writes a fixed purge list must keep `uploads` before `jobs` or add a later splice.
 --
 -- The list is read from the current function and the table is spliced in, so every other slice's entries

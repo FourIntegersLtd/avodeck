@@ -192,6 +192,6 @@ $$;
 revoke execute on function app.mark_upload_cleaned(uuid) from public, app_api;
 grant execute on function app.mark_upload_cleaned(uuid) to app_worker;
 
--- The purge order is owned by 1015_organisations_purge_order_uploads.sql (it must run after every fixed-list purge migration).
+-- The purge order is owned by 1019_organisations_purge_order_uploads.sql (it must run after every fixed-list purge migration).
 
 reset role;
