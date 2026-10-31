@@ -56,9 +56,9 @@ class RenderedMail:
     html: str = field(repr=False)
 
 
-# Colours from web/src/foundation/ui/tokens.css (--brand, --ink, --surface-soft, --line); type is large for
-# readers who are not computer-confident: nothing under 17px, and a button 52px tall.
-_BRAND, _INK, _SOFT, _LINE = "#0F3D2C", "#16201B", "#F6F7F5", "#DDE3DF"
+# Markup ported from eventtz's transactional layout (read-only reference). Colours are Avodeck's
+# (web/src/foundation/ui/tokens.css): brand, ink, and a muted grey for the footer.
+_BRAND, _INK, _MUTED = "#0F3D2C", "#16201B", "#5F6964"
 _FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
 _DATETIME_PARAMS = frozenset({"deleted_at", "expires_at"})
 _DATE_PARAMS = frozenset({"backup_expiry_on", "expires_on"})
@@ -95,34 +95,41 @@ def _html_value(value: str) -> str:
 
 
 def _layout(subject: str, headline: str, paragraphs: list[str], action: tuple[str, str] | None, footer: str) -> str:
-    p = f"margin: 0 0 18px; color: {_INK}; font-size: 18px; line-height: 1.6"
+    """eventtz's transactional layout, element for element, in Avodeck's colours (see the module notes).
+
+    Body text is 17px, not eventtz's 15px (readers are 50 to 60); the button is 52px tall in all.
+    """
+    table = 'role="presentation" cellpadding="0" cellspacing="0" border="0"'
+    p = f"margin: 0 0 16px; color: {_INK}; font-size: 17px; line-height: 1.65"
     body = "".join(f'<p style="{p}">{para}</p>' for para in paragraphs)
     button = ""
     if action is not None:
         label, url = action
         button = (
-            f'<p style="margin: 28px 0 0"><a href="{html.escape(url, quote=True)}" style="display: inline-block; '
-            f"background-color: {_BRAND}; color: #FFFFFF; text-decoration: none; padding: 0 32px; "
-            f'border-radius: 26px; font-size: 18px; font-weight: 600; line-height: 52px; height: 52px">'
-            f"{html.escape(label)}</a></p>"
+            f'<p style="margin: 24px 0 0"><a href="{html.escape(url, quote=True)}" style="display: inline-block; '
+            f"background: {_BRAND}; color: #ffffff; text-decoration: none; padding: 14px 28px; line-height: 24px; "
+            f'border-radius: 980px; font-size: 15px; font-weight: 600">{html.escape(label)}</a></p>'
         )
     return (
-        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />'
+        '<meta name="viewport" content="width=device-width, initial-scale=1" />'
         f"<title>{html.escape(subject)}</title></head>"
-        f'<body style="margin: 0; padding: 0; background-color: {_SOFT}; font-family: {_FONT}; color: {_INK}">'
-        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" '
-        f'style="width: 100%; background-color: {_SOFT}"><tr><td align="center" style="padding: 24px 12px">'
-        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" '
-        f'style="max-width: 600px; width: 100%; background-color: #FFFFFF; border: 1px solid {_LINE}; '
-        'border-radius: 12px">'
-        f'<tr><td style="padding: 24px 28px 8px"><p style="margin: 0; color: {_BRAND}; font-size: 24px; '
-        'font-weight: 700; letter-spacing: 0.02em">Avodeck</p></td></tr>'
-        f'<tr><td style="padding: 8px 28px 28px"><h1 style="margin: 0 0 16px; color: {_INK}; font-size: 28px; '
-        f'line-height: 1.25; font-weight: 600">{html.escape(headline)}</h1>{body}{button}</td></tr>'
-        f'<tr><td style="padding: 16px 28px 24px; border-top: 1px solid {_LINE}">'
-        f'<p style="margin: 0; color: {_INK}; font-size: 17px; line-height: 1.5">{html.escape(footer)}</p>'
-        "</td></tr></table></td></tr></table></body></html>"
+        f'<body style="margin: 0; padding: 0; width: 100%; background-color: #ffffff; font-family: {_FONT}; '
+        f'color: {_INK}; -webkit-font-smoothing: antialiased">'
+        f'<table {table} width="100%" style="width: 100%; background-color: #ffffff"><tr>'
+        '<td align="center" style="padding: 0; margin: 0">'
+        f'<table {table} width="100%" style="max-width: 600px; width: 100%; background-color: #ffffff">'
+        '<tr><td style="background-color: #ffffff; padding: 16px 20px; text-align: center">'
+        f'<p style="margin: 0; color: {_BRAND}; font-size: 22px; font-weight: 700; letter-spacing: 0.02em">'
+        "Avodeck</p></td></tr>"
+        '<tr><td style="padding: 8px 20px 24px; background-color: #ffffff">'
+        f'<h1 style="margin: 0 0 12px; color: {_INK}; font-size: 26px; line-height: 1.25; font-weight: 600">'
+        f"{html.escape(headline)}</h1>{body}{button}</td></tr>"
+        '<tr><td style="padding: 4px 20px 40px; text-align: center; background-color: #ffffff">'
+        f'<p style="margin: 0; font-size: 13px; line-height: 1.5; color: {_MUTED}">{html.escape(footer)}</p>'
+        "</td></tr>"
+        '<tr><td style="height: 32px; line-height: 32px; font-size: 1px; background-color: #ffffff">&nbsp;</td></tr>'
+        "</table></td></tr></table></body></html>"
     )
 
 
@@ -158,7 +165,7 @@ def render(mail: Mail, language: str = "en-GB", *, app_origin: str | None = None
     lines = [headline, "", *[f"{para}\n" for para in plain]]
     if action:
         lines += [f"{action[0]}: {action[1]}", ""]
-    lines.append(w["email.footer"])
+    lines += ["", "Avodeck"]
     return RenderedMail(
         subject=subject,
         text="\n".join(lines).strip() + "\n",
