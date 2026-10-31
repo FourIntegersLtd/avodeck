@@ -466,6 +466,31 @@ async def change_provenance(
     return _document(after)
 
 
+@pipeline_router.delete("/{case_id}/documents/{document_id}", status_code=204)
+async def delete_document(
+    case_id: uuid.UUID,
+    document_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.upload"))],
+    request: Request,
+    conn: DbConn,
+) -> None:
+    if await repo.document(conn, case_id, document_id) is None:
+        raise _not_found()
+    storage_path, page_ids = await repo.document_storage_paths(conn, case_id, document_id)
+    if not await repo.delete_document(conn, case_id, document_id):
+        raise _not_found()
+    await audit.record(conn, action="document.deleted", target=f"document:{document_id}", case_id=case_id)
+    storage: CaseFileStorage | None = getattr(request.app.state, "storage", None)
+    if storage is not None:
+        to_remove: list[str] = []
+        if storage_path:
+            to_remove.extend(await storage.list_recursive(storage_path))
+        for page_id in page_ids:
+            to_remove.extend(await storage.list_recursive(paths.page_prefix(case_id, page_id)))
+        if to_remove:
+            await storage.delete(to_remove)
+
+
 @pipeline_router.post("/{case_id}/documents/append", status_code=202, response_model=Appended)
 async def append_records(
     case_id: uuid.UUID,
