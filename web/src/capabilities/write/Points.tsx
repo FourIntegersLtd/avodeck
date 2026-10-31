@@ -8,7 +8,7 @@ import { formatDue } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, DictationBar, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, PageRef, TextLink, Updating } from "../../foundation/ui";
+import { Button, DictationBar, SectionIcon, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, PageRef, TextLink, Updating } from "../../foundation/ui";
 import { ActionLink, KindBadge, QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
 import { w } from "./words";
 
@@ -230,6 +230,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
 
       <div className="av-write-columns">
         <section className="av-card av-stack av-write-note">
+          <SectionIcon glyph="pen" />
           <h3>{data.range_note.prompt}</h3>
           <DictationBar
             caseId={caseId}
@@ -250,6 +251,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
         </section>
 
         <section className="av-card av-stack" aria-labelledby="differ-title">
+          <SectionIcon glyph="question" />
           <h3 id="differ-title">{w("points.differ")}</h3>
           {data.claims.length === 0 && <p className="av-muted">{w("points.differ_none")}</p>}
           {data.claims.map((claim) => (

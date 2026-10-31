@@ -3,7 +3,7 @@ import { formatDay, t } from "../../foundation/i18n";
 import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
 import type { components } from "../../foundation/platform-client/schema";
-import { LinkButton } from "../../foundation/ui";
+import { LinkButton, SectionIcon } from "../../foundation/ui";
 import { Icon } from "./shared";
 
 const HAND = ["letter", "records", "date"] as const;
@@ -29,6 +29,7 @@ export function TodayFirst({ ready }: { ready: components["schemas"]["Readiness"
       </div>
       <div className="av-today__layout">
         <section aria-labelledby="getting-ready" className="av-card av-stack">
+          <SectionIcon glyph="checklist" />
           <div>
             <h2 id="getting-ready">{t("today.first.ready")}</h2>
             <p className="av-muted">{t("today.first.progress", { done: ready.done_steps, total: ready.total_steps })}</p>
@@ -69,6 +70,7 @@ export function TodayFirst({ ready }: { ready: components["schemas"]["Readiness"
         </section>
         <aside className="av-today__aside">
           <section aria-labelledby="to-hand" className="av-card av-stack">
+            <SectionIcon glyph="folder" />
             <h2 id="to-hand">{t("today.first.hand.title")}</h2>
             <ul className="av-rows">
               {HAND.map((k) => (
@@ -84,6 +86,7 @@ export function TodayFirst({ ready }: { ready: components["schemas"]["Readiness"
             </ul>
           </section>
           <section aria-labelledby="need-hand" className="av-card av-stack">
+            <SectionIcon glyph="question" />
             <h2 id="need-hand">{t("today.first.help.title")}</h2>
             <p className="av-muted">{t("today.first.help.body")}</p>
             <LinkButton to="/help" variant="secondary">{t("today.first.help.link")}</LinkButton>

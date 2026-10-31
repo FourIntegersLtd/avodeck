@@ -10,7 +10,7 @@ import { kindWord } from "../../foundation/lib/packWords";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Callout, LinkButton, LoadError, Loading, Notice, ProgressRing, TextField } from "../../foundation/ui";
+import { Button, Callout, LinkButton, LoadError, Loading, Notice, ProgressRing, SectionIcon, TextField } from "../../foundation/ui";
 import { longDate, useLocale, useSectionName, useWaiting } from "./shared";
 import { w } from "./words";
 
@@ -186,6 +186,7 @@ function Warnings({ warnings }: { warnings: Schemas["Warning"][] }) {
   const { pack } = useCaseFrame();
   return (
     <section className="av-card av-stack" aria-labelledby="warn-title">
+      <SectionIcon glyph="flag" tone="amber" />
       <h3 id="warn-title">{w("check.warnings")}</h3>
       <p className="av-muted">{w("check.warnings_intro")}</p>
       <ul className="av-report-list">
@@ -225,6 +226,7 @@ function SpotCheck({ caseId }: { caseId: string }) {
   };
   return (
     <section id="spot-check" className="av-card av-stack" aria-labelledby="spot-title">
+      <SectionIcon glyph="shieldCheck" />
       <h3 id="spot-title">{w("check.spot")}</h3>
       <p>{w("check.spot_intro")}</p>
       {error && <Notice tone="error"><p>{error}</p>{action && <LinkButton to={action.to}>{action.label}</LinkButton>}</Notice>}

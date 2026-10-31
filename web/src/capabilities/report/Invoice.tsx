@@ -11,7 +11,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Dialog, IconTile, LoadError, Loading, Notice, stepLabel, TextField } from "../../foundation/ui";
+import { Button, Dialog, IconTile, LoadError, Loading, Notice, SectionIcon, stepLabel, TextField } from "../../foundation/ui";
 import { longDate, money, useLocale } from "./shared";
 import { w } from "./words";
 
@@ -423,6 +423,7 @@ function BillingDetails({ initial: p, etag, onSaved }: { initial: Schemas["Billi
   };
   return (
     <section className="av-card av-stack" aria-labelledby="billing-title">
+      <SectionIcon glyph="invoice" />
       <h3 id="billing-title">{w("invoice.billing")}</h3>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       <TextField label={w("invoice.billing_name")} name="legal_name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -470,6 +471,7 @@ function BankForm({ initial, etag, onSaved }: { initial: Bank | null; etag: stri
   };
   return (
     <section className="av-card av-stack" aria-labelledby="bank-title">
+      <SectionIcon glyph="lock" />
       <h3 id="bank-title">{w("invoice.bank")}</h3>
       <p className="av-muted">{w("invoice.bank_note")}</p>
       {error && <Notice tone="error"><p>{error}</p></Notice>}

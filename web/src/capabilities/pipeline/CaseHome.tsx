@@ -8,7 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { firstScreenInCase, screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LinkButton, LoadError, Loading, ProgressBar, StatusMark, stepLabel } from "../../foundation/ui";
+import { Button, LinkButton, LoadError, Loading, ProgressBar, SectionIcon, StatusMark, stepLabel } from "../../foundation/ui";
 import { can, casePath, documentsOf, kindWord } from "./data";
 import { formatDate, formatNumber } from "./format";
 import { w, wn } from "./words";
@@ -168,6 +168,7 @@ export function CaseHome() {
         </section>
 
         <section className="av-card pl-section" aria-label={w("home.about")}>
+          <SectionIcon glyph="folder" />
           <h2>{w("home.about")}</h2>
           <dl className="pl-home__facts">
             {item.due_date && <div><dt>{w("home.due")}</dt><dd className="av-mono">{formatDate(item.due_date, locale)}</dd></div>}

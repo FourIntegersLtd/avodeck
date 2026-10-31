@@ -6,7 +6,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, IconTile, LinkButton, LoadError, Loading, Notice, TextField, Updating } from "../../foundation/ui";
+import { BackLink, Button, IconTile, LinkButton, LoadError, Loading, Notice, SectionIcon, TextField, Updating } from "../../foundation/ui";
 import { PeopleIcon, NewDocIcon, TickGreenIcon, WarnIcon } from "./icons";
 import { dayMonth, keyName, useLocale, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
@@ -198,6 +198,7 @@ function Claims({ caseId, report }: { caseId: string; report: Schemas["OpposingR
   return (
     <>
       <section className="av-after-panel">
+        <SectionIcon glyph="checklist" />
         <h3 id="claims-title">{w("new.claims")}</h3>
         {error && <Notice tone="error"><p>{error}</p></Notice>}
         <table className="av-after-claims" aria-labelledby="claims-title">

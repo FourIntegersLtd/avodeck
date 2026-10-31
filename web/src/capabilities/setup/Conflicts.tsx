@@ -8,7 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Callout, ChoicePills, Dialog, LoadError, Loading, Notice, TextLink, useBusy } from "../../foundation/ui";
+import { Button, Callout, ChoicePills, Dialog, LoadError, Loading, Notice, SectionIcon, TextLink, useBusy } from "../../foundation/ui";
 import { Balance, NoteView, partyWords, TextArea } from "./shared";
 
 type Answer = { answer: "yes" | "no" | null; detail: string };
@@ -145,6 +145,7 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
         </Notice>
       )}
       <section aria-labelledby="setup-conflict-questions" className="av-card av-stack av-setup-qs">
+        <SectionIcon glyph="question" />
         <h3 id="setup-conflict-questions">{t("setup.conflicts.questions")}</h3>
         {state.questions.map((q) => {
           const a = answers[q.key] ?? { answer: null, detail: "" };
@@ -187,6 +188,7 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
       </section>
       {state.paragraph && (
         <section aria-labelledby="setup-conflict-paragraph" className="av-card av-stack">
+          <SectionIcon glyph="page" />
           <h3 id="setup-conflict-paragraph">{t("setup.conflicts.paragraph")}</h3>
           <p className="av-setup-quote">{state.paragraph}</p>
         </section>

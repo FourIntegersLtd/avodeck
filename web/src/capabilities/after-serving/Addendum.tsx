@@ -7,7 +7,7 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, Checkbox, DictationBox, LoadError, Loading, Notice } from "../../foundation/ui";
+import { BackLink, Button, Checkbox, DictationBox, LoadError, Loading, Notice, SectionIcon } from "../../foundation/ui";
 import { TickGreenIcon } from "./icons";
 import { declarationParts, longDate, Select, useLocale, useWaiting } from "./shared";
 import { w } from "./words";
@@ -216,6 +216,7 @@ function Sign({ caseId, sup, declarations, onDone }: { caseId: string; sup: NonN
   };
   return (
     <section className="av-card av-stack" aria-labelledby="sup-h">
+      <SectionIcon glyph="pen" />
       <h3 id="sup-h">{w(locked ? "change.supplementary_locked" : "change.supplementary_draft", { name: sup.display_name })}</h3>
       {signed || locked ? (
         signed && <Notice tone="success"><p>{w("change.signed")}</p></Notice>

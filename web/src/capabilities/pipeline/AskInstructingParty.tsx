@@ -22,6 +22,7 @@ import {
   MenuItem,
   MenuSection,
   Notice,
+  SectionIcon,
   TextLink,
   useBusy,
 } from "../../foundation/ui";
@@ -220,6 +221,7 @@ export function AskInstructingParty() {
             </section>
           )}
           <section className="av-card pl-next">
+            <SectionIcon glyph="send" />
             <h2>{w("ask.next")}</h2>
             <ul className="pl-ticks">
               {(["ask.next_noted", "ask.next_arrive", "ask.next_keep"] as const).map((key) => (

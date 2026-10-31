@@ -9,7 +9,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LoadError, Loading } from "../../foundation/ui";
+import { Button, LoadError, Loading, SectionIcon } from "../../foundation/ui";
 import { MessageNotice, OWN_ERRORS, useAct, type Message } from "./common";
 import { flag } from "./flags";
 import { w, type OrgKey } from "./words";
@@ -71,6 +71,7 @@ function NamedExpert({ caseId }: { caseId: string }) {
 
   return (
     <section aria-labelledby="named-expert" className="av-card av-org-card">
+      <SectionIcon glyph="person" />
       <h3 id="named-expert">{w("case_team.expert")}</h3>
       <p className="av-muted">{w("case_team.expert_hint")}</p>
       <MessageNotice message={message} />

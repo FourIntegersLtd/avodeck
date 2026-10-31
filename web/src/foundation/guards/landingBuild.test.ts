@@ -5,7 +5,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test } from "vitest";
 
-const NOT_COPIED = new Set(["vercel.json", ".gitignore"]);
+// vercel.json is configuration, not a served file. Dot files (.gitignore, and a developer's
+// own .vercel or .env.local) are ignored by git and never reach the deploy.
+const NOT_COPIED = new Set(["vercel.json"]);
 const script = readFileSync(
   resolve(__dirname, "../../../scripts/add-landing.sh"),
   "utf8",
@@ -18,7 +20,7 @@ const copied = new Set(
 
 test("every file in site/ is copied into the Vercel build", () => {
   const files = readdirSync(resolve(__dirname, "../../../../site")).filter(
-    (name) => !NOT_COPIED.has(name),
+    (name) => !NOT_COPIED.has(name) && !name.startsWith("."),
   );
   expect(files.length).toBeGreaterThan(0);
   expect(files.filter((name) => !copied.has(name))).toEqual([]);

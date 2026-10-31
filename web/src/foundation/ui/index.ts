@@ -11,6 +11,8 @@ export type { ButtonProps, LinkButtonProps } from "./Button";
 export { AuthLayout } from "./AuthLayout";
 export { Callout, IconTile } from "./Callout";
 export type { CalloutProps } from "./Callout";
+export { SectionIcon, SECTION_GLYPHS } from "./SectionIcon";
+export type { SectionGlyph } from "./SectionIcon";
 export { CaseHeader, stepLabel } from "./CaseHeader";
 export type { CaseHeaderProps } from "./CaseHeader";
 export { Checkbox } from "./Checkbox";

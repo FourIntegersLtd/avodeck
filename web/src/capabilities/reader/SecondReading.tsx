@@ -2,7 +2,7 @@
 // and keeps its lines apart from the expert's own words; here they are only shown to check against the page.
 import { useEffect, useState } from "react";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Notice } from "../../foundation/ui";
+import { Button, Notice, SectionIcon } from "../../foundation/ui";
 import { w } from "./words";
 
 type Reading = Schemas["SecondReadingOut"];
@@ -55,6 +55,7 @@ export function SecondReading({ caseId, pageNo }: { caseId: string; pageNo: numb
     <div className="rd-second">
       {reading?.status === "done" && (
         <div className="av-card">
+          <SectionIcon glyph="book" />
           <h2 className="rd-label">{w("second.title")}</h2>
           <ol className="rd-second__lines">
             {reading.lines.map((line, i) => (
