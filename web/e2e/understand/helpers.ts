@@ -20,6 +20,10 @@ const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0
 const event = (n: number, over: Record<string, unknown> = {}) => ({
   fact_id: n === 0 ? FACT_1 : uuid(n), kind: "consultation", page_no: n + 1, event_date: `2024-0${(n % 6) + 3}-1${(n % 8) + 1}`, available_at: "2024-05-15", status: n % 2 ? "suggested" : "verified", summary: `Entry ${n + 1}`, source: "src_a", question_ids: n % 3 ? [] : ["a1111111-1111-4111-8111-111111111111"], has_finding: n === 1, ...over,
 });
+const withRank = <T extends Record<string, unknown>>(e: T) => {
+  const rank = e.has_finding ? 0 : (e.question_ids as unknown[] | undefined)?.length ? 1 : e.status === "suggested" ? 2 : 3;
+  return { rank, featured: rank <= 1, ...e };
+};
 
 export interface Stub {
   /** When the timeline answer was sent (ms since the epoch). */
@@ -41,7 +45,7 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
     colour: ["#1E6B4E", "#4C6E91", "#7A6BA8"][lane],
     icon: ["visit", "flask", "moon"][lane],
     subtitle: `${Math.ceil((total - lane) / 3)} entries here`,
-    events: (opts.laneEvents?.[lane] as ReturnType<typeof event>[] | undefined) ?? Array.from({ length: total }, (_, i) => i).filter((i) => i % 3 === lane).map((i) => event(i)),
+    events: ((opts.laneEvents?.[lane] as ReturnType<typeof event>[] | undefined) ?? Array.from({ length: total }, (_, i) => i).filter((i) => i % 3 === lane).map((i) => event(i))).map(withRank),
   }));
   const theCase = {
     id: CASE_A, organisation_id: ORG, named_expert_id: "11111111-1111-4111-8111-111111111111", jurisdiction: run.jurisdiction, case_type: run.caseType,
@@ -75,7 +79,12 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
     }
     if (path === `${c}/timeline`) {
       sentAt = Date.now();
-      return json(route, { as_seen_on: null, as_seen_title: null, range, sources: [{ key: "src_a", label: "Source A", colour: "#1E6B4E" }], counts: { checked: 3, please_check: 3, things_to_look: 1, not_linked: 4, undated: 1, total: 6 }, lanes, unplaced: [event(7000, { event_date: null, kind: "letter" })] });
+      const unplaced = [withRank(event(7000, { event_date: null, kind: "letter" }))];
+      const rows = [...lanes.flatMap((l) => l.events.map((e) => ({ e, l }))), ...unplaced.map((e) => ({ e, l: null as null | (typeof lanes)[number] }))];
+      const key = (e: { event_date: unknown; available_at: unknown }) => (e.event_date ?? e.available_at ?? null) as string | null;
+      rows.sort((a, b) => (key(a.e) === null ? (key(b.e) === null ? 0 : 1) : key(b.e) === null ? -1 : key(a.e)! < key(b.e)! ? -1 : key(a.e)! > key(b.e)! ? 1 : 0) || a.e.page_no - b.e.page_no);
+      const chronology = rows.map(({ e, l }) => ({ fact_id: e.fact_id, lane_key: l?.key ?? "", lane_label: l?.label ?? "", lane_icon: l?.icon ?? null }));
+      return json(route, { as_seen_on: null, as_seen_title: null, range, sources: [{ key: "src_a", label: "Source A", colour: "#1E6B4E" }], status_options: ["verified", "suggested", "things_to_look", "not_linked"], guidance_changed: [], chronology, counts: { checked: 3, please_check: 3, things_to_look: 1, not_linked: 4, undated: 1, total: 6 }, lanes, unplaced });
     }
     if (path === `${c}/consultations/${FACT_1}`) {
       return json(route, {
@@ -103,7 +112,7 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
     }
     if (path === `${c}/comments`) return json(route, { comments: [] });
     if (path === `${c}/findings`) {
-      return json(route, { findings: [
+      return json(route, { done: 1, total: 2, findings: [
         { id: "c1111111-1111-4111-8111-111111111111", check_key: "abnormal_result_no_action", rule: "no_action_within", gentle: false, evidence_fact_ids: [], evidence: [{ fact_id: uuid(902), kind: "result", page_no: 214, event_date: "2024-02-19", summary: "Hb 98" }], evidence_pages: [214], decision: null, reason: null, version: 1, title: "An abnormal result had no action recorded", icon: "flask" },
         { id: "c2222222-2222-4222-8222-222222222222", check_key: "zz_session_length_recorded", rule: "field_missing", gentle: true, evidence_fact_ids: [], evidence: [{ fact_id: uuid(903), kind: "consultation", page_no: 1071, event_date: "2024-06-03", summary: "Repeat" }], evidence_pages: [1071], decision: "not_relevant", reason: "Seen on the ward", version: 2, title: "No session length recorded", icon: "visit" },
       ] });

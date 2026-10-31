@@ -6,7 +6,7 @@ import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
-import { chip, FACT_1, lintIssue, ok, opinionOut, PAGE_1, progress, Q1, serve, views, workspace, type PackRun } from "./testing";
+import { checksFor, chip, FACT_1, lintIssue, ok, opinionOut, PAGE_1, progress, Q1, serve, views, workspace, type PackRun } from "./testing";
 import { WRITE_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE_A}/opinion?q=${Q1}`;
@@ -29,9 +29,9 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     expect(screen.getByRole("button", { name: /Bleeding for 3 weeks.*p\.118/ })).toBeInTheDocument();
     expect(screen.getByText("Guidance one")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: M["write.opinion.points_open"]! })).toHaveAttribute("href", `/cases/${CASE_A}/points?q=${Q1}`);
-    const group = screen.getByRole("radiogroup", { name: M["write.opinion.view"]! });
+    const group = screen.getByRole("group", { name: M["write.opinion.view"]! });
     expect(screen.getByRole("heading", { name: M["write.opinion.view"]! })).toBeInTheDocument();
-    for (const v of views(run)) expect(within(group).getByRole("radio", { name: v.label })).toBeInTheDocument();
+    for (const v of views(run)) expect(within(group).getByRole("button", { name: v.label })).toBeInTheDocument();
     expect(screen.getByText(M["write.opinion.yours_only"]!)).toBeInTheDocument();
     expect(screen.getByText(workspace(run).legal_test)).toBeInTheDocument();
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
@@ -67,7 +67,7 @@ test("the view, the provisional flag and the test text are saved with the opinio
   const { sent, record } = serve("launch");
   save(sent, record);
   const { user } = renderAt(url);
-  await user.click(await screen.findByRole("radio", { name: views("launch")[2]!.label }));
+  await user.click(await screen.findByRole("button", { name: views("launch")[2]!.label }));
   await user.click(screen.getByRole("checkbox", { name: M["write.opinion.provisional"]! }));
   // The pack's test is shown as the board does; the expert's own wording sits behind a button.
   expect(screen.queryByLabelText(M["write.opinion.test"]!)).not.toBeInTheDocument();
@@ -114,7 +114,7 @@ test("open checks are listed, and dismissing one asks for a reason", async () =>
 test("leaving the box asks for the checks again", async () => {
   const { sent, record } = serve("launch", { workspace: workspace("launch", { opinion: opinionOut({ body: "Old" }) }) });
   save(sent, record);
-  server.use(http.post("/v1/cases/:caseId/questions/:q/opinion/lint", () => json({ issues: [lintIssue({ words: "a new thing" })] })));
+  server.use(http.post("/v1/cases/:caseId/questions/:q/opinion/lint", () => json({ issues: [lintIssue({ words: "a new thing" })], open_issues: [lintIssue({ words: "a new thing" })], checks: checksFor([lintIssue()]) })));
   const { user } = renderAt(url);
   await user.type(await screen.findByLabelText(M["write.opinion.editor"]!), " more");
   await user.tab();

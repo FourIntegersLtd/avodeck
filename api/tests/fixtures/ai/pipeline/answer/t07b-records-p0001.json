@@ -21,6 +21,15 @@
               ]
             }
           ],
+          "entries": [
+            {
+              "author_role": null,
+              "first_word_id": "p1w59",
+              "kind": "letter",
+              "last_word_id": "p1w62",
+              "specialty": null
+            }
+          ],
           "facts": [
             {
               "clinician_role": null,

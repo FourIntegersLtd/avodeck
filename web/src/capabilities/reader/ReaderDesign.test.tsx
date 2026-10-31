@@ -75,10 +75,10 @@ describe.each([
     mockReader(pack, { alreadyRead: true, facts: [fact(1, { related }), fact(2)] });
     const { user } = renderAt(PATH);
     await screen.findByRole("article", { name: /Dr P consultation/ });
-    await user.click(screen.getByRole("button", { name: "Next suggestion on this page" }));
+    await user.click(screen.getAllByRole("button", { name: /Anusol/ }).find((b) => b.classList.contains("rd-row__head"))!);
     const rx = await screen.findByRole("article", { name: /Anusol HC suppositories/ });
     await user.click(within(rx).getByRole("button", { name: "Correct" }));
-    await user.click(screen.getByRole("button", { name: /Consultation: Dr P consultation/ }));
+    await user.click(screen.getAllByRole("button", { name: /Dr P consultation/ }).find((b) => b.classList.contains("rd-row__head"))!);
     const visit = await screen.findByRole("article", { name: /Dr P consultation/ });
     await waitFor(() => expect(within(visit).getByText(/Anusol HC suppositories · checked by you/)).toBeVisible());
   });
@@ -97,7 +97,10 @@ describe.each([
     await user.keyboard("c");
     await waitFor(() => expect(api.verifies[0]).toMatchObject({ id: factId(1), body: { action: "correct" } }));
     await user.keyboard("n");
-    await waitFor(() => expect(api.verifies[1]).toMatchObject({ id: factId(2), body: { action: "not_right" } }));
+    expect(await screen.findByLabelText("Why not? (optional)")).toHaveFocus();
+    expect(api.verifies).toHaveLength(1);
+    await user.keyboard("wrong day{Enter}");
+    await waitFor(() => expect(api.verifies[1]).toMatchObject({ id: factId(2), body: { action: "not_right", reason: "wrong day" } }));
     await user.keyboard("{ArrowRight}");
     expect(await screen.findByRole("img", { name: "Page 119" })).toBeVisible();
   });

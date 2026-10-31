@@ -8,8 +8,8 @@ import { formatDue } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Callout, DictationBar, LinkButton, LoadError, Loading, Notice, PageRef, TextLink } from "../../foundation/ui";
-import { KindBadge, QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
+import { Button, DictationBar, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, PageRef, TextLink, Updating } from "../../foundation/ui";
+import { ActionLink, KindBadge, QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
 import { w } from "./words";
 
 type Data = Schemas["Points"];
@@ -43,8 +43,9 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
   const [dictatedOn, setDictatedOn] = useState(initial.range_note.dictated_on);
 
   const [existing, setExisting] = useState<string | null>(null);
+  const [moving, setMoving] = useState<string | null>(null);
 
-  const attempt = async (work: () => Promise<void>) => {
+  const attempt = async (work: () => Promise<void>): Promise<void> => {
     setError(null);
     setExisting(null);
     try {
@@ -54,10 +55,24 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
     }
   };
 
+  const move = async (point: Point, side: string) => {
+    if (moving) return;
+    setMoving(point.id);
+    try {
+      await change(point, { side });
+    } finally {
+      setMoving(null);
+    }
+  };
+
   const change = (point: Point, body: Schemas["PointChange"]) =>
     attempt(async () => {
       const next = await unwrap(api.PATCH("/v1/cases/{case_id}/points/{point_id}", { params: { path: { case_id: caseId, point_id: point.id } }, body, headers: ifMatch(versionTag(point.version)) }));
-      setData((d) => ({ ...d, points: next.status === "dismissed" ? d.points.filter((p) => p.id !== point.id) : d.points.map((p) => (p.id === point.id ? next : p)) }));
+      setData((d) => {
+        const without = (list: Point[]) => list.filter((p) => p.id !== point.id);
+        const replaced = (list: Point[]) => list.map((p) => (p.id === point.id ? next : p));
+        return next.status === "dismissed" ? { ...d, points: without(d.points), live: without(d.live) } : { ...d, points: replaced(d.points), live: replaced(d.live) };
+      });
       setRemoving(null);
     });
 
@@ -75,7 +90,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
         }
         throw err;
       }
-      setData((d) => ({ ...d, points: [...d.points, point], unused: d.unused.filter((f) => f.id !== fact.id), relevant: d.relevant.filter((r) => r.fact.id !== fact.id) }));
+      setData((d) => ({ ...d, points: [...d.points, point], live: [...d.live, point], unused: d.unused.filter((f) => f.id !== fact.id), relevant: d.relevant.filter((r) => r.fact.id !== fact.id) }));
     });
 
   const dismissRelevant = (relevant: Schemas["RelevantOut"]) =>
@@ -99,7 +114,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
     });
 
   const done = chosen.progress?.questions.find((p) => p.question_id === questionId)?.points_done ?? false;
-  const live = data.points.filter((p) => p.status !== "dismissed");
+  const live = data.live;
   return (
     <div className="av-page av-stack">
       <div>
@@ -138,7 +153,8 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
               {mine.length === 0 && <p className="av-muted">{w("points.side_empty")}</p>}
               <ul className="av-write-list">
                 {mine.map((point) => (
-                  <li key={point.id} id={`point-${point.id}`} tabIndex={-1} className="av-write-item">
+                  <li key={point.id} id={`point-${point.id}`} tabIndex={-1} className={moving === point.id ? "av-write-item av-busy-dim" : "av-write-item"} aria-busy={moving === point.id}>
+                    {moving === point.id && <Updating label={w("points.moving")} />}
                     <div className="av-write-item__head">
                       <span>{point.fact.value}</span>
                       <PageRef page={point.fact.page_no} />
@@ -147,20 +163,22 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                     {point.status === "stale" && <p className="av-write-badge">{w("points.stale_point")}</p>}
                     <div className="av-write-actions">
                       {(point.status === "suggested" || point.status === "stale") && (
-                        <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void change(point, { status: "accepted" })}>
+                        <Button variant="quiet" onClick={() => change(point, { status: "accepted" })}>
                           {w("points.keep")}
-                        </button>
+                        </Button>
                       )}
-                      {data.sides
-                        .filter((s) => s.code !== point.side)
-                        .map((s) => (
-                          <button type="button" key={s.code} className="av-text-link av-write-linkbutton" onClick={() => void change(point, { side: s.code })}>
-                            {w("points.move", { side: s.label })}
-                          </button>
-                        ))}
-                      <button type="button" className="av-text-link av-write-linkbutton" onClick={() => setRemoving(point)}>
-                        {w("points.remove")}
-                      </button>
+                      <Menu label={w("points.more")} trigger={w("points.more")}>
+                        <MenuSection>
+                          {data.sides
+                            .filter((s) => s.code !== point.side)
+                            .map((s) => (
+                              <MenuItem key={s.code} onClick={() => void move(point, s.code)}>
+                                {w("points.move", { side: s.label })}
+                              </MenuItem>
+                            ))}
+                          <MenuItem onClick={() => setRemoving(point)}>{w("points.remove")}</MenuItem>
+                        </MenuSection>
+                      </Menu>
                     </div>
                   </li>
                 ))}
@@ -180,9 +198,9 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                     {data.unused.map((fact) => (
                       <li key={fact.id} className="av-write-item av-write-item__head">
                         <span>{fact.value} <PageRef page={fact.page_no} /></span>
-                        <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void add(fact, side.code)}>
+                        <ActionLink onClick={() => add(fact, side.code)}>
                           {w("points.add_to", { side: side.label })}
-                        </button>
+                        </ActionLink>
                       </li>
                     ))}
                   </ul>
@@ -194,24 +212,20 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
       </div>
 
       {data.relevant.map((r) => (
-        <Callout
-          key={r.id}
-          title={
+        <Notice key={r.id} tone="amber">
+          <p>
             <strong>{w("points.relevant_title", { count: 1 })}</strong>
-          }
-          actions={
-            <>
-              <TextLink to={`/cases/${caseId}/consultation/${r.fact.id}`}>{w("points.relevant_look")}</TextLink>
-              <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void dismissRelevant(r)}>
-                {w("points.relevant_dismiss")}
-              </button>
-            </>
-          }
-        >
+          </p>
           <p>
             <span>{r.fact.value}</span> <PageRef page={r.fact.page_no} /> <span>{r.why_relevant}</span>
           </p>
-        </Callout>
+          <div className="av-write-actions">
+            <TextLink to={`/cases/${caseId}/consultation/${r.fact.id}`}>{w("points.relevant_look")}</TextLink>
+            <Button variant="quiet" onClick={() => dismissRelevant(r)}>
+              {w("points.relevant_dismiss")}
+            </Button>
+          </div>
+        </Notice>
       ))}
 
       <div className="av-write-columns">
@@ -229,7 +243,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
             rows={6}
           />
           <div className="av-write-actions">
-            <Button onClick={() => void saveNote()}>{w("points.range_save")}</Button>
+            <Button variant="secondary" onClick={saveNote}>{w("points.range_save")}</Button>
             {noteSaved && <span role="status">{w("points.range_saved")}</span>}
             {dictatedOn && <span className="av-muted">{w("points.dictated", { date: formatDue(dictatedOn, undefined) })}</span>}
           </div>
@@ -256,12 +270,12 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                 ))}
               </p>
               <div className="av-write-actions">
-                <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void decide(claim, "confirmed")}>
+                <ActionLink onClick={() => decide(claim, "confirmed")}>
                   {w("points.claim_confirm")}
-                </button>
-                <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void decide(claim, "dismissed")}>
+                </ActionLink>
+                <ActionLink onClick={() => decide(claim, "dismissed")}>
                   {w("points.claim_dismiss")}
-                </button>
+                </ActionLink>
               </div>
             </article>
           ))}
@@ -287,7 +301,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
           title={w("points.remove_title")}
           label={w("points.remove_reason")}
           confirm={w("points.remove_confirm")}
-          onConfirm={(reason) => void change(removing, { status: "dismissed", dismissed_reason: reason })}
+          onConfirm={(reason) => change(removing, { status: "dismissed", dismissed_reason: reason })}
           onClose={() => setRemoving(null)}
         />
       )}

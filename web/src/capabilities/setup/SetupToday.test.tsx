@@ -22,5 +22,5 @@ test("questions waiting to be checked open What you've been asked", async () => 
   expect(screen.getByRole("link", { name: "Check the questions" })).toHaveAttribute("href", `/cases/${CASE_A}/questions`);
   expect(screen.getByText("Your profile has 2 things missing")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Finish your profile" })).toHaveAttribute("href", "/profile");
-  expect(screen.getByRole("link", { name: "New case" })).toHaveAttribute("href", "/cases/new");
+  expect(screen.getByRole("link", { name: "Start a new case" })).toHaveAttribute("href", "/cases/new");
 });

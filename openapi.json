@@ -37,6 +37,41 @@
         "title": "Acknowledged",
         "type": "object"
       },
+      "AddQuestion": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "para_ref": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "pattern": "^\\d{1,3}(\\([a-z]{1,4}\\)|\\(\\d{1,2}\\))?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Para Ref"
+          },
+          "text": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "kind"
+        ],
+        "title": "AddQuestion",
+        "type": "object"
+      },
       "Addition": {
         "additionalProperties": false,
         "properties": {
@@ -935,6 +970,25 @@
         "title": "BillingProfileOut",
         "type": "object"
       },
+      "BlockingCase": {
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "label"
+        ],
+        "title": "BlockingCase",
+        "type": "object"
+      },
       "BuildQueued": {
         "properties": {
           "job_id": {
@@ -1109,6 +1163,22 @@
             "title": "Pages",
             "type": "integer"
           },
+          "quarantine_confirmed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/QuarantinePage"
+            },
+            "title": "Quarantine Confirmed",
+            "type": "array"
+          },
+          "quarantine_listed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/QuarantinePage"
+            },
+            "title": "Quarantine Listed",
+            "type": "array"
+          },
           "quarantine_suggestions": {
             "default": [],
             "items": {
@@ -1125,6 +1195,11 @@
             "title": "Quarantined",
             "type": "array"
           },
+          "set_aside_count": {
+            "default": 0,
+            "title": "Set Aside Count",
+            "type": "integer"
+          },
           "splits": {
             "default": 0,
             "title": "Splits",
@@ -1134,6 +1209,24 @@
             "default": 0,
             "title": "Straightened",
             "type": "integer"
+          },
+          "suggested_count": {
+            "default": 0,
+            "title": "Suggested Count",
+            "type": "integer"
+          },
+          "unopened_count": {
+            "default": 0,
+            "title": "Unopened Count",
+            "type": "integer"
+          },
+          "unopened_documents": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Document"
+            },
+            "title": "Unopened Documents",
+            "type": "array"
           },
           "unreadable": {
             "title": "Unreadable",
@@ -2315,33 +2408,9 @@
               }
             ],
             "title": "Storage Place"
-          },
-          "support_hours": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Support Hours"
-          },
-          "support_phone": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Support Phone"
           }
         },
         "required": [
-          "support_phone",
-          "support_hours",
           "storage_place"
         ],
         "title": "Cell",
@@ -2469,6 +2538,30 @@
         "title": "ChangeEdit",
         "type": "object"
       },
+      "ChangePassword": {
+        "properties": {
+          "current_password": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+            "title": "Current Password",
+            "type": "string"
+          },
+          "new_password": {
+            "maxLength": 256,
+            "minLength": 12,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "ChangePassword",
+        "type": "object"
+      },
       "CheckResult": {
         "properties": {
           "checked": {
@@ -2583,6 +2676,11 @@
       },
       "Checklist": {
         "properties": {
+          "done": {
+            "default": 0,
+            "title": "Done",
+            "type": "integer"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/ChecklistItem"
@@ -2593,6 +2691,11 @@
           "rule_ref": {
             "title": "Rule Ref",
             "type": "string"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
@@ -2698,6 +2801,42 @@
           "fact_version"
         ],
         "title": "Chip",
+        "type": "object"
+      },
+      "ChronologyRef": {
+        "description": "One row of the list view: the entry (by id) and the lane it sits in, already in date order.",
+        "properties": {
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "lane_icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lane Icon"
+          },
+          "lane_key": {
+            "default": "",
+            "title": "Lane Key",
+            "type": "string"
+          },
+          "lane_label": {
+            "default": "",
+            "title": "Lane Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact_id"
+        ],
+        "title": "ChronologyRef",
         "type": "object"
       },
       "ChunkReceived": {
@@ -2907,6 +3046,14 @@
       "CloseSummary": {
         "description": "What screen 26 shows: where the case is, when it will be deleted, and what is holding it.",
         "properties": {
+          "active_holds": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/app__features__close__schemas__Hold"
+            },
+            "title": "Active Holds",
+            "type": "array"
+          },
           "case_id": {
             "format": "uuid",
             "title": "Case Id",
@@ -2977,6 +3124,18 @@
               }
             ],
             "title": "Max Retention Years"
+          },
+          "paused_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused Until"
           },
           "retention_policy": {
             "anyOf": [
@@ -3338,6 +3497,24 @@
         "title": "Comments",
         "type": "object"
       },
+      "CompleteUpload": {
+        "properties": {
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The whole file's SHA-256 (64 hex characters), worked out by the sender.",
+            "title": "Sha256"
+          }
+        },
+        "title": "CompleteUpload",
+        "type": "object"
+      },
       "ConcordanceOut": {
         "properties": {
           "bundle": {
@@ -3352,6 +3529,32 @@
           },
           "counts": {
             "$ref": "#/components/schemas/Counts"
+          },
+          "display_rows": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RowOut"
+            },
+            "title": "Display Rows",
+            "type": "array"
+          },
+          "hidden": {
+            "default": 0,
+            "title": "Hidden",
+            "type": "integer"
+          },
+          "missing_count": {
+            "default": 0,
+            "title": "Missing Count",
+            "type": "integer"
+          },
+          "missing_rows": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RowOut"
+            },
+            "title": "Missing Rows",
+            "type": "array"
           },
           "rows": {
             "items": {
@@ -5201,6 +5404,11 @@
             "title": "Fact Id",
             "type": "string"
           },
+          "featured": {
+            "default": false,
+            "title": "Featured",
+            "type": "boolean"
+          },
           "first_word_n": {
             "anyOf": [
               {
@@ -5231,6 +5439,11 @@
             },
             "title": "Question Ids",
             "type": "array"
+          },
+          "rank": {
+            "default": 3,
+            "title": "Rank",
+            "type": "integer"
           },
           "series_key": {
             "anyOf": [
@@ -5531,12 +5744,38 @@
       },
       "FactList": {
         "properties": {
+          "done": {
+            "default": 0,
+            "description": "How many are dealt with: checked as right or changed (and not asked again), or marked not right.",
+            "title": "Done",
+            "type": "integer"
+          },
           "facts": {
             "items": {
               "$ref": "#/components/schemas/FactOut"
             },
             "title": "Facts",
             "type": "array"
+          },
+          "highlights": {
+            "description": "The words to mark on the page picture: every fact not marked not right.",
+            "items": {
+              "$ref": "#/components/schemas/Highlight"
+            },
+            "title": "Highlights",
+            "type": "array"
+          },
+          "reassigned": {
+            "default": false,
+            "description": "A fact on this page is suggested again because the case's named expert changed.",
+            "title": "Reassigned",
+            "type": "boolean"
+          },
+          "total": {
+            "default": 0,
+            "description": "How many suggestions the page has.",
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
@@ -5683,10 +5922,31 @@
             "title": "Declaration Changed",
             "type": "boolean"
           },
+          "failed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Failed",
+            "type": "array"
+          },
+          "failed_count": {
+            "default": 0,
+            "title": "Failed Count",
+            "type": "integer"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "not_run": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Not Run",
+            "type": "array"
           },
           "pack_versions": {
             "additionalProperties": {
@@ -5697,6 +5957,19 @@
           },
           "passed": {
             "title": "Passed",
+            "type": "boolean"
+          },
+          "passed_checks": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Passed Checks",
+            "type": "array"
+          },
+          "ready": {
+            "default": false,
+            "title": "Ready",
             "type": "boolean"
           },
           "report_version_id": {
@@ -5736,6 +6009,20 @@
           "declaration_changed"
         ],
         "title": "FinalCheckOut",
+        "type": "object"
+      },
+      "Finalizing": {
+        "properties": {
+          "status": {
+            "description": "`finalizing`: the file is being checked; poll the upload until it is `complete`.",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "Finalizing",
         "type": "object"
       },
       "FindingDecision": {
@@ -5884,12 +6171,22 @@
       },
       "Findings": {
         "properties": {
+          "done": {
+            "default": 0,
+            "title": "Done",
+            "type": "integer"
+          },
           "findings": {
             "items": {
               "$ref": "#/components/schemas/FindingOut"
             },
             "title": "Findings",
             "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
@@ -6198,6 +6495,11 @@
             "title": "Id",
             "type": "string"
           },
+          "live": {
+            "description": "Not replaced and not adjourned.",
+            "title": "Live",
+            "type": "boolean"
+          },
           "replaced_by_hearing_id": {
             "anyOf": [
               {
@@ -6249,7 +6551,8 @@
           "replaced_by_hearing_id",
           "direction_id",
           "version",
-          "changed_at"
+          "changed_at",
+          "live"
         ],
         "title": "HearingOut",
         "type": "object"
@@ -6257,15 +6560,44 @@
       "Hearings": {
         "properties": {
           "hearings": {
+            "description": "In the order the screen shows: live first, then newest first.",
             "items": {
               "$ref": "#/components/schemas/HearingOut"
             },
             "title": "Hearings",
             "type": "array"
+          },
+          "next_hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The earliest live hearing.",
+            "title": "Next Hearing Id"
+          },
+          "next_trial_hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The earliest live trial hearing.",
+            "title": "Next Trial Hearing Id"
           }
         },
         "required": [
-          "hearings"
+          "hearings",
+          "next_hearing_id",
+          "next_trial_hearing_id"
         ],
         "title": "Hearings",
         "type": "object"
@@ -6318,6 +6650,73 @@
           "counted"
         ],
         "title": "HeartbeatOut",
+        "type": "object"
+      },
+      "HelpRequest": {
+        "properties": {
+          "message": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "page": {
+            "pattern": "^/[A-Za-z0-9/_-]{0,200}$",
+            "title": "Page",
+            "type": "string"
+          },
+          "topic": {
+            "enum": [
+              "case",
+              "account",
+              "billing",
+              "other"
+            ],
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic",
+          "message",
+          "page"
+        ],
+        "title": "HelpRequest",
+        "type": "object"
+      },
+      "Highlight": {
+        "properties": {
+          "bbox": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "word_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Word Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "word_ids",
+          "bbox"
+        ],
+        "title": "Highlight",
         "type": "object"
       },
       "HoldCreate": {
@@ -7046,6 +7445,14 @@
             },
             "title": "Invites",
             "type": "array"
+          },
+          "pending_invites": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Invite"
+            },
+            "title": "Pending Invites",
+            "type": "array"
           }
         },
         "required": [
@@ -7569,6 +7976,66 @@
         "title": "Job",
         "type": "object"
       },
+      "JobActionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason_code": {
+            "enum": [
+              "service_restored",
+              "fault_fixed",
+              "expert_asked"
+            ],
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason_code"
+        ],
+        "title": "JobActionBody",
+        "type": "object"
+      },
+      "JobActionResult": {
+        "properties": {
+          "action": {
+            "enum": [
+              "resume",
+              "requeue"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed",
+              "paused"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "case_id",
+          "action",
+          "status"
+        ],
+        "title": "JobActionResult",
+        "type": "object"
+      },
       "JobOut": {
         "properties": {
           "job_id": {
@@ -7923,6 +8390,59 @@
         "title": "LatestOut",
         "type": "object"
       },
+      "LetterItem": {
+        "description": "A cited paragraph of the letter, ready to show: the words the question or assumption came from.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "question",
+              "assumption"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "outside_expertise": {
+            "default": false,
+            "title": "Outside Expertise",
+            "type": "boolean"
+          },
+          "para_ref": {
+            "title": "Para Ref",
+            "type": "string"
+          },
+          "text_verbatim": {
+            "title": "Text Verbatim",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "para_ref",
+          "text_verbatim"
+        ],
+        "title": "LetterItem",
+        "type": "object"
+      },
+      "LetterPages": {
+        "properties": {
+          "page_count": {
+            "description": "Pages in the letter of instruction.",
+            "title": "Page Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page_count"
+        ],
+        "title": "LetterPages",
+        "type": "object"
+      },
       "LinkDecision": {
         "properties": {
           "status": {
@@ -8059,6 +8579,24 @@
         "title": "Links",
         "type": "object"
       },
+      "LintCheck": {
+        "properties": {
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "passed"
+        ],
+        "title": "LintCheck",
+        "type": "object"
+      },
       "LintDismiss": {
         "additionalProperties": false,
         "properties": {
@@ -8138,16 +8676,32 @@
       },
       "LintOut": {
         "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/LintCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
           "issues": {
             "items": {
               "$ref": "#/components/schemas/LintIssueOut"
             },
             "title": "Issues",
             "type": "array"
+          },
+          "open_issues": {
+            "items": {
+              "$ref": "#/components/schemas/LintIssueOut"
+            },
+            "title": "Open Issues",
+            "type": "array"
           }
         },
         "required": [
-          "issues"
+          "issues",
+          "open_issues",
+          "checks"
         ],
         "title": "LintOut",
         "type": "object"
@@ -8263,6 +8817,11 @@
           },
           "mfa_enrolled": {
             "title": "Mfa Enrolled",
+            "type": "boolean"
+          },
+          "must_change_password": {
+            "default": false,
+            "title": "Must Change Password",
             "type": "boolean"
           },
           "person": {
@@ -9053,6 +9612,19 @@
             },
             "title": "Missing Items",
             "type": "array"
+          },
+          "still_missing": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/MissingItem"
+            },
+            "title": "Still Missing",
+            "type": "array"
+          },
+          "still_missing_count": {
+            "default": 0,
+            "title": "Still Missing Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -9746,12 +10318,39 @@
       },
       "NewSinceServed": {
         "properties": {
+          "first_page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Page"
+          },
+          "last_page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Page"
+          },
           "pages": {
             "items": {
               "$ref": "#/components/schemas/NewPage"
             },
             "title": "Pages",
             "type": "array"
+          },
+          "read_count": {
+            "default": 0,
+            "title": "Read Count",
+            "type": "integer"
           },
           "served_at": {
             "anyOf": [
@@ -10269,6 +10868,13 @@
             "title": "Changed Citations",
             "type": "array"
           },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/LintCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
           "citation_refs": {
             "items": {
               "$ref": "#/components/schemas/Citation"
@@ -10555,6 +11161,11 @@
             "title": "Id",
             "type": "string"
           },
+          "needs_attention": {
+            "description": "Checked, does not match and the expert has not yet confirmed it.",
+            "title": "Needs Attention",
+            "type": "boolean"
+          },
           "our_page_no": {
             "anyOf": [
               {
@@ -10649,7 +11260,8 @@
           "expert_confirmed",
           "confirmed_at",
           "discrepancy",
-          "version"
+          "version",
+          "needs_attention"
         ],
         "title": "OpposingClaimOut",
         "type": "object"
@@ -10738,6 +11350,24 @@
             "title": "Id",
             "type": "string"
           },
+          "matching_claims": {
+            "items": {
+              "$ref": "#/components/schemas/OpposingClaimOut"
+            },
+            "title": "Matching Claims",
+            "type": "array"
+          },
+          "needs_attention_count": {
+            "title": "Needs Attention Count",
+            "type": "integer"
+          },
+          "other_claims": {
+            "items": {
+              "$ref": "#/components/schemas/OpposingClaimOut"
+            },
+            "title": "Other Claims",
+            "type": "array"
+          },
           "pages": {
             "anyOf": [
               {
@@ -10769,7 +11399,10 @@
           "checked_at",
           "claims_found",
           "claims",
-          "positions"
+          "positions",
+          "matching_claims",
+          "other_claims",
+          "needs_attention_count"
         ],
         "title": "OpposingReport",
         "type": "object"
@@ -10926,6 +11559,22 @@
       },
       "OrgMemberList": {
         "properties": {
+          "current_members": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/OrgMember"
+            },
+            "title": "Current Members",
+            "type": "array"
+          },
+          "former_members": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/OrgMember"
+            },
+            "title": "Former Members",
+            "type": "array"
+          },
           "members": {
             "items": {
               "$ref": "#/components/schemas/OrgMember"
@@ -10963,6 +11612,14 @@
               "type": "string"
             },
             "title": "Assignable Roles",
+            "type": "array"
+          },
+          "blocking_cases": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BlockingCase"
+            },
+            "title": "Blocking Cases",
             "type": "array"
           },
           "created_at": {
@@ -11631,6 +12288,14 @@
       },
       "PackagesOut": {
         "properties": {
+          "live": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PackageOut"
+            },
+            "title": "Live",
+            "type": "array"
+          },
           "packages": {
             "items": {
               "$ref": "#/components/schemas/PackageOut"
@@ -12738,6 +13403,13 @@
             "title": "Claims",
             "type": "array"
           },
+          "live": {
+            "items": {
+              "$ref": "#/components/schemas/PointOut"
+            },
+            "title": "Live",
+            "type": "array"
+          },
           "points": {
             "items": {
               "$ref": "#/components/schemas/PointOut"
@@ -12776,6 +13448,7 @@
         "required": [
           "sides",
           "points",
+          "live",
           "unused",
           "relevant",
           "claims",
@@ -13136,6 +13809,19 @@
         "title": "ProcessingJob",
         "type": "object"
       },
+      "ProcessingRetried": {
+        "properties": {
+          "requeued": {
+            "title": "Requeued",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requeued"
+        ],
+        "title": "ProcessingRetried",
+        "type": "object"
+      },
       "Profile": {
         "properties": {
           "currency": {
@@ -13193,6 +13879,14 @@
             ],
             "title": "Hourly Rate"
           },
+          "missing_steps": {
+            "description": "Onboarding steps still to do, in order: about, roles, training, template, signature.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Steps",
+            "type": "array"
+          },
           "profession": {
             "anyOf": [
               {
@@ -13249,7 +13943,8 @@
           "hourly_rate",
           "currency",
           "default_retention",
-          "default_jurisdiction"
+          "default_jurisdiction",
+          "missing_steps"
         ],
         "title": "Profile",
         "type": "object"
@@ -13675,6 +14370,18 @@
             "description": "Who says the question is outside the expert's expertise.",
             "title": "Outside Expertise Source"
           },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The first page in source_word_ids (e.g. p2w14 \u2192 2).",
+            "title": "Page"
+          },
           "para_ref": {
             "anyOf": [
               {
@@ -13690,6 +14397,25 @@
             "description": "A label of at most 40 characters for tabs and lists (the model's, else its first clause).",
             "title": "Short Title",
             "type": "string"
+          },
+          "source": {
+            "default": "letter",
+            "description": "Who found this question: 'letter' or 'expert'.",
+            "title": "Source",
+            "type": "string"
+          },
+          "source_instruction_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The instruction version this question was extracted from (immutable).",
+            "title": "Source Instruction Version Id"
           },
           "source_word_ids": {
             "items": {
@@ -13826,6 +14552,11 @@
             "title": "Assumptions",
             "type": "array"
           },
+          "confirmed_count": {
+            "description": "Questions and assumptions confirmed, of `total`.",
+            "title": "Confirmed Count",
+            "type": "integer"
+          },
           "instruction_version_id": {
             "anyOf": [
               {
@@ -13837,6 +14568,14 @@
               }
             ],
             "title": "Instruction Version Id"
+          },
+          "letter": {
+            "description": "Items that cite a paragraph, in paragraph order (numbers count as numbers).",
+            "items": {
+              "$ref": "#/components/schemas/LetterItem"
+            },
+            "title": "Letter",
+            "type": "array"
           },
           "locked": {
             "title": "Locked",
@@ -13870,6 +14609,11 @@
             "title": "Reopened",
             "type": "boolean"
           },
+          "total": {
+            "description": "All questions and assumptions in the set, whatever `answerable` says.",
+            "title": "Total",
+            "type": "integer"
+          },
           "version_no": {
             "anyOf": [
               {
@@ -13899,7 +14643,10 @@
           "rejected",
           "warnings",
           "questions",
-          "assumptions"
+          "assumptions",
+          "confirmed_count",
+          "total",
+          "letter"
         ],
         "title": "Questions",
         "type": "object"
@@ -14046,6 +14793,40 @@
           "first_read_at"
         ],
         "title": "ReadOut",
+        "type": "object"
+      },
+      "Readiness": {
+        "description": "The first-visit steps (account secured, profile filled in, signature saved) and how many are done.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "boolean"
+          },
+          "done_steps": {
+            "title": "Done Steps",
+            "type": "integer"
+          },
+          "profile": {
+            "title": "Profile",
+            "type": "boolean"
+          },
+          "signature": {
+            "title": "Signature",
+            "type": "boolean"
+          },
+          "total_steps": {
+            "title": "Total Steps",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "account",
+          "profile",
+          "signature",
+          "done_steps",
+          "total_steps"
+        ],
+        "title": "Readiness",
         "type": "object"
       },
       "Recipient": {
@@ -14484,6 +15265,11 @@
             ],
             "title": "Court Track Label"
           },
+          "locked": {
+            "default": false,
+            "title": "Locked",
+            "type": "boolean"
+          },
           "sections": {
             "items": {
               "$ref": "#/components/schemas/SectionOut"
@@ -14804,6 +15590,25 @@
         "title": "RetentionChange",
         "type": "object"
       },
+      "RetryOut": {
+        "properties": {
+          "status": {
+            "enum": [
+              "idle",
+              "preparing",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "RetryOut",
+        "type": "object"
+      },
       "Role": {
         "properties": {
           "ended_on": {
@@ -15014,6 +15819,18 @@
             ],
             "title": "Answers Version Id"
           },
+          "days_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Days to the due date in the court's timezone.",
+            "title": "Days Left"
+          },
           "deadline_id": {
             "anyOf": [
               {
@@ -15037,6 +15854,19 @@
               }
             ],
             "title": "Document Id"
+          },
+          "due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the answers are due, from the round's deadline.",
+            "title": "Due On"
           },
           "extracted_at": {
             "anyOf": [
@@ -15071,6 +15901,11 @@
             "title": "Number",
             "type": "integer"
           },
+          "open": {
+            "description": "Still to be answered (not yet signed).",
+            "title": "Open",
+            "type": "boolean"
+          },
           "received_on": {
             "format": "date",
             "title": "Received On",
@@ -15095,13 +15930,51 @@
           "answers_version_id",
           "status",
           "extracted_at",
-          "version"
+          "version",
+          "open",
+          "due_on",
+          "days_left"
         ],
         "title": "RoundOut",
         "type": "object"
       },
+      "RoundQuestions": {
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/WrittenQuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "round_id": {
+            "format": "uuid",
+            "title": "Round Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "round_id",
+          "questions"
+        ],
+        "title": "RoundQuestions",
+        "type": "object"
+      },
       "Rounds": {
         "properties": {
+          "next_due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The earliest due date among the open rounds.",
+            "title": "Next Due On"
+          },
           "rounds": {
             "items": {
               "$ref": "#/components/schemas/RoundOut"
@@ -15111,7 +15984,8 @@
           }
         },
         "required": [
-          "rounds"
+          "rounds",
+          "next_due_on"
         ],
         "title": "Rounds",
         "type": "object"
@@ -15299,6 +16173,63 @@
         "title": "SearchPage",
         "type": "object"
       },
+      "SecondReadingLine": {
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "confidence"
+        ],
+        "title": "SecondReadingLine",
+        "type": "object"
+      },
+      "SecondReadingOut": {
+        "properties": {
+          "lines": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SecondReadingLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "none",
+              "queued",
+              "done",
+              "refused",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "SecondReadingOut",
+        "type": "object"
+      },
       "SectionIn": {
         "additionalProperties": false,
         "properties": {
@@ -15468,6 +16399,64 @@
           "version"
         ],
         "title": "SectionText",
+        "type": "object"
+      },
+      "SeenIn": {
+        "properties": {
+          "dwell_ms": {
+            "default": 0,
+            "maximum": 600000.0,
+            "minimum": 0.0,
+            "title": "Dwell Ms",
+            "type": "integer"
+          },
+          "entry_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Id"
+          },
+          "page_no": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page No"
+          },
+          "picture_opened": {
+            "default": false,
+            "title": "Picture Opened",
+            "type": "boolean"
+          }
+        },
+        "title": "SeenIn",
+        "type": "object"
+      },
+      "SeenOut": {
+        "properties": {
+          "pages_read": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Pages Read",
+            "type": "array"
+          }
+        },
+        "required": [
+          "pages_read"
+        ],
+        "title": "SeenOut",
         "type": "object"
       },
       "SendIn": {
@@ -15948,6 +16937,11 @@
           "minutes_until_timeout": {
             "title": "Minutes Until Timeout",
             "type": "integer"
+          },
+          "must_change_password": {
+            "default": false,
+            "title": "Must Change Password",
+            "type": "boolean"
           },
           "step_up_until": {
             "anyOf": [
@@ -16728,6 +17722,11 @@
       },
       "SpotCheckOut": {
         "properties": {
+          "agree_count": {
+            "default": 0,
+            "title": "Agree Count",
+            "type": "integer"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -16790,6 +17789,11 @@
           "reviewer_email": {
             "title": "Reviewer Email",
             "type": "string"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
@@ -16974,6 +17978,11 @@
       },
       "Subject": {
         "properties": {
+          "identity_recorded": {
+            "description": "Whether the person's name is recorded; never the values.",
+            "title": "Identity Recorded",
+            "type": "boolean"
+          },
           "label": {
             "title": "Label",
             "type": "string"
@@ -17004,9 +18013,47 @@
         "required": [
           "status",
           "label",
-          "representative"
+          "representative",
+          "identity_recorded"
         ],
         "title": "Subject",
+        "type": "object"
+      },
+      "SubjectIdentityIn": {
+        "additionalProperties": false,
+        "description": "The person's own words for themselves; sealed on arrival, never returned, never logged.",
+        "properties": {
+          "date_of_birth": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Written in the pack's date order.",
+            "title": "Date Of Birth"
+          },
+          "name": {
+            "maxLength": 200,
+            "title": "Name",
+            "type": "string"
+          },
+          "other_names": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Other Names",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SubjectIdentityIn",
         "type": "object"
       },
       "SubjectKeyIn": {
@@ -17195,6 +18242,161 @@
           "declaration_confirmed"
         ],
         "title": "SupplementarySignIn",
+        "type": "object"
+      },
+      "SupportAccount": {
+        "description": "An account support created: ids, email, codes and dates only (rule 6: no name).",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 254,
+            "pattern": "^[^@\\s]+@[^@\\s]+$",
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_sent_at": {
+            "format": "date-time",
+            "title": "Last Sent At",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "invited",
+              "active"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "email",
+          "status",
+          "created_at",
+          "last_sent_at"
+        ],
+        "title": "SupportAccount",
+        "type": "object"
+      },
+      "SupportAccountCreate": {
+        "additionalProperties": false,
+        "description": "A new person's account, made by Avodeck support: support never chooses the password (Avodeck makes a\ntemporary one) and adds no team (a team's own owners and admins invite people; any other field is 422).",
+        "properties": {
+          "email": {
+            "maxLength": 254,
+            "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Full Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "full_name",
+          "email"
+        ],
+        "title": "SupportAccountCreate",
+        "type": "object"
+      },
+      "SupportAccountList": {
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/SupportAccount"
+            },
+            "title": "Accounts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "accounts"
+        ],
+        "title": "SupportAccountList",
+        "type": "object"
+      },
+      "SupportAccountWithPassword": {
+        "description": "An account with its temporary password (ADR 0024): in this one answer only (`Cache-Control: no-store`).\nA repeat with the same Idempotency-Key answers `temporary_password: null` and `password_shown: true`.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 254,
+            "pattern": "^[^@\\s]+@[^@\\s]+$",
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_sent_at": {
+            "format": "date-time",
+            "title": "Last Sent At",
+            "type": "string"
+          },
+          "password_shown": {
+            "default": false,
+            "title": "Password Shown",
+            "type": "boolean"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "invited",
+              "active"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "temporary_password": {
+            "anyOf": [
+              {
+                "pattern": "^[A-HJ-NP-Za-hjkmnp-z2-9]{4}(-[A-HJ-NP-Za-hjkmnp-z2-9]{4}){4}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temporary Password"
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "email",
+          "status",
+          "created_at",
+          "last_sent_at"
+        ],
+        "title": "SupportAccountWithPassword",
         "type": "object"
       },
       "SupportCase": {
@@ -17406,6 +18608,15 @@
               "$ref": "#/components/schemas/SupportCase"
             },
             "title": "Cases",
+            "type": "array"
+          },
+          "served_case_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Served Case Ids",
             "type": "array"
           }
         },
@@ -17712,6 +18923,24 @@
       },
       "SupportGrantList": {
         "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SupportGrant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ended": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SupportGrant"
+            },
+            "title": "Ended",
+            "type": "array"
+          },
           "grants": {
             "items": {
               "$ref": "#/components/schemas/SupportGrant"
@@ -18832,6 +20061,14 @@
             ],
             "title": "As Seen Title"
           },
+          "chronology": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChronologyRef"
+            },
+            "title": "Chronology",
+            "type": "array"
+          },
           "counts": {
             "anyOf": [
               {
@@ -18887,6 +20124,14 @@
               "$ref": "#/components/schemas/TimelineSource"
             },
             "title": "Sources",
+            "type": "array"
+          },
+          "status_options": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Status Options",
             "type": "array"
           },
           "unplaced": {
@@ -18986,6 +20231,10 @@
             "title": "Closed Count",
             "type": "integer"
           },
+          "due_this_month": {
+            "title": "Due This Month",
+            "type": "integer"
+          },
           "needs_you": {
             "items": {
               "$ref": "#/components/schemas/NeedsYouItem"
@@ -18993,19 +20242,29 @@
             "title": "Needs You",
             "type": "array"
           },
+          "open_count": {
+            "title": "Open Count",
+            "type": "integer"
+          },
           "organisations": {
             "items": {
               "$ref": "#/components/schemas/TodayOrganisation"
             },
             "title": "Organisations",
             "type": "array"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/Readiness"
           }
         },
         "required": [
           "cases",
           "needs_you",
           "organisations",
-          "closed_count"
+          "closed_count",
+          "open_count",
+          "due_this_month",
+          "readiness"
         ],
         "title": "Today",
         "type": "object"
@@ -19024,12 +20283,17 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "open_count": {
+            "title": "Open Count",
+            "type": "integer"
           }
         },
         "required": [
           "id",
           "name",
-          "kind"
+          "kind",
+          "open_count"
         ],
         "title": "TodayOrganisation",
         "type": "object"
@@ -19098,6 +20362,125 @@
         "title": "TrainingCreate",
         "type": "object"
       },
+      "TranscriptEntryOut": {
+        "properties": {
+          "author_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Label"
+          },
+          "author_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Role"
+          },
+          "date_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Basis"
+          },
+          "event_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "folded": {
+            "title": "Folded",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "kind_label": {
+            "title": "Kind Label",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          },
+          "result_labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Result Labels",
+            "type": "array"
+          },
+          "results": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "specialty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Specialty"
+          }
+        },
+        "required": [
+          "id",
+          "page_no",
+          "kind",
+          "kind_label",
+          "folded",
+          "author_role",
+          "author_label",
+          "specialty",
+          "event_date",
+          "date_basis",
+          "lines",
+          "results",
+          "result_labels"
+        ],
+        "title": "TranscriptEntryOut",
+        "type": "object"
+      },
       "TranscriptIn": {
         "properties": {
           "context": {
@@ -19125,6 +20508,54 @@
           "duration_seconds"
         ],
         "title": "TranscriptIn",
+        "type": "object"
+      },
+      "TranscriptList": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/TranscriptEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "picture_pages": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Picture Pages",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "idle",
+              "preparing",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "unread_pages": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Unread Pages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "total",
+          "entries"
+        ],
+        "title": "TranscriptList",
         "type": "object"
       },
       "TranscriptSaved": {
@@ -19436,6 +20867,54 @@
             ],
             "title": "Document Id"
           },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ISO 8601 expiry time.",
+            "title": "Expires At"
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the upload failed (code only).",
+            "title": "Failure"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Original filename.",
+            "title": "Filename"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Document kind from the case's packs.",
+            "title": "Kind"
+          },
           "missing": {
             "items": {
               "type": "integer"
@@ -19449,6 +20928,18 @@
             },
             "title": "Received",
             "type": "array"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The whole file's SHA-256 sent at upload start.",
+            "title": "Sha256"
           },
           "size": {
             "title": "Size",
@@ -19510,7 +21001,8 @@
             "type": "string"
           },
           "size": {
-            "exclusiveMinimum": 0.0,
+            "description": "Bytes. Zero is refused with `file_empty`.",
+            "minimum": 0.0,
             "title": "Size",
             "type": "integer"
           }
@@ -19937,6 +21429,13 @@
       },
       "Workspace": {
         "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/LintCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
           "chips": {
             "items": {
               "$ref": "#/components/schemas/Chip"
@@ -20005,6 +21504,7 @@
           "views",
           "legal_test",
           "opinion",
+          "checks",
           "question"
         ],
         "title": "Workspace",
@@ -20257,6 +21757,14 @@
       },
       "WrittenQuestions": {
         "properties": {
+          "by_round": {
+            "description": "The same questions under their round.",
+            "items": {
+              "$ref": "#/components/schemas/RoundQuestions"
+            },
+            "title": "By Round",
+            "type": "array"
+          },
           "questions": {
             "items": {
               "$ref": "#/components/schemas/WrittenQuestionOut"
@@ -20266,7 +21774,8 @@
           }
         },
         "required": [
-          "questions"
+          "questions",
+          "by_round"
         ],
         "title": "WrittenQuestions",
         "type": "object"
@@ -20545,7 +22054,7 @@
   "paths": {
     "/v1/auth/mfa/enroll": {
       "post": {
-        "description": "First sign-in: a new authenticator app (QR code and the same secret as text).",
+        "description": "A new authenticator app (QR code and the same secret as text), from a signed-in session; usually at\nthe first risky action, which carries on once `/mfa/verify` accepts a code from it.",
         "operationId": "enroll_v1_auth_mfa_enroll_post",
         "responses": {
           "200": {
@@ -20577,7 +22086,7 @@
     },
     "/v1/auth/mfa/recover": {
       "post": {
-        "description": "Lost phone: password plus one recovery code. The code is used up, the old authenticator is\nremoved and the new session must enrol a new one (which issues a new set of codes).",
+        "description": "Lost phone: password plus one recovery code. The code is used up, the old authenticator is\nremoved and the new session is signed in; the new phone is set up at the next risky action (which\nissues a new set of codes).",
         "operationId": "recover_v1_auth_mfa_recover_post",
         "requestBody": {
           "content": {
@@ -20691,7 +22200,7 @@
     },
     "/v1/auth/mfa/verify": {
       "post": {
-        "description": "A code from the authenticator app: completes sign-in, or steps up for 10 minutes.\n\nThe session gets new cookies. Finishing enrolment issues the ten recovery codes, shown once.",
+        "description": "A code from the authenticator app: the session becomes aal2 and is stepped up for 10 minutes.\n\nThe session gets new cookies. Finishing enrolment issues the ten recovery codes, shown once.",
         "operationId": "verify_v1_auth_mfa_verify_post",
         "requestBody": {
           "content": {
@@ -20736,6 +22245,58 @@
           }
         },
         "summary": "Verify",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/password/change": {
+      "post": {
+        "description": "The signed-in person's current password and a new one (ADR 0024). Clears a temporary password's\nblock and signs out the person's other devices; this one stays signed in.",
+        "operationId": "change_password_v1_auth_password_change_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePassword"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordChanged"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Change Password",
         "tags": [
           "auth"
         ]
@@ -20879,7 +22440,7 @@
     },
     "/v1/auth/sign-in": {
       "post": {
-        "description": "Password step. Sets the session cookies; the session stays at `mfa_required` until a code is verified.",
+        "description": "The password. Sets the session cookies; the session (aal1) can use every ordinary route. A code is\nasked for at risky actions (ADR 0025); `mfa_required` stays in the contract but is no longer answered.",
         "operationId": "sign_in_v1_auth_sign_in_post",
         "requestBody": {
           "content": {
@@ -22008,6 +23569,23 @@
                 }
               ],
               "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "all",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
             }
           }
         ],
@@ -26069,6 +27647,18 @@
               "title": "Case Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Only the versions that have their file attached.",
+            "in": "query",
+            "name": "letters_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only the versions that have their file attached.",
+              "title": "Letters Only",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -26169,6 +27759,137 @@
           }
         },
         "summary": "Add Instruction",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/instructions/{version_id}/pages": {
+      "get": {
+        "operationId": "letter_page_count_v1_cases__case_id__instructions__version_id__pages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LetterPages"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Letter Page Count",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/instructions/{version_id}/pages/{page_number}": {
+      "get": {
+        "operationId": "letter_page_image_v1_cases__case_id__instructions__version_id__pages__page_number__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_number",
+            "required": true,
+            "schema": {
+              "title": "Page Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "The page as a PNG picture."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Letter Page Image",
         "tags": [
           "setup"
         ]
@@ -29547,6 +31268,138 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/pages/{page_no}/second-reading": {
+      "get": {
+        "operationId": "get_second_reading_v1_cases__case_id__pages__page_no__second_reading_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_no",
+            "required": true,
+            "schema": {
+              "title": "Page No",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecondReadingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Second Reading",
+        "tags": [
+          "reader"
+        ]
+      },
+      "post": {
+        "operationId": "ask_second_reading_v1_cases__case_id__pages__page_no__second_reading_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_no",
+            "required": true,
+            "schema": {
+              "title": "Page No",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "on_request",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "On Request",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Ask Second Reading",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/pages/{page_no}/thumbnail": {
       "get": {
         "operationId": "page_thumbnail_v1_cases__case_id__pages__page_no__thumbnail_get",
@@ -30175,6 +32028,18 @@
               "title": "Case Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Only the suggestions still waiting for the expert.",
+            "in": "query",
+            "name": "open",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only the suggestions still waiting for the expert.",
+              "title": "Open",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -30499,6 +32364,60 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/process/retry": {
+      "post": {
+        "description": "Try again: puts the case's failed processing jobs back on the queue (failed to queued). Finished\npages are never read again. Nothing failed is not an error: the answer is a count of 0.",
+        "operationId": "retry_processing_v1_cases__case_id__process_retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessingRetried"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Retry Processing",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/progress": {
       "get": {
         "operationId": "progress_v1_cases__case_id__progress_get",
@@ -30565,6 +32484,18 @@
               "title": "Case Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Only the questions the expert has confirmed or edited, in number order.",
+            "in": "query",
+            "name": "answerable",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only the questions the expert has confirmed or edited, in number order.",
+              "title": "Answerable",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -30600,6 +32531,68 @@
           }
         },
         "summary": "List Questions",
+        "tags": [
+          "setup"
+        ]
+      },
+      "post": {
+        "description": "A question the model missed, added by the expert; it still needs confirming.",
+        "operationId": "add_question_v1_cases__case_id__questions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddQuestion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Add Question",
         "tags": [
           "setup"
         ]
@@ -30892,6 +32885,68 @@
       }
     },
     "/v1/cases/{case_id}/questions/{question_id}/opinion/lint": {
+      "get": {
+        "description": "The opinion's open warnings and which checks passed, without asking the model again.",
+        "operationId": "lint_state_v1_cases__case_id__questions__question_id__opinion_lint_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Lint State",
+        "tags": [
+          "write"
+        ]
+      },
       "post": {
         "description": "Ask the model which words in the saved opinion to check; the warnings open after it answers.",
         "operationId": "lint_opinion_v1_cases__case_id__questions__question_id__opinion_lint_post",
@@ -33933,6 +35988,63 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/subject/identity": {
+      "put": {
+        "description": "Named expert only. Parsed in the pack's date order, stored as an ISO date, sealed with the case key.",
+        "operationId": "save_subject_identity_v1_cases__case_id__subject_identity_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubjectIdentityIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Save Subject Identity",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/support-access": {
       "get": {
         "operationId": "list_support_access_v1_cases__case_id__support_access_get",
@@ -34544,6 +36656,44 @@
               "description": "Only what had arrived by this day.",
               "title": "As Seen On"
             }
+          },
+          {
+            "description": "Count only from this day.",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Count only from this day.",
+              "title": "From"
+            }
+          },
+          {
+            "description": "Count only up to this day.",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Count only up to this day.",
+              "title": "To"
+            }
           }
         ],
         "responses": {
@@ -34581,6 +36731,311 @@
         "summary": "Timeline Overview",
         "tags": [
           "understand"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/transcript/download": {
+      "post": {
+        "operationId": "transcript_download_request_v1_cases__case_id__transcript_download_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Transcript Download Request",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/transcript/download/{job_id}": {
+      "get": {
+        "operationId": "transcript_download_v1_cases__case_id__transcript_download__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Transcript Download",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/transcript/entries": {
+      "get": {
+        "operationId": "transcript_entries_v1_cases__case_id__transcript_entries_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Transcript Entries",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/transcript/retry": {
+      "post": {
+        "description": "The reader asks again after the entries job failed; queues once, nothing while one is waiting.",
+        "operationId": "transcript_retry_v1_cases__case_id__transcript_retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Transcript Retry",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/transcript/seen": {
+      "post": {
+        "operationId": "transcript_seen_v1_cases__case_id__transcript_seen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeenOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Transcript Seen",
+        "tags": [
+          "reader"
         ]
       }
     },
@@ -36106,6 +38561,56 @@
         "summary": "Guideline In Force",
         "tags": [
           "understand"
+        ]
+      }
+    },
+    "/v1/help-requests": {
+      "post": {
+        "description": "Emails the message to our support address; at most 5 per person per day.",
+        "operationId": "send_help_request_v1_help_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HelpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Send Help Request",
+        "tags": [
+          "help"
         ]
       }
     },
@@ -39324,6 +41829,166 @@
         ]
       }
     },
+    "/v1/support/accounts": {
+      "get": {
+        "description": "The accounts support created: `invited` until the person has chosen their own password and completed\nMFA, then `active`.",
+        "operationId": "list_accounts_v1_support_accounts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportAccountList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Accounts",
+        "tags": [
+          "organisations"
+        ]
+      },
+      "post": {
+        "description": "A new person's account with a temporary password, shown once (ADR 0024), and no team; when mail is set\nup, also a set-password email sent after commit (409 `conflict` if the email already has an account, 422\n`invalid_email` if Auth will not take it; at most 20 an hour per staff member counting refused attempts,\n429 `too_many_attempts`).",
+        "operationId": "create_account_v1_support_accounts_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportAccountCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportAccountWithPassword"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Create Account",
+        "tags": [
+          "organisations"
+        ]
+      }
+    },
+    "/v1/support/accounts/{account_id}/temporary-password": {
+      "post": {
+        "description": "A new temporary password, shown once, for an account still `invited`; the old one stops working and the\nperson is signed out everywhere. At most once a minute (429 `sent_recently`); 409 `conflict` once active.",
+        "operationId": "new_temporary_password_v1_support_accounts__account_id__temporary_password_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportAccountWithPassword"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "New Temporary Password",
+        "tags": [
+          "organisations"
+        ]
+      }
+    },
     "/v1/support/cases": {
       "get": {
         "operationId": "search_cases_v1_support_cases_get",
@@ -39516,6 +42181,132 @@
         ]
       }
     },
+    "/v1/support/jobs/{job_id}/requeue": {
+      "post": {
+        "operationId": "requeue_job_v1_support_jobs__job_id__requeue_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobActionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Requeue Job",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/v1/support/jobs/{job_id}/resume": {
+      "post": {
+        "operationId": "resume_job_v1_support_jobs__job_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobActionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Resume Job",
+        "tags": [
+          "support"
+        ]
+      }
+    },
     "/v1/support/organisations/{organisation_id}": {
       "get": {
         "description": "Members, invites, owners, open cases and reassignments; never a name, an email or an invite token.",
@@ -39645,6 +42436,23 @@
               ],
               "title": "Organisation Id"
             }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
           }
         ],
         "responses": {
@@ -39738,6 +42546,60 @@
         ]
       }
     },
+    "/v1/uploads/{upload_id}/cancel": {
+      "post": {
+        "description": "Cancel an open upload. Its stored parts are left to the daily sweep (`cleaned_at` null).",
+        "operationId": "cancel_upload_v1_uploads__upload_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Upload"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Cancel Upload",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
     "/v1/uploads/{upload_id}/chunks/{n}": {
       "put": {
         "operationId": "put_chunk_v1_uploads__upload_id__chunks__n__put",
@@ -39802,6 +42664,7 @@
     },
     "/v1/uploads/{upload_id}/complete": {
       "post": {
+        "description": "Claim the upload for finalisation: 202 while the worker checks the stored parts, 200 with the document\nonce it has (a repeat call). The whole file's SHA-256 is required (422 `file_sha_missing`).",
         "operationId": "complete_upload_v1_uploads__upload_id__complete_post",
         "parameters": [
           {
@@ -39815,12 +42678,39 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CompleteUpload"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
-          "201": {
+          "200": {
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UploadedDocument"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Finalizing"
                 }
               }
             },

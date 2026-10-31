@@ -3,7 +3,7 @@
 Owner: the founder (with one Claude session) · branch `slice/0-foundation` · Phase: before all slices · Migrations 0000–0099 · Estimate 4–6 weeks part-time, in two stages
 
 ## Goal
-A deployed, empty Avodeck that an expert can sign in to with MFA, create a case and upload a bundle, with every shared piece and safety rule in place so slices A–I and O can be built in parallel.
+A deployed, empty Avodeck that an expert can sign in to (password, then MFA at risky actions, ADR 0025), create a case and upload a bundle, with every shared piece and safety rule in place so slices A–I and O can be built in parallel.
 
 ## Two stages
 
@@ -24,6 +24,7 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
   - `supabase/seed.sql` gives the roles local-only passwords; cells set real ones out of band.
   - `core/db.py`: psycopg 3 pool; `Database.request(scope)` and `Database.job(case_id)` each run one transaction with transaction-local settings; refuses to start as a role that can bypass RLS. `core/config.py` reads `DATABASE_URL` and `DATABASE_URL_DIRECT`.
   - Local Supabase ports moved to 553xx (DB on 55322) to avoid clashes with other local projects.
+  - Image masking for vision (`core/ai/mask.py`, `pii.spans`, `AiKit.run_image`) is built (ADR 0030).
   - Not yet: `app.can_access_case()` and the tables it reads arrive with the tables step.
 - [x] Step 3 (2026-10-16): core tables and case access:
   - Migrations `0001`–`0004` (downs in `supabase/migrations/down/`): the core tables plus `idempotency_keys`, all with RLS for `app_api` (by person) and `app_worker` (by job case); state-machine triggers for `cases`, `jobs`, `memberships` and `pages` (SQLSTATE `AV409` → 409 `conflict`); `app.case_action_allowed()` (the permissions matrix, kept equal to `core/auth/permissions.py` by a test), `app.case_access()`, `app.can_access_case()`, `app.ensure_person()`; hash-chained `audit_log` (sequence + advisory lock; `core/audit.find_breaks()` recomputes it).
@@ -51,11 +52,11 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
   - `core/crypto.py`: `CaseCrypto` per-case envelope encryption (AES-GCM) with `LocalKeyProvider` behind the `KeyProvider` interface, keys cached at most 5 minutes; key destruction makes decrypt fail; provider unreachable pauses processing. `SecretBox` seals the Supabase Auth tokens on the session row (`av1:` prefix enforced by a check constraint).
   - Migration `0006_foundation_ai_and_keys.sql`: `ai_calls` and `case_keys` (append only, RLS), `app.ai_budget()`, `app.destroy_case_key()` (worker, own job only, audited), session token constraint (old plaintext tokens cleared).
   - Choices: `case_keys.key_ref` instead of a KMS ARN column (provider-neutral); sealed tokens bound to purpose and person; date-of-birth matching uses the pack language's month names; Presidio's e-mail recogniser only (no trained NER: names come from the case name list); gb-eaw and zz-test identifier files gained labelled date-of-birth recognisers (pack versions bumped); one test fix commit (the record-and-replay test counted a second client's request on the first).
-  - Not yet: real Bedrock, Azure and KMS clients (stage 2), image masking for vision (T-10), Bedrock batch, F6 (jobs step).
+  - Not yet: real Bedrock, Azure and KMS clients (stage 2), Bedrock batch, F6 (jobs step).
 - [x] Step 7 (2026-10-17): files, jobs and the dictation relay:
   - Migration `0007_foundation_files_jobs.sql`: Procrastinate 3.10 schema in its own `procrastinate` schema (only `app_worker` may use it); `jobs.step`; `uploads` (state machine trigger), `job_steps`, `scheduled_runs`, `transcripts`, with RLS; `app.enqueue_job()` (checks case access, writes the `jobs` row and queues it with the lock `case:<id>` for case-changing jobs), `app.claim_scheduled_run()` and `app.last_scheduled_run()` (worker only).
   - `core/jobs.py`: `registry.kind()`/`schedule()`/`enqueue()`, `JobContext.progress()`/`step()`, `JobWorker` (interactive priority before batch, one case-changing job per case, retries then `failed`/`job_error`, `ProcessingPaused` → `paused`, `requeue_stalled()` (F6), `catch_up()` by date (F28)). `app/worker/main.py` `build_worker()` runs it as `app_worker` on `DATABASE_URL_DIRECT`.
-  - `core/storage.py` (local Supabase Storage, service role for Storage only) and `core/routes/uploads.py`: `POST /v1/cases/{id}/uploads`, `PUT /v1/uploads/{id}/chunks/{n}`, `GET /v1/uploads/{id}`, `POST /v1/uploads/{id}/complete`, `GET /v1/cases/{id}/documents/{document_id}/file`; chunks encrypted under the case key; whole-file SHA-256 checked on complete; `document.uploaded` audited.
+  - `core/storage.py` (local Supabase Storage, service role for Storage only) and `core/routes/uploads.py`: `POST /v1/cases/{id}/uploads`, `PUT /v1/uploads/{id}/chunks/{n}`, `GET /v1/uploads/{id}`, `POST /v1/uploads/{id}/cancel`, `POST /v1/uploads/{id}/complete`, `GET /v1/cases/{id}/documents/{document_id}/file`; chunks encrypted under the case key; every part carries `X-Chunk-SHA256` and its hash is kept; `document.uploaded` audited. Since 2026-10-31 (migrations 0124 and 0125, ADR 0030) `complete` claims the upload as `finalizing` and answers 202: the whole-file check runs in the `finalize_upload` worker job (`core/uploads.py`) and the browser polls `GET /v1/uploads/{id}`, so no request holds a connection or a proxy timeout for the length of a 500 MB file. `core/case_files.py` holds `StoredDocument` (`chunks()` streams the parts decrypted; `spool()` is still a stub).
   - `core/routes/jobs.py`: `GET /v1/jobs/{id}` and `/events` (SSE: status, step, pct, eta_seconds, error_code only; changes only; ends when finished or after 5 minutes).
   - `core/routes/dictation.py`: `WS /v1/cases/{id}/dictation` (refuses before accepting: 4401, 4403, 4404, 4422; pack locale and phrases; `speech_unavailable` + 1011 when the service cannot answer) and `POST /v1/cases/{id}/transcripts` (encrypted, `transcript.saved` audited). `require_socket_case_access()` in `core/auth/access.py`; guard `test_foundation_websocket_routes.py`.
   - Choices: dictation and transcripts use `comment.write` (no new permission action); 500 MB file limit; one Storage object per chunk; bucket `STORAGE_BUCKET` (default `case-files`); unfinished uploads expire after 7 days; WebSockets require Origin.
@@ -118,7 +119,9 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
 - `core/ai/bedrock_live.py` `LiveBedrock` (boto3 `bedrock-runtime` Converse in `AWS_REGION` at `BEDROCK_ENDPOINT`): the task schema is the only tool and is forced, so the tool input is the structured output `AiKit` validates; the SDK's retries are off (the kit backs off on `ServiceBusy`); missing or withdrawn model is `ModelUnavailable`; botocore/boto3/urllib3 loggers held at WARNING (rule 6).
 - `core/ai/clients.py` `live_or_recorded()`: per service, live when `ai_settings()` and its keys are present, else recorded when `AI_RECORDINGS_DIR` is set, else none. Keys only from the cell config, never an SDK default credential chain. The setup, understand, write and report `from_env` and the pipeline `wiring.from_env` call it.
 - **Going live:** set the cell values `ai_settings()` already needs (`REGION`, `AWS_REGION`, `BEDROCK_SONNET_MODEL_ID`, `BEDROCK_OPUS_MODEL_ID` as in-region IDs, `BEDROCK_ENDPOINT`, `AZURE_DI_ENDPOINT`, `AZURE_SPEECH_ENDPOINT`, `AI_ENDPOINT_ALLOW_LIST` naming all three hosts), then `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` (optional `AWS_SESSION_TOKEN`) switch the model to live and `AZURE_DI_KEY` switches OCR to live. Unset them to fall back to `AI_RECORDINGS_DIR`.
-- Not yet: live Azure Speech relay, clamd virus scanner, bge-small embedder, KMS key provider, Bedrock batch; a live smoke run against the real services once the accounts exist.
+- Virus scanner: `core/scan.py` `ClamdScanner` (zINSTREAM; `VIRUS_SCANNER=clamd` with `CLAMD_HOST`, `CLAMD_PORT`, `CLAMD_TIMEOUT_S`; ADR 0027; `railway/clamav.json`). No verdict raises `ScanUnavailable`; the pipeline must fail closed on it.
+- Declarations: `verify_before_launch: true` makes `PACKS_APPROVED_ONLY=1` raise `PackNotApproved`; other cells log a warning naming the key. A checked declaration (`false`) needs `verified_by` and `verified_on`.
+- Not yet: live Azure Speech relay, bge-small embedder, KMS key provider, Bedrock batch; a live smoke run against the real services once the accounts exist.
 
 **Stage 1 status (2026-10-17):** stage 1 is complete. The API (auth with MFA, CSRF and step-up, restricted roles with RLS, case access, ETag and Idempotency-Key, chunked encrypted uploads, jobs with progress events, the audit hash chain, packs, the AI kit with recorded stand-ins, local key provider, contracts, Today, notifications and flags) and the web shell (S01, S03, S28 security part, design system, typed client, i18n) run against local Supabase with 764 API tests (95% coverage), 80 web tests and Playwright with axe, all green; CI runs the same commands. What is left is stage 2 and needs cloud accounts: real Bedrock (London in-region IDs), Azure OCR and Speech, the AWS KMS key provider, IAM, Resend, Sentry, the staging and production deploys in London (DigitalOcean App Platform, Vercel headers, CORS and the CSRF cookie domain for a cross-origin API), the acceptance tests re-run against those services, and the definition-of-done item "deployed to staging in London; a test expert can sign in with MFA, create a case and upload a bundle" (the API part, `POST /v1/cases`, is built and tested; the new-case screen is slice C's S04).
 
@@ -127,7 +130,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 ### Changes for slice O (2026-10-22, founder-approved plan, Phase 0)
 
 - [x] `support_staff` (operators add and remove staff by hand, `docs/ops/support-staff.md`; no route writes it) and `support_access_grants` (shared core table, kept after case deletion as the record of consent; O builds the routes), migration 0030
-- [x] Case role `support` in `app.case_access()` and `require_case_access`: current staff and a live grant from the named expert (24 hours, checked on read); only `case.view_metadata`, `case.view_content`, `case.view_audit`; every request audited `support_access.viewed`; fresh MFA (`aal2`) on every call; `require_support_staff` for console routes
+- [x] Case role `support` in `app.case_access()` and `require_case_access`: current staff and a live grant from the named expert (24 hours, checked on read); only `case.view_metadata`, `case.view_content`, `case.view_audit`; every request audited `support_access.viewed`; fresh MFA (`aal2`) on every call; `require_support_staff` (10-minute step-up) for support routes that change something, `require_support_lookup` (MFA at sign-in for the session, ADR 0020) for read-only lookups
 - [x] Closed accounts (S15): read-only on served cases where they are the named expert; everything else 404, in the API and RLS
 - [x] `require_org_access(action)` for the organisation-action table (non-members 404, members without the right 403, 🔒 step-up)
 - [x] Contracts `org_policy()`, `request_case_deletion()`, `case_export_done()`; mails `org.invite`, `case.reassigned`, `support_access.granted`
@@ -137,6 +140,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [x] S3: a change of named expert puts every checked fact back to a suggestion (`cases_named_expert_reset`, migration 0031; `facts_guard` exception and `fact_verifications.action = 'reset'` in 0212, in slice B's range because it must follow 0208 and 0210). Chosen over "only checks by the current named expert count" because every slice reads `facts.status` directly; resetting keeps one truth. An edited fact's suggestion is restored from the verification log; its box is drawn again (`app.word_box`).
 - [x] Replacement case contract `core/contracts/replacement.py` `create_replacement_case()` over `app.create_replacement_case()` and `case_replacements` (migration 0033): `case.reassign_named_expert` 🔒 on a served case; a new draft named to another expert member, linked `replaces` (slice C's `case_links`), consent recorded; the caller does not join (`cases_creator_joins` redefined). Bundle copy stays with slice A.
 - [x] Custody transfers: `custody_transfers` (kept after deletion), case role `custodian` (read actions only) in `app.case_access()`, `app.case_role_allowed()` and `require_case_access`, migration 0032; permissions.md custodian column. Slice O builds `POST /v1/support/custody-transfers` behind `support_custody_transfer`.
+- [x] Support job actions (support-account plan phase 3, migration 0035): core router `core/routes/support.py`; `POST /v1/support/jobs/{job_id}/resume` (flag `support_job_resume`; paused job back on the queue, the worker moves it to running) and `POST /v1/support/jobs/{job_id}/requeue` (flag `support_job_requeue`; failed -> queued, attempts 0); `{reason_code}` from a fixed list; `job_support_actions` keeps what the job was; audited `support.job_resumed` / `support.job_requeued` on the case trail; mails `support.job_resumed`, `support.job_requeued`. Slice O adds the console buttons.
 
 ## Screens
 - `S28-Account` Account and security (canvas board 33): devices, backup codes, email change, message preferences
@@ -149,7 +153,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - `POST /v1/auth/sign-in`, `/auth/mfa/enroll`, `/auth/mfa/verify`, `/auth/sign-out`, `/auth/password/forgot`, `/auth/password/reset`, `GET /auth/session`
 - `GET /v1/me`, `POST /v1/me/sessions/revoke-all` 🔒
 - `POST /v1/cases`, `PATCH /v1/cases/{id}`, `GET /v1/today`
-- `POST /v1/cases/{id}/uploads`, `PUT /v1/uploads/{upload_id}/chunks/{n}`, `GET /v1/uploads/{upload_id}`, `POST /v1/uploads/{upload_id}/complete`, `GET /v1/cases/{id}/documents/{document_id}/file`
+- `POST /v1/cases/{id}/uploads`, `PUT /v1/uploads/{upload_id}/chunks/{n}`, `GET /v1/uploads/{upload_id}`, `POST /v1/uploads/{upload_id}/cancel`, `POST /v1/uploads/{upload_id}/complete` (202 + `finalize_upload` job), `GET /v1/cases/{id}/documents/{document_id}/file`
 - `GET /v1/jobs/{job_id}`, `GET /v1/jobs/{job_id}/events` (SSE)
 - `GET /v1/notifications`, `POST /v1/notifications/{notification_id}/read`, `GET`/`PUT /v1/me/notification-preferences`, `GET /v1/feature-flags`
 - `WS /v1/cases/{id}/dictation`, `POST /v1/cases/{id}/transcripts`
@@ -209,7 +213,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 
 **Features:**
 - [x] Sign-in sets an httpOnly, Secure, SameSite=Strict cookie and never returns a token in the body
-- [x] First sign-in requires MFA enrolment; sign-in returns `mfa_required` until the code is verified
+- [x] ~~First sign-in requires MFA enrolment; sign-in returns `mfa_required` until the code is verified~~ Superseded by ADR 0025 (2026-10-25): sign-in is password only (`signed_in` at `aal1`); a risky action answers 403 `mfa_required` (`mfa_enrolled` false: set up; true: enter a code) or `step_up_required`, and the web step-up prompt sets up the authenticator, shows the backup codes once and carries on (failure mode F41)
 - [x] Session expires after 30 minutes of inactivity; sign-in success and failure are written to `audit_log`
 - [x] Password reset responds the same whether or not the email exists, and revokes all sessions
 - [x] A 300 MB PDF uploads in 8 MB chunks, resumes after a dropped chunk, and is stored with a matching SHA-256
@@ -229,7 +233,7 @@ Root checklist, plus: deployed to staging in London; a test expert can sign in w
 
 These came out of the behaviour audit and are in scope. Each bullet is an acceptance test to write first. Permissions come from `docs/spec/permissions.md`; scenarios from `docs/spec/scenarios.md`.
 
-**Extra tables owned:** `people`, `sessions`, `mfa_recovery_codes`, `email_changes`, `organisations` (personal only), `memberships`, `case_members` (table and access check; screens in C), `notifications`, `notification_preferences`, `feature_flags`, `case_keys`, `deletion_ledger` (schema; H writes), `mfa_attempts`, `job_kind_actions`.
+**Extra tables owned:** `people`, `sessions`, `mfa_recovery_codes`, `email_changes`, `organisations` (personal only), `memberships`, `case_members` (table and access check; screens in C), `notifications`, `notification_preferences`, `feature_flags`, `case_keys`, `deletion_ledger` (schema; H writes), `mfa_attempts`, `password_change_attempts`, `job_kind_actions`.
 
 **Extra endpoints:** `GET /v1/me/sessions`, `DELETE /v1/me/sessions/{session_id}`, `POST /v1/auth/mfa/recovery-codes` 🔒, `POST /v1/auth/mfa/recover`, `POST /v1/me/email-change` 🔒, `POST /v1/me/email-change/confirm`, `GET/PUT /v1/me/notification-preferences`, `GET /v1/notifications`, `POST /v1/notifications/{notification_id}/read`, `GET /v1/feature-flags`, `GET /v1/packs`, `GET /v1/jurisdictions`, `GET /v1/jurisdictions/{code}`, `GET /v1/cases/{case_id}/pack`, (The Stripe webhook moved to slice O, Phase 2.)
 
@@ -245,3 +249,4 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [x] Email change needs confirmation from both addresses and step-up
 - [x] Audit rows carry person, organisation, case, action and target
 - [x] Only one case-changing job runs per case at a time; interactive jobs run before batch
+- [x] Temporary passwords (ADR 0024, migration 0036): `people.must_change_password`, enforced in `SessionRoute` (403 `password_change_required` except session, me, MFA steps, sign-out and `POST /v1/auth/password/change`; guard `test_foundation_password_change.py`); the S01 shell's "Choose your own password" screen. Support routes need no fresh MFA (ADR 0023).

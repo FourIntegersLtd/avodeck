@@ -292,6 +292,7 @@ async def test_answers_are_kept_once_and_the_expert_sees_them(
     assert listed.status_code == 200, listed.text
     check = listed.json()["spot_checks"][0]
     assert check["reviewer_email"] == COLLEAGUE and check["responded_at"] is not None
+    assert check["total"] == 2 and check["agree_count"] == 1
     assert {(a["fact_id"], a["agrees"]) for a in check["responses"]} == {
         (str(built.plan), True),
         (str(built.result), False),

@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { assumption, casePack, inCase, launchWords, question, questions, type PackRun } from "./testing";
+import { casePack, inCase, launchWords, nowAsked, question, questions, type PackRun } from "./testing";
 
 type Over = Parameters<typeof questions>[0];
 
@@ -18,13 +18,9 @@ function asked(run: PackRun, over: Over = {}) {
 }
 
 describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
-  test("the letter pane shows the cited paragraphs, and each card has a Q chip and its kind as a pill", async () => {
+  test("each card has a Q chip and its kind as a pill", async () => {
     asked(run);
     const { container } = renderAt(`/cases/${CASE_A}/questions`);
-    const letter = await screen.findByRole("region", { name: "Letter of instruction" });
-    expect(within(letter).getByText("4.1")).toBeInTheDocument();
-    expect(within(letter).getByText(question().text_verbatim).tagName).toBe("MARK");
-    expect(within(letter).getByText(assumption().text_verbatim).tagName).toBe("MARK");
     const card = await screen.findByRole("article", { name: "Question 1" });
     expect(within(card).getByText("Q1")).toBeInTheDocument();
     const first = casePack(run).question_types[0]!;
@@ -42,7 +38,9 @@ test("a question outside your expertise explains it and offers to answer only th
   server.use(
     http.patch("/v1/cases/:caseId/questions/:id", async ({ request }) => {
       sent = await request.json();
-      return HttpResponse.json(question({ kind: "causation", status: "confirmed", outside_expertise: true, outside_expertise_source: "pack", answer_parts: ["timing"], version: 2 }), { headers: { etag: '"2"' } });
+      const next = question({ kind: "causation", status: "confirmed", outside_expertise: true, outside_expertise_source: "pack", answer_parts: ["timing"], version: 2 });
+      nowAsked({ questions: [next] });
+      return HttpResponse.json(next, { headers: { etag: '"2"' } });
     }),
   );
   const { user } = renderAt(`/cases/${CASE_A}/questions`);

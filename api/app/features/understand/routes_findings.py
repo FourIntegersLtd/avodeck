@@ -57,6 +57,8 @@ class FindingOut(BaseModel):
 
 class Findings(BaseModel):
     findings: list[FindingOut]
+    done: int = 0
+    total: int = 0
 
 
 class FindingDecision(BaseModel):
@@ -123,10 +125,13 @@ async def _one(request: Request, conn: DbConn, case_id: uuid.UUID, finding_id: u
 async def list_findings(case_id: uuid.UUID, access: View, request: Request, conn: DbConn) -> Findings:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
-            f"{_F} where f.case_id = %s and {_SHOWN} order by f.status desc, f.created_at, f.id", (case_id,)
+            f"{_F} where f.case_id = %s and {_SHOWN}"
+            " order by (f.decision is not null), f.status desc, f.created_at, f.id",
+            (case_id,),
         )
         rows = await cur.fetchall()
-    return Findings(findings=await _with_evidence(conn, rows, await case_pack(request, conn, case_id)))
+    out = await _with_evidence(conn, rows, await case_pack(request, conn, case_id))
+    return Findings(findings=out, done=sum(1 for f in out if f.decision is not None), total=len(out))
 
 
 @router.post("/cases/{case_id}/findings/rerun", status_code=202, response_model=Queued)

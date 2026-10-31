@@ -462,6 +462,93 @@ class NewFact:
     date_basis: str | None = None
 
 
+@dataclass(frozen=True)
+class NewEntry:
+    kind: str
+    first_n: int
+    last_n: int
+    author_role: str | None = None
+    specialty: str | None = None
+    event_date: dt.date | None = None
+    date_basis: str | None = None
+
+
+async def _put_entries(
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    entries: list[NewEntry],
+    rejected: int,
+    version: str,
+) -> None:
+    """Replaces the page's entries and marks them read, so a rerun gives the same rows (never doubled)."""
+    await conn.execute("delete from app.record_entries where page_id = %s", (page_id,))
+    async with conn.cursor() as cur:
+        await cur.executemany(
+            "insert into app.record_entries (page_id, case_id, kind, first_n, last_n, author_role, specialty,"
+            " event_date, date_basis, extraction_version) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            [
+                (
+                    page_id,
+                    case_id,
+                    e.kind,
+                    e.first_n,
+                    e.last_n,
+                    e.author_role,
+                    e.specialty,
+                    e.event_date,
+                    e.date_basis,
+                    version,
+                )
+                for e in entries
+            ],
+        )
+    await conn.execute(
+        "update app.page_analysis set entries_extracted_at = now(), entries_failed_at = null, entries_rejected = %s,"
+        " updated_at = now()"
+        " where page_id = %s",
+        (rejected, page_id),
+    )
+
+
+async def store_entries(
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    entries: list[NewEntry],
+    *,
+    rejected: int,
+    version: str,
+) -> None:
+    """The entries job's write: entries only; the page's facts and notes are left as they are."""
+    await _put_entries(conn, case_id, page_id, entries, rejected, version)
+
+
+async def pages_to_read_entries(conn: AsyncConnection, case_id: uuid.UUID) -> list[uuid.UUID]:
+    """Extracted pages whose entries have not been read (a case read before entries existed)."""
+    cur = await conn.execute(
+        "select p.id from app.pages p join app.page_analysis a on a.page_id = p.id"
+        " where p.case_id = %s and a.extracted_at is not null and a.entries_extracted_at is null"
+        " and a.entries_failed_at is null and not p.quarantined order by p.bundle_page_no",
+        (case_id,),
+    )
+    return [r[0] for r in await cur.fetchall()]
+
+
+async def leave_entries_for_person(conn: AsyncConnection, page_id: uuid.UUID) -> None:
+    """The entries could not be read after the retry: not marked read, flagged `needs_human`."""
+    await conn.execute(
+        "update app.page_analysis set needs_human = true, reason = coalesce(reason, 'invalid_output'),"
+        " entries_failed_at = now(), updated_at = now() where page_id = %s",
+        (page_id,),
+    )
+
+
+async def has_entries(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
+    cur = await conn.execute("select 1 from app.record_entries where case_id = %s limit 1", (case_id,))
+    return await cur.fetchone() is not None
+
+
 async def store_extraction(
     conn: AsyncConnection,
     case_id: uuid.UUID,
@@ -477,6 +564,8 @@ async def store_extraction(
     prompt_version: str,
     printed_dates: list[dt.date] | None = None,
     availability_evidence: list[dict[str, Any]] | None = None,
+    entries: list[NewEntry] | None = None,
+    entries_rejected: int = 0,
 ) -> None:
     async with conn.cursor() as cur:
         await cur.executemany(
@@ -521,6 +610,10 @@ async def store_extraction(
             Jsonb(availability_evidence or []),
         ),
     )
+    if entries is not None:
+        await _put_entries(conn, case_id, page_id, entries, entries_rejected, prompt_version)
+    else:  # the model gave no usable answer: the page stays unread, for a person
+        await conn.execute("update app.page_analysis set entries_failed_at = now() where page_id = %s", (page_id,))
 
 
 # Copies set aside (increment 5) -----------------------------------------------------------------
@@ -1192,6 +1285,27 @@ async def request_cancel(conn: AsyncConnection, case_id: uuid.UUID, person_id: u
         {"case": case_id, "person": person_id, "kinds": list(BUNDLE_JOBS)},
     )
     return await cur.fetchone() is not None
+
+
+async def failed_job_ids(
+    conn: AsyncConnection, case_id: uuid.UUID, kinds: tuple[str, ...]
+) -> list[tuple[uuid.UUID, str]]:
+    """The case's failed jobs of these kinds, oldest first: id and kind only."""
+    cur = await conn.execute(
+        "select id, kind from app.jobs where case_id = %s and kind = any(%s) and status = 'failed'"
+        " order by created_at, id",
+        (case_id, list(kinds)),
+    )
+    return [(r[0], r[1]) for r in await cur.fetchall()]
+
+
+async def requeue_failed(
+    conn: AsyncConnection, job_id: uuid.UUID, queue: str, priority: int, changes_case: bool
+) -> bool:
+    """failed -> queued through the database function; False when the job was no longer failed."""
+    cur = await conn.execute("select app.requeue_failed_job(%s, %s, %s, %s)", (job_id, queue, priority, changes_case))
+    row = await cur.fetchone()
+    return bool(row and row[0])
 
 
 async def cancel_requested(conn: AsyncConnection, job_id: uuid.UUID) -> bool:

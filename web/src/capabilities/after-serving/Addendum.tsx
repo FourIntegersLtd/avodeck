@@ -146,7 +146,7 @@ export function AddendumScreen() {
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       <div className="av-after-footer">
         {list.length > 0 && <Button variant="secondary" aria-expanded={full} onClick={() => setFull(!full)}>{w("change.read_full")}</Button>}
-        {!locked && <Button variant={sup ? "secondary" : "primary"} arrow={!sup} onClick={() => void build()}>{w("change.build")}</Button>}
+        {!locked && <Button variant={sup ? "secondary" : "primary"} arrow={!sup} onClick={build}>{w("change.build")}</Button>}
       </div>
       {sup && <Sign caseId={caseId} sup={sup} declarations={pack.declarations} onDone={() => changes.reload()} />}
     </div>
@@ -193,7 +193,7 @@ function AddChange({ caseId, paras, onDone }: { caseId: string; paras: Schemas["
         <DictationBox bar caseId={caseId} context="report_change" label={w("change.now")} value={text} onChange={setText} rows={5} />
         <DictationBox bar caseId={caseId} context="report_change_reason" label={w("change.reason")} value={reason} onChange={setReason} rows={3} />
         {error && <Notice tone="error"><p>{error}</p></Notice>}
-        <div className="av-after-footer"><Button variant="secondary" disabled={!ready} onClick={() => void add()}>{w("change.add")}</Button></div>
+        <div className="av-after-footer"><Button variant="secondary" disabled={!ready} onClick={add}>{w("change.add")}</Button></div>
       </div>
     </section>
   );
@@ -225,7 +225,7 @@ function Sign({ caseId, sup, declarations, onDone }: { caseId: string; sup: NonN
           {declarationParts(declarations).map((part) => <p key={part} className="av-after-words">{part}</p>)}
           <Checkbox label={w("change.confirm")} checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
           {error && <Notice tone="error"><p>{error}</p></Notice>}
-          <div className="av-after-footer"><Button disabled={!confirmed} onClick={() => void sign()}>{w("change.sign")}</Button></div>
+          <div className="av-after-footer"><Button disabled={!confirmed} onClick={sign}>{w("change.sign")}</Button></div>
         </>
       )}
     </section>

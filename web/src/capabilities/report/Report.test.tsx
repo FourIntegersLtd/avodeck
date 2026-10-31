@@ -69,8 +69,8 @@ test("changing the citation style sends the version you saw and then waits for t
     http.patch("/v1/cases/:caseId/report/settings", async ({ request }) => (await record(request), etagged(settingsOut({ citation_style: "paragraph", version: 4, job_id: "j2" }), 4, 202))),
   );
   const { user } = renderAt(url);
-  expect(await screen.findByRole("radio", { name: M["report.report.style.page"]! })).toBeChecked();
-  await user.click(screen.getByRole("radio", { name: M["report.report.style.paragraph"]! }));
+  expect(await screen.findByRole("button", { name: M["report.report.style.page"]! })).toHaveAttribute("aria-pressed", "true");
+  await user.click(screen.getByRole("button", { name: M["report.report.style.paragraph"]! }));
   await waitFor(() => expect(sent).toContainEqual({ method: "PATCH", path: `/v1/cases/${CASE_A}/report/settings`, body: { citation_style: "paragraph" }, ifMatch: '"3"' }));
   expect(await screen.findByText(M["report.building"]!)).toBeInTheDocument();
 });
@@ -91,6 +91,34 @@ test("you can write a section in your own words; it saves with the version you l
   await user.click(screen.getByRole("button", { name: M["report.report.section.save"]! }));
   await waitFor(() => expect(sent.at(-1)).toEqual({ method: "PUT", path: `/v1/cases/${CASE_A}/report/sections/${key}`, body: { body: "Changed words", citations: [] }, ifMatch: '"5"' }));
   expect(await screen.findByText(M["report.report.section.saved"]!)).toBeInTheDocument();
+});
+
+test("before a report is built, a section shows its empty state (no error) and does not keep asking", async () => {
+  serve("launch", { report: reportOut("launch", { version: null, versions: [] }) });
+  let asked = 0;
+  server.use(http.get("/v1/cases/:caseId/report/paragraphs", () => (asked++, apiError(404, "not_found"))));
+  renderAt(url);
+  expect(await screen.findByText(M["report.report.section.empty"]!)).toBeInTheDocument();
+  expect(screen.queryByText(/couldn't load/i)).toBeNull();
+  await new Promise((r) => setTimeout(r, 100));
+  expect(asked).toBe(1);
+});
+
+test("a section never written can still be written: the first save sends no If-Match", async () => {
+  const { sent, record } = serve("launch");
+  const key = sectionKeys("launch")[0]!;
+  server.use(
+    http.get("/v1/cases/:caseId/report/sections/:key", () => apiError(404, "not_found")),
+    http.put("/v1/cases/:caseId/report/sections/:key", async ({ request }) => (await record(request), etagged({ key, body: "New words", citations: [], version: 1 }, 1))),
+  );
+  const { user } = renderAt(url);
+  const open = await screen.findAllByRole("button", { name: new RegExp(`${sectionLabel("launch", key)}$`) });
+  await user.click(open.find((b) => /write|edit/i.test(b.getAttribute("aria-label") ?? ""))!);
+  const box = await screen.findByLabelText(`Your words for ${sectionLabel("launch", key)}`);
+  expect(box).toHaveValue("");
+  await user.type(box, "New words");
+  await user.click(screen.getByRole("button", { name: M["report.report.section.save"]! }));
+  await waitFor(() => expect(sent.at(-1)).toEqual({ method: "PUT", path: `/v1/cases/${CASE_A}/report/sections/${key}`, body: { body: "New words", citations: [] }, ifMatch: null }));
 });
 
 const FACT = "f1111111-1111-4111-8111-111111111111";

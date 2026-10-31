@@ -82,7 +82,11 @@ export function questions(): Schemas["Questions"] {
 }
 
 export function event(over: Partial<Schemas["Event"]> = {}): Schemas["Event"] {
+  // The rank is the server's; here it follows the entry's own marks, as the server works it out.
+  const rank = over.has_finding ? 0 : over.question_ids?.length ? 1 : over.status === "suggested" ? 2 : 3;
   return {
+    rank,
+    featured: rank <= 1,
     fact_id: FACT_1,
     kind: "consultation",
     page_no: 118,
@@ -97,8 +101,23 @@ export function event(over: Partial<Schemas["Event"]> = {}): Schemas["Event"] {
   };
 }
 
+/** The server's chronology for a timeline body, worked out the way the server does. */
+function chronologyOf(t: Pick<Schemas["Timeline"], "lanes" | "unplaced">): Schemas["ChronologyRef"][] {
+  const rows = [...t.lanes.flatMap((l) => l.events.map((e) => ({ e, l }))), ...t.unplaced.map((e) => ({ e, l: null }))];
+  const key = ({ e }: { e: Schemas["Event"] }) => e.event_date ?? e.available_at ?? null;
+  rows.sort((a, b) => (key(a) === null ? (key(b) === null ? 0 : 1) : key(b) === null ? -1 : key(a)! < key(b)! ? -1 : key(a)! > key(b)! ? 1 : 0) || a.e.page_no - b.e.page_no);
+  return rows.map(({ e, l }) => ({ fact_id: e.fact_id, lane_key: l?.key ?? "", lane_label: l?.label ?? "", lane_icon: l?.icon ?? null }));
+}
+
 export function timeline(over: Partial<Schemas["Timeline"]> = {}): Schemas["Timeline"] {
+  const body = timelineBody(over);
+  return { ...body, chronology: over.chronology ?? chronologyOf({ lanes: over.lanes ?? body.lanes, unplaced: over.unplaced ?? body.unplaced }) };
+}
+
+function timelineBody(over: Partial<Schemas["Timeline"]>): Schemas["Timeline"] {
   return {
+    chronology: [],
+    status_options: ["verified", "suggested", "things_to_look", "not_linked"],
     lanes: [
       { key: "lane_one", label: "Lane one words", events: [event()], colour: "#2a6f97" },
       { key: "lane_two", label: "Lane two words", events: [event({ fact_id: FACT_2, kind: "result", page_no: 214, event_date: "2024-02-19", status: "suggested", question_ids: [Q_1, Q_2], has_finding: true })] },
@@ -204,4 +223,10 @@ export function comment(over: Partial<Schemas["CommentOut"]> = {}): Schemas["Com
     version: 1,
     ...over,
   };
+}
+
+/** The findings reply as the server gives it: undecided first, then how many are decided. */
+export function findingsReply<T extends { decision?: string | null }>(list: T[]) {
+  const undecided = list.filter((f) => !f.decision);
+  return { findings: [...undecided, ...list.filter((f) => f.decision)], done: list.length - undecided.length, total: list.length };
 }

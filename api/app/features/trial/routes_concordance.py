@@ -44,6 +44,7 @@ from app.features.trial.common import (
 from app.features.trial.pdfs import Document, render
 from app.features.trial.router import router
 from app.features.trial.services import current
+from app.features.trial.storage import Sealer, put_sealed
 from app.features.trial.words import word
 
 Status = Literal["matched", "to_confirm", "missing"]
@@ -79,6 +80,9 @@ class RowOut(BaseModel):
     document_date: date | None = None
 
 
+SHOWN = 4  # rows shown before "and N more", besides those waiting for the expert
+
+
 class Counts(BaseModel):
     matched: int = 0
     to_confirm: int = 0
@@ -89,6 +93,10 @@ class ConcordanceOut(BaseModel):
     bundle: BundleOut | None
     rows: list[RowOut]
     counts: Counts
+    missing_count: int = 0
+    missing_rows: list[RowOut] = []
+    display_rows: list[RowOut] = []
+    hidden: int = 0
 
 
 class RowChange(BaseModel):
@@ -135,10 +143,10 @@ def _row(row: dict[str, Any], cited: dict[uuid.UUID, list[int]]) -> RowOut:
     )
 
 
-async def _queue(conn: Any, storage: Any, case_id: uuid.UUID, data: bytes, **values: Any) -> BundleQueued:
+async def _queue(conn: Any, storage: Any, crypto: Any, case_id: uuid.UUID, data: bytes, **values: Any) -> BundleQueued:
     bundle_id = uuid.uuid4()
     path = trial_path(case_id, "bundles", f"{bundle_id}.pdf")
-    await storage.put(path, data)
+    await put_sealed(Sealer(crypto, storage), conn, case_id, path, data)
     job_id = await registry.enqueue(conn, case_id, "match_trial_bundle")
     await conn.execute(
         "insert into app.court_bundles (id, case_id, hearing_id, version, status, storage_path, sha256,"
@@ -164,6 +172,7 @@ async def upload_court_bundle(
     conn: DbConn,
     access: Upload,
     storage: Storage,
+    crypto: Crypto,
     received_on: date | None = None,
     hearing_id: uuid.UUID | None = None,
 ) -> BundleQueued:
@@ -179,7 +188,7 @@ async def upload_court_bundle(
     if existing is not None:
         raise conflict("bundle_exists", "A court bundle is already here. Send the new one as a re-issue.")
     return await _queue(
-        conn, storage, case_id, data, hearing_id=hearing_id, version=1, received_on=received_on or date.today()
+        conn, storage, crypto, case_id, data, hearing_id=hearing_id, version=1, received_on=received_on or date.today()
     )
 
 
@@ -191,6 +200,7 @@ async def supersede_court_bundle(
     conn: DbConn,
     access: Upload,
     storage: Storage,
+    crypto: Crypto,
     received_on: date | None = None,
 ) -> BundleQueued:
     old = await repo.one(
@@ -205,6 +215,7 @@ async def supersede_court_bundle(
     queued = await _queue(
         conn,
         storage,
+        crypto,
         case_id,
         data,
         hearing_id=old["hearing_id"],
@@ -244,9 +255,29 @@ def _counts(rows: list[RowOut]) -> Counts:
     return counts
 
 
+def _display(rows: list[RowOut], show_all: bool) -> list[RowOut]:
+    """Rows to check always show; the rest fill the first few places (page order kept)."""
+    if show_all:
+        return rows
+    room = SHOWN
+    shown: list[RowOut] = []
+    for row in rows:
+        if row.status == "to_confirm" and not row.confirmed:
+            shown.append(row)
+        elif room > 0:
+            room -= 1
+            shown.append(row)
+    return shown
+
+
 @router.get("/cases/{case_id}/concordance", response_model=ConcordanceOut)
 async def get_concordance(
-    case_id: uuid.UUID, conn: DbConn, access: View, crypto: Crypto, status: Status | None = None
+    case_id: uuid.UUID,
+    conn: DbConn,
+    access: View,
+    crypto: Crypto,
+    status: Status | None = None,
+    limit: Literal["all"] | None = None,
 ) -> ConcordanceOut:
     bundle, rows = await _current(conn, crypto, case_id)
     out = _bundle(bundle) if bundle else None
@@ -258,10 +289,17 @@ async def get_concordance(
             (case_id, out.hearing_id, out.version),
         )
         out.replaces_received_on = before["received_on"] if before else None
+    chosen = [r for r in rows if status is None or r.status == status]
+    counts = _counts(rows)
+    display = _display(chosen, limit == "all")
     return ConcordanceOut(
         bundle=out,
-        rows=[r for r in rows if status is None or r.status == status],
-        counts=_counts(rows),
+        rows=chosen,
+        counts=counts,
+        missing_count=counts.missing,
+        missing_rows=[r for r in rows if r.status == "missing"],
+        display_rows=display,
+        hidden=len(chosen) - len(display),
     )
 
 

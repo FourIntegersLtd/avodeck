@@ -22,7 +22,7 @@ After upload, the expert gets a numbered, sorted bundle: every page read by OCR,
 - `GET /v1/cases/{id}/pages/{page_no}/thumbnail` (for duplicate review)
 
 ## Tables owned
-`ocr_words`, `missing_items`, `record_gaps`, `instructing_party_requests`. Writes the OCR/source/duplicate columns of `pages` and inserts `facts` with status `suggested` (contract owned by foundation).
+`ocr_words`, `missing_items`, `record_gaps`, `record_entries`, `instructing_party_requests`. Writes the OCR/source/duplicate columns of `pages` and inserts `facts` with status `suggested` (contract owned by foundation).
 
 ## Worker job: `process_bundle` / `process_pages`
 split (pikepdf) → render 150–200 dpi (pypdfium2) → hashes → text-layer check (born-digital pages: words from pypdfium2, no OCR) → **T-07a** OCR (Azure DI Layout) for the rest → low-confidence flag → `pii.strip` → **T-07b** per-page extraction (Sonnet 5, batch, cached prompt) → `provenance.check` → date normalisation (dateparser, date order from the pack) → duplicates (pHash + MinHash + rapidfuzz, with date/value equality) → record gaps (monthly density per source) → **T-07c** missing documents (references matched to inventory) → embeddings (bge-small) → email via Resend ("Your bundle is ready", no patient details).
@@ -70,7 +70,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Sorted view:** it reads page-level `page_analysis.printed_dates` (dates found by code in the page's words), never suggested facts, so an unread page reveals nothing (rule 3).
 
-**Extra endpoints:** `GET /v1/cases/{id}/bundle/sorted` (source then date, numbers unchanged), `POST/DELETE /v1/cases/{id}/pages/{page_id}/quarantine`, `POST /v1/cases/{id}/pages/{page_id}/replace`, `POST /v1/cases/{id}/pages/{page_id}/split` (ADR 0019: two linked pages added after the last, nothing renumbered), `GET /v1/cases/{id}/exhibits` (POST deferred: exhibits arrive through uploads), `GET /v1/cases/{id}/bundle/versions`, `POST /v1/cases/{id}/process/cancel`, `POST /v1/cases/{id}/reprocess`.
+**Extra endpoints:** `GET /v1/cases/{id}/bundle/sorted` (source then date, numbers unchanged), `POST/DELETE /v1/cases/{id}/pages/{page_id}/quarantine`, `POST /v1/cases/{id}/pages/{page_id}/replace`, `POST /v1/cases/{id}/pages/{page_id}/split` (ADR 0019: two linked pages added after the last, nothing renumbered), `GET /v1/cases/{id}/exhibits` (POST deferred: exhibits arrive through uploads), `GET /v1/cases/{id}/bundle/versions`, `POST /v1/cases/{id}/process/cancel`, `POST /v1/cases/{id}/process/retry` (case.upload; failed jobs back to queued through `app.requeue_failed_job`, 0120; screen 07 "Try again"), `POST /v1/cases/{id}/reprocess`.
 
 - [x] Wrong-patient pages (planted in the synthetic bundle) are suggested for quarantine, never auto-hidden; once confirmed they keep their numbers, show a placeholder, leave AI, search, exports and citations, and their facts are rejected (S5, F25)
 - [x] A locked (password-protected) or damaged PDF stops that document only: no pages, `documents.unreadable_reason` (migration 0116), listed on S08 and asked for in the S08b draft; the rest of the bundle carries on (F2)
@@ -97,3 +97,7 @@ Showing facts to the expert (B), verifying facts (B), Gmail/Outlook sending (Pha
 
 ## Definition of done
 Root checklist, plus: the synthetic bundle processes end to end on staging; `make eval` baseline recorded.
+
+## Records transcript (ADR 0028)
+- T-07b returns `entries[]` (kind, first and last word id, author role, specialty); stored in `record_entries` (0121, purge order 1015). Job `extract_entries` backfills pages read before this change. Slice B reads through `core/contracts/record_entries.py` (`entries_for_case`, `entries_ready`, `entries_status`, `request_entries`).
+- Packs gain `entries.yaml`, `specialties.yaml`, `result_groups.yaml`, `reading_prompts.yaml`.

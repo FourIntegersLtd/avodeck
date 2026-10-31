@@ -57,6 +57,7 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, router, stale
+from app.core.jobs import BATCH_PRIORITY, INTERACTIVE_PRIORITY
 from app.core.storage import SupabaseStorage
 from app.features.pipeline import missing, paths, repo, split, wiring
 from app.features.pipeline.schemas import (
@@ -81,6 +82,7 @@ from app.features.pipeline.schemas import (
     Processing,
     ProcessingCancelled,
     ProcessingJob,
+    ProcessingRetried,
     ProvenanceChange,
     QuarantineAsk,
     QuarantinePage,
@@ -255,6 +257,9 @@ async def _missing_item(conn: DbConn, crypto: CaseCrypto, case_id: uuid.UUID, it
     )
 
 
+STILL_MISSING = ("open", "requested")
+
+
 @pipeline_router.get("/{case_id}/missing-items", response_model=MissingItems)
 async def list_missing_items(
     case_id: uuid.UUID,
@@ -266,7 +271,8 @@ async def list_missing_items(
     crypto = _crypto(request)
     items = [await _missing_item(conn, crypto, case_id, i) for i in await repo.missing_items(conn, case_id)]
     response.headers["cache-control"] = "private, no-store"
-    return MissingItems(missing_items=items)
+    still = [i for i in items if i.status in STILL_MISSING]
+    return MissingItems(missing_items=items, still_missing=still, still_missing_count=len(still))
 
 
 @pipeline_router.patch("/{case_id}/missing-items/{item_id}", response_model=MissingItem)
@@ -389,6 +395,9 @@ async def bundle_summary(
     held = await repo.quarantines(conn, case_id)
     foreign = await _foreign(conn, case_id)
     response.headers["cache-control"] = "private, no-store"
+    suggested = [_quarantine(q) for q in held if q.status == "suggested"]
+    set_aside = [_quarantine(q) for q in held if q.status in ("confirmed", "purged")]
+    unopened = [_document(d) for d in docs if d.unreadable_reason]
     return BundleSummary(
         pages=sum(n for _, n in sources),
         by_source=[SourceCount(source_type=k, pages=n) for k, n in sources],
@@ -399,8 +408,14 @@ async def bundle_summary(
         missing_items=open_items,
         documents=[_document(d) for d in docs],
         versions=[BundleVersion(**v) for v in repo.versions_of(docs)],
-        quarantine_suggestions=[_quarantine(q) for q in held if q.status == "suggested"],
-        quarantined=[_quarantine(q) for q in held if q.status in ("confirmed", "purged")],
+        quarantine_suggestions=suggested,
+        quarantined=set_aside,
+        unopened_documents=unopened,
+        unopened_count=len(unopened),
+        quarantine_listed=[*suggested, *set_aside],
+        quarantine_confirmed=[q for q in set_aside if q.status == "confirmed"],
+        suggested_count=len(suggested),
+        set_aside_count=len(set_aside),
         exhibits=[_exhibit(e) for e in await repo.exhibits(conn, case_id)],
         foreign_language=[ForeignPage(page_id=p, page_no=n, language=code) for p, n, code in foreign],
         splits=await repo.split_count(conn, case_id),
@@ -623,6 +638,27 @@ async def cancel_processing(
     if cancelled:
         await audit.record(conn, action="bundle.processing_cancelled", target=f"case:{case_id}", case_id=case_id)
     return ProcessingCancelled(cancelled=cancelled)
+
+
+@pipeline_router.post("/{case_id}/process/retry", response_model=ProcessingRetried)
+async def retry_processing(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.upload"))],
+    conn: DbConn,
+) -> ProcessingRetried:
+    """Try again: puts the case's failed processing jobs back on the queue (failed to queued). Finished
+    pages are never read again. Nothing failed is not an error: the answer is a count of 0."""
+    registry = wiring.registry()
+    kinds = (SCAN_DOCUMENT, PROCESS_BUNDLE, PROCESS_PAGES, REPROCESS_CASE)
+    requeued = 0
+    for job_id, name in await repo.failed_job_ids(conn, case_id, kinds):
+        kind = registry.kinds[name]
+        priority = INTERACTIVE_PRIORITY if kind.interactive else BATCH_PRIORITY
+        if await repo.requeue_failed(conn, job_id, registry.queue, priority, kind.changes_case):
+            requeued += 1
+    if requeued:
+        await audit.record(conn, action="bundle.processing_retried", target=f"case:{case_id}", case_id=case_id)
+    return ProcessingRetried(requeued=requeued)
 
 
 @pipeline_router.post("/{case_id}/reprocess", status_code=202, response_model=JobQueued)

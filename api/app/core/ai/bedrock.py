@@ -9,12 +9,15 @@ is sent.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass, field
-from typing import Any, Protocol, runtime_checkable
+from dataclasses import asdict, dataclass, field, fields
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from app.core.ai.cell import check_endpoint, check_model
 from app.core.ai.recordings import FixtureStore
 from app.core.config import AiSettings
+
+if TYPE_CHECKING:
+    from app.core.ai.mask import MaskedImage
 
 
 @dataclass(frozen=True)
@@ -34,6 +37,8 @@ class ModelRequest:
     max_tokens: int = 4096
     task_id: str | None = None
     subject: str | None = None
+    image_sha256: str | None = None  # a masked page picture (T-10): its hash is part of the recording key
+    image: MaskedImage | None = field(default=None, repr=False, compare=False)  # never recorded, never logged
 
 
 @dataclass(frozen=True)
@@ -62,9 +67,13 @@ class BedrockClient(Protocol):
     async def invoke(self, request: ModelRequest) -> ModelResponse: ...
 
 
+_NOT_RECORDED = ("task_id", "subject", "image")
+
+
 def _request_record(request: ModelRequest) -> dict[str, Any]:
-    record = asdict(request)
-    del record["task_id"], record["subject"]
+    record = {f.name: getattr(request, f.name) for f in fields(request) if f.name not in _NOT_RECORDED}
+    if request.image_sha256 is None:
+        del record["image_sha256"]  # keeps every recording made before pictures existed
     record["context"] = dict(request.context)
     record["schema"] = dict(request.schema)
     return record

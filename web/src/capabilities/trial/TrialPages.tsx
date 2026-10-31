@@ -7,7 +7,7 @@ import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
-import { Button, IconTile, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { Button, IconTile, Spinner, useBusy, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
 import { joined, longDate, mediumDate, num, partyWord, pdfBody, printBlob, saveBlob, sourceLabel, tag, trialRef, vocab } from "./data";
 import { PdfPicker, TrialFrame, TrialPage, TrialTitle, type Frame } from "./frame";
 import { w, wn } from "./words";
@@ -103,7 +103,6 @@ function Pages({ frame }: { frame: Frame }) {
     }
   };
 
-  const missing = rows.filter((r) => r.status === "missing");
   const picker = (label: string) => (
     <div className="av-stack av-trial-picker-block">
       <TextField label={w("pages.received_on")} name="received_on" type="date" value={received} onChange={(e) => setReceived(e.target.value)} />
@@ -153,10 +152,10 @@ function Pages({ frame }: { frame: Frame }) {
             <Notice><p>{w("pages.matching")}</p></Notice>
           ) : (
             <>
-              {missing.length > 0 && (
-                <Missing rows={missing} bundleName={bundleName} party={partyWord(frame)} canTell={frame.can("request.draft")} told={told} onTell={tell} pack={frame.pack} locale={frame.locale} />
+              {data.data.missing_count > 0 && (
+                <Missing rows={data.data.missing_rows} bundleName={bundleName} party={partyWord(frame)} canTell={frame.can("request.draft")} told={told} onTell={tell} pack={frame.pack} locale={frame.locale} />
               )}
-              <Table caseId={frame.caseId} rows={rows} pack={frame.pack} locale={frame.locale} bundleName={bundleName} canConfirm={frame.can("fact.verify")} onChanged={data.reload} onCsv={() => exportTable("csv")} />
+              <Table caseId={frame.caseId} rows={rows} display={data.data.display_rows} hiddenCount={data.data.hidden} pack={frame.pack} locale={frame.locale} bundleName={bundleName} canConfirm={frame.can("fact.verify")} onChanged={data.reload} onCsv={() => exportTable("csv")} />
               <div className="av-trial-actions">
                 <Button variant="secondary" onClick={() => exportTable("pdf")}>{w("pages.export_pdf")}</Button>
                 <LinkButton to={screenPath("trial_pack", { caseId: frame.caseId }) ?? `/cases/${frame.caseId}/trial-pack`} arrow>{w("pages.to_pack")}</LinkButton>
@@ -214,14 +213,12 @@ const STATUS_WORD: Record<string, "pages.status.matched" | "pages.status.to_conf
   missing: "pages.status.missing",
 };
 
-const SHOWN = 4;
-
-function Table({ caseId, rows, pack, locale, bundleName, canConfirm, onChanged, onCsv }: { caseId: string; rows: Row[]; pack: Schemas["CasePack"]; locale: string; bundleName: string; canConfirm: boolean; onChanged: () => void; onCsv: () => void }) {
+function Table({ caseId, rows, display, hiddenCount, pack, locale, bundleName, canConfirm, onChanged, onCsv }: { caseId: string; rows: Row[]; display: Row[]; hiddenCount: number; pack: Schemas["CasePack"]; locale: string; bundleName: string; canConfirm: boolean; onChanged: () => void; onCsv: () => unknown }) {
   const [all, setAll] = useState(false);
-  // The ones to check always show; the rest fill the first few places, then "and N more".
-  let room = SHOWN;
-  const shown = all ? rows : rows.filter((r) => (r.status === "to_confirm" && !r.confirmed) || room-- > 0);
-  const hidden = rows.length - shown.length;
+  const csv = useBusy();
+  // The server picks which rows show first and how many are left out.
+  const shown = all ? rows : display;
+  const hidden = all ? 0 : hiddenCount;
   return (
     <section className="av-card av-trial-table-wrap">
       <table className="av-trial-table">
@@ -244,7 +241,7 @@ function Table({ caseId, rows, pack, locale, bundleName, canConfirm, onChanged, 
             {w("pages.and_more", { count: hidden })} <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => setAll(true)}>{w("pages.show_all")}</button>{" · "}
           </>
         )}
-        <button type="button" className="av-text-link av-trial-linkbutton" onClick={onCsv}>{w("pages.export_csv")}</button>
+        <button type="button" className="av-text-link av-trial-linkbutton" aria-busy={csv.busy ? "true" : undefined} disabled={csv.busy} onClick={() => void csv.run(async () => { await onCsv(); })}>{csv.busy && <Spinner />}{w("pages.export_csv")}</button>
       </p>
     </section>
   );

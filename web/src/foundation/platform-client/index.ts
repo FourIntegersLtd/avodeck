@@ -35,6 +35,15 @@ export function onSignedOut(listener: SignedOutListener): () => void {
   return () => signedOutListeners.delete(listener);
 }
 
+type PasswordListener = () => void;
+const passwordListeners = new Set<PasswordListener>();
+
+/** Called when the API says the person must choose their own password first (ADR 0024). */
+export function onPasswordChangeRequired(listener: PasswordListener): () => void {
+  passwordListeners.add(listener);
+  return () => passwordListeners.delete(listener);
+}
+
 function readCookie(name: string): string | null {
   for (const part of document.cookie.split(";")) {
     const [key, ...rest] = part.trim().split("=");
@@ -75,10 +84,12 @@ const csrf: Middleware = {
   },
 };
 
-/** Rule 10: who asks for the code when a call answers step_up_required (foundation/lib/stepUp.tsx). */
+/** Rule 10: who asks for the code when a call answers step_up_required or mfa_required
+ * (foundation/lib/stepUp.tsx). Sign-in is password only (ADR 0025), so the first risky action may need
+ * the authenticator set up first: `setup` is true when the API says it is not set up yet. */
 export interface StepUpPrompt {
-  /** Shows the code prompt; true once the code is accepted, false if cancelled. */
-  ask(): Promise<boolean>;
+  /** Shows the code prompt (or the set-up); true once a code is accepted, false if cancelled. */
+  ask(setup: boolean): Promise<boolean>;
   /** The code was given but the call still needs it: tell the person nothing was changed. */
   nothingChanged(): void;
 }
@@ -95,15 +106,22 @@ export function onStepUpRequired(prompt: StepUpPrompt): () => void {
   };
 }
 
-async function needsCode(response: Response): Promise<boolean> {
-  if (response.status !== 403) return false;
+/** Error codes that a code from the authenticator app answers (rule 10; ADR 0025). */
+export const CODE_NEEDED = new Set(["step_up_required", "mfa_required"]);
+
+/** null if the response does not ask for a code; else whether the authenticator must be set up first. */
+async function codeNeeded(response: Response): Promise<{ setup: boolean } | null> {
+  if (response.status !== 403) return null;
   try {
-    const body = (await response.clone().json()) as { error?: { code?: unknown } };
-    return body.error?.code === "step_up_required";
+    const body = (await response.clone().json()) as { error?: { code?: unknown; mfa_enrolled?: unknown } };
+    const code = body.error?.code;
+    return typeof code === "string" && CODE_NEEDED.has(code) ? { setup: body.error?.mfa_enrolled === false } : null;
   } catch {
-    return false;
+    return null;
   }
 }
+
+const needsCode = async (response: Response) => (await codeNeeded(response)) !== null;
 
 function markAsked(response: Response): Response {
   const headers = new Headers(response.headers);
@@ -116,8 +134,9 @@ async function send(request: Request): Promise<Response> {
   const prompt = stepUpPrompt;
   const spare = prompt && !new URL(request.url).pathname.startsWith("/v1/auth/") ? request.clone() : null;
   const first = await globalThis.fetch(request); // looked up on each call, so test doubles of fetch are honoured
-  if (!prompt || !spare || !(await needsCode(first))) return first;
-  asking ??= prompt.ask().finally(() => {
+  const needed = prompt && spare ? await codeNeeded(first) : null;
+  if (!prompt || !spare || !needed) return first;
+  asking ??= prompt.ask(needed.setup).finally(() => {
     asking = null;
   });
   if (!(await asking)) return markAsked(first);
@@ -154,6 +173,7 @@ export async function unwrap<D>(call: Promise<{ data?: D; error?: unknown; respo
   if (result.response.ok) return result.data as D;
   const err = toApiError(result.response.status, result.error, result.response.headers.get(ASKED) === "1");
   if (err.status === 401 && SIGNED_OUT_CODES.has(err.code)) signedOutListeners.forEach((listener) => listener(err.code));
+  if (err.status === 403 && err.code === "password_change_required") passwordListeners.forEach((listener) => listener());
   throw err;
 }
 

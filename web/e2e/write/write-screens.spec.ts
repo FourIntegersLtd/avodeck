@@ -24,7 +24,7 @@ async function stub(page: Page) {
     page.route(`**/v1/cases/${CASE_A}${path}`, (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) }));
   await reply("", { id: CASE_A, label: "Mrs A", status: "open", instructing_party_type: null, allowed_actions: [] });
   const ids = [Q1, Q2, Q3, Q4];
-  await reply("/questions", {
+  await reply("/questions*", {
     questions: ids.map((id, i) => ({ id, number: i + 1, text_verbatim: `Question ${i + 1} text.`, confirmed_text: null, kind: null, outside_expertise: false, para_ref: null, status: "confirmed", version: 1, source_word_ids: [], instruction_version_id: PAGE })),
     assumptions: [], locked: true, reading: false, read_failed: false, reopened: false, rejected: 0, warnings: [], version_no: 1, instruction_version_id: PAGE,
   });
@@ -37,14 +37,16 @@ async function stub(page: Page) {
     id: `b${n}111111-1111-4111-8111-111111111111`, side, status: "accepted", origin: "ai", reason: null, dismissed_reason: null, flagged: false, version: 1,
     fact: { ...fact, id: `f${n}111111-1111-4111-8111-111111111111`, value, page_no },
   });
-  await reply(`/questions/${Q2}/points`, {
-    sides: SIDES,
-    points: [
+  const points = [
       point(2, "supports_claim", "Bleeding for 3 weeks in a 58-year-old", 118), point(3, "supports_claim", "Iron deficiency anaemia already on file, cause unexplained", 214),
       point(4, "supports_claim", "No abdominal or rectal examination recorded", 118), point(5, "supports_claim", "No safety-netting recorded", 118),
       point(6, "supports_clinician", "The patient offered the explanation herself", 118), point(7, "supports_clinician", "Bleeding described as on the paper only", 118),
       point(8, "supports_clinician", "Review if persists written in the plan", 118),
-    ],
+  ];
+  await reply(`/questions/${Q2}/points`, {
+    sides: SIDES,
+    points,
+    live: points,
     unused: [{ ...fact, id: "f9111111-1111-4111-8111-111111111111", value: "Out-of-hours call mentions tummy pain", page_no: 301 }],
     relevant: [{ id: "d1111111-1111-4111-8111-111111111111", status: "suggested", version: 1, why_relevant: "The out-of-hours call mentions tummy pain, but never reached the clinician. You may want to say whether it matters.", fact: { ...fact, id: "f9222222-2222-4222-8222-222222222222", value: "Out-of-hours call on 22 April", page_no: 301 } }],
     claims: [{ id: "c1111111-1111-4111-8111-111111111111", claim_index: 1, document_id: PAGE, expert_verdict: null, verdict: "contradicts", status: "suggested", version: 1, word_ids: [], text_verbatim: "She told the clinician she had lost weight.", facts: [{ ...fact, id: "f9333333-3333-4333-8333-333333333333", value: "Weight loss is not mentioned until August", page_no: 412 }] }],
@@ -52,7 +54,7 @@ async function stub(page: Page) {
   });
   await reply(`/questions/${Q2}/workspace`, {
     question_id: Q2, chips: [{ fact_id: FACT, page_id: PAGE, page_no: 118, kind: "symptom", value: "Bleeding for 3 weeks", event_date: null, quote_verbatim: "bleeding" }],
-    guidance_on: null, guidance: [], points: { sides: SIDES.map((s) => ({ ...s, count: 4 })), differ: 1 },
+    guidance_on: null, guidance: [], checks: [{ type: "uncited_fact", passed: true }, { type: "loaded_language", passed: true }, { type: "outside_expertise", passed: true }], points: { sides: SIDES.map((s) => ({ ...s, count: 4 })), differ: 1 },
     views: [{ code: "v1", label: "View one" }, { code: "v2", label: "View two" }, { code: "v3", label: "View three" }], legal_test: "The pack's test of what a reasonable practitioner would have done.", opinion: null, question: header,
   });
 }

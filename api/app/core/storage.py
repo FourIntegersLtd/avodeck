@@ -11,6 +11,7 @@ import builtins
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from urllib.parse import quote
 
 import httpx
@@ -30,8 +31,23 @@ def upload_prefix(case_id: object, upload_id: object) -> str:
     return f"{case_prefix(case_id)}/uploads/{upload_id}"
 
 
+def _aware_time(raw: object) -> datetime | None:
+    """A Storage timestamp as an aware datetime; None when missing, unparsable or without an offset."""
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
+
+
 class StorageError(RuntimeError):
     """Storage refused or failed a call. Carries the HTTP status only."""
+
+
+class StorageNotFound(StorageError):
+    """The object is not there (HTTP 404, or the 400 Supabase sends with a 404 in its body)."""
 
 
 @dataclass(frozen=True)
@@ -77,7 +93,17 @@ class SupabaseStorage:
     @staticmethod
     def _check(resp: httpx.Response) -> None:
         if resp.status_code >= 400:
+            if resp.status_code == 404 or (resp.status_code == 400 and SupabaseStorage._body_says_404(resp)):
+                raise StorageNotFound(f"storage answered {resp.status_code}")
             raise StorageError(f"storage answered {resp.status_code}")
+
+    @staticmethod
+    def _body_says_404(resp: httpx.Response) -> bool:
+        try:
+            body = resp.json()
+        except ValueError:
+            return False
+        return isinstance(body, dict) and str(body.get("statusCode")) == "404"
 
     async def ensure_bucket(self) -> None:
         """Create the private bucket if it is not there yet."""
@@ -115,9 +141,46 @@ class SupabaseStorage:
         return items
 
     async def list(self, prefix: str) -> list[str]:
-        """Full paths of the objects directly under `prefix`, in name order (first page only)."""
+        """Full paths of the objects directly under `prefix`, in name order, however many pages."""
         prefix = prefix.rstrip("/")
-        return [f"{prefix}/{item['name']}" for item in await self._list_page(prefix, 0) if item.get("id")]
+        found: builtins.list[str] = []
+        offset = 0
+        while True:
+            items = await self._list_page(prefix, offset)
+            found.extend(f"{prefix}/{item['name']}" for item in items if item.get("id"))
+            if len(items) < self.list_page_size:
+                return found
+            offset += len(items)
+
+    async def _items(self, prefix: str) -> builtins.list[dict[str, object]]:
+        """Every entry (objects and folders) directly under `prefix`, however many pages."""
+        prefix = prefix.rstrip("/")
+        found: builtins.list[dict[str, object]] = []
+        offset = 0
+        while True:
+            items = await self._list_page(prefix, offset)
+            found.extend(items)
+            if len(items) < self.list_page_size:
+                return found
+            offset += len(items)
+
+    async def list_folders(self, prefix: str) -> builtins.list[str]:
+        """Names (not paths) of the folders directly under `prefix`, however many pages."""
+        return [str(i["name"]) for i in await self._items(prefix) if not i.get("id")]
+
+    async def list_object_times(self, prefix: str) -> dict[str, datetime | None]:
+        """Every object anywhere below `prefix` (full path) with the time Storage created it, or None if unknown."""
+        times: dict[str, datetime | None] = {}
+        folders = [prefix.rstrip("/")]
+        while folders:
+            folder = folders.pop()
+            for item in await self._items(folder):
+                path = f"{folder}/{item['name']}"
+                if not item.get("id"):
+                    folders.append(path)
+                    continue
+                times[path] = _aware_time(item.get("created_at"))
+        return times
 
     async def list_recursive(self, prefix: str) -> builtins.list[str]:
         """Full paths of every object anywhere below `prefix`, however many.

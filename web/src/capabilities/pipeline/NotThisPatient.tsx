@@ -7,7 +7,7 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, LoadError, Loading, Notice, PageRef, TextLink } from "../../foundation/ui";
+import { BackLink, Button, LoadError, Loading, Notice, PageRef, SegmentedControl, TextLink } from "../../foundation/ui";
 import { can, casePath, partyWord } from "./data";
 import { formatNumber } from "./format";
 import { Thumbnail } from "./Thumbnail";
@@ -15,7 +15,9 @@ import { w, wn, wordFor } from "./words";
 
 type Q = Schemas["QuarantinePage"];
 type Choice = "not" | "is";
-const SHOWN = new Set(["confirmed", "purged"]);
+
+// The reason code sent when the expert sets aside a page they opened themselves (?page=).
+const EXPERT_REASON = "not_this_person";
 
 export function NotThisPatient() {
   const { item, pack } = useCaseFrame();
@@ -38,7 +40,7 @@ export function NotThisPatient() {
   useEffect(() => {
     if (!found.data) return;
     const s = found.data;
-    const listed = [...(s.quarantine_suggestions ?? []).filter((q) => q.status === "suggested"), ...(s.quarantined ?? []).filter((q) => SHOWN.has(q.status))];
+    const listed = s.quarantine_listed ?? [];
     setPages(listed);
     setLookup(null);
     if (!search.has("page") || listed.some((q) => q.page_no === asked)) return;
@@ -70,8 +72,9 @@ export function NotThisPatient() {
     setError(null);
     try {
       await Promise.all([
-        ...notOurs.map((q) => unwrap(api.POST("/v1/cases/{case_id}/pages/{page_id}/quarantine", { ...path(q), body: { reason: q.reason } }))),
-        ...ours.map((q) => unwrap(api.DELETE("/v1/cases/{case_id}/pages/{page_id}/quarantine", path(q)))),
+        ...notOurs.map((q) => unwrap(api.POST("/v1/cases/{case_id}/pages/{page_id}/quarantine", { ...path(q), body: { reason: q.reason || EXPERT_REASON } }))),
+        // A page opened with ?page= has no stored suggestion (reason ""), so keeping it needs no call.
+        ...ours.filter((q) => q.reason).map((q) => unwrap(api.DELETE("/v1/cases/{case_id}/pages/{page_id}/quarantine", path(q)))),
       ]);
       const ask = notOurs.length > 0 && can(item, "request.draft");
       navigate(`/cases/${caseId}/bundle${ask ? "/ask" : ""}`);
@@ -110,33 +113,36 @@ export function NotThisPatient() {
           <ul className="pl-plain pl-grid">
             {pages.map((q) => (
               <li key={q.page_id} className="av-card pl-pagecard">
-                <div className="pl-excerpt">
-                  <Thumbnail caseId={caseId} pageNo={q.page_no} alt={w("page_alt", { page: num(q.page_no) })} className="pl-thumb pl-thumb--excerpt" />
+                <div className="pl-pagecard__picture">
+                  <Thumbnail caseId={caseId} pageNo={q.page_no} alt={w("page_alt", { page: num(q.page_no) })} className="pl-page-full" full={q.status === "suggested"} />
                 </div>
-                <div className="pl-pagecard__meta">
-                  <h2 className="pl-pagecard__page"><PageRef page={q.page_no} /></h2>
-                  {q.reason && <span className="pl-chip">{wordFor("quarantine.reason", q.reason, humanise(q.reason))}</span>}
+                <div className="pl-pagecard__decide">
+                  <div className="pl-pagecard__meta">
+                    <h2 className="pl-pagecard__page"><PageRef page={q.page_no} /></h2>
+                    {q.reason && <span className="pl-chip">{wordFor("quarantine.reason", q.reason, humanise(q.reason))}</span>}
+                  </div>
+                  {q.status === "suggested" && decides && (
+                    <SegmentedControl
+                      label={w("quarantine.choice", { page: num(q.page_no) })}
+                      value={choices[q.page_id] ?? null}
+                      onChange={(v) => choose(q, v as Choice)}
+                      options={[
+                        { value: "not", label: w("quarantine.not", { name }) },
+                        { value: "is", label: w("quarantine.is", { name }) },
+                      ]}
+                    />
+                  )}
+                  {q.status === "confirmed" && (
+                    <div className="av-row">
+                      <span className="av-badge">{w("quarantine.set_aside")}</span>
+                      {decides && !notes[q.page_id] && (
+                        <Button variant="quiet" onClick={() => undo(q)}>{w("quarantine.undo")}</Button>
+                      )}
+                    </div>
+                  )}
+                  {q.status === "purged" && <p>{w("quarantine.purged")}</p>}
+                  {notes[q.page_id] && <p role="status">{notes[q.page_id]}</p>}
                 </div>
-                {q.status === "suggested" && decides && (
-                  <div className="pl-choices">
-                    <Button variant="secondary" className="pl-choice pl-choice--not" aria-pressed={choices[q.page_id] === "not"} onClick={() => choose(q, "not")}>
-                      {w("quarantine.not", { name })}
-                    </Button>
-                    <Button variant="secondary" className="pl-choice pl-choice--is" aria-pressed={choices[q.page_id] === "is"} onClick={() => choose(q, "is")}>
-                      {w("quarantine.is", { name })}
-                    </Button>
-                  </div>
-                )}
-                {q.status === "confirmed" && (
-                  <div className="av-row">
-                    <span className="av-badge">{w("quarantine.set_aside")}</span>
-                    {decides && !notes[q.page_id] && (
-                      <Button variant="quiet" onClick={() => undo(q)}>{w("quarantine.undo")}</Button>
-                    )}
-                  </div>
-                )}
-                {q.status === "purged" && <p>{w("quarantine.purged")}</p>}
-                {notes[q.page_id] && <p role="status">{notes[q.page_id]}</p>}
               </li>
             ))}
           </ul>

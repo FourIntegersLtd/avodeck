@@ -10,7 +10,9 @@ for (const { name, pack } of PACKS) {
       await page.goto(`/cases/${CASE_A}/preparing`);
       await expect(page.getByRole("heading", { level: 1, name: "Preparing your bundle" })).toBeVisible();
       await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "48");
-      await expect(page.getByRole("button", { name: "Stop preparing" })).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+      await page.getByRole("button", { name: "More" }).click();
+      await expect(page.getByRole("button", { name: "Stop preparing" })).toBeVisible();
+      await page.keyboard.press("Escape");
       await checkScreen(page);
     });
 

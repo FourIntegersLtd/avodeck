@@ -185,9 +185,10 @@ async def test_anyone_but_current_staff_gets_404(client_for: ClientFor, world: W
     assert resp.status_code == 404
 
 
-async def test_recording_needs_recent_mfa(client_for: ClientFor, world: World, staff: uuid.UUID) -> None:
+async def test_recording_needs_no_fresh_mfa(client_for: ClientFor, world: World, staff: uuid.UUID) -> None:
+    """ADR 0023: MFA at sign-in is enough; the request gets past the gate to the custodian check."""
     resp = await (await client_for(staff, mfa_age=STALE)).post(URL, json=body(world.solo_case(status="served")))
-    assert (resp.status_code, resp.json()["error"]["code"]) == (403, "step_up_required")
+    assert (resp.status_code, resp.json()["error"]["code"]) == (422, "no_custodian")
 
 
 @pytest.mark.parametrize(

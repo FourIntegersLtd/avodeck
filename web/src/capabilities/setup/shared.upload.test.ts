@@ -1,6 +1,7 @@
 // Uploads send each part with a few patient retries (a network drop or a 5xx), never for a refusal, and a
 // batch carries on past a file that fails, reporting which were saved and which not, by name.
-import { expect, test } from "vitest";
+import { afterEach, expect, test } from "vitest";
+import { timing } from "../../foundation/lib/chunkedUpload";
 import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { uploadFile, uploadFiles } from "./shared";
@@ -30,17 +31,27 @@ test("a dropped connection on a part is retried", async () => {
   expect(tries).toBe(2);
 });
 
-test("a part is tried up to three more times and then the failure is thrown", async () => {
+// Waiting is policy (0.5 s doubling to 30 s, five minutes in all); here it is taken out so the test is quick.
+const real = { ...timing };
+afterEach(() => Object.assign(timing, real));
+function noWaiting() {
+  let clock = 0;
+  timing.sleep = async (ms) => void (clock += ms);
+  timing.now = () => clock;
+}
+
+test("a part is kept being tried for five minutes and then the failure is thrown", async () => {
+  noWaiting();
   let tries = 0;
   server_(() => (++tries, HttpResponse.json({ error: { code: "server_error" } }, { status: 500 })));
   await expect(uploadFile(CASE_A, file("a.pdf"), "records")).rejects.toMatchObject({ status: 500 });
-  expect(tries).toBe(4);
+  expect(tries).toBeGreaterThan(4);
 });
 
 test("a refusal (4xx) is not retried", async () => {
   let tries = 0;
-  server_(() => (++tries, HttpResponse.json({ error: { code: "chunk_corrupted" } }, { status: 400 })));
-  await expect(uploadFile(CASE_A, file("a.pdf"), "records")).rejects.toMatchObject({ code: "chunk_corrupted" });
+  server_(() => (++tries, HttpResponse.json({ error: { code: "chunk_size_wrong" } }, { status: 400 })));
+  await expect(uploadFile(CASE_A, file("a.pdf"), "records")).rejects.toMatchObject({ code: "chunk_size_wrong" });
   expect(tries).toBe(1);
 });
 

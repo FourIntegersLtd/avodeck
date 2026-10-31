@@ -51,7 +51,7 @@ test("staff see each part of the case as a plain section, with what a stuck stat
 test("the results list links each case to its details page", async () => {
   staff();
   server.use(
-    http.get("/v1/support/cases", () => json({ cases: [detail().case] })),
+    http.get("/v1/support/cases", () => json({ cases: [detail().case], served_case_ids: [] })),
     http.get(`/v1/support/cases/${CASE_A}`, () => json(detail())),
   );
   const { user, router } = renderAt("/support");

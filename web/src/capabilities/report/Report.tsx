@@ -9,14 +9,13 @@ import { screenPath } from "../../foundation/lib/screens";
 import { errorAction, errorMessage, type ErrorAction } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, Segmented, StaleChoice } from "../../foundation/ui";
+import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, SegmentedControl, StaleChoice, Updating, useBusy } from "../../foundation/ui";
 import { downloadPath, useLocale, useSectionName, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
 
 type Report = Schemas["ReportOut"];
 const STYLES = ["page", "paragraph"] as const;
 const ERRORS = { stale: "report.stale", not_built: "report.not_built" };
-const AFTER_SERVING_TYPES = ["answers", "supplementary"];
 
 export function ReportScreen() {
   const { caseId = "" } = useParams();
@@ -30,10 +29,11 @@ export function ReportScreen() {
   const [styleVersion, setStyleVersion] = useState<number | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
   const [refused, setRefused] = useState(false);
+  const { busy: styling, run: guard } = useBusy();
 
   if (found.error || settings.error) return <div className="av-page"><LoadError onRetry={() => { found.reload(); settings.reload(); }} /></div>;
   if (found.data === undefined || !settings.data) return <div className="av-page"><Loading /></div>;
-  const data = (found.data ?? { version: null, versions: [], sections: [], checklist: { items: [] } }) as unknown as Report;
+  const data = (found.data ?? { version: null, versions: [], sections: [], checklist: { items: [], done: 0, total: 0 }, locked: false }) as unknown as Report;
   const version = data.version;
   const currentStyle = style ?? settings.data.citation_style;
   const currentVersion = styleVersion ?? settings.data.version;
@@ -71,8 +71,7 @@ export function ReportScreen() {
     });
 
   // Rule 8: once the main report is served (or withdrawn) it is locked; changes go in a supplementary report.
-  const served = refused || data.versions.some((v) => !AFTER_SERVING_TYPES.includes(v.type) && (v.status === "served" || v.status === "withdrawn"));
-  const done = data.checklist.items.filter((entry) => entry.done).length;
+  const served = refused || data.locked;
   const appendices = ((pack.report_appendices ?? []) as Array<{ key: string; label?: string }>).map((a) => a.label ?? humanise(a.key));
   const limits = ((pack.compliance_checklist as unknown as { page_limit?: Record<string, number> } | undefined)?.page_limit ?? {}) as Record<string, number>;
   const limit = item.court_track ? limits[item.court_track] : undefined;
@@ -90,21 +89,21 @@ export function ReportScreen() {
           <p className="rp-lead">{w("report.intro")}</p>
         </div>
         <div className="rp-head__tools">
-          <Segmented label={w("report.style")} hideLabel name="citation_style" value={currentStyle} onChange={(next) => void changeStyle(next)} options={STYLES.map((key) => ({ value: key, label: w(`report.style.${key}`) }))} />
+          <SegmentedControl label={w("report.style")} value={currentStyle} onChange={(next) => { void guard(() => changeStyle(next)); }} options={STYLES.map((key) => ({ value: key, label: w(`report.style.${key}`), disabled: styling }))} />
           <span className="av-visually-hidden">{w("report.style_changed")}</span>
-          {version && <a className="av-button av-button--secondary" href={`${apiOrigin()}${downloadPath(caseId, version.id, "docx")}`}>{w("report.open_word")}</a>}
+          {version && <a className="av-button av-button--quiet" href={`${apiOrigin()}${downloadPath(caseId, version.id, "docx")}`}>{w("report.open_word")}</a>}
         </div>
       </div>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {served && (
-        <Notice tone="warning">
+        <Notice tone="amber">
           <p>{w("report.served")}</p>
           <LinkButton to={screenPath("S21b", { caseId }) ?? `/cases/${caseId}`}>{w("report.served_link")}</LinkButton>
         </Notice>
       )}
-      {wait.waiting && <Notice><p>{w("building")}</p></Notice>}
-      {!version && <Notice><p>{w("report.empty")}</p></Notice>}
-      {version?.template_fallback && <Notice tone="warning"><p>{w("report.fallback")}</p></Notice>}
+      {wait.waiting && <Notice tone="mint"><p>{w("building")}</p></Notice>}
+      {!version && <Notice tone="mint"><p>{w("report.empty")}</p></Notice>}
+      {version?.template_fallback && <Notice tone="amber"><p>{w("report.fallback")}</p></Notice>}
 
       <div className="rp-report">
         <Contents sections={data.sections} selected={selected?.key ?? null} onChoose={setChosen} appendices={appendices} />
@@ -121,7 +120,7 @@ export function ReportScreen() {
                 </li>
               ))}
             </ul>
-            <p className="av-muted rp-small">{w("report.checklist_done", { done, total: data.checklist.items.length })}</p>
+            <p className="av-muted rp-small">{w("report.checklist_done", { done: data.checklist.done, total: data.checklist.total })}</p>
           </section>
           <Methodology caseId={caseId} locale={locale} />
         </aside>
@@ -131,9 +130,9 @@ export function ReportScreen() {
         <span className="av-muted rp-bar__note">{footer}</span>
         <div className="rp-bar__actions">
           {!served ? (version ? (
-            <button type="button" className="av-text-link rp-linkbtn" onClick={() => void build()} disabled={wait.waiting}>{w("report.rebuild")}</button>
+            <Button variant="quiet" onClick={() => build()} disabled={wait.waiting}>{w("report.rebuild")}</Button>
           ) : (
-            <Button onClick={() => void build()} disabled={wait.waiting}>{w("report.build")}</Button>
+            <Button onClick={() => build()} disabled={wait.waiting}>{w("report.build")}</Button>
           )) : null}
           {version && <LinkButton arrow to={`/cases/${caseId}/final-check`}>{w("report.final_check")}</LinkButton>}
         </div>
@@ -194,10 +193,13 @@ function Paper({ caseId, data, section, number, onSaved }: { caseId: string; dat
   const nameOf = useSectionName();
   const [editing, setEditing] = useState(false);
   const name = nameOf(section.key);
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/paragraphs", { params: { path: { case_id: caseId }, query: { section: section.key } } })), [caseId, section.key, data.version?.id], { cache: "report/Report#Paper:found" });
+  // No built report yet answers 404: that is the empty section, not a failure.
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/paragraphs", { params: { path: { case_id: caseId }, query: { section: section.key } } })).catch((err: unknown) => { if (err instanceof ApiError && err.status === 404) return { paragraphs: [] as Schemas["ParagraphOut"][] }; throw err; }), [caseId, section.key, data.version?.id], { cache: "report/Report#Paper:found" });
+  const updating = found.loading && !!found.data;
   return (
     <div className="rp-centre">
-      <section className="rp-paper" aria-label={w("report.paper")} aria-live="polite">
+      <section className="rp-paper av-busy-dim" aria-label={w("report.paper")} aria-live="polite" aria-busy={updating}>
+        {updating && <Updating label={w("report.updating")} />}
         <h2 className="rp-paper__heading">{`${number}. ${name}`}</h2>
         {found.error ? <LoadError onRetry={found.reload} /> : !found.data ? <Loading inline /> : found.data.paragraphs.length === 0 ? (
           <p className="rp-paper__empty">{w("report.section.empty")}</p>
@@ -223,7 +225,8 @@ function Paper({ caseId, data, section, number, onSaved }: { caseId: string; dat
 }
 
 function SectionEditor({ caseId, sectionKey, onClose, onSaved }: { caseId: string; sectionKey: string; onClose: () => void; onSaved: () => void }) {
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/sections/{key}", { params: { path: { case_id: caseId, key: sectionKey } } })), [caseId, sectionKey]);
+  // A section never saved answers 404: start an empty one (version 0; the first save sends no If-Match).
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/sections/{key}", { params: { path: { case_id: caseId, key: sectionKey } } })).catch((err: unknown): Schemas["SectionText"] => { if (err instanceof ApiError && err.status === 404) return { key: sectionKey, body: "", citations: [], version: 0 }; throw err; }), [caseId, sectionKey]);
   if (found.error) return <LoadError onRetry={found.reload} />;
   if (!found.data) return <Loading inline />;
   return <SectionForm caseId={caseId} initial={found.data} onClose={onClose} onSaved={onSaved} />;
@@ -277,7 +280,7 @@ function SectionForm({ caseId, initial, onClose, onSaved }: { caseId: string; in
         api.PUT("/v1/cases/{case_id}/report/sections/{key}", {
           params: { path: { case_id: caseId, key: initial.key } },
           body: { body, citations: refs },
-          headers: ifMatch(versionTag(at)),
+          headers: at > 0 ? ifMatch(versionTag(at)) : undefined,
         }),
       );
       setVersion(next.version);
@@ -324,7 +327,7 @@ function SectionForm({ caseId, initial, onClose, onSaved }: { caseId: string; in
         </ul>
       )}
       <div className="av-row">
-        <Button onClick={() => void save()}>{w("report.section.save")}</Button>
+        <Button variant="secondary" onClick={() => save()}>{w("report.section.save")}</Button>
         <Button variant="secondary" onClick={onClose}>{w("report.section.close")}</Button>
         {saved && <span role="status">{w("report.section.saved")}</span>}
       </div>

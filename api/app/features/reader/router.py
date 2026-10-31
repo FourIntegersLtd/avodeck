@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import io
 import uuid
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, Query, Request, Response
 from PIL import Image
@@ -36,6 +36,7 @@ from app.features.reader.schemas import (
     FactList,
     FactOut,
     FlagOut,
+    Highlight,
     JobOut,
     MoveIn,
     MyNote,
@@ -217,6 +218,12 @@ async def mark_read(
     return ReadOut(page_no=page_no, read=True, first_read_at=after["first_read_at"])
 
 
+def _dealt_with(f: dict[str, Any]) -> bool:
+    if f["status"] == "rejected":
+        return True
+    return f["status"] in ("verified", "edited") and not f.get("needs_recheck")
+
+
 @router.get("/pages/{page_no}/facts", response_model=FactList)
 async def page_facts(
     case_id: uuid.UUID,
@@ -228,7 +235,16 @@ async def page_facts(
     r = await _page(conn, case_id, page_no, scope)
     if r["duplicate_of_page_id"] is not None:  # a copy's facts show on the original
         return FactList(facts=[])
-    return FactList(facts=[FactOut(**f) for f in await repo.page_facts(conn, case_id, r["id"])])
+    rows = await repo.page_facts(conn, case_id, r["id"])
+    return FactList(
+        facts=[FactOut(**f) for f in rows],
+        total=len(rows),
+        done=sum(1 for f in rows if _dealt_with(f)),
+        highlights=[
+            Highlight(id=f["id"], word_ids=f["word_ids"], bbox=f["bbox"]) for f in rows if f["status"] != "rejected"
+        ],
+        reassigned=await repo.page_reassigned(conn, case_id, r["id"]),
+    )
 
 
 @router.get("/pages/{page_no}/words", response_model=PageWords)
@@ -676,3 +692,9 @@ async def my_notes(
 
 def _summary(r: dict) -> dict:  # type: ignore[type-arg]
     return {k: r[k] for k in ("source_type", "read", "in_period", "unreadable", "duplicate_of_page_no", "turn")}
+
+
+from app.features.reader import (  # noqa: E402
+    second_reading_routes,  # noqa: E402,F401  (adds the second-reading routes)
+    transcript_routes,  # noqa: E402,F401  (adds the transcript routes to `router`)
+)

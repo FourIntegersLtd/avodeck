@@ -2,9 +2,10 @@
 import { useId, useState, type ReactNode } from "react";
 import type { Schemas } from "../../foundation/platform-client";
 import { t } from "../../foundation/i18n";
-import { Button, Checkbox, IconTile, LinkButton, StatusBadge } from "../../foundation/ui";
+import { Button, Checkbox, IconTile, LinkButton } from "../../foundation/ui";
 import { fieldWord } from "../../foundation/lib/packWords";
 import { kindLabel, longDate } from "./data";
+import { DotsIcon } from "./icons";
 import { w } from "./words";
 
 export interface FactCardProps {
@@ -35,15 +36,18 @@ export interface FactCardProps {
   typeOutHref?: string;
   /** When the words weren't on the page: first suggest ticking "These words were read wrongly". */
   tickHint?: boolean;
-  /** While changing with words chosen: the "read wrongly" tick and what the expert says the words are. */
-  misread?: { ticked: boolean; text: string } | null;
+  /** While changing with words chosen: the "read wrongly" tick ("The right words" is then the expert's reading). */
+  misread?: { ticked: boolean } | null;
   onMisread?: (ticked: boolean) => void;
-  onMisreadText?: (text: string) => void;
   reason: string;
   onFocus: () => void;
   onReason: (text: string) => void;
   onCorrect: () => void;
   onNotRight: () => void;
+  /** Not right first asks why; nothing is marked until the expert says Mark as not right. */
+  askWhy: boolean;
+  onAskWhy: () => void;
+  onCancelWhy: () => void;
   onStartEdit: () => void;
   onEditText: (text: string) => void;
   onEditField: (key: string, value: string) => void;
@@ -75,10 +79,18 @@ export function allowed(fact: Schemas["FactOut"]): { correct: boolean; notRight:
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}/;
 
-/** Editable detail rows: pack key, the pack's label, display value. Dates in fields are omitted (title carries the date). */
+/** The pack's field types for a kind ({field: "string" | "integer" | "number" | "date" | "boolean"}). */
+export function fieldTypes(pack: Schemas["CasePack"], kind: string): Record<string, string> {
+  const fields = pack.fact_kinds.find((k) => k.key === kind)?.fields;
+  return fields && typeof fields === "object" ? (fields as Record<string, string>) : {};
+}
+
+/** Editable detail rows: pack key, the pack's label, display value. Dates are omitted: the title carries the
+ * date, and the date detail is set by "Date on timeline". */
 export function editableFields(fact: Schemas["FactOut"], pack: Schemas["CasePack"]): Array<{ key: string; label: string; value: string }> {
+  const types = fieldTypes(pack, fact.kind);
   return Object.entries(fact.fields ?? {}).flatMap(([key, value]) =>
-    (typeof value === "string" || typeof value === "number") && String(value).trim() && !ISO_DAY.test(String(value))
+    (typeof value === "string" || typeof value === "number") && String(value).trim() && !ISO_DAY.test(String(value)) && types[key] !== "date"
       ? [{ key, label: fieldWord(pack, fact.kind, key), value: String(value) }]
       : [],
   );
@@ -112,18 +124,10 @@ export function FactCard(p: FactCardProps) {
   ) : null;
   return (
     <article className={cls} aria-labelledby={`${id}-t`} onFocusCapture={p.onFocus} onClick={p.onFocus}>
-      {checked && !recheck ? (
-        <p className="rd-tick">
-          <IconTile tone="mint">✓</IconTile>
-          <span>{t("ui.status.checked")}</span>
-        </p>
-      ) : rejected ? (
-        <StatusBadge status="not_right" />
-      ) : (
-        <p className="rd-state">{t("ui.status.please_check")}</p>
-      )}
-      <p className="rd-kind">{kindLabel(p.pack, fact.kind)}</p>
-      <h3 id={`${id}-t`} className="rd-value">
+      {/* The row above already shows the mark, the kind and the words; a screen reader still gets them here. */}
+      <p className="rd-sr">{t(checked && !recheck ? "ui.status.checked" : rejected ? "ui.status.not_right" : "ui.status.please_check")}</p>
+      <p className="rd-sr rd-kind">{kindLabel(p.pack, fact.kind)}</p>
+      <h3 id={`${id}-t`} className="rd-sr rd-value">
         {fact.value}
       </h3>
       {fields.length > 0 && p.editing === null && (
@@ -236,17 +240,12 @@ export function FactCard(p: FactCardProps) {
               <input id={`${id}-ed`} className="av-input" type="date" value={p.editEventDate} onChange={(e) => p.onEditEventDate?.(e.target.value)} />
             </div>
           )}
-          <p className="rd-note">{w("fact.choose_words")}</p>
+          {!p.misread && <p className="rd-note">{w("fact.choose_words")}</p>}
           {p.typedWords}
           {p.misread && (
             <div className="rd-misread">
               <Checkbox label={w("fact.misread_tick")} checked={p.misread.ticked} onChange={(e) => p.onMisread?.(e.target.checked)} />
-              {p.misread.ticked && (
-                <div className="rd-edit__row">
-                  <label htmlFor={`${id}-m`} className="rd-label rd-label--small">{w("fact.misread_label")}</label>
-                  <input id={`${id}-m`} className="av-input" maxLength={500} value={p.misread.text} onChange={(e) => p.onMisreadText?.(e.target.value)} />
-                </div>
-              )}
+              {p.misread.ticked && <p className="rd-hint">{w("fact.misread_uses_right_words")}</p>}
             </div>
           )}
           <div className="rd-actions">
@@ -259,19 +258,31 @@ export function FactCard(p: FactCardProps) {
           </div>
           {formProblem}
         </div>
+      ) : p.askWhy ? (
+        <div className="rd-reason-form">
+          <label className="rd-reason">
+            <span>{w("fact.why_not")}</span>
+            <input className="av-input" value={p.reason} maxLength={200} autoFocus onChange={(e) => p.onReason(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !p.busy) p.onNotRight(); }} />
+          </label>
+          <div className="rd-actions">
+            <Button disabled={p.busy} onClick={p.onNotRight}>
+              {w("fact.mark_not_right")}
+            </Button>
+            <Button variant="secondary" onClick={p.onCancelWhy}>
+              {w("fact.cancel")}
+            </Button>
+          </div>
+        </div>
       ) : (
         <>
-          <p className="rd-hint">{w("fact.fix_one_line")}</p>
           {can.correct && (
-            <div className="rd-actions">
-              <Button disabled={p.busy} onClick={p.onCorrect} aria-keyshortcuts="1">
-                {w("fact.correct")}
-              </Button>
-            </div>
+            <Button className="rd-correct" disabled={p.busy} onClick={p.onCorrect} aria-keyshortcuts="1">
+              {w("fact.correct")}
+            </Button>
           )}
           <div className="rd-actions rd-actions--quiet">
             {can.notRight && (
-              <Button variant="quiet" disabled={p.busy} onClick={p.onNotRight} aria-keyshortcuts="2">
+              <Button variant="quiet" disabled={p.busy} onClick={p.onAskWhy} aria-keyshortcuts="2">
                 {w("fact.not_right")}
               </Button>
             )}
@@ -280,39 +291,28 @@ export function FactCard(p: FactCardProps) {
                 {w("fact.change")}
               </Button>
             )}
-          </div>
-          {can.notRight && (
-            <details className="rd-why-not">
-              <summary>{w("fact.say_why")}</summary>
-              <label className="rd-reason">
-                <span>{w("fact.why_not")}</span>
-                <input className="av-input" value={p.reason} maxLength={200} onChange={(e) => p.onReason(e.target.value)} />
-              </label>
-            </details>
-          )}
-          {(Boolean(can.timelineDate && p.onStartTimelineDate) || Boolean(p.clearerPage && p.onStartMove)) && (
-            <>
-              <Button variant="quiet" aria-expanded={moreOpen} aria-controls={`${id}-more`} onClick={() => setMoreOpen((o) => !o)}>
-                {w("fact.more")}
+            {(Boolean(can.timelineDate && p.onStartTimelineDate) || Boolean(p.clearerPage && p.onStartMove)) && (
+              <Button variant="quiet" className="rd-more-dots" aria-label={w("fact.more")} aria-expanded={moreOpen} aria-controls={`${id}-more`} onClick={() => setMoreOpen((o) => !o)}>
+                <DotsIcon />
               </Button>
-              {moreOpen && (
-                <div id={`${id}-more`} className="rd-actions rd-actions--quiet">
-                  {can.timelineDate && p.onStartTimelineDate && (
-                    <Button variant="quiet" disabled={p.busy} onClick={p.onStartTimelineDate}>
-                      {w("fact.set_timeline_date")}
-                    </Button>
-                  )}
-                  {p.clearerPage && p.onStartMove && (
-                    <Button variant="quiet" disabled={p.busy} onClick={p.onStartMove}>
-                      {w("fact.move_clearer")}
-                    </Button>
-                  )}
-                </div>
+            )}
+          </div>
+          {moreOpen && (
+            <div id={`${id}-more`} className="rd-actions rd-actions--quiet">
+              {can.timelineDate && p.onStartTimelineDate && (
+                <Button variant="quiet" disabled={p.busy} onClick={p.onStartTimelineDate}>
+                  {w("fact.set_timeline_date")}
+                </Button>
               )}
-            </>
+              {p.clearerPage && p.onStartMove && (
+                <Button variant="quiet" disabled={p.busy} onClick={p.onStartMove}>
+                  {w("fact.move_clearer")}
+                </Button>
+              )}
+            </div>
           )}
           {checked && (
-            <Button variant="secondary" disabled={p.busy} onClick={p.onFlag}>
+            <Button variant="quiet" disabled={p.busy} onClick={p.onFlag}>
               {fact.flagged ? w("fact.points_against_off") : w("fact.points_against")}
             </Button>
           )}

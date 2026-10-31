@@ -21,6 +21,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | records_custodian | Someone they nominate to look after their served cases if they die or can't work (name and email, both or neither; `PUT /me/custodian`, step-up) |
 | closed_at | When they closed their account (empty if active). From then on they can only sign in to read the served cases they are named on |
 | email_bounced_at | When an email to them bounced; no more emails until the address changes |
+| must_change_password | They signed in with a temporary password from Avodeck support and must choose their own before anything else (cleared when they change or reset it; the app cannot set it directly) |
 | (shown, not stored) greeting_name | The short form Today greets them with ("Dr Morgan"): the title their jurisdiction's pack gives their profession plus their surname; empty when the pack has no title |
 | (shown, not stored) password_changed_at | When they last reset their password, read from the audit log; empty if they never have. Account and security says "Changed 3 months ago" |
 | (shown, not stored) member_count | On each of their memberships: how many people currently belong to that organisation (1 reads "just you") |
@@ -95,6 +96,11 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 |---|---|
 | code_hash | A scrambled copy of a one-time backup code (the real code is only shown once) |
 | used_at | When the code was used (each works once) |
+
+### password_change_attempts
+| Field | In plain words |
+|---|---|
+| failures / window_started_at | How many wrong current passwords were given when changing password in the current 15 minutes (5 lock it until the window ends) |
 
 ### mfa_attempts
 | Field | In plain words |
@@ -194,6 +200,14 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | added_at / removed_at | When they joined support and when they left it; only current staff can use a grant |
 
 The support console stores nothing of its own. Its person look-up shows, for an account: when it closed, whether MFA is set up (from the latest sign-in), until when the code step is locked after too many wrong codes, how many backup codes are left, the last completed MFA, whether a new email waits to be confirmed, whether a records custodian is named, and which cases stop the account closing. Its organisation look-up shows members' roles and dates, invites' state (pending, accepted, cancelled, or expired once past `expires_at`), sent and expiry dates, owners, open cases and named expert changes. Its service check shows whether dictation and the key service are set up, seconds since the worker last checked in, and how many jobs wait or are paused. No names, emails, invite tokens or dates of birth.
+### support_accounts
+| Field | In plain words |
+|---|---|
+| person_id | The person whose account support created (they choose their own password and set up MFA at first sign-in) |
+| created_by | The support staff member who created it |
+| created_at | When the account was created |
+| last_sent_at | When support last made a temporary password for the account (a new one at most once a minute) |
+| (shown once, not stored) temporary_password | The password Avodeck made, in the answer that created or renewed it only; a repeat of that request says `password_shown` instead |
 
 ## Case
 
@@ -267,6 +281,13 @@ A joint expert is one with two or more current instructing parties; no separate 
 | transcript_id | The dictation they came from, if dictated |
 | received_on | The date the instructions were given |
 
+### case_subject_identity
+| Field | In plain words |
+|---|---|
+| name | The person's own name, sealed with the case key; only used to hide it from the reading tools |
+| other_names | Other names they are known by (a list), sealed |
+| date_of_birth | Their date of birth, read in the pack's date order and sealed |
+
 ### case_subject_keys
 | Field | In plain words |
 |---|---|
@@ -302,6 +323,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 | Field | In plain words |
 |---|---|
 | instruction_version_id | Which set of instructions asked it |
+| source_instruction_version_id | The instruction version this question was extracted from (immutable; stays fixed even when a new letter re-points instruction_version_id) |
+| source | Who found this question: `letter` (AI extraction) or `expert` (the doctor added it) |
 | number | Its number in the letter |
 | text_verbatim | The exact words of the question |
 | short_title | A label of at most 40 characters for tabs and lists: the model's label, or the first clause of the question when it gave none. A label only; never replaces the question |
@@ -352,6 +375,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | kind | What it is: records, instructions, witness statement, written questions, agenda, other expert's report, court bundle, other |
 | filename / storage_path | The file's name and where it's kept (encrypted) |
 | sha256 | Fingerprint proving the file is exactly as received |
+| sha256_verified_at | When the server last re-read the stored parts and confirmed they match the fingerprint (set when the upload finished; empty for older documents) |
 | pages | How many pages it has |
 | received_on / obtained_how | When it arrived and from whom/how |
 | bundle_version | Which delivery of records it came in (v1, v2…) |
@@ -492,7 +516,27 @@ A joint expert is one with two or more current instructing parties; no separate 
 | seq | Its place in the case's list of reads |
 | at / dwell_seconds | When, and how long they spent on it |
 | counts_for_citing | Whether it was the named expert's read (only those let a fact be cited) |
+| via | How the page was read: `page` (on its own screen) or `transcript` (by reading its entries, 0215) |
 | prev_hash / hash | Links to the previous entry so any tampering is obvious |
+
+### second_readings
+| Field | In plain words |
+|---|---|
+| page_id | The page that was read again; one row per page |
+| status | `queued` (waiting), `done`, `refused` (we could not hide the names safely, so nothing was sent) or `failed` |
+| reason | A short code for a refusal or failure; never any text from the page |
+| lines | The model's copy of the handwriting, sealed with the case key; shown beside the page, never merged into the expert's words |
+| requested_by / requested_at / finished_at | Who asked, when, and when it ended (0216). A job records its outcome only for the request it read, so asking again is never overwritten by an older job |
+| page_rotation | How the page was turned when the expert asked; if it differs when the job runs, the request is refused (`page_changed`, 0217) |
+| image_sha256 | A fingerprint of the page picture as stored when the expert asked; if the picture was redrawn since, the request is refused (`page_changed`, 0218) |
+
+### transcript_views
+| Field | In plain words |
+|---|---|
+| page_id / person_id / entry_id | Which page, whose view, and which entry of the records transcript was on screen |
+| dwell_ms | How long the entry was on screen (milliseconds); the server adds these up to decide a page is read (1.5 seconds per entry) |
+| picture_opened | True when the person opened the picture of a page that has no entries; that also counts as reading it |
+| at | When it was reported. Never edited or removed (0215) |
 
 ### fact_flags
 | Field | In plain words |
@@ -554,6 +598,17 @@ A joint expert is one with two or more current instructing parties; no separate 
 | confirmed | Whether the expert agrees it's a real gap (empty until reviewed; reviewed gaps are not recalculated) |
 | confirmed_by / confirmed_at | Who reviewed it and when |
 | version | Changes each time it is changed (If-Match) |
+
+### record_entries
+| Field | In plain words |
+|---|---|
+| page_id | The page the entry is on |
+| kind | What sort of entry it is (from the pack's list) |
+| first_n / last_n | Where the entry starts and ends, as the number of its first and last word on the page |
+| author_role / specialty | Who wrote it and which speciality, when the page says (from the pack's lists) |
+| event_date | The date printed inside the entry, read by code in the pack's date order (empty when none) |
+| date_basis | Whether the date is plainly printed or needs the expert to check it |
+| extraction_version | Which version of the reading produced it |
 
 ### instructing_party_requests
 | Field | In plain words |
@@ -1046,6 +1101,16 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | step | A step that finished (a short code), so a retry skips it |
 | created_at | When it finished |
 
+### job_support_actions
+| Field | In plain words |
+|---|---|
+| job_id | Which job Avodeck support acted on |
+| action | `resume` (a paused job put back on the queue) or `requeue` (a failed job started again) |
+| reason_code | Why, from a fixed list: `service_restored`, `fault_fixed`, `expert_asked` |
+| from_status / error_code / attempts | What the job was just before: its status, its error code and how many attempts it had made (a requeue sets the job's attempts back to 0, so they are kept here) |
+| person_id | The support staff member who did it |
+| created_at | When |
+
 ### scheduled_runs
 | Field | In plain words |
 |---|---|
@@ -1058,7 +1123,9 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | case_id / person_id | Which case the file is for and who is sending it |
 | kind / filename / size / sha256 | What the file is (a kind from the case's packs), its name, size and checksum |
 | chunk_size / chunk_count / received | The 8 MB parts it is sent in, how many, and which have arrived |
-| status | `open`, `complete` or `expired` |
+| chunk_sha256 | The fingerprint the server worked out for each part it received, by part number; a part sent again replaces its entry; the database refuses any change once the upload is no longer open |
+| status | `open`, `finalizing` (the file is being checked in the background), `complete`, `cancelled`, `expired` or `failed` (the stored file did not match its fingerprint or a part was unreadable; closed for good) |
+| finalize_job_id / finalizing_at / failure | The background job checking the file, when checking began, and why a failed upload failed (`sha256_mismatch`, `size_mismatch` or `chunk_unreadable`) |
 | document_id | The document it became when complete |
 | append | Whether these are later records added to a case that already has its bundle (their pages are numbered after the last page) |
 | expires_at / completed_at | When an unfinished upload is given up (7 days) and when it finished |

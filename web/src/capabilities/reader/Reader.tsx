@@ -1,6 +1,7 @@
 // Screen 09, Reading. The expert reads the page and marks it read; only then does the server release
 // the suggestions (blind read, rule 3: the page asks for them after the read and shows none on a 423).
 // Every action sends the version it loaded (If-Match). The server decides; this screen shows.
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
@@ -10,8 +11,8 @@ import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/p
 import { Button, LinkButton, LoadError, Loading, Notice, PageRef, ProgressBar } from "../../foundation/ui";
 import { casePath, count, periodRange, sourceLabel } from "./data";
 import { dateFieldKey, suggestTimelineDate } from "./timelineDate";
-import { allowed, editableFields, FactCard } from "./FactCard";
-import { FactSwitcher } from "./FactSwitcher";
+import { allowed, editableFields, FactCard, fieldTypes } from "./FactCard";
+import { FactList } from "./FactList";
 import { loadSplitPct, saveSplitPct } from "./splitPane";
 import { SplitDivider } from "./SplitDivider";
 import { BundleSearch, SearchMarks } from "./BundleSearch";
@@ -21,10 +22,10 @@ import { PageImage } from "./PageImage";
 import { PageStrip } from "./PageStrip";
 import { noteRead, useBundlePages } from "./bundlePages";
 import { loadSearch, loadTools, saveSearch, saveTools, type SearchResult, type Tools } from "./search";
-import { clampZoom, loadView, saveView, turnBy, ZOOM_MAX, ZOOM_MIN, type View } from "./viewer";
+import { clampZoom, loadStripHidden, loadView, saveStripHidden, saveView, turnBy, ZOOM_MAX, ZOOM_MIN, type View } from "./viewer";
 import { inPageOrder, TypedWordToggles, WordToggles, type PageWord } from "./WordPicker";
 import { w } from "./words";
-import { ChevronIcon, FindIcon, FullScreenIcon, SlidersIcon, TickIcon, TurnIcon, ViewIcon } from "./icons";
+import { ChevronIcon, EyeIcon, SidebarIcon, FindIcon, FullScreenIcon, SlidersIcon, TickIcon, TurnIcon, ViewIcon } from "./icons";
 
 /** The browser has the Popover API (the View menu then sits in the top layer, above the bar and the page). */
 const POPOVER = typeof HTMLElement !== "undefined" && "showPopover" in HTMLElement.prototype;
@@ -42,7 +43,7 @@ function MenuItem({ icon, on, children, ...rest }: { icon: ReactNode; on?: boole
 
 type Fact = Schemas["FactOut"];
 type Action = "correct" | "not_right" | "edit";
-type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string>; eventDate: string | null; eventDateByHand: boolean; misread: boolean; misreadText: string };
+type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string>; eventDate: string | null; misread: boolean };
 
 type MoveDraft = { id: string; page: number; words: PageWord[] | null; chosen: string[]; problem: string | null; readFirst: boolean };
 
@@ -52,12 +53,58 @@ function fieldDraft(fact: Fact, pack: Schemas["CasePack"]): Record<string, strin
   return out;
 }
 
+/** What the page needs of the find bar, which lives above the pages: it stays on screen as the expert moves between them. */
+interface Find {
+  found: SearchResult | null;
+  open: boolean;
+  /** The element the bar is drawn into; each page puts it in its own slot. */
+  host: HTMLElement;
+  toggle: () => void;
+}
+
 export function Reader() {
   const { pageNo } = useParams();
   const { item } = useCaseFrame();
-  if (!pageNo) return <FirstUnread caseId={item.id} />;
+  const caseId = item.id;
+  const navigate = useNavigate();
+  // Finding words is held for the visit, from page to page (each page remounts, the bar does not).
+  const [found, setFound] = useState<SearchResult | null>(() => loadSearch(caseId));
+  const [open, setOpen] = useState(found !== null);
+  const [focusFind, setFocusFind] = useState(false);
+  const [host] = useState(() => document.createElement("div"));
   const n = Number(pageNo);
-  return Number.isInteger(n) && n > 0 ? <ReadPage key={n} pageNo={n} /> : <Navigate to={`/cases/${item.id}/read`} replace />;
+  if (!pageNo) return <FirstUnread caseId={caseId} />;
+  if (!Number.isInteger(n) || n <= 0) return <Navigate to={`/cases/${caseId}/read`} replace />;
+  const find: Find = {
+    found,
+    open,
+    host,
+    toggle: () => {
+      setFocusFind(!open);
+      setOpen(!open);
+    },
+  };
+  return (
+    <>
+      <ReadPage key={n} pageNo={n} find={find} />
+      {open &&
+        createPortal(
+          <BundleSearch
+            caseId={caseId}
+            pageNo={n}
+            result={found}
+            onResult={(result) => {
+              saveSearch(caseId, result);
+              setFound(result);
+            }}
+            onOpen={(to) => to !== n && navigate(`/cases/${caseId}/read/${to}`)}
+            onDone={() => setOpen(false)}
+            focus={focusFind}
+          />,
+          host,
+        )}
+    </>
+  );
 }
 
 /** `read` with no page: open the first page not yet read (else page 1). */
@@ -93,7 +140,8 @@ const typing = (t: EventTarget | null) => {
   return !!el && (["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.isContentEditable);
 };
 
-function ReadPage({ pageNo }: { pageNo: number }) {
+function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
+  const { found } = find;
   const { item, pack } = useCaseFrame();
   const caseId = item.id;
   const navigate = useNavigate();
@@ -110,10 +158,13 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const queue = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pages/unreadable", casePath(caseId))).catch(() => null), [caseId]);
   const [read, setRead] = useState(false);
   const [facts, setFacts] = useState<Fact[] | null>(null);
+  const [counts, setCounts] = useState<{ done: number; total: number; highlights: Schemas["Highlight"][] }>({ done: 0, total: 0, highlights: [] });
+  const [reassigned, setReassigned] = useState(false);
   const [focus, setFocus] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditDraft | null>(null);
   const [pageWords, setPageWords] = useState<PageWord[] | null>(null);
   const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [askingWhy, setAskingWhy] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const workRef = useRef<HTMLDivElement>(null);
@@ -137,7 +188,6 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const [why, setWhy] = useState(false);
   const [timelineDraft, setTimelineDraft] = useState<{ id: string; value: string } | null>(null);
   // Finding words, two pages side by side and full screen: held for the visit, from page to page.
-  const [found, setFound] = useState<SearchResult | null>(() => loadSearch(caseId));
   const [tools, setTools] = useState<Tools>(loadTools);
   const [beside, setBeside] = useState<number | null>(null);
   const [besideText, setBesideText] = useState<string | null>(null);
@@ -146,23 +196,25 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   // The toolbar's "More tools" panel and "Find words" (open again on the next page while a search is held).
   const [more, setMore] = useState(false);
   const [keys, setKeys] = useState(false);
+  const [stripHidden, setStripHidden] = useState(loadStripHidden);
+  const toggleStrip = useCallback(() => setStripHidden((h) => { saveStripHidden(!h); return !h; }), []);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [findOpen, setFindOpen] = useState(found !== null);
-  const [focusFind, setFocusFind] = useState(false);
 
   const loadFacts = useCallback(async () => {
     try {
-      const { facts: list } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/facts", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
+      const { facts: list, reassigned: again, done, total, highlights } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/facts", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
       // The server answers only once the page was read, so the page counts as read from here.
       setRead(true);
       setFacts(list);
+      setCounts({ done: done ?? 0, total: total ?? 0, highlights: highlights ?? [] });
+      setReassigned(again ?? false);
       setFocus((f) => {
         if (f) return f;
         if (factFromUrl && list.some((x) => x.id === factFromUrl)) return factFromUrl;
         return list.find((x) => x.status === "suggested")?.id ?? list[0]?.id ?? null;
       });
     } catch (error) {
-      if (error instanceof ApiError && error.status === 423) setFacts(null);
+      if (error instanceof ApiError && error.status === 423) { setFacts(null); setCounts({ done: 0, total: 0, highlights: [] }); setReassigned(false); }
       else setNotice(errorMessage(error));
     }
   }, [caseId, pageNo, factFromUrl]);
@@ -209,7 +261,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   // chosen again (the server refuses its change without them). The page's words load once.
   async function startEdit(fact: Fact) {
     setFormError(null);
-    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact, pack), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, eventDateByHand: false, misread: false, misreadText: "" });
+    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact, pack), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, misread: false });
     if (pageWords !== null) return;
     try {
       const { words } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/words", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
@@ -252,6 +304,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       setEditing(null);
       setTimelineDraft(null);
       advanceFrom(list, next.id);
+      await loadFacts(); // the server recounts progress and highlights
     } catch (error) {
       if (error instanceof ApiError && error.status === 412) {
         setNotice(w("read.error.stale"));
@@ -271,7 +324,11 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     }
   }
 
-  const notRight = (f: Fact) => act(f, "not_right", reasons[f.id]?.trim() ? { reason: reasons[f.id]!.trim() } : {});
+  const askWhy = (f: Fact) => setAskingWhy(f.id);
+  const notRight = (f: Fact) => {
+    setAskingWhy(null);
+    return act(f, "not_right", reasons[f.id]?.trim() ? { reason: reasons[f.id]!.trim() } : {});
+  };
   const orderedWords = (ids: string[]) => (pageWords ? inPageOrder(ids, pageWords) : ids);
 
   const saveEdit = (f: Fact) => {
@@ -281,11 +338,11 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     const fieldsChanged = editableFields(f, pack).some((row) => (editing.fields[row.key] ?? "").trim() !== row.value.trim());
     const wordsChanged = orderedWords(editing.words).join() !== orderedWords(f.word_ids).join();
     const dayChanged = eventDateChanged(f);
-    const misread = editing.misread && editing.words.length > 0 ? editing.misreadText.trim() : null;
-    const stop = (key: "read.error.nothing_changed" | "read.error.words_needed" | "read.error.headline_needed" | "read.error.misread_needed") =>
+    // Ticked: "The right words" is the expert's reading of the chosen words (decision 0018), so it is typed once.
+    const misread = editing.misread && editing.words.length > 0 && headline ? headline : null;
+    const stop = (key: "read.error.nothing_changed" | "read.error.words_needed" | "read.error.headline_needed") =>
       setFormError({ text: w(key), typeOut: false });
-    if (valueChanged && !headline) return stop("read.error.headline_needed");
-    if (misread === "") return stop("read.error.misread_needed");
+    if ((valueChanged || editing.misread) && !headline) return stop("read.error.headline_needed");
     if (!valueChanged && !misread && !fieldsChanged && !wordsChanged && !dayChanged) return stop("read.error.nothing_changed");
     if (editing.words.length === 0 && (valueChanged || f.needs_recheck)) return stop("read.error.words_needed");
     setFormError(null);
@@ -299,10 +356,29 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       body.new_value = headline;
       body.word_ids = orderedWords(editing.words);
     } else if (wordsChanged) body.word_ids = orderedWords(editing.words);
-    if (fieldsChanged) body.fields = { ...(f.fields ?? {}), ...editing.fields };
+    if (fieldsChanged || (dayChanged && hasDate(f))) body.fields = fieldsToSend(f, editing);
     if (dayChanged && editing.eventDate) body.event_date = editing.eventDate;
     void act(f, "edit", body);
   };
+
+  // The server replaces the details and checks each against the pack's types, so send only the kind's own
+  // fields, with numbers as numbers and dates as calendar days (never the date as written, which it refuses).
+  function fieldsToSend(f: Fact, draft: EditDraft): Record<string, unknown> {
+    const types = fieldTypes(pack, f.kind);
+    if (Object.keys(types).length === 0) return { ...(f.fields ?? {}), ...draft.fields };
+    const dayKey = dateFieldKey(pack, f.kind);
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries({ ...(f.fields ?? {}), ...draft.fields })) {
+      const type = types[key];
+      if (type === "date") {
+        const day = key === dayKey && draft.eventDate ? draft.eventDate : typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+        if (day) out[key] = day;
+      } else if ((type === "integer" || type === "number") && typeof value === "string") {
+        out[key] = value.trim() === "" ? null : Number.isFinite(Number(value)) ? Number(value) : value;
+      } else if (type) out[key] = value;
+    }
+    return out;
+  }
 
   async function startMove(fact: Fact, to: number) {
     setEditing(null);
@@ -339,6 +415,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       setMoving(null);
       setInfo(w("read.moved", { page: moving.page }));
       setFocus(list.find((f) => f.status === "suggested")?.id ?? list[0]?.id ?? null);
+      await loadFacts();
     } catch (error) {
       if (error instanceof ApiError && error.status === 412) {
         setMoving(null);
@@ -378,11 +455,6 @@ function ReadPage({ pageNo }: { pageNo: number }) {
 
   useEffect(() => saveView(view), [view]);
   useEffect(() => saveTools(tools), [tools]);
-
-  const showFound = (result: SearchResult | null) => {
-    saveSearch(caseId, result);
-    setFound(result);
-  };
 
   /** Full screen: the browser's own where it has one, and the page view filling the window either way. */
   const setFull = useCallback((full: boolean) => {
@@ -553,8 +625,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
 
   const nextPage = following.data ?? null;
   const go = (n: number) => n >= 1 && (n <= pageNo || n === nextPage) && navigate(`/cases/${caseId}/read/${n}`);
-  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys });
-  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys };
+  const latest = useRef({ markRead, go, act, askWhy, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys, toggleStrip });
+  latest.current = { markRead, go, act, askWhy, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys, toggleStrip };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -580,6 +652,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
         if (key === "t") s.turnPage(e.shiftKey ? -90 : 90);
         else s.undoTurn();
       }
+      else if (key === "[") s.toggleStrip();
       else if (key === "f") s.setFull(!s.full);
       else if (key === "escape" && s.full) s.setFull(false);
       else if (key === "j") s.go(s.nextPage ?? 0);
@@ -588,7 +661,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       else if (key === "arrowright") s.go(s.nextPage ?? 0);
       else if (key === "arrowleft") s.go(pageNo - 1);
       else if ((key === "1" || key === "c") && target && allowed(target).correct) void s.act(target, "correct");
-      else if ((key === "2" || key === "n") && target && allowed(target).notRight) void s.notRight(target);
+      else if ((key === "2" || key === "n") && target && allowed(target).notRight) s.askWhy(target);
       else if (key === "3" && target && allowed(target).edit) void s.startEdit(target);
       else return;
       e.preventDefault();
@@ -605,6 +678,74 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const focusedFact = facts?.find((f) => f.id === focus) ?? facts?.[0] ?? null;
   const besideNo = beside ?? page.superseded_by_page_no ?? nextPage ?? (pageNo > 1 ? pageNo - 1 : null);
   const filter = view.brightness === 100 && view.contrast === 100 ? undefined : `brightness(${view.brightness / 100}) contrast(${view.contrast / 100})`;
+
+  const renderCard = (f: Fact) => (
+    <FactCard
+      key={f.id}
+      fact={f}
+      pack={pack}
+      allFacts={facts ?? []}
+      focused={true}
+      busy={busy}
+      editing={editing?.id === f.id ? editing.text : null}
+      editingFields={editing?.id === f.id ? editing.fields : null}
+      canSave={editCanSave(f)}
+      formError={formError?.text ?? null}
+      tickHint={formError?.tick === true}
+      formAction={formError?.action ?? null}
+      clearerPage={page.superseded_by_page_no ?? null}
+      moving={moving?.id === f.id ? { page: moving.page, pageHref: `/cases/${caseId}/read/${moving.page}`, problem: moving.problem, readFirst: moving.readFirst } : null}
+      onStartMove={page.superseded_by_page_no ? () => void startMove(f, page.superseded_by_page_no!) : undefined}
+      onSaveMove={() => void saveMove(f)}
+      onCancelMove={() => setMoving(null)}
+      misread={editing?.id === f.id && editing.words.length > 0 ? { ticked: editing.misread } : null}
+      onMisread={(ticked) => setEditing((e) => e && { ...e, misread: ticked })}
+      typeOutHref={formError?.typeOut ? `/cases/${caseId}/read/couldnt-read?page=${pageNo}` : undefined}
+      typedWords={editing?.id === f.id && pageWords ? <TypedWordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} /> : undefined}
+      reason={reasons[f.id] ?? ""}
+      onFocus={() => setFocus(f.id)}
+      onReason={(text) => setReasons((r) => ({ ...r, [f.id]: text }))}
+      onCorrect={() => act(f, "correct")}
+      askWhy={askingWhy === f.id}
+      onAskWhy={() => askWhy(f)}
+      onCancelWhy={() => { setReasons((r) => ({ ...r, [f.id]: "" })); setAskingWhy(null); }}
+      onNotRight={() => notRight(f)}
+      onStartEdit={() => { setMoving(null); void startEdit(f); }}
+      onEditText={(text) => setEditing((e) => e && { ...e, text })}
+      onEditField={(key, value) => setEditing((e) => e && { ...e, fields: { ...e.fields, [key]: value } })}
+      editEventDate={editing?.id === f.id ? editing.eventDate : null}
+      onEditEventDate={(value) => setEditing((e) => e && { ...e, eventDate: value })}
+      onSaveEdit={() => saveEdit(f)}
+      onCancelEdit={() => { setEditing(null); setFormError(null); }}
+      onFlag={() => toggleFlag(f)}
+      timelineDraft={timelineDraft?.id === f.id ? timelineDraft.value : null}
+      onStartTimelineDate={() => {
+        setEditing(null);
+        setFormError(null);
+        setTimelineDraft({ id: f.id, value: suggestTimelineDate(f, pack) });
+      }}
+      onTimelineDateChange={(value) => setTimelineDraft((d) => d && d.id === f.id ? { ...d, value } : d)}
+      onSaveTimelineDate={() => {
+        if (!timelineDraft || timelineDraft.id !== f.id || !timelineDraft.value) return;
+        void act(f, "edit", { event_date: timelineDraft.value });
+      }}
+      onCancelTimelineDate={() => { setTimelineDraft(null); setFormError(null); }}
+    />
+  );
+  const hardLink = (
+    <>
+      <Link className="rd-hard" to={`/cases/${caseId}/read/transcript`}>
+        {w("transcript.by_transcript")}
+      </Link>
+      {hard > 0 && (
+        <Link className="rd-hard" to={`/cases/${caseId}/read/couldnt-read`}>
+          {w("read.couldnt_read", { count: hard })}
+        </Link>
+      )}
+    </>
+  );
+  const sourceColour = (pack.source_types as Array<{ key: string; colour?: string }>).find((s) => s.key === page.source_type)?.colour;
+  const readCount = progress.data ? count(progress.data.read, pack.locale) : "";
 
   return (
     <div className={tools.full ? "rd rd--full" : "rd"}>
@@ -625,150 +766,145 @@ function ReadPage({ pageNo }: { pageNo: number }) {
           {why && <p className="rd-why-text">{w("read.why_text")}</p>}
         </div>
       )}
+
+      {/* One quiet row across the whole width: where the page comes from, the page capsule, then the tools. */}
+      <div className="rd-bar" role="toolbar" aria-label={w("read.view_bar")}>
+        <p className="rd-source">
+          {sourceColour && <span className="rd-source__dot" style={{ background: sourceColour }} aria-hidden="true" />}
+          <strong>{sourceLabel(pack, page.source_type)}</strong>
+        </p>
+        <form
+          className="rd-cap rd-goto"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void goToPage();
+          }}
+        >
+          <Button variant="secondary" className="rd-tool rd-goto__step" aria-label={w("read.page_before")} disabled={pageNo <= 1} onClick={() => go(pageNo - 1)}>
+            <ChevronIcon dir="left" />
+          </Button>
+          <label className="rd-goto__label">
+            <span aria-hidden="true">{w("read.page_word")}</span>
+            <input
+              id="rd-goto"
+              className="rd-goto__input"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              aria-label={w("read.goto")}
+              value={gotoText}
+              aria-describedby={gotoError ? "rd-goto-error" : undefined}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => {
+                setGotoText(e.target.value);
+                setGotoError(null);
+              }}
+            />
+            {progress.data && <span>{w("read.page_of", { total: count(progress.data.total, pack.locale) })}</span>}
+          </label>
+          <Button variant="secondary" className="rd-tool rd-goto__step" aria-label={w("read.page_after")} disabled={nextPage === null} onClick={() => nextPage !== null && go(nextPage)}>
+            <ChevronIcon dir="right" />
+          </Button>
+        </form>
+        <div className="rd-view">
+          {canTurn && (
+            <Button variant="secondary" className="rd-tool" onClick={() => turnPage(90)}>
+              <TurnIcon />
+              {w("read.turn_page")}
+            </Button>
+          )}
+          <span className="rd-cap rd-view__group">
+            <Button variant="secondary" className="rd-tool" aria-label={w("read.zoom_out")} disabled={view.fit === "zoom" && view.zoom <= ZOOM_MIN} onClick={() => zoomBy(-25)}>
+              −
+            </Button>
+            <span className="rd-ref rd-view__level" aria-live="polite">
+              {w("read.zoom_level", { percent: view.fit === "zoom" ? view.zoom : (scale ?? 100) })}
+            </span>
+            <Button variant="secondary" className="rd-tool" aria-label={w("read.zoom_in")} disabled={view.fit === "zoom" && view.zoom >= ZOOM_MAX} onClick={() => zoomBy(25)}>
+              +
+            </Button>
+          </span>
+          <Button variant="secondary" className="rd-tool" aria-expanded={find.open} aria-controls="rd-find" onClick={find.toggle}>
+            <FindIcon />
+            {w("read.find")}
+          </Button>
+          {filter && (
+            <Button variant="secondary" className="rd-tool rd-view__chip" aria-expanded={clearer} aria-controls="rd-clearer" onClick={() => setClearer(true)}>
+              <SlidersIcon />
+              {w("read.clearer_on")}
+            </Button>
+          )}
+          <Button
+            id="rd-more-button"
+            variant="secondary"
+            className="rd-tool rd-view__more"
+            aria-expanded={more}
+            aria-controls="rd-more"
+            {...({ popovertarget: "rd-more" } as object)}
+            onClick={() => {
+              if (!POPOVER) setMore((o) => !o);
+            }}
+          >
+            <ViewIcon />
+            {w("read.more_tools")}
+            <ChevronIcon dir={more ? "up" : "down"} />
+          </Button>
+          <Button variant="secondary" className="rd-tool rd-view__full" aria-pressed={tools.full} aria-label={w(tools.full ? "read.leave_full_screen" : "read.full_screen")} onClick={() => setFull(!tools.full)}>
+            <FullScreenIcon leave={tools.full} />
+          </Button>
+        </div>
+        {gotoError && (
+          <p id="rd-goto-error" className="rd-goto__error" role="alert">
+            {gotoError}
+          </p>
+        )}
+      </div>
+      {find.open && (
+        <div
+          id="rd-find"
+          className="rd-find-slot"
+          ref={(el) => {
+            if (el && !el.contains(find.host)) el.appendChild(find.host);
+          }}
+        />
+      )}
+
       <div className="rd-work" ref={workRef} style={{ "--rd-split": `${splitPct}%` } as CSSProperties}>
         <section className="rd-pane" aria-label={w("read.page_alt", { page: pageNo })}>
-          <div className="rd-bar">
-            <div className="rd-bar__row">
-              <p className="rd-source">
-                <strong>{sourceLabel(pack, page.source_type)}</strong>
-              </p>
-              <form
-                className="rd-goto"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void goToPage();
+          {tools.twoPages && besideNo !== null && (
+            <form
+              className="rd-goto rd-beside"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void showBeside();
+              }}
+            >
+              <label htmlFor="rd-beside" className="rd-label">
+                {w("read.beside")}
+              </label>
+              <input
+                id="rd-beside"
+                className="av-input rd-goto__input"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={besideText ?? String(besideNo)}
+                aria-describedby={besideError ? "rd-beside-error" : undefined}
+                onChange={(e) => {
+                  setBesideText(e.target.value);
+                  setBesideError(null);
                 }}
-              >
-                <Button variant="secondary" className="rd-goto__step" aria-label={w("read.page_before")} disabled={pageNo <= 1} onClick={() => go(pageNo - 1)}>
-                  <ChevronIcon dir="left" />
-                </Button>
-                <label className="rd-goto__label">
-                  <span aria-hidden="true">{w("read.page_word")}</span>
-                  <input
-                    id="rd-goto"
-                    className="av-input rd-goto__input"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    aria-label={w("read.goto")}
-                    value={gotoText}
-                    aria-describedby={gotoError ? "rd-goto-error" : undefined}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => {
-                      setGotoText(e.target.value);
-                      setGotoError(null);
-                    }}
-                  />
-                  {progress.data && <span aria-hidden="true">{w("read.page_of", { total: count(progress.data.total, pack.locale) })}</span>}
-                </label>
-                <Button variant="secondary" className="rd-goto__step" aria-label={w("read.page_after")} disabled={nextPage === null} onClick={() => nextPage !== null && go(nextPage)}>
-                  <ChevronIcon dir="right" />
-                </Button>
-              </form>
-              {/* The few tools used most; everything else waits under View (one main action per screen). */}
-              <div className="rd-view" role="toolbar" aria-label={w("read.view_bar")}>
-                {canTurn && (
-                  <Button variant="secondary" className="rd-view__turn" onClick={() => turnPage(90)}>
-                    <TurnIcon />
-                    {w("read.turn_page")}
-                  </Button>
-                )}
-                <span className="rd-view__group">
-                  <Button variant="secondary" aria-label={w("read.zoom_out")} disabled={view.fit === "zoom" && view.zoom <= ZOOM_MIN} onClick={() => zoomBy(-25)}>
-                    −
-                  </Button>
-                  <span className="rd-ref rd-view__level" aria-live="polite">
-                    {w("read.zoom_level", { percent: view.fit === "zoom" ? view.zoom : (scale ?? 100) })}
-                  </span>
-                  <Button variant="secondary" aria-label={w("read.zoom_in")} disabled={view.fit === "zoom" && view.zoom >= ZOOM_MAX} onClick={() => zoomBy(25)}>
-                    +
-                  </Button>
-                </span>
-                <Button
-                  variant="secondary"
-                  className="rd-view__icon"
-                  aria-expanded={findOpen}
-                  aria-controls="rd-find"
-                  onClick={() => {
-                    setFocusFind(!findOpen);
-                    setFindOpen((o) => !o);
-                  }}
-                >
-                  <FindIcon />
-                  {w("read.find")}
-                </Button>
-                {filter && (
-                  <Button variant="secondary" className="rd-view__chip" aria-expanded={clearer} aria-controls="rd-clearer" onClick={() => setClearer(true)}>
-                    <SlidersIcon />
-                    {w("read.clearer_on")}
-                  </Button>
-                )}
-                <Button
-                  id="rd-more-button"
-                  variant="secondary"
-                  className="rd-view__more"
-                  aria-expanded={more}
-                  aria-controls="rd-more"
-                  {...({ popovertarget: "rd-more" } as object)}
-                  onClick={() => {
-                    if (!POPOVER) setMore((o) => !o);
-                  }}
-                >
-                  <ViewIcon />
-                  {w("read.more_tools")}
-                  <ChevronIcon dir={more ? "up" : "down"} />
-                </Button>
-                <Button variant="secondary" className="rd-view__full" aria-pressed={tools.full} onClick={() => setFull(!tools.full)}>
-                  <FullScreenIcon leave={tools.full} />
-                  {w(tools.full ? "read.leave_full_screen" : "read.full_screen")}
-                </Button>
-              </div>
-            </div>
-            {gotoError && (
-              <p id="rd-goto-error" className="rd-goto__error" role="alert">
-                {gotoError}
-              </p>
-            )}
-            {tools.twoPages && besideNo !== null && (
-              <form
-                className="rd-goto"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void showBeside();
-                }}
-              >
-                <label htmlFor="rd-beside" className="rd-label">
-                  {w("read.beside")}
-                </label>
-                <input
-                  id="rd-beside"
-                  className="av-input rd-goto__input"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={besideText ?? String(besideNo)}
-                  aria-describedby={besideError ? "rd-beside-error" : undefined}
-                  onChange={(e) => {
-                    setBesideText(e.target.value);
-                    setBesideError(null);
-                  }}
-                />
-                <Button type="submit" variant="secondary">
-                  {w("read.beside_show")}
-                </Button>
-                {besideError && (
-                  <p id="rd-beside-error" className="rd-goto__error" role="alert">
-                    {besideError}
-                  </p>
-                )}
-              </form>
-            )}
-            {findOpen && (
-              <div id="rd-find">
-                <BundleSearch caseId={caseId} pageNo={pageNo} result={found} onResult={showFound} onOpen={openPage} focus={focusFind} />
-              </div>
-            )}
-          </div>
+              />
+              <Button type="submit" variant="secondary">
+                {w("read.beside_show")}
+              </Button>
+              {besideError && (
+                <p id="rd-beside-error" className="rd-goto__error" role="alert">
+                  {besideError}
+                </p>
+              )}
+            </form>
+          )}
           <div className={tools.twoPages ? "rd-viewer rd-viewer--two" : "rd-viewer"}>
             {clearer && (
               <div id="rd-clearer" className="rd-clearer rd-clearer--float" role="group" aria-label={w("read.clearer_panel")} onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); closeClearer(); } }}>
@@ -782,11 +918,23 @@ function ReadPage({ pageNo }: { pageNo: number }) {
                   <Button variant="secondary" onClick={() => setView((v) => ({ ...v, brightness: 100, contrast: 100 }))}>
                     {w("read.back_to_normal")}
                   </Button>
-                  <Button onClick={closeClearer}>{w("read.done")}</Button>
+                  <Button variant="secondary" onClick={closeClearer}>{w("read.done")}</Button>
                 </div>
               </div>
             )}
-            {pages && <PageStrip caseId={caseId} pages={pages} current={pageNo} currentRead={read} onOpen={openPage} />}
+            {pages && !stripHidden && (
+              <div className="rd-strip-col">
+                <Button variant="secondary" className="rd-strip-col__toggle" onClick={toggleStrip}>
+                  <SidebarIcon /> {w("read.strip_hide")}
+                </Button>
+                <PageStrip caseId={caseId} pages={pages} current={pageNo} currentRead={read} onOpen={openPage} />
+              </div>
+            )}
+            {pages && stripHidden && (
+              <Button variant="secondary" className="rd-strip-show" onClick={toggleStrip}>
+                <SidebarIcon /> {w("read.strip_show")}
+              </Button>
+            )}
             {moving?.words ? (
               <PageImage key={`move-${moving.page}`} caseId={caseId} pageNo={moving.page} view={view} filter={filter} onZoom={zoomBy} onScale={setScale}>
                 <WordToggles
@@ -797,7 +945,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               </PageImage>
             ) : (
               <PageImage caseId={caseId} pageNo={pageNo} turn={turn} view={view} filter={filter} onZoom={zoomBy} onScale={setScale}>
-                <Highlights facts={facts ?? []} focus={focus} />
+                <Highlights highlights={counts.highlights} focus={focus} />
                 <SearchMarks result={found} pageNo={pageNo} />
                 {editing && pageWords && <WordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} />}
               </PageImage>
@@ -813,81 +961,31 @@ function ReadPage({ pageNo }: { pageNo: number }) {
         <SplitDivider workRef={workRef} value={splitPct} onChange={setSplitPct} onCommit={saveSplitPct} />
 
         <aside className="rd-side" aria-label={w("read.found")}>
-          <div className="rd-side__head">
-            <h2>{w("read.found")}</h2>
-            <PageRef page={pageNo} />
-          </div>
           {notice && <Notice tone="error">{notice}</Notice>}
           {info && !notice && <Notice tone="success">{info}</Notice>}
-          {facts === null && <p className="rd-note">{w("read.not_read_yet")}</p>}
-          {facts?.length === 0 && <p className="rd-note">{w(page.source_type ? "read.none_found" : "read.still_reading")}</p>}
-          {facts && facts.length > 0 && <FactSwitcher pack={pack} facts={facts} focus={focus} onFocus={setFocus} />}
-          {focusedFact && (
-            <FactCard
-              key={focusedFact.id}
-              fact={focusedFact}
-              pack={pack}
-              allFacts={facts ?? []}
-              focused={true}
-              busy={busy}
-              editing={editing?.id === focusedFact.id ? editing.text : null}
-              editingFields={editing?.id === focusedFact.id ? editing.fields : null}
-              canSave={editCanSave(focusedFact)}
-              formError={formError?.text ?? null}
-              tickHint={formError?.tick === true}
-              formAction={formError?.action ?? null}
-              clearerPage={page.superseded_by_page_no ?? null}
-              moving={moving?.id === focusedFact.id ? { page: moving.page, pageHref: `/cases/${caseId}/read/${moving.page}`, problem: moving.problem, readFirst: moving.readFirst } : null}
-              onStartMove={page.superseded_by_page_no ? () => void startMove(focusedFact, page.superseded_by_page_no!) : undefined}
-              onSaveMove={() => void saveMove(focusedFact)}
-              onCancelMove={() => setMoving(null)}
-              misread={editing?.id === focusedFact.id && editing.words.length > 0 ? { ticked: editing.misread, text: editing.misreadText } : null}
-              onMisread={(ticked) => setEditing((e) => e && { ...e, misread: ticked })}
-              onMisreadText={(text) => setEditing((e) => e && { ...e, misreadText: text })}
-              typeOutHref={formError?.typeOut ? `/cases/${caseId}/read/couldnt-read?page=${pageNo}` : undefined}
-              typedWords={editing?.id === focusedFact.id && pageWords ? <TypedWordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} /> : undefined}
-              reason={reasons[focusedFact.id] ?? ""}
-              onFocus={() => setFocus(focusedFact.id)}
-              onReason={(text) => setReasons((r) => ({ ...r, [focusedFact.id]: text }))}
-              onCorrect={() => act(focusedFact, "correct")}
-              onNotRight={() => notRight(focusedFact)}
-              onStartEdit={() => { setMoving(null); void startEdit(focusedFact); }}
-              onEditText={(text) => setEditing((e) => e && { ...e, text })}
-              onEditField={(key, value) =>
-                setEditing((e) => {
-                  if (!e) return e;
-                  const fields = { ...e.fields, [key]: value };
-                  const follow = e.eventDate !== null && !e.eventDateByHand && key === dateFieldKey(pack, focusedFact.kind);
-                  return { ...e, fields, eventDate: follow ? suggestTimelineDate({ ...focusedFact, event_date: null, fields: { ...(focusedFact.fields ?? {}), ...fields } }, pack) : e.eventDate };
-                })
-              }
-              editEventDate={editing?.id === focusedFact.id ? editing.eventDate : null}
-              onEditEventDate={(value) => setEditing((e) => e && { ...e, eventDate: value, eventDateByHand: true })}
-              onSaveEdit={() => saveEdit(focusedFact)}
-              onCancelEdit={() => { setEditing(null); setFormError(null); }}
-              onFlag={() => toggleFlag(focusedFact)}
-              timelineDraft={timelineDraft?.id === focusedFact.id ? timelineDraft.value : null}
-              onStartTimelineDate={() => {
-                setEditing(null);
-                setFormError(null);
-                setTimelineDraft({ id: focusedFact.id, value: suggestTimelineDate(focusedFact, pack) });
-              }}
-              onTimelineDateChange={(value) => setTimelineDraft((d) => d && d.id === focusedFact.id ? { ...d, value } : d)}
-              onSaveTimelineDate={() => {
-                if (!timelineDraft || timelineDraft.id !== focusedFact.id || !timelineDraft.value) return;
-                void act(focusedFact, "edit", { event_date: timelineDraft.value });
-              }}
-              onCancelTimelineDate={() => { setTimelineDraft(null); setFormError(null); }}
-            />
-          )}
-          {canNote && <MyNotes caseId={caseId} pageNo={pageNo} />}
-          {hard > 0 && (
-            <div className="rd-side__foot">
-              <Link className="rd-hard" to={`/cases/${caseId}/read/couldnt-read`}>
-                {w("read.couldnt_read", { count: hard })}
-              </Link>
+          {reassigned && facts !== null && <Notice tone="info">{w("read.reassigned")}</Notice>}
+          {facts === null ? (
+            <div className="rd-blind">
+              <EyeIcon />
+              <h2>{w("read.read_first")}</h2>
+              <p>{w("read.not_read_yet")}</p>
+              <p className="av-visually-hidden">{w("read.not_read_why")}</p>
             </div>
+          ) : (
+            <>
+              <div className="rd-side__head">
+                <h2>{w("read.found")}</h2>
+                <PageRef page={pageNo} />
+              </div>
+              {facts?.length === 0 && <p className="rd-note">{w(page.source_type ? "read.none_found" : "read.still_reading")}</p>}
+              {facts && facts.length > 0 && (
+                <FactList pack={pack} facts={facts} done={counts.done} total={counts.total} focus={focusedFact?.id ?? null} onFocus={setFocus}>
+                  {renderCard}
+                </FactList>
+              )}
+            </>
           )}
+          {canNote ? <MyNotes caseId={caseId} pageNo={pageNo} trailing={hardLink} /> : hardLink && <div className="rd-notes"><div className="rd-notes__line">{hardLink}</div></div>}
         </aside>
       </div>
 
@@ -938,16 +1036,15 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       </div>}
 
       <footer className="rd-foot">
-        <Button variant="secondary" arrow="back" disabled={pageNo <= 1} onClick={() => go(pageNo - 1)}>
+        <Button variant="secondary" className="rd-foot__prev" arrow="back" disabled={pageNo <= 1} onClick={() => go(pageNo - 1)}>
           {w("read.previous")}
         </Button>
         <div className="rd-progress">
           {progress.data && (
             <>
               <p>
-                {left === 0
-                  ? w("read.progress_all", { page: pageNo, total: count(progress.data.total, pack.locale) })
-                  : w("read.progress", { page: pageNo, total: count(progress.data.total, pack.locale), read: count(progress.data.read, pack.locale), left: count(left, pack.locale) })}
+                <strong>{w("read.read_count", { read: readCount, total: count(progress.data.total, pack.locale) })}</strong>
+                {left > 0 && <span className="rd-progress__left"> {w("read.to_go", { left: count(left, pack.locale) })}</span>}
               </p>
               <ProgressBar max={progress.data.total || 1} value={progress.data.read} label={w("read.progress_done", { read: progress.data.read, total: progress.data.total })} />
             </>
@@ -958,7 +1055,10 @@ function ReadPage({ pageNo }: { pageNo: number }) {
             {w("read.next")}
           </Button>
         ) : (
-          <Button disabled={busy} onClick={() => void markRead()}>{w("read.mark_read")}</Button>
+          <Button disabled={busy} onClick={() => void markRead()}>
+            <TickIcon />
+            {w("read.mark_read")}
+          </Button>
         )}
       </footer>
     </div>

@@ -1,36 +1,17 @@
 import type { Schemas } from "../../foundation/platform-client";
-import { axisIso } from "./shared";
 
 type Event = Schemas["Event"];
-type Lane = Schemas["Timeline"]["lanes"][number];
+type Timeline = Pick<Schemas["Timeline"], "lanes" | "unplaced" | "chronology">;
 
 export type ChronologyEntry = Event & { laneKey: string; laneLabel: string; laneIcon?: string | null };
 
-const dayMs = (iso: string | null | undefined): number | null => {
-  if (!iso) return null;
-  const [y, m, d] = iso.split("-").map(Number);
-  return Date.UTC(y!, (m ?? 1) - 1, d ?? 1);
-};
-
-/** Flatten lanes and unplaced into one date-ordered list (undated last, then by page). */
-export function chronologyEntries(lanes: Lane[], unplaced: Event[]): ChronologyEntry[] {
-  const rows: ChronologyEntry[] = [];
-  for (const lane of lanes) {
-    for (const e of lane.events) {
-      rows.push({ ...e, laneKey: lane.key, laneLabel: lane.label, laneIcon: lane.icon });
-    }
-  }
-  for (const e of unplaced) {
-    rows.push({ ...e, laneKey: "", laneLabel: "" });
-  }
-  rows.sort((a, b) => {
-    const da = dayMs(axisIso(a));
-    const db = dayMs(axisIso(b));
-    if (da === null && db === null) return a.page_no - b.page_no;
-    if (da === null) return 1;
-    if (db === null) return -1;
-    if (da !== db) return da - db;
-    return a.page_no - b.page_no;
+/** The list view's rows: the server's chronology (its order, its lane words) joined to the entries it names. */
+export function chronologyEntries(data: Timeline): ChronologyEntry[] {
+  const byId = new Map<string, Event>();
+  for (const lane of data.lanes) for (const e of lane.events) byId.set(e.fact_id, e);
+  for (const e of data.unplaced) byId.set(e.fact_id, e);
+  return data.chronology.flatMap((ref) => {
+    const e = byId.get(ref.fact_id);
+    return e ? [{ ...e, laneKey: ref.lane_key, laneLabel: ref.lane_label, laneIcon: ref.lane_icon }] : [];
   });
-  return rows;
 }

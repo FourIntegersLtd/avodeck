@@ -31,7 +31,7 @@ function theCase(over: Partial<Schemas["Case"]> = {}): Schemas["Case"] {
 function summary(over: Partial<Schemas["CloseSummary"]> = {}): Schemas["CloseSummary"] {
   return {
     case_id: CASE_A, status: "settled", settled_at: "2027-07-14T10:00:00Z", retention_policy: "keep_default",
-    delete_after: "2033-07-14", retention_years: launchPack.retention_years, ever_served: true, holds: [], held: false,
+    delete_after: "2033-07-14", retention_years: launchPack.retention_years, ever_served: true, holds: [], active_holds: [], paused_until: null, held: false,
     deletion_started: false, deleted_at: null, job_id: null, ...over,
   };
 }
@@ -67,7 +67,7 @@ function serve(opts: { item?: Schemas["Case"]; close?: Schemas["CloseSummary"]; 
     http.post(`/v1/cases/${CASE_A}/legal-holds`, async ({ request }) => {
       await record(request);
       const hold = { id: "66666666-6666-4666-8666-666666666666", reason: "appeal", until: null, set_by: theCase().named_expert_id, created_at: "2027-07-20T10:00:00Z", released_at: null };
-      close = { ...close, holds: [hold], held: true };
+      close = { ...close, holds: [hold], active_holds: [hold], paused_until: null, held: true };
       return json(hold, 201);
     }),
   );
@@ -350,4 +350,107 @@ test("a settled case is closed with a button named Close case", async () => {
   serve();
   renderClose();
   expect(await screen.findByRole("button", { name: "Close case" })).toBeInTheDocument();
+});
+
+// A request held until released, so the busy state can be seen while it runs.
+function hold() {
+  let release!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  return { gate, release };
+}
+
+test("making the copies shows busy at once and a second click sends one request", async () => {
+  serve();
+  const { gate, release } = hold();
+  let posts = 0;
+  server.use(http.post(`/v1/cases/${CASE_A}/export`, async () => {
+    posts += 1;
+    try { await gate; } finally { /* released */ }
+    return json({ job_id: "77777777-7777-4777-8777-777777777777" }, 202);
+  }));
+  const { user } = renderClose();
+  const button = await screen.findByRole("button", { name: "Download 3 files" });
+  await user.click(button);
+  await waitFor(() => expect(button).toHaveAttribute("aria-busy", "true"));
+  expect(button).toBeDisabled();
+  await user.click(button);
+  release();
+  await waitFor(() => expect(posts).toBe(1));
+  expect(posts).toBe(1);
+});
+
+test("closing the case shows busy while it runs and sends one request", async () => {
+  serve({ item: theCase({ status: "served" }), close: summary({ status: "served", settled_at: null, delete_after: null }) });
+  const { gate, release } = hold();
+  let posts = 0;
+  server.use(http.post(`/v1/cases/${CASE_A}/settle`, async () => {
+    posts += 1;
+    try { await gate; } finally { /* released */ }
+    return json(summary());
+  }));
+  const { user } = renderClose();
+  const button = await screen.findByRole("button", { name: CLOSE_MESSAGES["close.close.settle"] });
+  await user.click(button);
+  await waitFor(() => expect(button).toHaveAttribute("aria-busy", "true"));
+  await user.click(button);
+  release();
+  await waitFor(() => expect(posts).toBe(1));
+});
+
+test("choosing how long to keep records disables the choices while it saves, one request", async () => {
+  serve();
+  const { gate, release } = hold();
+  let puts = 0;
+  server.use(http.put(`/v1/cases/${CASE_A}/retention`, async () => {
+    puts += 1;
+    try { await gate; } finally { /* released */ }
+    return json(summary({ retention_policy: "return_then_delete" }));
+  }));
+  const { user } = renderClose();
+  const other = await screen.findByRole("radio", { name: new RegExp(CLOSE_MESSAGES["close.keep.return_then_delete_plain"]!) });
+  await user.click(other);
+  await waitFor(() => expect(other).toBeDisabled());
+  release();
+  await waitFor(() => expect(other).toBeEnabled());
+  expect(puts).toBe(1);
+});
+
+test("pausing deletion shows busy on the confirm button and sends one request", async () => {
+  serve();
+  const { gate, release } = hold();
+  let posts = 0;
+  server.use(http.post(`/v1/cases/${CASE_A}/legal-holds`, async () => {
+    posts += 1;
+    try { await gate; } finally { /* released */ }
+    return json({ id: "66666666-6666-4666-8666-666666666666", reason: "appeal", until: null, set_by: theCase().named_expert_id, created_at: "2027-07-20T10:00:00Z", released_at: null }, 201);
+  }));
+  const { user } = renderClose();
+  await user.click(await screen.findByRole("button", { name: CLOSE_MESSAGES["close.hold.pause"] }));
+  const dialog = await screen.findByRole("dialog", { name: CLOSE_MESSAGES["close.hold.dialog_title"] });
+  await user.click(within(dialog).getByRole("radio", { name: CLOSE_MESSAGES["close.hold.reason.appeal"] }));
+  const confirm = within(dialog).getByRole("button", { name: CLOSE_MESSAGES["close.hold.confirm"] });
+  await user.click(confirm);
+  await waitFor(() => expect(confirm).toHaveAttribute("aria-busy", "true"));
+  await user.click(confirm);
+  release();
+  await waitFor(() => expect(posts).toBe(1));
+});
+
+test("resuming deletion shows busy and releases once", async () => {
+  const holdRow = { id: "66666666-6666-4666-8666-666666666666", reason: "appeal", until: null, set_by: theCase().named_expert_id, created_at: "2027-07-20T10:00:00Z", released_at: null };
+  serve({ close: summary({ holds: [holdRow], active_holds: [holdRow], paused_until: null, held: true }) });
+  const { gate, release } = hold();
+  let posts = 0;
+  server.use(http.post(`/v1/cases/${CASE_A}/legal-holds/${holdRow.id}/release`, async () => {
+    posts += 1;
+    try { await gate; } finally { /* released */ }
+    return json({ ...holdRow, released_at: "2027-07-21T10:00:00Z" });
+  }));
+  const { user } = renderClose();
+  const button = await screen.findByRole("button", { name: CLOSE_MESSAGES["close.hold.resume"] });
+  await user.click(button);
+  await waitFor(() => expect(button).toHaveAttribute("aria-busy", "true"));
+  await user.click(button);
+  release();
+  await waitFor(() => expect(posts).toBe(1));
 });

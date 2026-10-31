@@ -24,6 +24,12 @@
   --focus: #B45309;
   --track: #E9ECEA;
   --brand: #0F3D2C;
+  --well: #F1F2F1;
+  --hairline: #E9ECEA;
+  --shadow-card: 0 1px 2px rgba(15, 61, 44, 0.05), 0 8px 24px rgba(15, 61, 44, 0.06);
+  --shadow-paper: 0 1px 2px rgba(15, 61, 44, 0.06), 0 16px 40px rgba(15, 61, 44, 0.10);
+  --shadow-raised: 0 1px 3px rgba(15, 61, 44, 0.14);
+  --shadow-menu: 0 2px 6px rgba(15, 61, 44, 0.08), 0 18px 48px rgba(15, 61, 44, 0.18);
   --on-accent: #FFFFFF;
   --on-brand: #FFFFFF;
   --on-brand-soft: #CFE6DA;
@@ -53,6 +59,9 @@
   --button-min-height: 52px;
   --radius: 12px;
   --radius-large: 18px;
+  --radius-card: 16px;
+  --space-8: 40px;
+  --space-9: 56px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -60,10 +69,17 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
-  --page-width: 1180px;
-  --page-width-narrow: 920px;
-  --page-width-wide: 1360px;
+  /* Pages run full width; their edges line up with the bar's logo and avatar (the gutter). */
+  --page-width: none;
+  --page-width-narrow: none;
+  --page-width-wide: none;
+  /* The one outer padding for every screen: bars and pages use these, screens never set their own. */
+  --gutter: 40px;
+  --page-top: 32px;
+  --page-bottom: 48px;
 }
+@media (max-width: 1024px) { :root { --gutter: 24px; --page-top: 24px; --page-bottom: 40px; } }
+@media (max-width: 700px) { :root { --gutter: 16px; --page-top: 16px; --page-bottom: 32px; } }
 
 /* Dark theme: every colour token again. Follows the device unless the person chose light. */
 @media (prefers-color-scheme: dark) {
@@ -91,6 +107,12 @@
     --focus: #F2B073;
     --track: #2D3833;
     --brand: #1B4A38;
+    --well: #232D28;
+    --hairline: #2D3833;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+    --shadow-paper: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.35);
+    --shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-menu: 0 2px 6px rgba(0, 0, 0, 0.3), 0 18px 48px rgba(0, 0, 0, 0.5);
     --on-accent: #06140E;
     --on-brand: #F2F8F4;
     --on-brand-soft: #CFE6DA;
@@ -133,6 +155,12 @@
   --focus: #F2B073;
   --track: #2D3833;
   --brand: #1B4A38;
+  --well: #232D28;
+  --hairline: #2D3833;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-paper: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.35);
+  --shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-menu: 0 2px 6px rgba(0, 0, 0, 0.3), 0 18px 48px rgba(0, 0, 0, 0.5);
   --on-accent: #06140E;
   --on-brand: #F2F8F4;
   --on-brand-soft: #CFE6DA;

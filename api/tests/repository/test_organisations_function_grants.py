@@ -26,6 +26,11 @@ FUNCTIONS = {
     "app.support_person(text, integer, interval)": True,
     "app.support_organisation(uuid)": True,
     "app.support_cell_status()": True,
+    "app.support_account_check(text)": False,
+    "app.support_account_precheck(text)": True,
+    "app.support_create_account(uuid, text, text, text)": True,
+    "app.support_new_password(uuid)": True,
+    "app.support_accounts_list()": True,
 }
 
 

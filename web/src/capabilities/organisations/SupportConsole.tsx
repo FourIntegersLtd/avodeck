@@ -6,9 +6,8 @@ import { Link } from "react-router-dom";
 import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useSession } from "../../foundation/lib/session";
-import { useStepUp } from "../../foundation/lib/stepUp";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, TextField } from "../../foundation/ui";
+import { Button, TextField, useBusy } from "../../foundation/ui";
 import { MessageNotice, NotFoundPage, OWN_ERRORS, type Message } from "./common";
 import { flag } from "./flags";
 import { SupportLookups } from "./SupportLookups";
@@ -30,11 +29,12 @@ function when(iso: string, locale: string | null | undefined): string {
 
 export function SupportConsole() {
   const { me } = useSession();
-  const stepUp = useStepUp();
   const [query, setQuery] = useState("");
   const [cases, setCases] = useState<Found[] | null>(null);
+  const [servedIds, setServedIds] = useState<string[]>([]);
   const [hidden, setHidden] = useState(false);
   const [message, setMessage] = useState<Message>(null);
+  const { busy, run } = useBusy();
 
   if (hidden) return <NotFoundPage />;
   const search = async (e: FormEvent) => {
@@ -42,21 +42,24 @@ export function SupportConsole() {
     if (!query.trim()) return;
     setMessage(null);
     try {
-      const found = await stepUp(() => unwrap(api.GET("/v1/support/cases", { params: { query: { q: query.trim() } } })));
-      if (found) setCases(found.cases);
+      const found = await unwrap(api.GET("/v1/support/cases", { params: { query: { q: query.trim() } } }));
+      setCases(found.cases);
+      setServedIds(found.served_case_ids);
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) return setHidden(true);
       setMessage({ tone: "error", text: errorMessage(err, { ...OWN_ERRORS, server_error: "organisations.console.error" }) });
     }
   };
-  const served = (cases ?? []).filter((c) => c.served);
   return (
     <div className="av-page av-page--narrow av-stack">
       <h1>{w("console.title")}</h1>
       <p>{w("console.intro")}</p>
-      <form className="av-row av-org-search" onSubmit={(e) => void search(e)} noValidate>
+      <p>
+        <Link to="/support/accounts">{w("console.accounts")}</Link>
+      </p>
+      <form className="av-row av-org-search" onSubmit={(e) => void run(() => search(e))} noValidate>
         <TextField label={w("console.query")} name="q" autoComplete="off" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <Button type="submit">{w("console.search")}</Button>
+        <Button type="submit" busy={busy}>{w("console.search")}</Button>
       </form>
       <MessageNotice message={message} />
       {cases && cases.length === 0 && <p className="av-muted">{w("console.none")}</p>}
@@ -82,24 +85,24 @@ export function SupportConsole() {
           ))}
         </ul>
       )}
-      {served.length > 0 && flag("support_custody_transfer") && <Custody cases={served.map((c) => c.case_id)} />}
+      {servedIds.length > 0 && flag("support_custody_transfer") && <Custody cases={servedIds} />}
       <SupportLookups onHidden={() => setHidden(true)} />
     </div>
   );
 }
 
 function Custody({ cases }: { cases: string[] }) {
-  const stepUp = useStepUp();
   const [caseId, setCaseId] = useState(cases[0] ?? "");
   const [to, setTo] = useState<"custodian" | "organisation">("custodian");
   const [evidence, setEvidence] = useState("");
   const [message, setMessage] = useState<Message>(null);
+  const { busy, run } = useBusy();
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setMessage(null);
     try {
-      const done = await stepUp(() => unwrap(api.POST("/v1/support/custody-transfers", { body: { case_id: caseId, to, evidence_note: evidence.trim() } })));
-      if (done !== undefined) setMessage({ tone: "success", text: w("console.custody.done") });
+      await unwrap(api.POST("/v1/support/custody-transfers", { body: { case_id: caseId, to, evidence_note: evidence.trim() } }));
+      setMessage({ tone: "success", text: w("console.custody.done") });
     } catch (err) {
       setMessage({ tone: "error", text: errorMessage(err, OWN_ERRORS) });
     }
@@ -109,7 +112,7 @@ function Custody({ cases }: { cases: string[] }) {
       <h2 id="custody-title">{w("console.custody.title")}</h2>
       <p>{w("console.custody.intro")}</p>
       <MessageNotice message={message} />
-      <form className="av-stack" onSubmit={(e) => void submit(e)} noValidate>
+      <form className="av-stack" onSubmit={(e) => void run(() => submit(e))} noValidate>
         <div className="av-field">
           <label className="av-field__label" htmlFor="custody-case">
             {w("console.custody.case")}
@@ -132,7 +135,7 @@ function Custody({ cases }: { cases: string[] }) {
           </select>
         </div>
         <TextField label={w("console.custody.evidence")} name="evidence" autoComplete="off" value={evidence} onChange={(e) => setEvidence(e.target.value)} />
-        <Button type="submit">{w("console.custody.button")}</Button>
+        <Button type="submit" busy={busy}>{w("console.custody.button")}</Button>
       </form>
     </section>
   );

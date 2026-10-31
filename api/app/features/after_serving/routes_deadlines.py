@@ -159,10 +159,13 @@ class HearingOut(BaseModel):
     direction_id: uuid.UUID | None
     version: int
     changed_at: datetime | None
+    live: bool = Field(description="Not replaced and not adjourned.")
 
 
 class Hearings(BaseModel):
-    hearings: list[HearingOut]
+    hearings: list[HearingOut] = Field(description="In the order the screen shows: live first, then newest first.")
+    next_hearing_id: uuid.UUID | None = Field(description="The earliest live hearing.")
+    next_trial_hearing_id: uuid.UUID | None = Field(description="The earliest live trial hearing.")
 
 
 # --- deadlines ------------------------------------------------------------------------------------------
@@ -441,6 +444,10 @@ async def list_directions(case_id: uuid.UUID, access: View, conn: DbConn, crypto
 # --- hearings -------------------------------------------------------------------------------------------
 
 
+def _live(row: dict[str, Any]) -> bool:
+    return row["replaced_by_hearing_id"] is None and row["status"] != "adjourned"
+
+
 async def _insert_hearing(
     conn: Any, case_id: uuid.UUID, type_: str, starts: date, ends: date, venue: str | None
 ) -> dict[str, Any]:
@@ -462,7 +469,7 @@ async def add_hearing(
 ) -> HearingOut:
     row = await _insert_hearing(conn, case_id, body.type, body.starts_on, body.ends_on, body.venue)
     response.headers["etag"] = etag(row["version"])
-    return HearingOut(**row)
+    return HearingOut(**row, live=_live(row))
 
 
 @router.patch("/cases/{case_id}/hearings/{hearing_id}", response_model=HearingOut)
@@ -527,7 +534,7 @@ async def change_hearing(
     assert row is not None
     await audit.record(conn, action="hearing.changed", target=f"hearing:{hearing_id}", case_id=case_id)
     response.headers["etag"] = etag(row["version"])
-    return HearingOut(**row)
+    return HearingOut(**row, live=_live(row))
 
 
 @router.get("/cases/{case_id}/hearings", response_model=Hearings)
@@ -535,4 +542,12 @@ async def list_hearings(case_id: uuid.UUID, access: View, conn: DbConn) -> Heari
     rows = await fetch_all(
         conn, f"select {_HEARING} from app.hearings where case_id = %s order by starts_on, created_at, id", (case_id,)
     )
-    return Hearings(hearings=[HearingOut(**r) for r in rows])
+    out = [HearingOut(**r, live=_live(r)) for r in rows]
+    live = [h for h in out if h.live]  # rows come ordered by starts_on
+    trial = next((h for h in live if h.type == "trial"), None)
+    out.sort(key=lambda h: (h.live, h.starts_on), reverse=True)  # live first, then newest first
+    return Hearings(
+        hearings=out,
+        next_hearing_id=live[0].id if live else None,
+        next_trial_hearing_id=trial.id if trial else None,
+    )

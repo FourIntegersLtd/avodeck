@@ -4,10 +4,12 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
+import { useUpload } from "../../foundation/lib/useUpload";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { BackLink, Button, ChoicePills, DictationBar, LoadError, Loading, Notice, ProgressBar } from "../../foundation/ui";
 import { casePath, count, sourceLabel } from "./data";
 import { PageImage } from "./PageImage";
+import { SecondReading } from "./SecondReading";
 import { forgetPage } from "./pageImageCache";
 import { uploadLaterRecords } from "./upload";
 import { w } from "./words";
@@ -29,6 +31,7 @@ export function CouldntRead() {
   const whyId = useId();
   const [relevance, setRelevance] = useState<Relevance | null>(null);
   const [busy, setBusy] = useState(false);
+  const upload = useUpload();
   const [copying, setCopying] = useState(false);
   const [copyOf, setCopyOf] = useState("");
   const fileId = useId();
@@ -172,7 +175,7 @@ export function CouldntRead() {
 
   const addClearerCopy = (file: File) =>
     settle(async () => {
-      const document_id = await uploadLaterRecords(caseId, file);
+      const document_id = await uploadLaterRecords(caseId, file, upload.options());
       await unwrap(api.POST("/v1/cases/{case_id}/documents/append", { params: { path: { case_id: caseId } }, body: { document_ids: [document_id] } }));
       await unwrap(api.POST("/v1/cases/{case_id}/pages/{page_id}/replace", { params: { path: { case_id: caseId, page_id: current!.page_id } }, body: { document_id } }));
       forgetPage(caseId, current!.page_no);
@@ -219,6 +222,7 @@ export function CouldntRead() {
                 options={(["relevant", "background"] as const).map((r) => ({ value: r, label: w(`unreadable.${r}`) }))}
               />
             </div>
+            <SecondReading caseId={caseId} pageNo={current.page_no} />
             {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
             {current.needs_clearer_copy && !notice && <p className="rd-note">{w("unreadable.clearer_asked")}</p>}
             <p className="rd-label rd-label--small">{w("unreadable.choose")}</p>
@@ -247,6 +251,7 @@ export function CouldntRead() {
                   if (file) void addClearerCopy(file);
                 }}
               />
+              {upload.status && <p role="status" className="av-muted">{upload.status}</p>}
             </div>
             {copying && (
               <div className="rd-copy">

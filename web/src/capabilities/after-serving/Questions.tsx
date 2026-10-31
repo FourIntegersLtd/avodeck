@@ -10,7 +10,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, Checkbox, Dialog, DictationBox, LoadError, Loading, Notice, PageRef, TextField } from "../../foundation/ui";
+import { BackLink, Button, Checkbox, Dialog, DictationBox, LoadError, Loading, Notice, PageRef, TextField, useBusy } from "../../foundation/ui";
 import { WarnIcon } from "./icons";
 import { capitalise, declarationParts, keyName, longDate, Select, useLocale, useWaiting, versionTag, weekdayDate } from "./shared";
 import { w } from "./words";
@@ -35,24 +35,23 @@ export function QuestionsScreen() {
   const path = { params: { path: { case_id: caseId } } };
   const rounds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-question-rounds", path)), [caseId], { cache: "after-serving/Questions#QuestionsScreen:rounds" });
   const questions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-questions", path)), [caseId]);
-  const deadlines = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deadlines", path)), [caseId], { cache: "after-serving/Questions#QuestionsScreen:deadlines" });
   const [selected, setSelected] = useState<string | null>(null);
   const wait = useWaiting(() => { rounds.reload(); questions.reload(); }, questions.data?.questions.length);
 
-  if (rounds.error || questions.error || deadlines.error) {
-    return <div className="av-page"><LoadError onRetry={() => { rounds.reload(); questions.reload(); deadlines.reload(); }} /></div>;
+  if (rounds.error || questions.error) {
+    return <div className="av-page"><LoadError onRetry={() => { rounds.reload(); questions.reload(); }} /></div>;
   }
-  if (!rounds.data || !questions.data || !deadlines.data) return <div className="av-page"><Loading /></div>;
+  if (!rounds.data || !questions.data) return <div className="av-page"><Loading /></div>;
   const vocab = (pack.vocabulary as Record<string, unknown>).written_questions;
   const classes = pack.written_question_classifications ?? [];
-  const firstOpen = rounds.data.rounds.find((r) => r.status !== "answered");
-  const firstDeadline = firstOpen && deadlines.data.deadlines.find((d) => d.id === firstOpen.deadline_id);
-  const chip = firstOpen && firstDeadline && firstDeadline.days_left != null
-    ? { left: firstDeadline.days_left, due: firstDeadline.due_on, number: firstOpen.number }
+  const firstOpen = rounds.data.rounds.find((r) => r.open);
+  const chip = firstOpen && firstOpen.days_left != null && firstOpen.due_on
+    ? { left: firstOpen.days_left, due: firstOpen.due_on, number: firstOpen.number }
     : null;
-  const reloadAll = () => { rounds.reload(); questions.reload(); deadlines.reload(); };
+  const reloadAll = () => { rounds.reload(); questions.reload(); };
 
   const all = questions.data.questions;
+  const byRound = questions.data.by_round;
   const current = all.find((q) => q.id === selected) ?? all[0];
   const effective = (q: Question) => q.classification ?? q.suggested_classification ?? "";
 
@@ -107,7 +106,7 @@ export function QuestionsScreen() {
         </div>
         <div className="av-after-qmain av-stack">
           {rounds.data.rounds.map((round) => {
-            const mine = all.filter((q) => q.round_id === round.id);
+            const mine = byRound.find((g) => g.round_id === round.id)?.questions ?? [];
             return (
               <RoundView
                 key={round.id}
@@ -159,7 +158,7 @@ function RoundView({ caseId, round, questions, shown, currentId, classes, locale
   return (
     <section className="av-stack" hidden={!shown} aria-label={w("questions.round", { number: round.number, date: longDate(round.received_on, locale) })}>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
-      {round.status === "open" && !round.extracted_at && <div><Button variant="secondary" onClick={() => void importSet()}>{w("questions.read")}</Button></div>}
+      {round.status === "open" && !round.extracted_at && <div><Button variant="secondary" onClick={importSet}>{w("questions.read")}</Button></div>}
       <ul className="av-after-qcards">
         {questions.map((q) => (
           <QuestionCard key={`${q.id}-${bump}`} caseId={caseId} question={q} shown={q.id === currentId} classes={classes} party={party} onReload={() => { setBump(bump + 1); onChanged(); }} />
@@ -192,6 +191,7 @@ function QuestionCard({ caseId, question, shown, classes, party, onReload }: { c
   const locale = useLocale();
   const endpoint = { case_id: caseId, question_id: question.id };
 
+  const { busy: saving, run } = useBusy();
   const patch = async (body: Schemas["QuestionChange"], at = version) => {
     setError(null);
     setSaved(false);
@@ -199,18 +199,20 @@ function QuestionCard({ caseId, question, shown, classes, party, onReload }: { c
       const out = await unwrap(api.PATCH("/v1/cases/{case_id}/written-questions/{question_id}", { params: { path: endpoint }, body, headers: ifMatch(versionTag(at)) }));
       setVersion(out.version);
       setSaved(true);
+      setStale(null);
     } catch (err) {
       if (err instanceof ApiError && err.status === 412) setStale(body);
-      else setError(errorMessage(err, ERRORS));
+      else { setStale(null); setError(errorMessage(err, ERRORS)); }
     }
   };
+  const save = (body: Schemas["QuestionChange"]) => run(() => patch(body));
   const keepMine = async () => {
     const body = stale;
-    setStale(null);
     try {
       const fresh = await unwrap(api.GET("/v1/cases/{case_id}/written-questions", { params: { path: { case_id: caseId } } }));
       if (body) await patch(body, fresh.questions.find((q) => q.id === question.id)?.version ?? version);
     } catch (err) {
+      setStale(null);
       setError(errorMessage(err, ERRORS));
     }
   };
@@ -224,7 +226,7 @@ function QuestionCard({ caseId, question, shown, classes, party, onReload }: { c
     }
   };
   const noteKey = classification && hasMessage(`after_serving.classification_note.${classification}`) ? `after_serving.classification_note.${classification}` : null;
-  const tellButton = <button type="button" className="av-after-linkbtn" onClick={() => void tell()}>{w("questions.tell", { party: party || w("questions.tell_party") })}</button>;
+  const tellButton = <Button variant="link" onClick={tell}>{w("questions.tell", { party: party || w("questions.tell_party") })}</Button>;
   const options = classes.includes(classification) || !classification ? classes : [...classes, classification];
 
   return (
@@ -240,7 +242,9 @@ function QuestionCard({ caseId, question, shown, classes, party, onReload }: { c
           <Select
             label={w("questions.classification")}
             value={classification}
-            onChange={(e) => { setClassification(e.target.value); void patch({ classification: e.target.value }); }}
+            disabled={saving}
+            aria-busy={saving}
+            onChange={(e) => { setClassification(e.target.value); void save({ classification: e.target.value }); }}
           >
             {!classification && <option value="" />}
             {options.map((c) => <option key={c} value={c}>{keyName("classification", c)}</option>)}
@@ -265,12 +269,12 @@ function QuestionCard({ caseId, question, shown, classes, party, onReload }: { c
       {told && !note && <p className="av-muted">{w("questions.told", { date: longDate(told, locale) })}</p>}
       <div className="av-after-footer">
         {!noteKey && tellButton}
-        <Button onClick={() => void patch({ answer_text: answer })}>{w("questions.answer_save")}</Button>
+        <Button busy={saving} onClick={() => save({ answer_text: answer })}>{w("questions.answer_save")}</Button>
       </div>
       {stale && (
         <Dialog title={w("stale_title")} onClose={() => setStale(null)}>
           <div className="av-stack">
-            <Button onClick={() => void keepMine()}>{w("stale_mine")}</Button>
+            <Button onClick={keepMine}>{w("stale_mine")}</Button>
             <Button variant="secondary" onClick={onReload}>{w("stale_theirs")}</Button>
           </div>
         </Dialog>
@@ -303,7 +307,7 @@ function SignAnswers({ caseId, roundId, declarations, onDone }: { caseId: string
       <Checkbox label={w("questions.confirm")} checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       <div className="av-after-footer">
-        <Button disabled={!confirmed || busy} onClick={() => void sign()}>{w("questions.sign")}</Button>
+        <Button disabled={!confirmed || busy} busy={busy} onClick={sign}>{w("questions.sign")}</Button>
       </div>
     </div>
   );
@@ -332,7 +336,7 @@ function AddRound({ caseId, document, onDone }: { caseId: string; document: stri
       <TextField label={w("questions.received_on")} name="received_on" type="date" value={receivedOn} onChange={(e) => setReceivedOn(e.target.value)} />
       <TextField label={w("questions.answers_due_on")} name="answers_due_on" type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} />
       <div className="av-after-footer">
-        <Button variant="secondary" disabled={!document || !receivedOn || !dueOn} onClick={() => void add()}>{w("questions.add_submit")}</Button>
+        <Button variant="secondary" disabled={!document || !receivedOn || !dueOn} onClick={add}>{w("questions.add_submit")}</Button>
       </div>
     </section>
   );

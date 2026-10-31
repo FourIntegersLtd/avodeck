@@ -6,7 +6,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { ApiError, api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
-import { Button, LinkButton, Notice } from "../../foundation/ui";
+import { Button, LinkButton, Notice, useBusy } from "../../foundation/ui";
 import { casePath, longDate, pageLabel, useKindWord } from "./shared";
 import { w } from "./words";
 
@@ -14,8 +14,9 @@ type Link = Schemas["LinkOut"];
 
 const entryWords = (word: (kind: string) => string, kind: string, date: string | null | undefined, page: number) => `${word(kind)} · ${longDate(date)} · ${pageLabel(page)}`;
 
-function LinkRow({ link, question, canDecide, onDecide }: { link: Link; question: string; canDecide: boolean; onDecide: (status: "confirmed" | "rejected") => void }) {
+function LinkRow({ link, question, canDecide, onDecide }: { link: Link; question: string; canDecide: boolean; onDecide: (status: "confirmed" | "rejected") => Promise<void> }) {
   const word = useKindWord();
+  const { busy, run } = useBusy();
   const nameId = `link-${link.id}`;
   return (
     <li aria-labelledby={nameId} className="av-understand-event">
@@ -25,8 +26,8 @@ function LinkRow({ link, question, canDecide, onDecide }: { link: Link; question
       <span className="av-muted">{w(`links.status.${link.status as "suggested" | "confirmed" | "rejected" | "stale"}`)}</span>
       {canDecide && link.status === "suggested" && (
         <span className="av-row">
-          <Button onClick={() => onDecide("confirmed")}>{w("links.confirm")}</Button>
-          <Button variant="secondary" onClick={() => onDecide("rejected")}>{w("links.reject")}</Button>
+          <Button busy={busy} onClick={() => run(() => onDecide("confirmed"))}>{w("links.confirm")}</Button>
+          <Button variant="secondary" busy={busy} onClick={() => run(() => onDecide("rejected"))}>{w("links.reject")}</Button>
         </span>
       )}
     </li>
@@ -74,7 +75,7 @@ function AddLink({ caseId, questions, onAdded }: { caseId: string; questions: Sc
       </div>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       <div>
-        <Button disabled={!factId || !questionId} onClick={() => void add()}>{w("links.add")}</Button>
+        <Button disabled={!factId || !questionId} onClick={() => add()}>{w("links.add")}</Button>
       </div>
     </div>
   );
@@ -135,13 +136,13 @@ export function LinkReview({ caseId, can }: { caseId: string; can: (action: stri
       ) : (
         <ul className="av-understand-list">
           {holding.map((l) => (
-            <LinkRow key={l.id} link={l} question={name(l)} canDecide={can("link.decide")} onDecide={(s) => void decide(l, s)} />
+            <LinkRow key={l.id} link={l} question={name(l)} canDecide={can("link.decide")} onDecide={(s) => decide(l, s)} />
           ))}
         </ul>
       )}
       {can("link.suggest") && (
         <div>
-          <Button variant="secondary" onClick={() => void suggest()}>{w("links.suggest")}</Button>
+          <Button variant="secondary" onClick={() => suggest()}>{w("links.suggest")}</Button>
         </div>
       )}
       {started && <Notice><p>{w("links.suggest_started")}</p></Notice>}
@@ -157,7 +158,7 @@ export function LinkReview({ caseId, can }: { caseId: string; can: (action: stri
           <p className="av-muted">{w("links.stale_hint")}</p>
           <ul className="av-understand-list">
             {stale.map((l) => (
-              <LinkRow key={l.id} link={l} question={name(l)} canDecide={false} onDecide={() => undefined} />
+              <LinkRow key={l.id} link={l} question={name(l)} canDecide={false} onDecide={async () => undefined} />
             ))}
           </ul>
         </div>

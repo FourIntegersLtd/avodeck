@@ -15,6 +15,7 @@ from typing import Any
 from psycopg import AsyncConnection
 
 from app.core.ai.kit import AiKit
+from app.core.contracts.case_identity import identity_for
 from app.core.contracts.served import ServedReport
 from app.core.crypto import CaseCrypto
 from app.core.packs import MergedPack
@@ -51,6 +52,7 @@ def served_text(served: ServedReport | None, paragraph_ids: list[uuid.UUID]) -> 
 
 async def links(
     conn: AsyncConnection,
+    crypto: CaseCrypto,
     kit: AiKit,
     pack: MergedPack,
     case_id: uuid.UUID,
@@ -65,7 +67,17 @@ async def links(
         + [f"{ref}\t{p.text}" for ref, p in by_ref.items()]
     )
     task = ai_tasks.t22b(pack, agenda_refs, list(by_ref))
-    answer = await kit.run(conn, task, pack=pack, text=request, case_id=case_id, subject="agenda_links")
+    who = await identity_for(conn, crypto, case_id)
+    answer = await kit.run(
+        conn,
+        task,
+        pack=pack,
+        text=request,
+        case_id=case_id,
+        subject="agenda_links",
+        names=who.names,
+        dates_of_birth=who.dates_of_birth,
+    )
     out: list[list[uuid.UUID]] = [[] for _ in texts]
     for link in answer.get("links", []):
         index = agenda_refs.index(link["agenda"])
@@ -91,7 +103,7 @@ async def insert_items(
     fresh = [c for c in copied if c[0] not in before]
     linked: dict[int, list[uuid.UUID]] = {}
     if fresh and served is not None and served.paragraphs and kit is not None:
-        found = await links(conn, kit, pack, case_id, [c[1] for c in fresh], served)
+        found = await links(conn, crypto, kit, pack, case_id, [c[1] for c in fresh], served)
         linked = {c[0]: ids for c, ids in zip(fresh, found, strict=True)}
     for number, text, word_ids in copied:
         old = before.get(number)

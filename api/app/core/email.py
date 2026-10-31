@@ -6,6 +6,7 @@ mail in memory (tests read `outbox`). Addresses and links are never logged.
 
 from __future__ import annotations
 
+import os
 import re
 import uuid
 from collections.abc import Callable, Mapping
@@ -27,6 +28,11 @@ SPOT_CHECK_CODE = "spot_check.code"
 ORG_INVITE = "org.invite"
 CASE_REASSIGNED = "case.reassigned"
 SUPPORT_ACCESS_GRANTED = "support_access.granted"
+SUPPORT_JOB_RESUMED = "support.job_resumed"
+SUPPORT_JOB_REQUEUED = "support.job_requeued"
+ACCOUNT_CREATED = "account.created"
+ACCOUNT_LINK_HOURS = "1"
+HELP_REQUEST = "help.request"
 TEMPLATES = frozenset(
     {
         EMAIL_CHANGE_CONFIRM_OLD,
@@ -40,6 +46,10 @@ TEMPLATES = frozenset(
         ORG_INVITE,
         CASE_REASSIGNED,
         SUPPORT_ACCESS_GRANTED,
+        SUPPORT_JOB_RESUMED,
+        SUPPORT_JOB_REQUEUED,
+        ACCOUNT_CREATED,
+        HELP_REQUEST,
     }
 )
 
@@ -50,8 +60,20 @@ _INVOICE_NO = re.compile(r"^[A-Za-z0-9/_.-]{1,40}$")
 _CODE = re.compile(r"^\d{6}$")
 # An invite's accept link: the web app's `/invites/<token>` page and nothing else (no query, no names).
 _INVITE_LINK = re.compile(r"^(https://[A-Za-z0-9.-]+|http://localhost)(:[0-9]{1,5})?/invites/[A-Za-z0-9_-]{20,128}$")
+# A set-password link: the web app's `/reset-password?token=<token>` page and nothing else.
+_RESET_LINK = re.compile(
+    r"^(https://[A-Za-z0-9.-]+|http://localhost)(:[0-9]{1,5})?/reset-password\?token=[A-Za-z0-9_-]{20,128}$"
+)
+HELP_TOPICS = frozenset({"case", "account", "billing", "other"})
+_EMAIL_SHAPE = re.compile(r"^[^@\s<>,;\"]{1,64}@[^@\s<>,;\"]{1,255}$")
+_APP_PATH = re.compile(r"^/[A-Za-z0-9/_-]{0,200}$")
+_NO_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 REASSIGNED_SIDES = frozenset({"outgoing", "incoming"})
 _COUNTS = re.compile(r"^([a-z][a-z0-9_]{0,62}:[0-9]{1,12})(,[a-z][a-z0-9_]{0,62}:[0-9]{1,12})*$")
+
+
+def _is_help_message(value: str) -> bool:
+    return value == value.strip() and 1 <= len(value) <= 4000 and not _NO_CONTROL.search(value)
 
 
 def _is_uuid(value: str) -> bool:
@@ -100,10 +122,24 @@ TEMPLATE_PARAMS: dict[str, dict[str, Callable[[str], bool]]] = {
         "link": lambda v: bool(_INVITE_LINK.match(v)),
         "expires_on": _is_date,
     },
+    # Support made an account for this person (slice O): the link to set their own password only.
+    # `link_hours`: how long the set-password link lasts (Supabase Auth otp_expiry), said plainly in the mail.
+    ACCOUNT_CREATED: {"link": lambda v: bool(_RESET_LINK.match(v)), "link_hours": lambda v: v == ACCOUNT_LINK_HOURS},
     # The named expert changed before serving (slice O): sent to the outgoing and the incoming expert.
     CASE_REASSIGNED: {"case_ref": _is_uuid, "side": lambda v: v in REASSIGNED_SIDES},
     # The named expert let support look at one case (slice O): when the access ends.
     SUPPORT_ACCESS_GRANTED: {"case_ref": _is_uuid, "grant_ref": _is_uuid, "expires_at": _is_time},
+    # Avodeck support set one of the case's jobs going again (resumed a pause, or requeued a failure).
+    SUPPORT_JOB_RESUMED: {"case_ref": _is_uuid, "job_ref": _is_uuid},
+    SUPPORT_JOB_REQUEUED: {"case_ref": _is_uuid, "job_ref": _is_uuid},
+    # The Help form (ADR 0022): the one template that carries the expert's own free text, to our own
+    # address only. The message may hold patient details, so it lives in the email and nowhere else.
+    HELP_REQUEST: {
+        "from_email": lambda v: bool(_EMAIL_SHAPE.match(v)),
+        "topic": lambda v: v in HELP_TOPICS,
+        "message": _is_help_message,
+        "page": lambda v: bool(_APP_PATH.match(v)),
+    },
 }
 
 
@@ -112,6 +148,8 @@ class Mail:
     to: str = field(repr=False)
     template: str
     params: dict[str, str] = field(default_factory=dict, repr=False)
+    # Where a reply should go (the Help form: the expert). Never logged.
+    reply_to: str | None = field(default=None, repr=False)
 
 
 def check_params(mail: Mail) -> None:
@@ -121,6 +159,18 @@ def check_params(mail: Mail) -> None:
         return
     if set(mail.params) != set(checks) or not all(check(mail.params[k]) for k, check in checks.items()):
         raise ValueError(f"parameters do not fit the {mail.template} template")
+
+
+def help_request_mail(to: str, *, from_email: str, topic: str, message: str, page: str) -> Mail:
+    """A Help form message from an expert to our own support address (ADR 0022); replies go to the expert."""
+    mail = Mail(
+        to,
+        HELP_REQUEST,
+        {"from_email": from_email, "topic": topic, "message": message, "page": page},
+        reply_to=from_email,
+    )
+    check_params(mail)
+    return mail
 
 
 def deletion_certificate_mail(
@@ -173,6 +223,13 @@ def invite_mail(to: str, *, organisation_id: uuid.UUID, role: str, link: str, ex
     return mail
 
 
+def account_created_mail(to: str, *, link: str) -> Mail:
+    """Support made an account: the link to the web app's set-password page and that it lasts 1 hour."""
+    mail = Mail(to, ACCOUNT_CREATED, {"link": link, "link_hours": ACCOUNT_LINK_HOURS})
+    check_params(mail)
+    return mail
+
+
 def case_reassigned_mail(to: str, *, case_id: uuid.UUID, side: str) -> Mail:
     """The case's named expert changed: its reference id and whether the reader is `outgoing` or `incoming`."""
     mail = Mail(to, CASE_REASSIGNED, {"case_ref": str(case_id), "side": side})
@@ -189,6 +246,20 @@ def support_access_granted_mail(to: str, *, case_id: uuid.UUID, grant_id: uuid.U
     )
     check_params(mail)
     return mail
+
+
+def support_job_mail(to: str, *, template: str, case_id: uuid.UUID, job_id: uuid.UUID) -> Mail:
+    """Support resumed or requeued a job: the case's and the job's reference ids only."""
+    if template not in (SUPPORT_JOB_RESUMED, SUPPORT_JOB_REQUEUED):
+        raise ValueError(f"not a support job template: {template!r}")
+    mail = Mail(to, template, {"case_ref": str(case_id), "job_ref": str(job_id)})
+    check_params(mail)
+    return mail
+
+
+def mail_configured(env: Mapping[str, str] | None = None) -> bool:
+    """True when the cell has a mail service key (Resend). Without one, mail goes to the outbox stand-in."""
+    return bool((env if env is not None else os.environ).get("RESEND_API_KEY", "").strip())
 
 
 class Mailer(Protocol):

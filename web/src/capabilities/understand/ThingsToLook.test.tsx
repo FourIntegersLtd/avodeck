@@ -6,20 +6,23 @@ import { describe, expect, test } from "vitest";
 import { http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { finding, inCase, launchWords, type PackRun } from "./testing";
+import { finding, findingsReply, inCase, launchWords, type PackRun } from "./testing";
 
 const second = finding({ id: "c2222222-2222-4222-8222-222222222222", check_key: "referral_acknowledged", rule: "not_acknowledged_within", evidence_pages: [1071, 1072], decision: "relevant", reason: null });
 const gentle = finding({ id: "c3333333-3333-4333-8333-333333333333", check_key: "zz_session_length_recorded", rule: "no_action_within", gentle: true, evidence_pages: [9] });
 
-function serve(list = [finding(), second]) {
+function serve(start = [finding(), second]) {
+  const list = [...start];
   const calls: Array<{ method: string; url: URL; body: unknown }> = [];
   server.use(
-    http.get("/v1/cases/:caseId/findings", () => json({ findings: list })),
+    http.get("/v1/cases/:caseId/findings", () => json(findingsReply(list))),
     http.patch("/v1/cases/:caseId/findings/:id", async ({ request, params }) => {
       const sent = (await request.json()) as { decision: string; reason?: string | null };
       calls.push({ method: "PATCH", url: new URL(request.url), body: sent });
       const base = list.find((f) => f.id === params.id)!;
-      return json({ ...base, decision: sent.decision, reason: sent.reason ?? null, version: base.version + 1 });
+      const out = { ...base, decision: sent.decision, reason: sent.reason ?? null, version: base.version + 1 };
+      list[list.indexOf(base)] = out;
+      return json(out);
     }),
     http.post("/v1/cases/:caseId/findings/rerun", () => {
       calls.push({ method: "POST", url: new URL("http://x/rerun"), body: null });
@@ -72,7 +75,7 @@ test("'relevant' is saved at once, without a reason", async () => {
   const calls = serve();
   const { user } = open();
   const card = await screen.findByRole("article", { name: "Nothing in the record shows what followed this entry" });
-  await user.click(within(card).getByRole("radio", { name: "Relevant" }));
+  await user.click(within(card).getByRole("button", { name: "Relevant" }));
   expect(within(card).queryByRole("button", { name: "Save my decision" })).not.toBeInTheDocument();
   await waitFor(() => expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ decision: "relevant", reason: null }));
   expect(await screen.findByText("2 of 2 decided")).toBeInTheDocument();
@@ -83,7 +86,7 @@ test.each([["Not relevant", "not_relevant"], ["Explained elsewhere", "explained_
   const calls = serve();
   const { user } = open();
   const card = await screen.findByRole("article", { name: "Nothing in the record shows what followed this entry" });
-  await user.click(within(card).getByRole("radio", { name: label }));
+  await user.click(within(card).getByRole("button", { name: label }));
   const save = within(card).getByRole("button", { name: "Save my decision" });
   expect(save).toBeDisabled();
   await user.type(within(card).getByLabelText("Your reason"), "The ward saw it the same day");
@@ -125,7 +128,7 @@ test("the reason can be dictated", async () => {
   serve();
   const { user } = open();
   const card = await screen.findByRole("article", { name: "Nothing in the record shows what followed this entry" });
-  await user.click(within(card).getByRole("radio", { name: "Not relevant" }));
+  await user.click(within(card).getByRole("button", { name: "Not relevant" }));
   expect(within(card).getByRole("button", { name: "Dictate" })).toBeInTheDocument();
 });
 
@@ -137,7 +140,7 @@ test("already decided findings show a one-line summary of the decision", async (
   expect(within(row).getByText("Relevant")).toBeInTheDocument();
   await user.click(within(row).getByText(/^Nothing in the record shows this was acknowledged/));
   const other = await screen.findByRole("article", { name: "Nothing in the record shows this was acknowledged" });
-  expect(within(other).getByRole("radio", { name: "Relevant" })).toBeChecked();
+  expect(within(other).getByRole("button", { name: "Relevant" })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("you can add your own check: it needs a name, a kind of entry to follow, and a number of days", async () => {

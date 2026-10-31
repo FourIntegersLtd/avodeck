@@ -7,7 +7,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
-import { Button, ChoicePills, DictationBox, Dialog, IconTile, LinkButton, LoadError, Loading, Notice, PageRef, TextField, ToggleSwitch } from "../../foundation/ui";
+import { Button, DictationBox, Dialog, IconTile, LinkButton, LoadError, Loading, Notice, PageRef, SegmentedControl, TextField, ToggleSwitch, useBusy } from "../../foundation/ui";
 import { useParams } from "react-router-dom";
 import { LinkReview } from "./LinkReview";
 import { hasIcon, LineIcon } from "./laneIcons";
@@ -33,10 +33,11 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
   const [reason, setReason] = useState(finding.reason ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const { busy, run } = useBusy();
   const needs = decision !== null && NEEDS_REASON.has(decision);
   const ready = decision !== null && (!needs || reason.trim() !== "");
   const titleId = `finding-${finding.id}`;
-  const save = async (chosen: string, why: string | null) => {
+  const save = (chosen: string, why: string | null) => run(async () => {
     setError(null);
     try {
       const out = await unwrap(
@@ -50,7 +51,7 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
     } catch (err) {
       setError(errorMessage(err));
     }
-  };
+  });
   const choose = (value: string) => {
     setDecision(value);
     setSaved(false);
@@ -59,7 +60,7 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
   const shown = new Set(finding.evidence.map((e) => e.page_no));
   const other = finding.evidence_pages.filter((p) => !shown.has(p));
   return (
-    <article aria-labelledby={titleId} className={`av-card av-stack av-understand-finding${finding.decision ? "" : " av-understand-finding--open"}`}>
+    <article aria-labelledby={titleId} aria-busy={busy} className={`av-card av-stack av-understand-finding${finding.decision ? "" : " av-understand-finding--open"}`}>
       <div className="av-understand-finding__body">
         <div className="av-understand-finding__head">
           <IconTile tone="amber">
@@ -94,21 +95,20 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
         finding.decision && <p>{w("things.decision")}: {t(`understand.things.decision.${finding.decision}`)}</p>
       ) : (
         <>
-          <ChoicePills
-            label={w("things.decision")}
-            hideLabel
-            tone="amber"
-            name={`decision-${finding.id}`}
-            value={decision}
-            onChange={choose}
-            options={DECISIONS.map((d) => ({ value: d, label: t(`understand.things.decision.${d}`) }))}
-          />
+          <div className="av-understand-decide">
+            <SegmentedControl
+              label={w("things.decision")}
+              value={decision || null}
+              onChange={choose}
+              options={DECISIONS.map((d) => ({ value: d, label: t(`understand.things.decision.${d}`), disabled: busy }))}
+            />
+          </div>
           {needs && (
             <>
               <p className="av-muted">{w("things.reason_hint")}</p>
               <DictationBox caseId={caseId} context="finding_reason" label={w("things.reason")} rows={2} bar value={reason} onChange={(v) => { setReason(v); setSaved(false); }} />
               <div>
-                <Button disabled={!ready} onClick={() => void save(decision, reason.trim())}>{w("things.save")}</Button>
+                <Button disabled={!ready} busy={busy} onClick={() => save(decision, reason.trim())}>{w("things.save")}</Button>
               </div>
             </>
           )}
@@ -146,9 +146,10 @@ function AddCheck({ caseId, onClose, onAdded }: { caseId: string; onClose: () =>
   const [follow, setFollow] = useState("");
   const [days, setDays] = useState("14");
   const [error, setError] = useState<string | null>(null);
+  const { busy, run } = useBusy();
   const n = Number(days);
   const ready = label.trim() !== "" && from !== "" && follow !== "" && Number.isInteger(n) && n > 0;
-  const add = async () => {
+  const add = () => run(async () => {
     setError(null);
     try {
       await unwrap(api.POST("/v1/me/checks/custom", { body: { case_id: caseId, label: label.trim(), applies_to: from, followup_kinds: [follow], window_days: n } }));
@@ -156,7 +157,7 @@ function AddCheck({ caseId, onClose, onAdded }: { caseId: string; onClose: () =>
     } catch (err) {
       setError(errorMessage(err));
     }
-  };
+  });
   const options = (
     <>
       <option value="">{w("things.own.choose")}</option>
@@ -181,7 +182,7 @@ function AddCheck({ caseId, onClose, onAdded }: { caseId: string; onClose: () =>
         <TextField name="own-days" label={w("things.own.days")} type="number" min={1} inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} />
         {error && <Notice tone="error"><p>{error}</p></Notice>}
         <div className="av-row">
-          <Button type="submit" disabled={!ready}>{w("things.own.add")}</Button>
+          <Button type="submit" busy={busy} disabled={!ready}>{w("things.own.add")}</Button>
           <Button variant="secondary" onClick={onClose}>{w("common.cancel")}</Button>
         </div>
       </form>
@@ -196,6 +197,7 @@ function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }
   const [days, setDays] = useState<Record<string, string>>({});
   const [daysSaved, setDaysSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { busy, run } = useBusy();
   const checks = found.data && "checks" in found.data ? found.data.checks : [];
   useEffect(() => {
     setEnabled(Object.fromEntries(checks.map((c) => [c.key, c.enabled])));
@@ -215,7 +217,7 @@ function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }
       setError(errorMessage(err));
     }
   };
-  const toggle = async (key: string, on: boolean) => {
+  const toggle = (key: string, on: boolean) => run(async () => {
     setError(null);
     setEnabled((e) => ({ ...e, [key]: on }));
     try {
@@ -224,7 +226,7 @@ function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }
       setEnabled((e) => ({ ...e, [key]: !on }));
       setError(errorMessage(err));
     }
-  };
+  });
   return (
     <section aria-labelledby="things-checks" className="av-card av-stack av-understand-checks">
       <div>
@@ -234,7 +236,7 @@ function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {checks.map((c) => (
         <div key={c.key} className="av-understand-check">
-          <ToggleSwitch labelFirst label={c.label ?? c.title ?? t(`understand.check.${c.key}`, {}, humanise(c.key))} checked={enabled[c.key] ?? c.enabled} onChange={(on) => void toggle(c.key, on)} />
+          <ToggleSwitch labelFirst disabled={busy} label={c.label ?? c.title ?? t(`understand.check.${c.key}`, {}, humanise(c.key))} checked={enabled[c.key] ?? c.enabled} onChange={(on) => void toggle(c.key, on)} />
           {c.gentle && <span className="av-muted">{w("things.gentle")}</span>}
         </div>
       ))}
@@ -262,7 +264,7 @@ function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }
               />
             ))}
             <div>
-              <Button variant="secondary" onClick={() => void saveDays()}>{w("things.days_save")}</Button>
+              <Button variant="secondary" onClick={() => saveDays()}>{w("things.days_save")}</Button>
             </div>
             {daysSaved && <p className="av-muted" role="status">{w("things.days_saved")}</p>}
           </div>
@@ -283,7 +285,6 @@ export function ThingsToLook() {
   if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
   if (!found.data) return <div className="av-page"><Loading /></div>;
   const findings = found.data.findings.map((f) => decided[f.id] ?? f);
-  const done = findings.filter((f) => f.decision !== null).length;
   const rerun = async () => {
     setError(null);
     try {
@@ -294,22 +295,22 @@ export function ThingsToLook() {
     }
   };
   return (
-    <div className="av-page av-page--wide av-stack">
+    <div className="av-page av-page--wide av-page--full av-stack">
       <div className="av-understand-things">
         <div className="av-understand-things__main av-stack">
           <div>
             <h2>{w("things.title")}</h2>
             <p className="av-muted">{w("things.intro")}</p>
-            {findings.length > 0 && <p><strong>{w("things.progress", { done, total: findings.length })}</strong></p>}
+            {found.data.total > 0 && <p><strong>{w("things.progress", { done: found.data.done, total: found.data.total })}</strong></p>}
           </div>
           {findings.length === 0 && <p className="av-muted">{w("things.none")}</p>}
-          {[...findings.filter((f) => f.decision === null), ...findings.filter((f) => f.decision !== null)].map((f) => {
+          {findings.map((f) => {
             const Row = f.decision === null ? FindingCard : FoldedFinding;
-            return <Row key={f.id} caseId={caseId} finding={f} canDecide={can("finding.decide")} onDecided={(out) => setDecided((d) => ({ ...d, [out.id]: out }))} />;
+            return <Row key={f.id} caseId={caseId} finding={f} canDecide={can("finding.decide")} onDecided={(out) => { setDecided((d) => ({ ...d, [out.id]: out })); found.reload(); }} />;
           })}
           {can("finding.decide") && (
             <div className="av-row">
-              <Button variant="quiet" onClick={() => void rerun()}>{w("things.rerun")}</Button>
+              <Button variant="quiet" onClick={() => rerun()}>{w("things.rerun")}</Button>
             </div>
           )}
           {error && <Notice tone="error"><p>{error}</p></Notice>}

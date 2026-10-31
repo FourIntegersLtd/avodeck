@@ -2,19 +2,18 @@
 // cards that matter most get the room, and the rest are drawn as marks and counted, never dropped. Opening a card,
 // a count or an undated entry hands its entries to the side panel; the board itself never navigates.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { t } from "../../foundation/i18n";
-import { screenPath } from "../../foundation/lib/screens";
 import type { Schemas } from "../../foundation/platform-client";
-import { LinkButton, PageRef, QChip } from "../../foundation/ui";
+import { PageRef } from "../../foundation/ui";
 import { CARD, CHIP_ROW, GAP, HEAD, ROW } from "./boardGeometry";
 import { GapConnectors } from "./GapConnectors";
 import { useHighlightAttrs } from "./highlight";
 import { QuestionChip } from "./QuestionChip";
 import { SeriesBars, seriesFacts, seriesRows } from "./SeriesBars";
 import { useCardMotion } from "./useCardMotion";
+import { TimelineFooter } from "./TimelineFooter";
 import { DateMarkIcon, LaneIcon } from "./laneIcons";
 import { axisIso, kindWord, longDate, useKindWord } from "./shared";
-import { axisMarks, dayMs, foldChips, groupByDay, layoutLane, levelFor, monthlyCounts, type Level, type StoryGroup } from "./storyLayout";
+import { axisMarks, dayMs, foldChips, groupByDay, layoutLane, levelFor, type Level, type StoryGroup } from "./storyLayout";
 import { w, type WordKey } from "./words";
 
 type Event = Schemas["Event"];
@@ -26,13 +25,12 @@ export type BoardData = { lanes: Lane[]; unplaced: Event[]; sources?: Source[]; 
 const DEFAULT_WIDTH = 960;
 
 const SHORT_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
-const NUMBER = new Intl.NumberFormat("en-GB");
 const shortDay = (iso: string) => SHORT_DAY.format(new Date(`${iso}T00:00:00Z`));
 
 /** "Result · 19 February 2024": what an entry is called everywhere on this screen. */
 export const entryLabel = (e: Event, word: (kind: string) => string = kindWord) => w("timeline.card_label", { kind: word(e.kind), date: longDate(axisIso(e)) });
 const DATE_MARKS: Record<string, WordKey> = { printed_century: "timeline.date_assumed_century", line_above: "timeline.date_from_line_above" };
-const dateMark = (events: Event[]) => events.map((e) => (e.date_basis ? DATE_MARKS[e.date_basis] : undefined)).find((k) => k);
+export const dateMark = (events: Event[]) => events.map((e) => (e.date_basis ? DATE_MARKS[e.date_basis] : undefined)).find((k) => k);
 
 export const entryName = (e: Event, word: (kind: string) => string = kindWord) => (e.summary ? w("timeline.card_name", { label: entryLabel(e, word), words: e.summary }) : entryLabel(e, word));
 
@@ -128,9 +126,9 @@ type LaneLayout = { cards: { group: StoryGroup; x: number; row: number }[]; fold
 
 /** Far away only what matters most gets a card; everything else is a counted mark. */
 function layoutFor(groups: StoryGroup[], level: Level, rows: number, track: number, toX: (iso: string) => number): LaneLayout {
-  const eligible = level === "years" ? groups.filter((g) => g.rank <= 1) : groups;
+  const eligible = level === "years" ? groups.filter((g) => g.featured) : groups;
   const placed = layoutLane(eligible, { width: track, toX, card: CARD, gap: GAP, rows });
-  const rest = level === "years" ? groups.filter((g) => g.rank > 1).map((group) => ({ group, x: toX(group.date) })) : [];
+  const rest = level === "years" ? groups.filter((g) => !g.featured).map((group) => ({ group, x: toX(group.date) })) : [];
   const folded = [...placed.folded, ...rest];
   return { cards: placed.cards, folded, chips: foldChips(folded, CARD / 2) };
 }
@@ -217,6 +215,7 @@ export function TimelineBoard({
   to,
   numbers,
   selectedId,
+  windowed,
   onOpen,
 }: {
   caseId: string;
@@ -225,6 +224,8 @@ export function TimelineBoard({
   to: string;
   numbers?: Record<string, number>;
   selectedId?: string | null;
+  /** The server's per-lane monthly counts for this window (`/timeline/overview?from&to`). */
+  windowed?: Schemas["Overview"] | null;
   onOpen: (events: Event[], at?: string) => void;
 }) {
   const boardRef = useRef<HTMLDivElement>(null);
@@ -253,8 +254,9 @@ export function TimelineBoard({
   const total = all.reduce((n, g) => n + g.events.length, 0) + onBars;
   const shown = laid.reduce((n, l) => n + l.layout.cards.reduce((s, c) => s + c.group.events.length, 0), 0) + onBars;
   const marks = domain ? axisMarks(domain.start, domain.end, level, track) : [];
-  const density = useMemo(() => (domain && level === "years" ? monthlyCounts(lanes, domain.first, domain.last) : null), [domain?.first, domain?.last, level, lanes]); // eslint-disable-line react-hooks/exhaustive-deps
+  const density = level === "years" && windowed && windowed.months.length > 0 ? windowed : null;
   const found = data.counts?.things_to_look ?? 0;
+  const emptyLanes = lanes.filter((l) => l.events.length === 0);
 
   useCardMotion(boardRef, `${from}|${to}`);
 
@@ -278,15 +280,17 @@ export function TimelineBoard({
             </ul>
           )}
         </div>
-        {laid.map(({ lane, groups, layout }) => (
+        {laid.filter(({ lane }) => lane.events.length > 0).map(({ lane, groups, layout }) => {
+          const counts = density?.lanes.find((l) => l.key === lane.key)?.counts ?? [];
+          return (
           <div key={lane.key} className="av-story-lane-wrap">
             {density && groups.length > 0 && (
               <svg className="av-story-density" width={track} height="24" aria-hidden="true" focusable="false">
                 <path
                   fill={lane.colour ?? "var(--ink-soft)"}
-                  d={density.byLane[lane.key]!.map((n, i) => {
+                  d={counts.map((n, i) => {
                     if (!n) return "";
-                    const max = Math.max(...density.byLane[lane.key]!);
+                    const max = Math.max(...counts);
                     const x = (i / density.months.length) * track;
                     const h = Math.max(2, (n / max) * 22);
                     return `M${x.toFixed(1)} 24v-${h.toFixed(1)}h${Math.max(1.5, track / density.months.length - 1).toFixed(1)}v${h.toFixed(1)}z`;
@@ -296,7 +300,11 @@ export function TimelineBoard({
             )}
             <LaneRow lane={lane} layout={layout} all={all} gaps={data.gaps ?? []} track={track} toX={toX} numbers={numbers} selectedId={selectedId} onOpen={onOpen} />
           </div>
-        ))}
+          );
+        })}
+        {emptyLanes.length > 0 && (
+          <p className="av-story-nothing">{w("timeline.nothing_in_dates", { lanes: emptyLanes.map((l) => l.label).join(" · ") })}</p>
+        )}
       </div>
       {unplaced.length > 0 && (
         <section aria-labelledby="timeline-unplaced" className="av-card av-story-unplaced">
@@ -316,33 +324,7 @@ export function TimelineBoard({
           </ul>
         </section>
       )}
-      <div className="av-understand-foot">
-        <div className="av-understand-keys">
-          <p className="av-story-shown">{w("timeline.shown", { shown: NUMBER.format(shown), total: NUMBER.format(total) })}</p>
-          <ul className="av-understand-legend" aria-label={w("timeline.legend_dots")}>
-            <li><span className="av-understand-key av-understand-key--checked" aria-hidden="true" />{t("ui.status.checked")}</li>
-            <li><span className="av-understand-key av-understand-key--please_check" aria-hidden="true" />{t("ui.status.please_check")}</li>
-            <li><span className="av-understand-key av-understand-key--look" aria-hidden="true" />{t("ui.status.look")}</li>
-            <li><QChip n={2} />{w("timeline.legend_question")}</li>
-            <li><DateMarkIcon />{w("timeline.check_the_date")}</li>
-          </ul>
-          {data.sources && data.sources.length > 0 && (
-            <ul className="av-understand-legend" aria-label={w("timeline.legend")}>
-              {data.sources.map((s) => (
-                <li key={s.key}>
-                  <span className="av-understand-swatch" style={{ background: s.colour ?? undefined }} aria-hidden="true" />
-                  {s.label}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        {found > 0 && (
-          <LinkButton to={screenPath("things_to_look_at", { caseId }) ?? `/cases/${caseId}/things-to-look-at`} arrow>
-            {w("timeline.look", { count: found })}
-          </LinkButton>
-        )}
-      </div>
+      <TimelineFooter caseId={caseId} shown={shown} total={total} sources={data.sources} found={found} />
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { forgetPages } from "./pageImage";
-import { consultation, event, FACT_1, FACT_2, FACT_3, finding, inCase, launchWords, Q_2, timeline } from "./testing";
+import { consultation, event, FACT_1, FACT_2, FACT_3, finding, findingsReply, inCase, launchWords, Q_2, timeline } from "./testing";
 
 function serveTimeline(body = timeline()) {
   const seen: URL[] = [];
@@ -53,9 +53,10 @@ describe("S11 lanes", () => {
     inCase("launch");
     const seen = serveTimeline();
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
-    const pills = await screen.findByRole("radiogroup", { name: "Linked to" });
+    await user.click(await screen.findByRole("button", { name: /^Question:/ }));
+    const pills = screen.getByRole("group", { name: "Linked to" });
     expect(screen.queryByText("Question 2 only")).not.toBeInTheDocument();
-    await user.click(await within(pills).findByRole("radio", { name: "Q2" }));
+    await user.click(await within(pills).findByRole("button", { name: "Q2" }));
     expect(await screen.findByText("Question 2 only")).toBeInTheDocument();
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("question_id")).toBe(Q_2));
     await user.click(screen.getByRole("button", { name: "Show every question" }));
@@ -140,9 +141,15 @@ describe("S12 card titles, author line and the page", () => {
 describe("S13 titles, icons and decided findings", () => {
   const second = finding({ id: "c2222222-2222-4222-8222-222222222222", check_key: "referral_acknowledged", title: "Zz referral title", icon: "mail", decision: "not_relevant", reason: "Seen elsewhere", evidence: [{ fact_id: FACT_3, kind: "referral", page_no: 1071, event_date: "2024-06-03", summary: "Referral" }], evidence_pages: [1071] });
   const first = finding({ title: "Zz result title", icon: "flask" });
-  function serve(list = [first, second]) {
+  function serve(start = [first, second]) {
+    const list = [...start];
     server.use(
-      http.get("/v1/cases/:caseId/findings", () => json({ findings: list })),
+      http.get("/v1/cases/:caseId/findings", () => json(findingsReply(list))),
+      http.patch("/v1/cases/:caseId/findings/:id", ({ params }) => {
+        const at = list.findIndex((f) => f.id === params.id);
+        list[at] = { ...list[at]!, decision: "relevant", reason: null, version: 2 };
+        return json(list[at]);
+      }),
       http.get("/v1/cases/:caseId/fact-links", () => json({ links: [] })),
       http.get("/v1/me/checks", () =>
         json({
@@ -176,7 +183,7 @@ describe("S13 titles, icons and decided findings", () => {
     expect(screen.queryByRole("article", { name: "Zz referral title" })).not.toBeInTheDocument();
     await user.click(within(folded).getByText("Zz referral title · 3 Jun"));
     const card = await screen.findByRole("article", { name: "Zz referral title" });
-    expect(within(card).getByRole("radio", { name: "Relevant" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Relevant" })).toBeInTheDocument();
   });
 
   test("the checks list uses the pack's titles", async () => {
@@ -191,10 +198,9 @@ describe("S13 titles, icons and decided findings", () => {
   test("deciding an open finding folds it away", async () => {
     inCase("launch");
     serve();
-    server.use(http.patch("/v1/cases/:caseId/findings/:id", () => json({ ...first, decision: "relevant", reason: null, version: 2 })));
     const { user } = open();
     const card = await screen.findByRole("article", { name: "Zz result title" });
-    await user.click(within(card).getByRole("radio", { name: "Relevant" }));
+    await user.click(within(card).getByRole("button", { name: "Relevant" }));
     expect(await screen.findByText("2 of 2 decided")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("article", { name: "Zz result title" })).not.toBeInTheDocument());
     expect(screen.getByRole("group", { name: "Zz result title" })).toBeInTheDocument();

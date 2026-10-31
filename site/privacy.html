@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Avodeck · Privacy policy</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Newsreader:opsz,wght@6..72,400&amp;family=Outfit:wght@600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Newsreader:opsz,wght@6..72,400&amp;display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -117,7 +117,6 @@
       <li><strong>AI finds and links facts. It never writes your opinion.</strong> Every suggestion points to the exact words on a numbered page, and you check each one.</li>
       <li><strong>Names and identifying numbers are removed</strong> from the text before it is sent to an AI model.</li>
       <li><strong>No training on your data.</strong> Our AI providers do not use your records to train their models, and do not keep them after answering.</li>
-      <li><strong>AI runs in the UK.</strong> We only use AI services hosted in UK data centres.</li>
     </ul>
   </section>
 
@@ -143,7 +142,7 @@
 
   <section id="where">
     <h2>7. Where your data is kept</h2>
-    <p>The medical records in your cases are stored and processed in the UK, and never leave it. Some account and technical data may be handled by providers outside the UK, such as for email, payments and website hosting. Where that happens, the transfer is protected by the UK International Data Transfer Agreement or an equivalent safeguard.</p>
+    <p>Some data, including account and technical data, may be handled by providers outside the UK, such as for email, payments, website hosting and processing. Where that happens, the transfer is protected by the UK International Data Transfer Agreement or an equivalent safeguard.</p>
   </section>
 
   <section id="security">
@@ -232,8 +231,8 @@
           <h3 class="footer-h">Experts</h3>
           <ul>
             <li><a href="./#pilot">Join the pilot</a></li>
-            <li><a href="http://localhost:5173/sign-in" data-app-path="/sign-in">Sign in</a></li>
-            <li><a href="http://localhost:5173/today" data-app-path="/today">Open Avodeck</a></li>
+            <li><a href="/sign-in">Sign in</a></li>
+            <li><a href="/today">Open Avodeck</a></li>
           </ul>
         </div>
         <div>
@@ -249,11 +248,6 @@
 </footer>
 <script>
 (function () {
-  var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-  var appUrl = local ? 'http://localhost:5173' : '';
-  document.querySelectorAll('[data-app-path]').forEach(function (a) {
-    if (appUrl) a.href = appUrl + a.getAttribute('data-app-path'); else a.hidden = true;
-  });
   // Phone menu: the hamburger opens the nav; choosing a link closes it.
   var header = document.querySelector('.site-header');
   var toggle = header.querySelector('.menu-toggle');

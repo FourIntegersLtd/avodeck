@@ -30,6 +30,8 @@ export interface ReaderApi {
   searches: Array<Record<string, unknown>>;
   /** Every bookmark or note saved (`PUT /pages/{n}/my-note`), in order. */
   noteSaves: Array<{ page: number; body: Record<string, unknown> }>;
+  /** Every request for another reading (`POST /pages/{n}/second-reading`), with its query string. */
+  secondReadingAsks: Array<{ page: number; query: string }>;
   read: boolean;
   verifyStatus?: number;
   verifyCode?: string;
@@ -40,12 +42,15 @@ export interface ReaderApi {
 export interface ReaderOpts {
   page?: number;
   alreadyRead?: boolean;
+  reassigned?: boolean;
   /** The page detail says read although the server holds no read record (to prove a 423 shows nothing). */
   pageSaysRead?: boolean;
   inPeriod?: boolean;
   /** The case's period of interest, as dates (default: none). */
   period?: { start: string; end: string };
   facts?: Schemas["FactOut"][];
+  /** What the server says about the page's progress, when a test needs it to differ from the facts. */
+  counts?: { done: number; total: number };
   queue?: Schemas["UnreadablePage"][];
   /** The page's words (default: `pageWords()`). */
   words?: PageWord[];
@@ -69,6 +74,8 @@ export interface ReaderOpts {
   notes?: Array<{ page_no: number; bookmarked: boolean; note: string }>;
   /** The page's source type (default: the test page's own; null = never sorted). */
   sourceType?: string | null;
+  /** What another reading answers once asked for (default: queued). */
+  secondReading?: Schemas["SecondReadingOut"];
 }
 
 /** Mounts every reader endpoint for a case; returns what it saw. */
@@ -92,10 +99,12 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     moves: [],
     searches: [],
     noteSaves: [],
+    secondReadingAsks: [],
     facts: opts.facts ?? [fact(1), fact(2)],
     read: opts.alreadyRead ?? false,
   };
   let turn = opts.turn ?? 0;
+  let asked = false;
   const listed = (n: number) => ({ page_no: n, page_id: pageId(n), source_type: null, read: (opts.readPages ?? []).includes(n), in_period: null, unreadable: false, duplicate_of_page_no: null, turn: 0 });
   let notes = (opts.notes ?? []).map((n) => ({ ...n, updated_at: "2026-10-23T10:00:00Z" }));
   let queue = opts.queue ?? [queuePage(612), queuePage(640), queuePage(655)];
@@ -103,6 +112,12 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
   signedIn({ pack });
   server.use(
     http.get(c, () => json(theCase())),
+    http.post(`${c}/pages/:n/second-reading`, ({ params, request }) => {
+      api.secondReadingAsks.push({ page: Number(params.n), query: new URL(request.url).search });
+      asked = true;
+      return json({ job_id: "00000000-0000-4000-8000-000000000009" }, 202);
+    }),
+    http.get(`${c}/pages/:n/second-reading`, () => json(asked ? (opts.secondReading ?? { status: "queued", reason: null, lines: [] }) : { status: "none", reason: null, lines: [] })),
     http.get(`${c}/pages/unreadable`, () => json({ pages: queue, done: queue.filter((p) => p.done).length, total: queue.length })),
     http.get(`${c}/pages`, ({ request }) => {
       const query = new URL(request.url).searchParams;
@@ -151,7 +166,16 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     }),
     http.get(`${c}/pages/:n/facts`, () => {
       api.factRequests += 1;
-      return api.read ? json({ facts: api.facts }) : apiError(423, "blind_read");
+      if (!api.read) return apiError(423, "blind_read");
+      // The server works these out (done: dealt with; highlights: every fact not marked not right).
+      const dealt = (f: Schemas["FactOut"]) => f.status === "rejected" || ((f.status === "verified" || f.status === "edited") && !f.needs_recheck);
+      return json({
+        facts: api.facts,
+        total: opts.counts?.total ?? api.facts.length,
+        done: opts.counts?.done ?? api.facts.filter(dealt).length,
+        highlights: api.facts.filter((f) => f.status !== "rejected").map((f) => ({ id: f.id, word_ids: f.word_ids, bbox: f.bbox })),
+        reassigned: opts.reassigned ?? false,
+      });
     }),
     http.get(`${c}/pages/:n/words`, ({ params }) => {
       api.wordRequests += 1;
@@ -253,8 +277,8 @@ export async function moreTools(user: UserEvent): Promise<HTMLElement> {
   return screen.getByRole("group", { name: "View" });
 }
 
-/** Opens "Find words" on the page toolbar, if it is not open already. */
+/** Opens "Find" on the page toolbar, if it is not open already. */
 export async function openFind(user: UserEvent): Promise<void> {
   await screen.findByRole("toolbar", { name: "Page view" });
-  if (!screen.queryByRole("searchbox", { name: "Find words in the bundle" })) await user.click(screen.getByRole("button", { name: "Find words" }));
+  if (!screen.queryByRole("searchbox", { name: "Find words in the bundle" })) await user.click(screen.getByRole("button", { name: "Find" }));
 }

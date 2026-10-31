@@ -12,6 +12,7 @@ import { forgetSearch } from "./search";
 import { CASE_ID, pageWords } from "./testData";
 import { mockReader, moreTools, openFind } from "./testing";
 import "./index";
+import { readFileSync } from "node:fs";
 
 beforeEach(() => {
   forgetPages();
@@ -38,11 +39,11 @@ describe.each([
       await openFind(user);
       const find = screen.getByRole("search", { name: "Find words in the bundle" });
       await user.type(within(find).getByRole("searchbox", { name: "Find words in the bundle" }), "chest pain");
-      await user.click(within(find).getByRole("button", { name: "Find" }));
-      expect(await screen.findByText("Found on 2 pages")).toBeVisible();
+      expect(await within(find).findByText("Page 2 of 2")).toBeVisible();
       expect(api.searches).toEqual([{ q: "chest pain" }]);
+      await user.click(within(find).getByRole("button", { name: "Show all" }));
       const results = screen.getByRole("list", { name: "Pages with these words" });
-      expect(within(results).getAllByRole("link").map((a) => a.textContent)).toEqual(["Page 12, 3 times", "Page 118, 2 times"]);
+      expect(within(results).getAllByRole("link").map((a) => a.textContent)).toEqual(["Page 12 · 3 times", "Page 118 · 2 times"]);
       // The hits on this page are marked over the picture.
       const marks = screen.getAllByTestId(/^search-hit-/);
       expect(marks).toHaveLength(2);
@@ -50,7 +51,7 @@ describe.each([
       // Searching is not reading: no suggestions asked for, the page is still to be marked as read.
       expect(api.factRequests).toBe(0);
       expect(api.reads).toEqual([]);
-      expect(screen.getByRole("button", { name: "Mark as read" })).toBeVisible();
+      expect(screen.getByRole("button", { name: "I've read this page" })).toBeVisible();
     });
 
     test("a page from the list opens with its hits marked; Clear search takes the marks away", async () => {
@@ -59,12 +60,12 @@ describe.each([
       await screen.findByRole("img", { name: "Page 118" });
       await openFind(user);
       await user.type(screen.getByRole("searchbox", { name: "Find words in the bundle" }), "chest pain");
-      await user.click(screen.getByRole("button", { name: "Find" }));
-      await user.click(await screen.findByRole("link", { name: "Page 12, 3 times" }));
+      await user.click(await screen.findByRole("button", { name: "Show all" }));
+      await user.click(await screen.findByRole("link", { name: "Page 12 · 3 times" }));
       expect(await screen.findByRole("img", { name: "Page 12" })).toBeVisible();
       expect(screen.getAllByTestId(/^search-hit-/)).toHaveLength(1);
-      // The list stays for the visit, so the expert can go on to the next page with the words.
-      expect(screen.getByRole("link", { name: "Page 118, 2 times" })).toBeVisible();
+      // The count stays for the visit, so the expert can go on to the next page with the words.
+      expect(screen.getByText("Page 1 of 2")).toBeVisible();
       await user.click(screen.getByRole("button", { name: "Clear search" }));
       expect(screen.queryAllByTestId(/^search-hit-/)).toHaveLength(0);
       expect(screen.queryByRole("list", { name: "Pages with these words" })).not.toBeInTheDocument();
@@ -77,11 +78,9 @@ describe.each([
       await openFind(user);
       const box = screen.getByRole("searchbox", { name: "Find words in the bundle" });
       await user.type(box, "a");
-      await user.click(screen.getByRole("button", { name: "Find" }));
       expect(await screen.findByText("Type at least two letters or numbers.")).toBeVisible();
       expect(api.searches).toEqual([]);
       await user.type(box, "spirin");
-      await user.click(screen.getByRole("button", { name: "Find" }));
       expect(await screen.findByText("We didn't find those words on any page.")).toBeVisible();
     });
   });
@@ -119,7 +118,7 @@ describe.each([
   });
 
   describe("full screen", () => {
-    test("the Full screen button and F show only the page view; Escape comes back", async () => {
+    test("the Full screen button and F fill the window; Escape comes back", async () => {
       mockReader(pack);
       const { user, container } = renderAt(PATH);
       await screen.findByRole("toolbar", { name: "Page view" });
@@ -142,6 +141,14 @@ describe.each([
       // Not while typing.
       await user.type(screen.getByRole("textbox", { name: "Go to page" }), "f");
       expect(container.querySelector(".rd")).not.toHaveClass("rd--full");
+    });
+
+    test("full screen keeps what we found beside the page", () => {
+      const readerCss = readFileSync("src/capabilities/reader/reader.css", "utf8");
+      expect(readerCss).toContain(".rd--full");
+      const rules = readerCss.split("}").filter((r) => r.includes(".rd--full"));
+      expect(rules.some((r) => /\.rd-side|\.rd-split/.test(r) && /display:\s*none/.test(r))).toBe(false);
+      expect(rules.some((r) => r.includes(".rd-pane") && r.includes("100%"))).toBe(false);
     });
   });
 
@@ -189,8 +196,7 @@ describe.each([
       await screen.findByRole("img", { name: "Page 118" });
       await openFind(user);
       await user.type(screen.getByRole("searchbox", { name: "Find words in the bundle" }), "chest");
-      await user.click(screen.getByRole("button", { name: "Find" }));
-      await screen.findByText("Found on 2 pages");
+      await screen.findByText("Page 2 of 2");
       await user.click(within(await moreTools(user)).getByRole("button", { name: "Two pages side by side" }));
       await screen.findByRole("img", { name: "Page 119" });
       await user.click(await screen.findByRole("button", { name: "Add a note" }));

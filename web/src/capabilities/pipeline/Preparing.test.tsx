@@ -6,7 +6,7 @@ import { registerScreen } from "../../foundation/lib/screens";
 import { apiError, http, json, server, signedIn } from "../../test/api";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { CASE_ID, JOB, NEXT_JOB, processingJob, summary, theCase, VIEWER_ACTIONS } from "./testData";
+import { CASE_ID, JOB, NEXT_JOB, processingJob, summary, theCase, VIEWER_ACTIONS, missingList } from "./testData";
 import type { Schemas } from "../../foundation/platform-client";
 
 class FakeEventSource {
@@ -55,7 +55,7 @@ function mockCase(pack: Schemas["CasePack"], opts: { job?: Schemas["ProcessingJo
     http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () =>
       json(summary(pack, { pages: 120, documents: docs as unknown as Schemas["BundleSummary"]["documents"], quarantine_suggestions: [], foreign_language: [] })),
     ),
-    http.get(`/v1/cases/${CASE_ID}/missing-items`, () => json({ missing_items: [] })),
+    http.get(`/v1/cases/${CASE_ID}/missing-items`, () => json(missingList([]))),
   );
 }
 
@@ -161,6 +161,7 @@ describe.each([
       }),
     );
     const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "More" }));
     await user.click(await screen.findByRole("button", { name: "Stop preparing" }));
     expect(await screen.findByText("Preparing has stopped. Your files are kept.")).toBeVisible();
     expect(cancelled).toBe(1);
@@ -178,15 +179,20 @@ describe.each([
 
   test("a failed job says so in plain words and offers to try again", async () => {
     mockCase(pack);
-    server.use(http.post(`/v1/cases/${CASE_ID}/process`, () => json({ job_id: NEXT_JOB }, 202)));
+    let retried = 0;
+    server.use(http.post(`/v1/cases/${CASE_ID}/process/retry`, () => { retried += 1; return json({ requeued: 1 }); }));
     const { user } = renderAt(PATH);
     await waitFor(() => expect(FakeEventSource.all.length).toBe(1));
+    server.use(http.get(`/v1/cases/${CASE_ID}/process`, () => json({ job: processingJob({ id: NEXT_JOB, status: "queued", step: null, pct: 0, eta_seconds: null }) })));
     act(() => latest().emit({ status: "failed", step: "ocr", pct: 35, eta_seconds: null, error_code: "ocr_failed" }));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Something went wrong while preparing your bundle. Your files are kept.");
     expect(alert).not.toHaveTextContent("ocr_failed");
     await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(retried).toBe(1);
     await waitFor(() => expect(latest().url).toMatch(new RegExp(`/v1/jobs/${NEXT_JOB}/events$`)));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
   test.each(["service_busy", "model_unavailable", "cost_guard", "key_service_unreachable"])(
@@ -223,12 +229,13 @@ describe.each([
     expect(await screen.findByRole("button", { name: "Try again" })).toBeVisible();
   });
 
-  test("the step being done shows its own count, and Stop sits inside the note about recordings", async () => {
+  test("the step being done shows its own count, and Stop sits in the More menu", async () => {
     mockCase(pack, { job: processingJob({ step_done: 840, step_total: 1268 }) });
-    renderAt(PATH);
+    const { user } = renderAt(PATH);
     expect(await screen.findByText("840 of 1,268")).toBeVisible();
-    const stop = screen.getByRole("button", { name: "Stop preparing" });
-    expect(stop.closest("p")).toHaveTextContent("1 voice recording was kept as it is.");
+    expect(screen.getByText(/1 voice recording was kept as it is/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "More" }));
+    expect(screen.getByRole("button", { name: "Stop preparing" })).toBeVisible();
   });
 
   test("shows the picture, a count beside each finished step, and a lock on the note about original files", async () => {

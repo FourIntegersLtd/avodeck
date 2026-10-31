@@ -42,6 +42,7 @@ from tests.support.db import ClientFor
 from tests.support.files import CHUNK, build_app
 from tests.support.jobs import FINISHED, isolated_registry, open_worker, run_until_finished
 from tests.support.packs import REPO
+from tests.support.uploads import run_finalize
 
 ROOT = FIXTURES / "pipeline"
 EVAL = REPO / "evals" / "gb-eaw" / "clin-neg-breach" / "general-practice"
@@ -197,6 +198,7 @@ def empty_answer(source_key: str) -> ModelResponse:
             "references_out": [],
             "availability_evidence": [],
             "actions_requested_of_clinician": [],
+            "entries": [],
         }
     )
 
@@ -239,12 +241,20 @@ class Harness:
             sent = await self.client.put(
                 f"/v1/uploads/{upload_id}/chunks/{n}",
                 content=data[at : at + CHUNK],
-                headers={"content-type": "application/octet-stream"},
+                headers={
+                    "content-type": "application/octet-stream",
+                    "x-chunk-sha256": hashlib.sha256(data[at : at + CHUNK]).hexdigest(),
+                },
             )
             assert sent.status_code == 200, sent.status_code
-        done = await self.client.post(f"/v1/uploads/{upload_id}/complete")
-        assert done.status_code == 201, done.status_code
-        return uuid.UUID(done.json()["document_id"])
+        done = await self.client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": body["sha256"]})
+        assert done.status_code == 202, done.status_code
+        await run_finalize(self.worker_dsn, self.admin, upload_id, self.storage, self.crypto, finish=True)
+        status = await self.client.get(f"/v1/uploads/{upload_id}")
+        assert status.status_code == 200, status.text
+        document = status.json()["document_id"]
+        assert document is not None, status.text
+        return uuid.UUID(document)
 
     def job_ids(self) -> list[uuid.UUID]:
         return [r[0] for r in self.admin.execute("select id from app.jobs where case_id = %s", (self.case_id,))]
@@ -293,10 +303,12 @@ async def harness(
     names: Sequence[str] = (),
     dates_of_birth: Sequence[Any] = (),
     embedder: Any = None,
+    wired_identity: bool = False,
 ) -> AsyncIterator[Harness]:
     """The pipeline wired to stand-ins, its job kinds on a registry of their own."""
     from app.core.packs import default_library
     from app.features import pipeline
+    from app.features.pipeline import wiring as wiring_module
     from app.features.pipeline.wiring import Identity, PipelineServices
 
     crypto = CaseCrypto(LocalKeyProvider.generate())
@@ -317,7 +329,7 @@ async def harness(
         kit=AiKit(cell(), bedrock),
         packs=default_library(),
         registry=registry,
-        identity=identity,
+        identity=wiring_module.identity_with(crypto) if wired_identity else identity,
         **({"embedder": embedder} if embedder is not None else {}),
     )
     app = build_app(api_db, auth_env, storage=storage, crypto=crypto)

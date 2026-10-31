@@ -3,10 +3,11 @@
 import { useId, type ButtonHTMLAttributes, type ChangeEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { hasMessage, humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
+import { uploadInParts, type UploadOptions } from "../../foundation/lib/chunkedUpload";
 import { sw } from "./words";
 import { useResource } from "../../foundation/lib/useResource";
-import { ApiError, api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { ChoicePills, Segmented, StackedBar } from "../../foundation/ui";
+import { api, unwrap, type Schemas } from "../../foundation/platform-client";
+import { ChoicePills, Segmented, Spinner, StackedBar } from "../../foundation/ui";
 
 /** Waits for a client call and returns its body with the ETag it carried (for If-Match later). */
 export async function withEtag<D>(call: Promise<{ data?: D; error?: unknown; response: Response }>): Promise<{ data: D; etag: string }> {
@@ -112,9 +113,9 @@ export function Select({ label, options, ...select }: { label: string; options: 
  * A section with a level-2 heading that names it (a landmark the tests and screen readers can find).
  * `mark` sits before the heading (a tick when the part is done) and `action` at the right of it.
  */
-export function Section({ id, title, intro, mark, action, children }: { id: string; title: string; intro?: string; mark?: ReactNode; action?: ReactNode; children: ReactNode }) {
+export function Section({ id, title, intro, mark, action, current, children }: { id: string; title: string; intro?: string; mark?: ReactNode; action?: ReactNode; current?: boolean; children: ReactNode }) {
   return (
-    <section aria-labelledby={id} className="av-card av-stack">
+    <section aria-labelledby={id} aria-current={current ? "step" : undefined} className={`av-card av-stack${current ? " av-setup-current" : ""}`}>
       <div className="av-stack av-setup-sechead">
         <div className="av-row av-row--spread">
           <div className="av-row">
@@ -127,6 +128,19 @@ export function Section({ id, title, intro, mark, action, children }: { id: stri
       </div>
       {children}
     </section>
+  );
+}
+
+/** A dashed box that explains an empty part in plain words, with one secondary button to start it. */
+export function EmptyBox({ title, text, children }: { title: string; text: string; children: ReactNode }) {
+  return (
+    <div className="av-setup-empty">
+      <div className="av-setup-empty__text">
+        <strong>{title}</strong>
+        <p className="av-muted">{text}</p>
+      </div>
+      {children}
+    </div>
   );
 }
 
@@ -225,47 +239,9 @@ async function bytesOf(file: Blob): Promise<ArrayBuffer> {
   });
 }
 
-const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, "0")).join("");
-
-const PART_RETRIES = 3;
-const RETRY_PAUSE_MS = 150;
-
-/** Sends one part again after a short, growing wait, but only for a dropped connection or a 5xx. */
-async function withRetries<D>(send: () => Promise<D>): Promise<D> {
-  for (let attempt = 1; ; attempt += 1) {
-    try {
-      return await send();
-    } catch (err) {
-      const again = err instanceof ApiError && (err.status === 0 || err.status >= 500);
-      if (!again || attempt > PART_RETRIES) throw err;
-      await new Promise((resolve) => setTimeout(resolve, RETRY_PAUSE_MS * attempt));
-    }
-  }
-}
-
-/** Sends a file to the API in parts and returns the document it became. */
-export async function uploadFile(caseId: string, file: File, kind: string): Promise<string> {
-  const bytes = await bytesOf(file);
-  // A typed array view: a FileReader result can come from another realm, which digest refuses as a bare ArrayBuffer.
-  const sha256 = hex(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes)));
-  const started = await unwrap(
-    api.POST("/v1/cases/{case_id}/uploads", { params: { path: { case_id: caseId } }, body: { filename: file.name, kind, sha256, size: bytes.byteLength } }),
-  );
-  for (let n = 1; n <= started.chunk_count; n += 1) {
-    const part = bytes.slice((n - 1) * started.chunk_size, n * started.chunk_size);
-    await withRetries(() =>
-      unwrap(
-        api.PUT("/v1/uploads/{upload_id}/chunks/{n}", {
-          params: { path: { upload_id: started.upload_id, n } },
-          body: part as never,
-          bodySerializer: (b: unknown) => b as BodyInit,
-          headers: { "Content-Type": "application/octet-stream" },
-        }),
-      ),
-    );
-  }
-  const done = await unwrap(api.POST("/v1/uploads/{upload_id}/complete", { params: { path: { upload_id: started.upload_id } } }));
-  return String(done.document_id);
+/** Sends a file to the API in parts and returns the document it became (checks and retries: foundation/lib/chunkedUpload). */
+export async function uploadFile(caseId: string, file: File, kind: string, options?: UploadOptions): Promise<string> {
+  return uploadInParts(caseId, file, kind, false, options);
 }
 
 export interface UploadOutcome {
@@ -279,11 +255,12 @@ export async function uploadFiles(
   files: File[],
   kind: string,
   after?: (file: File, documentId: string) => Promise<void>,
+  options?: UploadOptions,
 ): Promise<UploadOutcome> {
   const out: UploadOutcome = { saved: [], failed: [] };
   for (const file of files) {
     try {
-      const documentId = await uploadFile(caseId, file, kind);
+      const documentId = await uploadFile(caseId, file, kind, options);
       await after?.(file, documentId);
       out.saved.push({ file, documentId });
     } catch (err) {
@@ -305,14 +282,15 @@ export function uploadSummary(out: UploadOutcome): string | null {
 export const fileBytes = bytesOf;
 
 /** A file input that looks like a button; the input itself stays the labelled control. */
-export function FileButton({ label, accept, onChange, link }: { label: string; accept: string; onChange: (e: ChangeEvent<HTMLInputElement>) => void; link?: boolean }) {
+export function FileButton({ label, accept, onChange, link, busy }: { label: string; accept: string; onChange: (e: ChangeEvent<HTMLInputElement>) => void; link?: boolean; busy?: boolean }) {
   const id = useId();
   return (
     <div className="av-setup-file">
-      <label htmlFor={id} className={link ? "av-text-link av-setup-file__label" : "av-button av-button--secondary av-setup-file__label"}>
+      <label htmlFor={id} aria-busy={busy || undefined} className={link ? "av-text-link av-setup-file__label" : "av-button av-button--secondary av-setup-file__label"}>
+        {busy && <Spinner />}
         {label}
       </label>
-      <input id={id} type="file" accept={accept} className="av-visually-hidden" onChange={onChange} />
+      <input id={id} type="file" accept={accept} className="av-visually-hidden" disabled={busy} onChange={onChange} />
     </div>
   );
 }

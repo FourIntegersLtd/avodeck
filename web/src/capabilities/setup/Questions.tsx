@@ -1,13 +1,14 @@
 // S06 What you've been asked: each question and assumption in the letter's own words (rule 1: the AI only
 // finds them). The expert confirms each, may reword one (the letter's words stay on show), sets the kind of
 // question from the pack, flags a question outside their field (with a note to draft), or confirms all.
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, QChip, StaleChoice, TextLink } from "../../foundation/ui";
+import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, QChip, StaleChoice, TextLink, useBusy } from "../../foundation/ui";
+import { TextField } from "../../foundation/ui";
 import { NoteView, Select, TextArea, versionTag, type Option } from "./shared";
 
 type QuestionItem = Schemas["QuestionOut"];
@@ -43,9 +44,16 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
   }, [asked]);
   const party = pack.instructing_party_types[0]?.label ?? "";
   const kinds: Option[] = pack.question_types.map((q) => ({ value: String(q.key), label: t(String(q.label_key ?? ""), {}, humanise(String(q.key))) }));
-  const total = questions.length + assumptions.length;
-  const done = [...questions, ...assumptions].filter((i) => i.status === "confirmed").length;
+  const { total, confirmed_count: done } = asked;
   const path = { params: { path: { case_id: caseId } } };
+  const [adding, setAdding] = useState(false);
+  const goToPage = (n: number | null | undefined) => {
+    if (!n) return;
+    const el = document.getElementById(`letter-page-${n}`);
+    const pane = el?.closest<HTMLElement>("[data-letter-pane]");
+    if (el && pane) pane.scrollTo?.({ top: el.offsetTop - pane.offsetTop, behavior: "smooth" });
+  };
+  const empty = total === 0 && !asked.reading && !asked.read_failed;
 
   const confirmAll = async () => {
     setError(null);
@@ -87,11 +95,16 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
       {asked.warnings.map((key) => (
         <Notice key={key} tone="warning">
           <p>{t(key)}</p>
+          {key === "setup.questions.warning.rejected" && (
+            <Button variant="quiet" onClick={() => goToPage(1)}>
+              {t("setup.questions.read_letter")}
+            </Button>
+          )}
         </Notice>
       ))}
       {asked.read_failed && (
         <div>
-          <Button onClick={() => void readAgain()}>{t("setup.questions.read_again")}</Button>
+          <Button onClick={() => readAgain()}>{t("setup.questions.read_again")}</Button>
         </div>
       )}
       {asked.reading && (
@@ -110,8 +123,13 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
         </Notice>
       )}
       <div className="av-setup-split">
-      <LetterPane questions={questions} assumptions={assumptions} />
+      <LetterPane caseId={caseId} versionId={asked.instruction_version_id ?? null} />
       <div className="av-stack">
+      {empty && (
+        <Notice>
+          <p>{t("setup.questions.no_questions")}</p>
+        </Notice>
+      )}
       {questions.length > 0 && <h3>{t("setup.questions.questions")}</h3>}
       {questions.map((q, i) => (
         <ItemCard
@@ -120,17 +138,22 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
           caseId={caseId}
           item={q}
           locked={asked.locked}
-          onChange={(next) => setQuestions(questions.map((x, j) => (j === i ? (next as QuestionItem) : x)))}
+          onSeen={() => goToPage(q.page)}
+          onChange={(next) => {
+            setQuestions(questions.map((x, j) => (j === i ? (next as QuestionItem) : x)));
+            reload();
+          }}
           pack={pack}
           party={party}
-          onDraft={() => void draft(q.id)}
-          extra={(save) => (
+          onDraft={() => draft(q.id)}
+          extra={(save, busy) => (
             <>
-              <Select label={t("setup.questions.kind")} options={kinds} value={q.kind ?? ""} disabled={asked.locked} onChange={(e) => void save({ kind: e.target.value })} />
+              <Select label={t("setup.questions.kind")} options={kinds} value={q.kind ?? ""} aria-busy={busy || undefined} disabled={asked.locked || busy} onChange={(e) => void save({ kind: e.target.value })} />
               <Checkbox
                 label={t("setup.questions.outside")}
                 checked={q.outside_expertise}
-                disabled={asked.locked}
+                aria-busy={busy || undefined}
+                disabled={asked.locked || busy}
                 onChange={(e) => void save({ outside_expertise: e.target.checked })}
               />
             </>
@@ -145,10 +168,26 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
           caseId={caseId}
           item={a}
           locked={asked.locked}
-          onChange={(next) => setAssumptions(assumptions.map((x, j) => (j === i ? (next as AssumptionItem) : x)))}
+          onChange={(next) => {
+            setAssumptions(assumptions.map((x, j) => (j === i ? (next as AssumptionItem) : x)));
+            reload();
+          }}
         />
       ))}
       {note && <NoteView note={note} />}
+      {!asked.locked && (
+        <AddQuestion
+          open={adding}
+          onOpen={() => setAdding(true)}
+          onClose={() => setAdding(false)}
+          caseId={caseId}
+          kinds={kinds}
+          onAdded={() => {
+            setAdding(false);
+            reload();
+          }}
+        />
+      )}
       </div>
       </div>
       {total > 0 && (
@@ -160,7 +199,7 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
               <span className="av-setup-footer__hint">
                 {total > done ? t("setup.questions.last", { count: total - done }) : t("setup.questions.ready")} · <TextLink to={`/cases/${caseId}/details`}>{t("setup.questions.further")}</TextLink>
               </span>
-              <Button arrow disabled={done < total} onClick={() => void confirmAll()}>
+              <Button arrow disabled={done < total} onClick={() => confirmAll()}>
                 {t("setup.questions.confirm_all")}
               </Button>
             </>
@@ -183,16 +222,18 @@ function ItemCard({
   pack,
   party,
   onDraft,
+  onSeen,
 }: {
+  onSeen?: () => void;
   pack?: Schemas["CasePack"];
   party?: string;
-  onDraft?: () => void;
+  onDraft?: () => void | Promise<void>;
   kind: "question" | "assumption";
   caseId: string;
   item: QuestionItem | AssumptionItem;
   locked: boolean;
   onChange: (next: QuestionItem | AssumptionItem) => void;
-  extra?: (save: (change: Change) => Promise<void>) => ReactNode;
+  extra?: (save: (change: Change) => Promise<void | undefined>, busy: boolean) => ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const [wording, setWording] = useState(item.confirmed_text ?? item.text_verbatim);
@@ -202,7 +243,9 @@ function ItemCard({
   const [pending, setPending] = useState<Change>({});
   const [stale, setStale] = useState<QuestionItem | AssumptionItem | null>(null);
   const wordsOf = (i: QuestionItem | AssumptionItem) => i.confirmed_text ?? i.text_verbatim;
-  const save = async (change: Change, version = item.version) => {
+  const saving = useBusy();
+  const save = (change: Change, version = item.version) => saving.run(() => send(change, version));
+  const send = async (change: Change, version: number) => {
     setError(null);
     try {
       const headers = ifMatch(versionTag(version));
@@ -241,7 +284,7 @@ function ItemCard({
   const outside = kind === "question" && (item as QuestionItem).outside_expertise;
 
   return (
-    <article aria-labelledby={headingId} className={`av-card av-stack${outside ? " av-setup-card--outside" : ""}`}>
+    <article aria-labelledby={headingId} onFocus={onSeen} onClick={onSeen} className={`av-card av-stack${outside ? " av-setup-card--outside" : ""}`}>
       <div className="av-row av-row--spread">
         <div className="av-row">
           <h4 id={headingId} className="av-visually-hidden">
@@ -276,8 +319,9 @@ function ItemCard({
       ) : (
         <p className="av-setup-text">{item.text_verbatim}</p>
       )}
+      {kind === "question" && (item as QuestionItem).source === "expert" && <p className="av-small av-muted">{t("setup.questions.you_added")}</p>}
       {item.para_ref && <p className="av-mono av-muted av-setup-ref">{t("setup.questions.from_paragraph", { ref: item.para_ref })}</p>}
-      {outside && <OutsideExpertise question={item as QuestionItem} pack={pack} locked={locked} party={party} onAnswer={() => void save({ confirm: true })} onDraft={onDraft} />}
+      {outside && <OutsideExpertise question={item as QuestionItem} pack={pack} locked={locked} party={party} onAnswer={() => save({ confirm: true })} onDraft={onDraft} />}
       {editing && (
         <form
           className="av-stack"
@@ -287,9 +331,9 @@ function ItemCard({
           }}
         >
           <TextArea label={t("setup.questions.your_wording")} rows={3} value={wording} onChange={(e) => setWording(e.target.value)} />
-          {extra?.(save)}
+          {extra?.(save, saving.busy)}
           <div className="av-row">
-            <Button type="submit" variant="secondary" disabled={!wording.trim()}>
+            <Button type="submit" variant="secondary" busy={saving.busy} disabled={!wording.trim()}>
               {t("setup.questions.save_wording")}
             </Button>
             <Button variant="quiet" onClick={() => setEditing(false)}>
@@ -305,7 +349,7 @@ function ItemCard({
       )}
       {!locked && !editing && (
         <div className="av-row">
-          {item.status !== "confirmed" && <Button variant="secondary" onClick={() => void save({ confirm: true })}>{t("setup.questions.confirm")}</Button>}
+          {item.status !== "confirmed" && <Button variant="secondary" onClick={() => save({ confirm: true })}>{t("setup.questions.confirm")}</Button>}
           <Button variant="quiet" onClick={() => setEditing(true)}>
             {t("setup.questions.change_wording")}
           </Button>
@@ -316,7 +360,7 @@ function ItemCard({
           draft={pending.text ?? (pending.confirm ? t("setup.questions.confirm") : pending.kind ? humanise(pending.kind) : wordsOf(item))}
           saved={wordsOf(stale)}
           savedVersion={stale.version}
-          onKeepMine={(version) => void save(pending, version)}
+          onKeepMine={(version) => save(pending, version)}
           onUseSaved={() => {
             onChange(stale);
             setEditing(false);
@@ -353,8 +397,8 @@ function OutsideExpertise({
   pack?: Schemas["CasePack"];
   locked: boolean;
   party?: string | undefined;
-  onAnswer: () => void;
-  onDraft?: (() => void) | undefined;
+  onAnswer: () => void | Promise<unknown>;
+  onDraft?: (() => void | Promise<void>) | undefined;
 }) {
   const type = (pack?.question_types as { key: string; parts?: { key: string; label_key?: string }[] }[] | undefined)?.find((q) => q.key === question.kind);
   const parts = (question.answer_parts ?? [])
@@ -393,20 +437,99 @@ function OutsideExpertise({
   );
 }
 
-/** The letter's cited paragraphs, in paragraph order, each highlighted: the words the questions came from. */
-function LetterPane({ questions, assumptions }: { questions: QuestionItem[]; assumptions: AssumptionItem[] }) {
-  const cited = [...questions, ...assumptions]
-    .filter((i) => i.para_ref)
-    .sort((a, b) => a.para_ref!.localeCompare(b.para_ref!, "en", { numeric: true }));
-  if (cited.length === 0) return null;
+/** The expert's own question, for one the reading missed: it still has to be confirmed like the rest. */
+function AddQuestion({ open, onOpen, onClose, caseId, kinds, onAdded }: { open: boolean; onOpen: () => void; onClose: () => void; caseId: string; kinds: Option[]; onAdded: () => void }) {
+  const [text, setText] = useState("");
+  const [para, setPara] = useState("");
+  const [kind, setKind] = useState(kinds[0]?.value ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const saving = useBusy();
+  if (!open) {
+    return (
+      <div>
+        <Button variant="secondary" onClick={onOpen}>
+          {t("setup.questions.add_question")}
+        </Button>
+      </div>
+    );
+  }
+  const submit = () =>
+    saving.run(async () => {
+      setError(null);
+      try {
+        await unwrap(api.POST("/v1/cases/{case_id}/questions", { params: { path: { case_id: caseId } }, body: { text: text.trim(), para_ref: para.trim() || null, kind } }));
+        onAdded();
+      } catch (err) {
+        setError(errorMessage(err));
+      }
+    });
   return (
-    <section aria-label={t("setup.questions.letter_title")} className="av-setup-letter av-stack">
+    <form
+      className="av-card av-stack"
+      aria-label={t("setup.questions.add_question")}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+    >
+      <TextArea label={t("setup.questions.add_question_text")} rows={3} value={text} onChange={(e) => setText(e.target.value)} />
+      <TextField name="para_ref" label={t("setup.questions.add_question_para")} placeholder="4(a)" value={para} onChange={(e) => setPara(e.target.value)} />
+      <Select label={t("setup.questions.kind")} options={kinds} value={kind} onChange={(e) => setKind(e.target.value)} />
+      {error && (
+        <Notice tone="error">
+          <p>{error}</p>
+        </Notice>
+      )}
+      <div className="av-row">
+        <Button type="submit" busy={saving.busy} disabled={!text.trim()}>
+          {t("setup.questions.add_question_submit")}
+        </Button>
+        <Button variant="quiet" onClick={onClose}>
+          {t("setup.cancel")}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** The letter itself, page by page as pictures, so the expert reads it while checking the questions. */
+function LetterPane({ caseId, versionId }: { caseId: string; versionId: string | null }) {
+  const [urls, setUrls] = useState<(string | null)[]>([]);
+  const made = useRef<string[]>([]);
+  useEffect(() => {
+    if (!versionId) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const { page_count } = await unwrap(api.GET("/v1/cases/{case_id}/instructions/{version_id}/pages", { params: { path: { case_id: caseId, version_id: versionId } } }));
+        setUrls(Array.from({ length: page_count }, () => null));
+        for (let n = 1; n <= page_count; n++) {
+          const blob = await unwrap(api.GET("/v1/cases/{case_id}/instructions/{version_id}/pages/{page_number}", { params: { path: { case_id: caseId, version_id: versionId, page_number: n } }, parseAs: "blob" }));
+          if (cancelled) return;
+          const url = URL.createObjectURL(blob as Blob);
+          made.current.push(url);
+          setUrls((now) => now.map((u, i) => (i === n - 1 ? url : u)));
+        }
+      } catch {
+        /* the questions still work without the pictures */
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+      made.current.forEach((u) => URL.revokeObjectURL(u));
+      made.current = [];
+    };
+  }, [caseId, versionId]);
+  if (urls.length === 0) return null;
+  return (
+    <section aria-label={t("setup.questions.letter_title")} data-letter-pane className="av-setup-letter av-stack">
       <span className="av-mono av-setup-letter__head">{t("setup.questions.letter_title")}</span>
-      {cited.map((i) => (
-        <p key={i.id}>
-          <span className="av-mono av-setup-letter__ref">{i.para_ref}</span>{" "}
-          <mark className={"outside_expertise" in i && i.outside_expertise ? "av-setup-mark--outside" : undefined}>{i.text_verbatim}</mark>
-        </p>
+      {urls.map((url, i) => (
+        <div key={i} id={`letter-page-${i + 1}`} className="av-stack">
+          <strong>{t("setup.questions.letter_page", { page: i + 1 })}</strong>
+          {url && <img className="av-setup-letter__img" src={url} alt={t("setup.questions.letter_page", { page: i + 1 })} />}
+        </div>
       ))}
     </section>
   );

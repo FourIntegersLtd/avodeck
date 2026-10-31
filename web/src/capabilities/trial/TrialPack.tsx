@@ -546,7 +546,7 @@ function OfflineCopy({ frame }: { frame: Frame }) {
 
   const mismatch = pinAgain !== "" && pinAgain.length >= pin.length && pinAgain !== pin;
   const pinReady = PIN_PATTERN.test(pin) && pin === pinAgain;
-  const copies = (list.data?.packages ?? []).filter((c) => c.status === "built" || c.status === "downloaded");
+  const copies = list.data?.live ?? [];
   const shown = removed ? [] : copies;
   return (
     <section aria-labelledby={id} className="av-card av-stack">

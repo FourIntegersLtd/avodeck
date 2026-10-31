@@ -8,6 +8,7 @@ import { flag } from "./flags";
 import { Leave } from "./Leave";
 import { OrganisationSettings } from "./OrganisationSettings";
 import { SupportCase } from "./SupportCase";
+import { SupportAccounts } from "./SupportAccounts";
 import { SupportConsole } from "./SupportConsole";
 import "./words";
 
@@ -43,6 +44,7 @@ export const organisationsRoutes: RouteObject[] = [
   { path: "account/close", element: <CloseAccount /> },
   { path: "support", element: <SupportConsole /> },
   { path: "support/cases/:caseId", element: <SupportCase /> },
+  { path: "support/accounts", element: <SupportAccounts /> },
 ];
 
 export const organisationsCaseRoutes: RouteObject[] = [{ path: "team", element: <CaseTeam /> }];

@@ -9,7 +9,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, Callout, Checkbox, Dialog, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { BackLink, Button, Callout, Checkbox, Dialog, LinkButton, LoadError, Loading, Notice, TextField, useBusy } from "../../foundation/ui";
 import { dateRange, keyName, longDate, Select, shortDate, useLocale, versionTag } from "./shared";
 import { w } from "./words";
 
@@ -42,8 +42,7 @@ export function CourtOrders() {
   const refresh = () => { steps.reload(); deadlines.reload(); hearings.reload(); directions.reload(); history.reload(); };
   const trialPack = screenPath("trial_pack", { caseId });
   const trialMoved = !!steps.data.pack?.stale;
-  const live = (h: Schemas["HearingOut"]) => !h.replaced_by_hearing_id && h.status !== "adjourned";
-  const ordered = [...hearings.data.hearings].sort((a, b) => Number(live(b)) - Number(live(a)) || b.starts_on.localeCompare(a.starts_on));
+  const ordered = hearings.data.hearings;
   const sourceName = (s: string) => keyName("source", s);
 
   return (
@@ -160,6 +159,7 @@ const HOLD_ERRORS = { stale: "after_serving.error.stale", invalid: "after_servin
 
 function HoldOrWithdraw({ caseId, onHold, onDone }: { caseId: string; onHold: boolean; onDone: () => void }) {
   const stepUp = useStepUp();
+  const { busy, run } = useBusy();
   const [reason, setReason] = useState("");
   const [asking, setAsking] = useState(false);
   const [withdrawn, setWithdrawn] = useState(false);
@@ -197,17 +197,17 @@ function HoldOrWithdraw({ caseId, onHold, onDone }: { caseId: string; onHold: bo
       </div>
       {!withdrawn && (
         <>
-          <Button variant="secondary" onClick={() => void toggle()}>{onHold ? w("hold.resume") : w("hold.put")}</Button>
+          <Button variant="secondary" onClick={toggle}>{onHold ? w("hold.resume") : w("hold.put")}</Button>
           <Button variant="secondary" className="av-after-amberbtn" onClick={() => setAsking(true)}>{w("hold.withdraw")}</Button>
         </>
       )}
       {asking && (
         <Dialog title={w("hold.withdraw")} onClose={() => setAsking(false)}>
-          <form className="av-stack" onSubmit={(e: FormEvent) => { e.preventDefault(); void withdraw(); }}>
+          <form className="av-stack" onSubmit={(e: FormEvent) => { e.preventDefault(); void run(withdraw); }}>
             <p>{w("hold.withdraw_hint")}</p>
             <TextField label={w("hold.reason")} name="reason" value={reason} onChange={(e) => setReason(e.target.value)} />
             <div className="av-row">
-              <Button type="submit" disabled={!reason.trim()}>{w("hold.confirm")}</Button>
+              <Button type="submit" busy={busy} disabled={!reason.trim()}>{w("hold.confirm")}</Button>
               <Button variant="secondary" onClick={() => setAsking(false)}>{w("cancel")}</Button>
             </div>
           </form>
@@ -218,6 +218,7 @@ function HoldOrWithdraw({ caseId, onHold, onDone }: { caseId: string; onHold: bo
 }
 
 function MoveDialog({ caseId, deadline, onClose, onDone }: { caseId: string; deadline: Schemas["DeadlineOut"]; onClose: () => void; onDone: () => void }) {
+  const { busy, run } = useBusy();
   const [dueOn, setDueOn] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -234,15 +235,15 @@ function MoveDialog({ caseId, deadline, onClose, onDone }: { caseId: string; dea
       onDone();
     } catch (err) {
       if (err instanceof ApiError && err.status === 412) setStale(true);
-      else setError(errorMessage(err, ERRORS));
+      else { setStale(false); setError(errorMessage(err, ERRORS)); }
     }
   };
   const keepMine = async () => {
-    setStale(false);
     try {
       const fresh = await unwrap(api.GET("/v1/cases/{case_id}/deadlines", { params: { path: { case_id: caseId } } }));
       await send(fresh.deadlines.find((d) => d.id === deadline.id)?.version ?? deadline.version);
     } catch (err) {
+      setStale(false);
       setError(errorMessage(err, ERRORS));
     }
   };
@@ -251,7 +252,7 @@ function MoveDialog({ caseId, deadline, onClose, onDone }: { caseId: string; dea
     return (
       <Dialog title={w("stale_title")} onClose={onClose}>
         <div className="av-stack">
-          <Button onClick={() => void keepMine()}>{w("stale_mine")}</Button>
+          <Button onClick={keepMine}>{w("stale_mine")}</Button>
           <Button variant="secondary" onClick={onDone}>{w("stale_theirs")}</Button>
         </div>
       </Dialog>
@@ -259,7 +260,7 @@ function MoveDialog({ caseId, deadline, onClose, onDone }: { caseId: string; dea
   }
   return (
     <Dialog title={w("deadlines.move_title")} onClose={onClose}>
-      <form className="av-stack" onSubmit={(e: FormEvent) => { e.preventDefault(); void send(deadline.version); }}>
+      <form className="av-stack" onSubmit={(e: FormEvent) => { e.preventDefault(); void run(() => send(deadline.version)); }}>
         {error && <Notice tone="error"><p>{error}</p></Notice>}
         <TextField label={w("deadlines.new_date")} name="due_on" type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} />
         <Select label={w("deadlines.reason")} value={reason} onChange={(e) => setReason(e.target.value)}>
@@ -267,7 +268,7 @@ function MoveDialog({ caseId, deadline, onClose, onDone }: { caseId: string; dea
           {REASONS.map((r) => <option key={r} value={r}>{w(`deadlines.reason.${r}`)}</option>)}
         </Select>
         <div className="av-row">
-          <Button type="submit" disabled={!dueOn}>{w("deadlines.move_submit")}</Button>
+          <Button type="submit" busy={busy} disabled={!dueOn}>{w("deadlines.move_submit")}</Button>
           <Button variant="secondary" onClick={onClose}>{w("cancel")}</Button>
         </div>
       </form>
@@ -282,6 +283,7 @@ function OrderForm({ caseId, kinds, onDone }: { caseId: string; kinds: string[];
   const [kind, setKind] = useState("");
   const [dueOn, setDueOn] = useState("");
   const [stay, setStay] = useState(false);
+  const { busy, run } = useBusy();
   const [error, setError] = useState<string | null>(null);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -297,7 +299,7 @@ function OrderForm({ caseId, kinds, onDone }: { caseId: string; kinds: string[];
     }
   };
   return (
-    <form className="av-stack" onSubmit={(e) => void submit(e)}>
+    <form className="av-stack" onSubmit={(e) => void run(() => submit(e))}>
       <h4>{w("orders.add")}</h4>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       <TextField label={w("orders.made_on")} name="made_on" type="date" value={madeOn} onChange={(e) => setMadeOn(e.target.value)} />
@@ -309,7 +311,7 @@ function OrderForm({ caseId, kinds, onDone }: { caseId: string; kinds: string[];
       </Select>
       {kind && <TextField label={w("orders.deadline_due")} name="due_on" type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} />}
       <Checkbox label={w("orders.stay")} checked={stay} onChange={(e) => setStay(e.target.checked)} />
-      <div className="av-after-footer"><Button type="submit" disabled={!madeOn}>{w("orders.add_submit")}</Button></div>
+      <div className="av-after-footer"><Button type="submit" busy={busy} disabled={!madeOn}>{w("orders.add_submit")}</Button></div>
     </form>
   );
 }
@@ -319,6 +321,7 @@ function HearingForm({ caseId, onDone }: { caseId: string; onDone: () => void })
   const [startsOn, setStartsOn] = useState("");
   const [endsOn, setEndsOn] = useState("");
   const [venue, setVenue] = useState("");
+  const { busy, run } = useBusy();
   const [error, setError] = useState<string | null>(null);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -331,7 +334,7 @@ function HearingForm({ caseId, onDone }: { caseId: string; onDone: () => void })
     }
   };
   return (
-    <form className="av-stack" onSubmit={(e) => void submit(e)}>
+    <form className="av-stack" onSubmit={(e) => void run(() => submit(e))}>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       <Select label={w("hearings.type")} value={type} onChange={(e) => setType(e.target.value)}>
         {HEARING_TYPES.map((h) => <option key={h} value={h}>{w(`hearings.type.${h}`)}</option>)}
@@ -339,7 +342,7 @@ function HearingForm({ caseId, onDone }: { caseId: string; onDone: () => void })
       <TextField label={w("hearings.starts_on")} name="starts_on" type="date" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} />
       <TextField label={w("hearings.ends_on")} name="ends_on" type="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)} />
       <TextField label={w("hearings.venue")} name="venue" value={venue} onChange={(e) => setVenue(e.target.value)} />
-      <div className="av-after-footer"><Button type="submit" disabled={!startsOn || !endsOn}>{w("hearings.add_submit")}</Button></div>
+      <div className="av-after-footer"><Button type="submit" busy={busy} disabled={!startsOn || !endsOn}>{w("hearings.add_submit")}</Button></div>
     </form>
   );
 }
@@ -368,7 +371,7 @@ function HearingRow({ caseId, hearing, locale, onDone }: { caseId: string; heari
       </span>
       <span className={`av-after-state${hearing.status === "scheduled" ? " av-after-state--on" : ""}`}>{known ? w(`hearings.status.${hearing.status as "scheduled"}`) : hearing.status}</span>
       {hearing.status === "scheduled" && !changing && <button type="button" className="av-after-linkbtn" onClick={() => setChanging(true)}>{w("hearings.change")}</button>}
-      {changing && <Button variant="secondary" onClick={() => void adjourn()}>{w("hearings.adjourn")}</Button>}
+      {changing && <Button variant="secondary" onClick={adjourn}>{w("hearings.adjourn")}</Button>}
       {error && <span role="alert">{error}</span>}
     </li>
   );

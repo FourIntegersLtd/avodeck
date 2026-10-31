@@ -24,9 +24,20 @@ def test_the_day_itself_is_zero_and_a_missed_date_is_negative() -> None:
 
 def test_a_deadline_carries_its_days_left() -> None:
     row = {
-        "id": uuid.uuid4(), "kind": "written_questions", "due_on": date(2099, 1, 1), "rule_ref": None, "calendar": None,
-        "timezone": "Europe/London", "created_from": "pack", "source": "pack", "pack_version": None, "hearing_id": None,
-        "done_at": None, "cancelled_at": None, "last_reminded_on": None, "version": 1,
+        "id": uuid.uuid4(),
+        "kind": "written_questions",
+        "due_on": date(2099, 1, 1),
+        "rule_ref": None,
+        "calendar": None,
+        "timezone": "Europe/London",
+        "created_from": "pack",
+        "source": "pack",
+        "pack_version": None,
+        "hearing_id": None,
+        "done_at": None,
+        "cancelled_at": None,
+        "last_reminded_on": None,
+        "version": 1,
     }
     days_left = deadline_out(row).days_left
     assert days_left is not None and days_left > 0

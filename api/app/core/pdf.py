@@ -44,6 +44,18 @@ def split_pages(document: bytes) -> list[bytes]:
     return out
 
 
+def render_page(page_pdf: bytes, rotation: int = 0) -> bytes:
+    """Render a single-page PDF to PNG bytes at 150 dpi."""
+    doc = pdfium.PdfDocument(page_pdf)
+    try:
+        bitmap = doc[0].render(scale=150 / POINTS_PER_INCH, rotation=rotation)
+        out = io.BytesIO()
+        bitmap.to_pil().convert("RGB").save(out, format="PNG")
+        return out.getvalue()
+    finally:
+        doc.close()
+
+
 def embedded_words(page_pdf: bytes) -> OcrPage:
     """The words of the first page's text layer (none for an image-only page)."""
     doc = pdfium.PdfDocument(page_pdf)

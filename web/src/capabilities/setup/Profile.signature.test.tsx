@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { http, HttpResponse, json, server, signedIn } from "../../test/api";
 import { me } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
-import { casePack, combination, jurisdiction } from "./testing";
+import { casePack, combination, jurisdiction, missingSteps } from "./testing";
 
 const PNG = [0x89, 0x50, 0x4e, 0x47];
 const ctx = { lineWidth: 0, lineCap: "", beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), clearRect: vi.fn() };
@@ -22,9 +22,9 @@ function open() {
   const j = jurisdiction("launch");
   signedIn({ me: me(), pack });
   server.use(
-    http.get("/v1/me/profile", () =>
+    http.get("/v1/me/profile", async () =>
       HttpResponse.json(
-        { full_name: "Dr Jane Morgan", profession: pack.profession, registration_body: pack.registration_bodies[0], registration_number: "1234567", specialties: [combination("launch").specialty.code], default_jurisdiction: j.code, default_retention: null, hourly_rate: null, currency: null },
+        { full_name: "Dr Jane Morgan", profession: pack.profession, registration_body: pack.registration_bodies[0], registration_number: "1234567", specialties: [combination("launch").specialty.code], default_jurisdiction: j.code, default_retention: null, hourly_rate: null, currency: null, missing_steps: await missingSteps(true) },
         { headers: { etag: '"1"' } },
       ),
     ),

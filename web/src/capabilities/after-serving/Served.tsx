@@ -16,7 +16,6 @@ export function ServedScreen() {
   const locale = useLocale();
   const path = { params: { path: { case_id: caseId } } };
   const served = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/served", path)), [caseId], { cache: "after-serving/Served#ServedScreen:served" });
-  const deadlines = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deadlines", path)), [caseId], { cache: "after-serving/Served#ServedScreen:deadlines" });
   const rounds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-question-rounds", path)), [caseId], { cache: "after-serving/Served#ServedScreen:rounds" });
   const questions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-questions", path)), [caseId], { cache: "after-serving/Served#ServedScreen:questions" });
   const fresh = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/new-since-served", path)), [caseId], { cache: "after-serving/Served#ServedScreen:fresh" });
@@ -27,11 +26,11 @@ export function ServedScreen() {
   const { pack } = useCaseFrame();
   const [open, setOpen] = useState(false);
 
-  const all = [served, deadlines, rounds, questions, fresh, changes, hearings, directions, steps];
+  const all = [served, rounds, questions, fresh, changes, hearings, directions, steps];
   if (all.some((r) => r.error)) {
     return <div className="av-page"><LoadError onRetry={() => all.forEach((r) => r.reload())} /></div>;
   }
-  if (!served.data || !deadlines.data || !rounds.data || !questions.data || !fresh.data || !changes.data || !hearings.data || !directions.data || !steps.data) {
+  if (!served.data || !rounds.data || !questions.data || !fresh.data || !changes.data || !hearings.data || !directions.data || !steps.data) {
     return <div className="av-page"><Loading /></div>;
   }
   const version = served.data.version;
@@ -43,15 +42,10 @@ export function ServedScreen() {
       </div>
     );
   }
-  const open_rounds = rounds.data.rounds.filter((r) => r.status !== "answered");
-  const firstRound = open_rounds[0];
-  const roundDeadline = firstRound ? deadlines.data.deadlines.find((d) => d.id === firstRound.deadline_id) : undefined;
-  const due = open_rounds
-    .map((r) => deadlines.data!.deadlines.find((d) => d.id === r.deadline_id)?.due_on)
-    .filter((d): d is string => !!d)
-    .sort()[0];
-  const upcoming = hearings.data.hearings.filter((h) => !h.replaced_by_hearing_id && h.status !== "adjourned").sort((a, b) => a.starts_on.localeCompare(b.starts_on));
-  const nextHearing = upcoming[0];
+  const firstRound = rounds.data.rounds.find((r) => r.open);
+  const due = rounds.data.next_due_on;
+  const hearingList = hearings.data;
+  const nextHearing = hearingList.hearings.find((h) => h.id === hearingList.next_hearing_id);
   const count = questions.data.questions.length;
   const vocabulary = pack.vocabulary as Record<string, unknown>;
   const vocabPlural = String(vocabulary.written_questions ?? "");
@@ -60,12 +54,12 @@ export function ServedScreen() {
   const made = changes.data.changes.length;
   const orders = directions.data.directions.length;
   const days = (h: { starts_on: string; ends_on: string }) => Math.round((Date.parse(h.ends_on) - Date.parse(h.starts_on)) / 86400000) + 1;
-  const left = roundDeadline?.days_left;
+  const left = firstRound?.days_left;
 
   const meeting = steps.data.meetings[0];
   const bundle = steps.data.pack;
-  const questionsDone = rounds.data.rounds.length > 0 && open_rounds.length === 0;
-  const trial = upcoming.find((h) => h.type === "trial") ?? nextHearing;
+  const questionsDone = rounds.data.rounds.length > 0 && !firstRound;
+  const trial = hearingList.hearings.find((h) => h.id === hearingList.next_trial_hearing_id) ?? nextHearing;
   const track: Array<{ key: string; name: string; note: string; done: boolean; alert?: boolean; to?: string | null }> = [
     { key: "served", name: w("served.step_served"), note: version.served_on ? shortDate(version.served_on, locale) : "", done: true },
     {

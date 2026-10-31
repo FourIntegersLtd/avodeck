@@ -32,21 +32,27 @@ const card = (over: Record<string, unknown>) => ({
 
 export async function stubApi(page: Page, opts: { signedIn: boolean }) {
   let signedIn = opts.signedIn;
+  let aal: "aal1" | "aal2" = "aal2";
   await page.route("**/v1/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
     const method = route.request().method();
     if (path === "/v1/auth/session") {
       return signedIn
-        ? json(route, { aal: "aal2", mfa_enrolled: true, mfa_complete: true, step_up_until: null, minutes_until_timeout: 30 })
+        ? json(route, { aal, mfa_enrolled: true, mfa_complete: aal === "aal2", step_up_until: null, minutes_until_timeout: 30 })
         : json(route, { error: { code: "not_signed_in", message: "" } }, 401);
     }
-    if (path === "/v1/auth/sign-in" && method === "POST") return json(route, { status: "mfa_required", mfa_enrolled: true });
+    if (path === "/v1/auth/sign-in" && method === "POST") {
+      signedIn = true; // password only (ADR 0025): the code is asked for at risky actions
+      aal = "aal1";
+      return json(route, { status: "signed_in", mfa_enrolled: true });
+    }
     if (path === "/v1/auth/mfa/verify" && method === "POST") {
       signedIn = true;
+      aal = "aal2";
       return json(route, { status: "signed_in", recovery_codes: null });
     }
-    if (path === "/v1/cell") return json(route, { storage_place: "the UK", support_phone: "0300 000 0000", support_hours: "weekdays 8am to 6pm" });
+    if (path === "/v1/cell") return json(route, { storage_place: "the UK" });
     if (path === "/v1/me") {
       return json(route, {
         person: { id: "11111111-1111-4111-8111-111111111111", email: "j.morgan@example.test", full_name: "Dr Jane Morgan", locale: "en-GB", timezone: "Europe/London", home_region: "uk", created_at: "2026-01-05T09:00:00Z", greeting_name: "Dr Morgan", password_changed_at: new Date(Date.now() - 95 * 86_400_000).toISOString() },
@@ -69,10 +75,13 @@ export async function stubApi(page: Page, opts: { signedIn: boolean }) {
           { kind: "understand_things_to_look_at", case_id: CASE_B, rank: 2, label_key: "understand.today.things_to_look_at", action_key: "understand.today.things_to_look_at_action", screen: "S13", count: 2, minutes: null, due_at: "2026-10-26T09:00:00Z", params: {} },
         ],
         organisations: [
-          { id: ORG, name: "Jane Morgan", kind: "personal" },
-          { id: TEAM, name: "Northgate Medico-Legal", kind: "team" },
+          { id: ORG, name: "Jane Morgan", kind: "personal", open_count: 1 },
+          { id: TEAM, name: "Northgate Medico-Legal", kind: "team", open_count: 1 },
         ],
         closed_count: 23,
+        open_count: 2,
+        due_this_month: 0,
+        readiness: { account: true, profile: true, signature: true, done_steps: 3, total_steps: 3 },
       });
     }
     if (path === "/v1/notifications") return json(route, { items: [], unread_count: 2, email_bounced: false });

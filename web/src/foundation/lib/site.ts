@@ -1,4 +1,5 @@
-/** The public home page (site/): set per deployment, localhost:3000 under `make dev`. */
+/** The public home page (site/): set per deployment; under `make dev` it is served at / beside the app. */
 export function siteUrl(): string {
-  return (import.meta.env.VITE_SITE_URL || (import.meta.env.DEV ? "http://localhost:3000" : "https://www.avodeck.com")).replace(/\/+$/, "");
+  const url = import.meta.env.VITE_SITE_URL || (import.meta.env.DEV ? "/" : "https://www.avodeck.com");
+  return url === "/" ? url : url.replace(/\/+$/, "");
 }

@@ -45,7 +45,7 @@ async function moreTool(page: Page, name: string) {
 
 async function openRead(page: Page) {
   await page.goto(`/cases/${CASE_A}/read/118`);
-  await page.getByRole("button", { name: "Mark as read" }).click();
+  await page.getByRole("button", { name: "I've read this page" }).click();
   await expect(page.getByRole("article", { name: /Dr P consultation/ })).toBeVisible();
 }
 

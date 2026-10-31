@@ -56,7 +56,7 @@ api/tests/                # grouped by kind; files named test_<feature>_<area>_*
 - Build routers with `app.core.http.router()` (signed in, one transaction per request, Idempotency-Key) and add them in `app/main.py` with `mount(app, router)`, never `include_router()`: FastAPI includes routers lazily, which hides their routes from the rule 9 route scan.
 - Editable resources return `ETag` (`etag(version)`); updates take `IfMatch` (428 without it, 412 `stale`).
 - Every case route depends on `require_case_access("<action>")` (actions in `docs/spec/permissions.md`; 404 if no access, 403 if the role forbids the action). Never write your own access check.
-- Risky routes (sign, send, export, delete, retention) depend on `require_step_up` (403 `step_up_required` without recent `aal2`).
+- Risky routes (sign, send, export, delete, retention) depend on `require_step_up` (403 `step_up_required` without recent `aal2`; 403 `mfa_required` with `mfa_enrolled` from a password-only session, ADR 0025).
 - State-changing routes depend on `require_csrf`.
 - Long work returns `202` + `{"job_id": ...}` and enqueues a job. Never do OCR, AI or document building inside a request.
 - Page-content routes that show suggestions depend on `require_page_read()` (`core/contracts/reading.py`): 423 `blind_read` until the person has read the page (rule 3). Slice B provides the read log as `app.state.page_reads`.
@@ -98,10 +98,16 @@ Always go through `core/ai/`. Never call Bedrock or Azure directly from a slice.
 from app.core.ai import provenance
 from app.core.ai.kit import AiKit, AiTask
 
-TASK = AiTask(task_id="T-07b", prompt_version="2026-10-16.1", model="sonnet",  # cell allow-list resolves the ID
-              system=NEUTRAL_TEMPLATE, schema=schema_from_pack_registries)
-out = await kit.run(conn, TASK, pack=pack, case_id=case_id, text=page_text,
-                    names=case_names, dates_of_birth=case_dobs)   # pii.strip runs inside run()
+TASK = AiTask(
+    task_id="T-07b",
+    prompt_version="2026-10-16.1",
+    model="sonnet",  # cell allow-list resolves the ID
+    system=NEUTRAL_TEMPLATE,
+    schema=schema_from_pack_registries,
+)
+out = await kit.run(
+    conn, TASK, pack=pack, case_id=case_id, text=page_text, names=case_names, dates_of_birth=case_dobs
+)  # pii.strip runs inside run()
 accepted, rejected = provenance.check_items(out["items"], ocr_words)  # values not in cited word_ids are rejected
 ```
 
@@ -146,10 +152,12 @@ The worker is part of this package (`app/worker/`, run with `make -C api worker`
 ```python
 from app.core.jobs import JobContext, registry
 
+
 @registry.kind("process_bundle", interactive=False, changes_case=True)  # changes_case: one at a time per case
 async def process_bundle(ctx: JobContext) -> None:
-    await ctx.step("split", split)              # skipped if it finished on an earlier attempt (F6)
+    await ctx.step("split", split)  # skipped if it finished on an earlier attempt (F6)
     await ctx.progress(40, eta_seconds=120, step="ocr")
+
 
 job_id = await registry.enqueue(conn, case_id, "process_bundle")  # in the request's transaction; 202 + job_id
 ```

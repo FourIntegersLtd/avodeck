@@ -78,10 +78,14 @@ verified/edited ──not right──▶ rejected        rejected ──correct�
 | From → to | Trigger | Guard |
 |---|---|---|
 | suggested → confirmed / edited | Expert, screen 06 | Edited questions keep `text_verbatim` |
-| question set: open → locked | `confirm-all` | Every question confirmed or edited |
+| question set: open → locked | `confirm-all` | Every question and assumption confirmed or edited; the server refuses with `questions_not_reviewed` while any item is still `suggested` |
 | locked → open | Expert "Change the questions": a new `instruction_versions` row (the old lock is never undone) | Not yet served; questions moved to the new version return to suggested; drafts keep their links; warning shown |
 
 Writing (screens 14 and 15) requires a locked question set (409 otherwise). A set locks once (`instruction_versions.locked_at`, `confirm-all`; 409 if already locked or nothing to confirm). A newer letter that adds nothing moves the confirmed questions to the new version and locks it straight away; one that adds a question returns them to suggested with the warning `setup.questions.warning.reopened`. After serving, nothing moves.
+
+## Second reading (`second_readings.status`)
+
+queued → done / refused / failed (the `second_reading` job, T-10, ADR 0030). A new request by the named expert or assistant puts any status back to queued (the old lines are cleared). `refused` means the picture could not be masked safely and nothing was sent; the reason is a code (`low_confidence`, `doubtful_word`, `identifier_unmatched`, `page_changed` and others). `failed` carries `invalid_output` or `unexpected_error`. A job writes only for the request it read. A busy model leaves the row queued and the job pauses.
 
 ## Prefill suggestion (`prefill_suggestions.status`)
 
@@ -114,16 +118,25 @@ queued ──▶ running ──▶ done
 
 A job paused because the reading service is busy or unreachable (`service_busy`, `model_unavailable`, F5) is resumed by the worker itself (paused → running) after an exponential back-off (doubling from 2 seconds, 2 hours in all); if it is still paused after that, the resumed run ends `failed` (running → failed) with the pause reason as `error_code`, and the retry puts it back on the queue. A resume is not a new attempt. Other pauses (cost guard K3, a cancelled run) wait for a person.
 
+Avodeck support may do the two person-driven moves (`POST /v1/support/jobs/{job_id}/resume` and `/requeue`, permissions.md "Avodeck staff"; `app.support_job_action()`, migration 0035): **support resume** hands a paused job back to the queue and the worker makes the paused → running move when it picks it up (refused while the case is on hold, 409 `case_on_hold`; any status but paused is 409 `job_not_paused`); **support requeue** is failed → queued with `attempts` set back to 0 (any status but failed is 409 `job_not_failed`). What the job was (status, error code, attempts) is kept in `job_support_actions`; the job's own `error_code` stays until the worker picks it up.
+
 Every step is idempotent, so retrying from the start is always safe. Finished steps are recorded in `job_steps` and skipped on retry; a job whose worker stopped sending heartbeats is put back on the queue (F6).
 
 ## Upload (`uploads.status`)
 
 ```
-open ──complete (all chunks in, sha256 matches)──▶ complete
-  └──7 days unfinished──▶ expired
+open ──complete──▶ finalizing ──job verifies all parts──▶ complete
+  │                    ├──missing part──▶ open (client resends)
+  │                    ├──unreadable/hash/size mismatch──▶ failed
+  │                    └──expired past expires_at (job dead)──▶ expired
+  ├──client cancels──▶ cancelled
+  ├──7 days unfinished──▶ expired
+  └──stored file does not match the sha256 sent with `complete`──▶ failed
 ```
 
-Chunks can be sent (and re-sent) only while `open`. Completing twice returns the same document. Enforced by `app.uploads_guard` (SQLSTATE `AV409`). The daily `expire_uploads` schedule (`core/housekeeping.py`, keyed by date, F28) expires open uploads past `expires_at`, deletes their chunks from Storage and writes `upload.expired` to the audit log.
+Chunks can be sent (and re-sent) only while `open`. `complete` claims the upload as `finalizing` and enqueues a `finalize_upload` worker job that re-reads, decrypts and hashes every part. Success inserts the document and moves to `complete`; a missing part reopens to `open` so the client can resend; an unreadable part, hash or size mismatch moves to `failed`. Completing twice returns the same document or the same 202. A `failed` upload is closed for good (409 `upload_closed`; F43). A case on hold keeps the job queued (it is processing, not exempt like export and deletion); the upload then expires on schedule, with a job that is not running, once past `expires_at`. Once `finalizing`, an upload past `expires_at` with a dead job is not claimed again (409 `upload_closed`). Only a reopen may change `received` or `chunk_sha256`, and only by dropping entries (migration 0125). Cancelled and failed uploads' parts are cleaned by the daily sweep, which sets `cleaned_at` only after Storage deletion succeeds (R8).
+
+Enforced by `app.uploads_guard` (SQLSTATE `AV409`). The daily `expire_uploads` schedule (`core/housekeeping.py`, keyed by date, F28) expires open uploads past `expires_at` and finalizing uploads whose job is done/failed past `expires_at`, deletes their chunks from Storage (paginated), and returns terminal rows needing cleanup. `reconcile_upload_objects` then sweeps the touched cases (and `scripts/reconcile_uploads.py` all cases): an `uploads/{uuid}` folder is deleted only if its row is terminal without a document (then marked cleaned after the delete) or it has no row and every object is older than 8 days; anything else is left.
 
 ## Finding (`findings.decision`)
 
@@ -206,7 +219,7 @@ open (received) → answered (every question answered) → served (answers serve
 unchecked → matches / wrong_page / wrong_value / not_on_page / contradicted (worker) → confirmed by the expert (`expert_confirmed`). The expert can change any result; each change is audited. `read_first` is not a stored status: the API shows it in place of the result (with no quote of ours or reason) until that viewer has read the evidence page, and confirming then is 409 `read_first` (rule 3).
 
 ## Session (`sessions`)
-`aal1` (password only) → `aal2` (authenticator code entered) → revoked. Revoked is final: signed out, signed out everywhere, idle (30 minutes), too old (12 hours) or password reset. Entering a code again keeps `aal2` and restarts the 10-minute step-up window; the cookie changes each time.
+`aal1` (password only) → `aal2` (authenticator code entered) → revoked. Since ADR 0025 a session lives at `aal1` until the first risky action: every ordinary route works, and step-up routes, the support console and support grants answer 403 `mfa_required` (`mfa_enrolled` false: set up the authenticator; true: enter a code). Enrolling and verifying from `aal1` move it to `aal2` with `mfa_verified_at` now; `aal2` with the code more than 10 minutes old answers step-up routes 403 `step_up_required`. A recovery code signs in at `aal1` with the authenticator removed. Revoked is final: signed out, signed out everywhere, idle (30 minutes), too old (12 hours) or password reset. Entering a code again keeps `aal2` and restarts the 10-minute step-up window; the cookie changes each time.
 
 ## Email change (`email_changes`)
 Waiting → one address confirmed → completed (both confirmed). Waiting or half-confirmed → cancelled (a newer request) or expired (after a day). Completed, cancelled and expired are final.
@@ -250,6 +263,10 @@ active (named expert grants, step-up, 24 hours) → expired / revoked. Terminal;
 ## Custody transfer (`custody_transfers`)
 
 active (support records it for a served case, migration 0032) → revoked (`revoked_at`, by support; final). While active, the custodian (the person named, or the current owners and admins of the organisation named) reads the case and nothing more. A case never served cannot be transferred (409), nor can a closed organisation receive one (409 `organisation_closed`). Refused attempts are audited (`support.custody_transfer_refused`).
+
+## Account created by support (`support_accounts`)
+
+invited (support creates it with a temporary password, migrations 1012, 1013; ADR 0024) → active, when the person has chosen their own password (`people.must_change_password` cleared) and completed MFA in a session. Not stored: read from `people` and `sessions`. While invited, support may make a new temporary password (the old one stops working and the person is signed out everywhere; at most once a minute, else 429 `sent_recently`); once active, 409.
 
 ## Case replacement (`case_replacements`)
 

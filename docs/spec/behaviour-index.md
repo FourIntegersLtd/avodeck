@@ -6,7 +6,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 
 | Table | Owner | Who can change it | How many | Over time | Leaving / deletion |
 |---|---|---|---|---|---|
-| `people` | Foundation | The person | One per person per cell | Email change needs both addresses; closure keeps sign-in for served cases | Closed account: kept while any served case they're named on exists |
+| `people` | Foundation | The person | One per person per cell | Email change needs both addresses; closure keeps sign-in for served cases; `must_change_password` (migration 0036) blocks every other route until they choose their own password, changed only through `app.password_changed()` and `app.support_new_password()` | Closed account: kept while any served case they're named on exists |
 | `experts` | Foundation (C fills) | The person | 0 or 1 per person | Edits never touch signed reports (snapshots) | Kept with the person |
 | `expert_roles` | C | The expert | Many | Edit freely; snapshot at signing | With the person |
 | `expert_training` | C | The expert | Many | Edit freely; snapshot at signing | With the person |
@@ -15,6 +15,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `signatures` | C | The expert | Many; latest used | New image is a new row; snapshot at signing | With the person |
 | `sessions` | Foundation | The person (revoke) | One per device | Expire on inactivity | All revoked on password reset or closure |
 | `mfa_recovery_codes` | Foundation | The person (regenerate) | 10 at a time | Each used once; regenerate replaces all | Deleted on closure |
+| `password_change_attempts` | Foundation | Person (own row, password change route; counted in a transaction of its own) | One per person | Failures counted in a 15-minute window; 5 give 429 `too_many_attempts`; reset on success; no delete | Deleted with the person |
 | `mfa_attempts` | Foundation | System (verify and recovery routes) | One per person | Failures counted in a 15-minute window; reset on success; last accepted code kept 90 seconds | Deleted on closure |
 | `email_changes` | Foundation | The person (step-up) | One pending per person; a new request cancels the old | Waiting → completed when both addresses confirm; links expire after a day | Deleted on closure |
 | `organisations` | Foundation (O for teams) | Owner/admin | Personal: one per person; teams: any | Closure only when no open cases | Served cases outlive closure until retention |
@@ -25,7 +26,8 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `support_access_grants` | O (table created by foundation, migration 0030) | Named expert grants or revokes; only `revoked_at` changes | Any; one active per case (O's route) | Expire after 24 hours, checked on every read; a revocation is final | Kept after case deletion (record of consent, ids and a code only); opens nothing on a deleted case |
 | `custody_transfers` | O (table and access rule created by foundation, migration 0032) | Support staff record (their own name, served cases only, flag `support_custody_transfer`); only `revoked_at` changes | Any; each opens the case read-only to its custodian | active → revoked (final) | Kept after case deletion (who holds the records; ids, dates and a short note about the expert) |
 | `case_replacements` | Foundation (O's replacement route calls it) | Organisation owner/admin through `app.create_replacement_case()` only | One per replacement case; a served case has one not deleted (asking again returns it, migration 0034) | Never changes | Kept after deletion of either case (record of consent) |
-| `support_staff` | Foundation | Operators by hand in SQL (`docs/ops/support-staff.md`); never the app | One per person | Added; removed by setting `removed_at` (never deleted) | A removed person's grants stop working at once; only current staff get the console look-ups (migrations 1006, 1011, 1012) |
+| `support_staff` | Foundation | Operators by hand in SQL (`docs/ops/support-staff.md`); never the app | One per person | Added; removed by setting `removed_at` (never deleted) | A removed person's grants stop working at once; only current staff get the console look-ups (migrations 1006, 1011, 1020) |
+| `support_accounts` | O (migrations 1012, 1013) | Current support staff, through `app.support_create_account()` / `app.support_new_password()` only (Idempotency-Key, no fresh MFA, ADR 0023); the app never touches the table | One per person created; 20 per staff member per hour, refused attempts counted, one create at a time per staff member (lock) | invited → active (derived: the person has chosen their own password and completed MFA) | Kept; the person and their practice are theirs |
 | `cases` | Foundation (C fills) | Named expert; org admin for admin fields | Many per org | State machine; on hold flag; named expert fixed after serving; settled_at and closed_at set by the system | Case deletion; legal hold blocks |
 | `case_members` | C | Named expert or org admin | Many per case | Added and removed with dates, history kept | Removed when membership ends unless named |
 | `case_parties` | C | Named expert or assistant | Many | Editable until served; then additions only (edit or removal refused, 409) | Case deletion |
@@ -33,6 +35,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `case_links` | C | Named expert | Many | Add or remove; needs access to both cases (the other answers not found); never shares data | Removed when either case is deleted |
 | `instruction_versions` | Foundation table (0019), C fills | Named expert or assistant | Many, ordered | Append only | Case deletion |
 | `case_instructions` | C | Named expert or assistant | One per oral instruction version | Words replaced while the version is unlocked; never deleted | Case deletion |
+| `case_subject_identity` | C | Named expert only (assistants and viewers see only whether it is recorded) | One per case | Replaced on each save; sealed bytes | Case deletion (purge order, case key destroyed) |
 | `case_subject_keys` | C | Named expert or assistant | One per case | Replaced when the identifier changes; keyed hash only | Case deletion |
 | `conflict_answers` | C | Named expert | One per question | Changed in place (version rises); snapshot at signing | Case deletion |
 | `conflict_answer_history` | C | Database trigger on `conflict_answers` (no direct writes) | One per answer given or changed | Append only; same answer again adds nothing | Case deletion |
@@ -56,6 +59,8 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `ocr_words` | A | Worker; re-run on rotation | Many per page | Replaced only by rotation or opt-in reprocessing | Case deletion |
 | `facts` | Foundation (A writes, B verifies) | Worker suggests; only named expert verifies | Many per page | Never deleted; `version` rises on change; state machine in the database; citable only when verified or edited on a page the named expert has read | Case deletion; `date_basis` is `printed`, `printed_century`, `line_above` or `please_check`; the expert's verify or correct overrides it (ADR 0017) |
 | `fact_verifications` | B | Named expert (append only); the reading job adds `remapped` rows with no person (0207) | Many per fact | Append only | Case deletion; chain head on certificate |
+| `second_readings` | B | The expert who asked (page.transcribe) | One per page; asking again resets it | Status moves queued to done, refused or failed; lines sealed | Case deletion (just after `transcript_views`) |
+| `transcript_views` | B | The person reading by transcript (own rows) | Many per entry per person | Append only | Case deletion (just after `page_reads`) |
 | `page_reads` | B | Anyone who reads; only named expert's count for citing | Many per page per person | Append only, hash-chained | Case deletion; chain head on certificate |
 | `fact_flags` | B | Named expert (`points`); the reading job adds `recheck` with no person (0205), removed when the expert checks the fact again | Many | Add or remove | Case deletion |
 | `word_corrections` | B | Named expert only (`fact.verify`), while changing a fact | Many per page; one current per word | Never deleted by the app; a later reading of the same words, or new words for the page (slice A's reading job, 0211), sets `superseded_at`; other checked facts on the words of either reading that it no longer shows are flagged `recheck`; refused (409) on words a served fact cites | Goes with its page on case deletion (no case_id, decision 0018); deleted by `purge_quarantined_page` (0211) |
@@ -63,6 +68,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `page_notes` | B | Each person for themselves (`page.read`), bookmarking or noting a page on screen 09 | One per person and page | Replaced by the next save; removed when bookmark and note are both cleared; only its owner sees it | Goes with its page on case deletion (no case_id, like `page_turns`) |
 | `missing_items` | A | Worker suggests; named expert or assistant updates | Many | State machine | Case deletion |
 | `record_gaps` | A | Worker; named expert confirms | Many | Recalculated when records are appended | Case deletion |
+| `record_entries` | A | Worker (`extract_entries`, T-07b) | Many per page | Replaced when the page is read again | Case deletion |
 | `instructing_party_requests` | A | Named expert or assistant drafts; named expert sends | Many | Sent ones never edited (append only, hash-chained) | Case deletion |
 | `case_processing` | A | Named expert or assistant (case.upload) | One per case | Cancel and reprocess opt-in set and cleared | Case deletion |
 | `fact_question_links` | D | Named expert | Many | State machine; stale when fact or question changes | Case deletion |
@@ -122,11 +128,12 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `deletion_certificates` | H | System | One per deleted case | Never change | Kept (no patient data) |
 | `deletion_ledger` | Foundation (H writes, through `app.purge_case`) | System | One per deleted case | Append only; replayed after restore (`app.replay_deletion_ledger`) | Kept |
 | `case_keys` | Foundation | System only | One per case | Never updated; destroyed at deletion by `app.destroy_case_key` (worker, in the case's own job) | Destroyed at deletion |
-| `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case; waits while its case is on hold; requested_by set by the system; step counts are whole numbers, never text | Metadata kept 90 days |
+| `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case; waits while its case is on hold; requested_by set by the system; step counts are whole numbers, never text; a failed processing job goes back to queued only through "Try again" (`app.requeue_failed_job`, slice A), which counts attempts again from none | Metadata kept 90 days |
 | `job_kind_actions` | Foundation | Migrations only | One per job kind | Read-only reference | Kept (no patient data) |
 | `job_steps` | Foundation | Worker | Many per job | Insert only; a finished step is skipped on retry | With the job |
+| `job_support_actions` | Foundation | Support staff, through `app.support_job_action()` only | Many per job | Insert only; written only with a resume or requeue that happened | With the job |
 | `scheduled_runs` | Foundation | Worker | One per schedule per date | Insert only; claimed once per date | Kept (no patient data) |
-| `uploads` | Foundation | Case uploaders (`case.upload`) | Many per case | State machine (open → complete or expired); chunks only while open; daily sweep expires unfinished uploads after 7 days and deletes their chunks; completing publishes `DocumentUploaded` (with `append`) in the same transaction | Case deletion |
+| `uploads` | Foundation | Case uploaders (`case.upload`) | Many per case | State machine (open → finalizing → complete; or cancelled, expired, failed); chunks only while open, each with its SHA-256; `complete` returns 202 and the `finalize_upload` job checks every part and the whole file, a mismatch closes it as failed, a missing part reopens it; daily sweep expires unfinished uploads after 7 days and deletes their chunks; the job publishes `DocumentUploaded` (with `append`) in the same transaction as the document | Case deletion |
 | `notifications` | Foundation | System; the person marks read | Many | Read state only; held while the case is on hold | Deleted after 1 year; case ones with the case |
 | `feature_flags` | Foundation | Avodeck staff | One per key per scope | Edit; audited | Removed when the feature ships |
 | `audit_log` | Foundation | System (append only) | Many | Hash-chained | Pseudonymised metadata kept 6 years after case deletion |

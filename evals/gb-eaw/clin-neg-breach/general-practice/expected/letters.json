@@ -1,0 +1,12 @@
+[
+ {"letter": "letter-01", "copy": "typed", "author_specialty": "cardiology", "page": 10, "body_first_n": 20, "body_last_n": 70},
+ {"letter": "letter-02", "copy": "typed", "author_specialty": "dermatology", "page": 13, "body_first_n": 21, "body_last_n": 74},
+ {"letter": "letter-03", "copy": "typed", "author_specialty": "ent", "page": 16, "body_first_n": 22, "body_last_n": 78},
+ {"letter": "letter-04", "copy": "scanned", "author_specialty": "gastroenterology", "page": 19, "body_first_n": 23, "body_last_n": 82},
+ {"letter": "letter-05", "copy": "scanned", "author_specialty": "gynaecology", "page": 22, "body_first_n": 24, "body_last_n": 86},
+ {"letter": "letter-06", "copy": "scanned", "author_specialty": "neurology", "page": 25, "body_first_n": 25, "body_last_n": 90},
+ {"letter": "letter-07", "copy": "faxed", "author_specialty": "ophthalmology", "page": 28, "body_first_n": 26, "body_last_n": 94},
+ {"letter": "letter-08", "copy": "faxed", "author_specialty": "paediatrics", "page": 31, "body_first_n": 27, "body_last_n": 98},
+ {"letter": "letter-09", "copy": "handwritten", "author_specialty": "respiratory", "page": 34, "body_first_n": 28, "body_last_n": 102},
+ {"letter": "letter-10", "copy": "handwritten", "author_specialty": "urology", "page": 37, "body_first_n": 29, "body_last_n": 106}
+]

@@ -85,7 +85,12 @@ export function rows(): Schemas["RowOut"][] {
 }
 
 export function concordanceOut(over: Partial<Schemas["ConcordanceOut"]> = {}): Schemas["ConcordanceOut"] {
-  return { bundle: bundleOut(), rows: rows(), counts: { matched: 1, to_confirm: 1, missing: 1 }, ...over };
+  const base = { bundle: bundleOut(), rows: rows(), counts: { matched: 1, to_confirm: 1, missing: 1 }, ...over };
+  // Stand-in for the server's answers: the missing rows, and the rows in display order with a hidden count.
+  let room = 4;
+  const display_rows = base.rows.filter((r) => (r.status === "to_confirm" && !r.confirmed) || room-- > 0);
+  const missing_rows = base.rows.filter((r) => r.status === "missing");
+  return { missing_count: missing_rows.length, missing_rows, display_rows, hidden: base.rows.length - display_rows.length, ...base, ...over };
 }
 
 export const ALL_SECTIONS = ["report", "chronology", "joint_statement", "written_answers", "legal_tests"] as const;
@@ -175,7 +180,7 @@ export function servePack(run: PackRun, opts: { latest?: Schemas["LatestOut"]; c
     http.get("/v1/cases/:caseId/trial-pack/settings", () => etagged(settingsOut(), 2)),
     http.get("/v1/cases/:caseId/trial-pack/latest", () => json(opts.latest ?? { pack: packOut(), settings: settingsOut() })),
     http.get("/v1/cases/:caseId/trial-pack/preview", () => json(opts.preview ?? previewOut())),
-    http.get("/v1/cases/:caseId/offline-packages", () => json({ packages: opts.copies ?? [] })),
+    http.get("/v1/cases/:caseId/offline-packages", () => json({ packages: opts.copies ?? [], live: (opts.copies ?? []).filter((c) => c.status === "built" || c.status === "downloaded") })),
   );
   return { sent, record };
 }

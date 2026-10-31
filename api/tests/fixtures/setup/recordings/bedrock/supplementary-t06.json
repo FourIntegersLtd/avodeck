@@ -67,7 +67,7 @@
             "additionalProperties": false,
             "properties": {
               "para_ref": {
-                "maxLength": 20,
+                "maxLength": 80,
                 "type": [
                   "string",
                   "null"
@@ -116,7 +116,7 @@
                 "type": "string"
               },
               "para_ref": {
-                "maxLength": 20,
+                "maxLength": 80,
                 "type": [
                   "string",
                   "null"
@@ -127,7 +127,7 @@
                 "type": "string"
               },
               "short_title": {
-                "maxLength": 40,
+                "maxLength": 80,
                 "minLength": 1,
                 "type": "string"
               },
@@ -167,7 +167,7 @@
     },
     "system": "You find the questions an expert has been asked to answer, and the assumptions the expert has been told to make, in a letter of instruction. You copy words; you never write your own.\n\nThe letter follows the context. Each word is written as {word_id}word, one line of the letter per line. Some words were replaced by placeholders such as [NAME_1]; copy a placeholder exactly as it is.\n\nFor each question the letter asks the expert to answer, in the order the letter gives them:\n- text_verbatim: the question's words exactly as written, in order, from its first word to its last. Leave out the item marker in front of it, such as \"(a)\". Do not shorten, reword, correct or join anything.\n- word_ids: the word_id of every word you copied, first to last, with none missing.\n- para_ref: the paragraph reference the letter shows for it, such as \"4(a)\", or null.\n- kind: one of question_types in the context.\n- short_title: a label of at most 40 characters, a few words that name what the question is about, for a tab. It is a label, not a sentence: no verb that answers, no opinion, no names.\n- reason: a short label, a few words, for why you chose the kind.\n\nFor each assumption the letter tells the expert to make, give text_verbatim, word_ids, para_ref and reason in the same way. Leave out a heading in front of it, such as a single word followed by a full stop.\n\nNever answer a question, give a view on one, or say whether it is within anyone's expertise. If the letter has no questions or no assumptions, return an empty list.",
     "temperature": 0.0,
-    "text": "{p1w1}Harland {p1w2}& {p1w3}Price {p1w4}LLP\n{p1w5}Solicitors\n{p1w6}9 {p1w7}Cathedral {p1w8}Walk\n{p1w9}Northam {p1w10}[POSTCODE_1] {p1w11}\n{p1w12}Ref: {p1w13}HP/CN/2291/RT\n{p1w14}20 {p1w15}November {p1w16}2025\n{p1w17}Dear {p1w18}Dr {p1w19}Expert\n{p1w20}[NAME_1] {p1w21} {p1w22}v {p1w23}Brookvale {p1w24}Surgery: {p1w25}supplementary {p1w26}instructions\n{p1w27}1. {p1w28}Further {p1w29}to {p1w30}our {p1w31}letter {p1w32}of {p1w33}9 {p1w34}October {p1w35}2025, {p1w36}we {p1w37}should {p1w38}be {p1w39}grateful {p1w40}if {p1w41}you {p1w42}would {p1w43}also {p1w44}answer {p1w45}the {p1w46}following\n{p1w47}question:\n{p1w48}(e) {p1w49}If {p1w50}Mrs {p1w51}[NAME_1] {p1w52}had {p1w53}been {p1w54}examined {p1w55}on {p1w56}15 {p1w57}May {p1w58}2024, {p1w59}what {p1w60}findings {p1w61}would {p1w62}a {p1w63}reasonably {p1w64}competent\n{p1w65}general {p1w66}practitioner {p1w67}have {p1w68}expected {p1w69}to {p1w70}record?\n{p1w71}2. {p1w72}All {p1w73}other {p1w74}instructions {p1w75}are {p1w76}unchanged.\n{p1w77}Yours {p1w78}sincerely\n{p1w79}R. {p1w80}Tennant, {p1w81}Partner, {p1w82}Harland {p1w83}& {p1w84}Price {p1w85}LLP\n{p1w86}Synthetic {p1w87}test {p1w88}record {p1w89}- {p1w90}invented {p1w91}patient {p1w92}- {p1w93}not {p1w94}real {p1w95}clinical {p1w96}data"
+    "text": "{p1w1}Harland {p1w2}& {p1w3}Price {p1w4}LLP\n{p1w5}Solicitors\n{p1w6}9 {p1w7}Cathedral {p1w8}Walk\n{p1w9}Northam {p1w10}[POSTCODE_1] {p1w11}·\n{p1w12}Ref: {p1w13}HP/CN/2291/RT\n{p1w14}20 {p1w15}November {p1w16}2025\n{p1w17}Dear {p1w18}Dr {p1w19}Expert\n{p1w20}[NAME_1] {p1w21}· {p1w22}v {p1w23}Brookvale {p1w24}Surgery: {p1w25}supplementary {p1w26}instructions\n{p1w27}1. {p1w28}Further {p1w29}to {p1w30}our {p1w31}letter {p1w32}of {p1w33}9 {p1w34}October {p1w35}2025, {p1w36}we {p1w37}should {p1w38}be {p1w39}grateful {p1w40}if {p1w41}you {p1w42}would {p1w43}also {p1w44}answer {p1w45}the {p1w46}following\n{p1w47}question:\n{p1w48}(e) {p1w49}If {p1w50}Mrs {p1w51}[NAME_1] {p1w52}had {p1w53}been {p1w54}examined {p1w55}on {p1w56}15 {p1w57}May {p1w58}2024, {p1w59}what {p1w60}findings {p1w61}would {p1w62}a {p1w63}reasonably {p1w64}competent\n{p1w65}general {p1w66}practitioner {p1w67}have {p1w68}expected {p1w69}to {p1w70}record?\n{p1w71}2. {p1w72}All {p1w73}other {p1w74}instructions {p1w75}are {p1w76}unchanged.\n{p1w77}Yours {p1w78}sincerely\n{p1w79}R. {p1w80}Tennant, {p1w81}Partner, {p1w82}Harland {p1w83}& {p1w84}Price {p1w85}LLP\n{p1w86}Synthetic {p1w87}test {p1w88}record {p1w89}- {p1w90}invented {p1w91}patient {p1w92}- {p1w93}not {p1w94}real {p1w95}clinical {p1w96}data"
   },
   "response": {
     "input_tokens": 2400,

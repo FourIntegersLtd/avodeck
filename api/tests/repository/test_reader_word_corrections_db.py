@@ -81,9 +81,7 @@ async def test_viewers_read_corrections_and_strangers_see_none(api_db: Database,
         assert row == (seen,), person
 
 
-async def test_only_the_named_expert_adds_a_correction_as_themselves(
-    api_db: Database, world: dict[str, Any]
-) -> None:
+async def test_only_the_named_expert_adds_a_correction_as_themselves(api_db: Database, world: dict[str, Any]) -> None:
     sql = "insert into app.word_corrections (page_id, word_ids, text, person_id) values (%s, %s, %s, %s)"
     for person, as_person in (
         (world["assistant"], world["assistant"]),

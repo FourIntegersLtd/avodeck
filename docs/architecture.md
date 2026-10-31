@@ -19,7 +19,7 @@ Avodeck is a records-review engine for expert witnesses. A bundle of records goe
 2. Every fact cites OCR word IDs on a numbered page; the server rejects anything else; only verified facts can be cited.
 3. Blind read is enforced by the server (facts return 423 until the page is read).
 4. The browser talks only to FastAPI.
-5. Processing stays in the home region (UK cell at launch).
+5. Data stays in the home region (UK cell at launch); the UK cell's compute runs on Railway, Amsterdam (ADR 0021).
 6. No patient text in logs.
 7. Identifiers are stripped before every AI call.
 8. Served reports are locked; changes go through a supplementary report.
@@ -36,7 +36,7 @@ Avodeck is a records-review engine for expert witnesses. A bundle of records goe
 | Part | Service | Region | Patient data? |
 |---|---|---|---|
 | Frontend | React + TypeScript on Vercel; renders screens only | Global CDN | No |
-| API | FastAPI on DigitalOcean App Platform (no servers to manage) | London | Yes |
+| API | FastAPI on Railway (no servers to manage; ADR 0021) | Amsterdam, no data at rest | Yes |
 | Worker | Same codebase, App Platform worker component; Postgres job queue | London | Yes |
 | Scheduled jobs | App Platform scheduled component (deadlines, deletion) | London | Yes |
 | Database, auth, files | Supabase: Postgres + pgvector, Auth (called only by FastAPI), private Storage | London | Yes |
@@ -59,7 +59,7 @@ Each region is a complete, identical deployment with its own data. Nothing patie
 
 | Cell | App + worker | Database, auth, files | Claude | OCR + speech | Status |
 |---|---|---|---|---|---|
-| **uk** | DigitalOcean App Platform, London | Supabase, London | Bedrock, London in-region | Azure UK South | Launch |
+| **uk** | Railway, Amsterdam (ADR 0021) | Supabase, London | Bedrock, London in-region | Azure UK South | Launch |
 | **au** | DigitalOcean, Sydney | Supabase, Sydney | Bedrock, Sydney (check in-region models) | Azure Australia East | Later |
 | **ca** | DigitalOcean, Toronto | Supabase, Canada | Bedrock, Canada (check models) | Azure Canada Central | Later |
 | **nz** | Served from the **au** cell if NZ customers and law accept it; AWS and Azure have NZ regions but Supabase and DigitalOcean do not | — | — | — | Decide later |
@@ -217,6 +217,7 @@ Who signs in, and the professional profile of those who give evidence.
 | `signatures` | The expert's signature image. | expert_id, storage_path, method, created_at |
 | `sessions` | Each device a person is signed in on, so they can see and sign out devices. The cookie holds a random token; only its scrambled copy is kept, and Supabase Auth's tokens stay here, never in the browser. | person_id, token_hash, csrf_hash, device_label, aal, mfa_verified_at, created_at, last_seen_at, revoked_at, revoked_reason |
 | `mfa_recovery_codes` | One-time backup codes for when someone loses their phone (stored scrambled). | person_id, code_hash, used_at |
+| `password_change_attempts` | Wrong current passwords given to `POST /v1/auth/password/change` in the last 15 minutes (5 lock it for the rest of the window); reset on success. | person_id, failures, window_started_at, created_at |
 | `mfa_attempts` | Wrong authenticator codes in the last 15 minutes (5 lock MFA for the rest of the window) and the last code accepted, so it cannot be used twice. | person_id, failures, window_started_at, last_code_hash, last_code_at |
 | `email_changes` | A change of sign-in email waiting for both the old and the new address to confirm (links last a day). | person_id, new_email, old_token_hash, new_token_hash, old_confirmed_at, new_confirmed_at, completed_at, cancelled_at, expires_at |
 
@@ -235,6 +236,7 @@ Who owns cases and pays, who belongs, and how they want to be told about things.
 | `custody_transfers` | Support's record that a served case's records pass to a custodian (a person, or an organisation whose owners and admins then hold them) when the named expert dies or can no longer act; read-only access for the custodian. Created by foundation (migration 0032); slice O builds the route behind the flag `support_custody_transfer`. Kept after the case is deleted. | case_id, from_person_id, to_person_id or to_organisation_id, evidence_note (short, about the expert), transferred_by (staff), transferred_at, revoked_at |
 | `case_replacements` | A served case's replacement: the new case, the case it replaces and whether the instructing party consented to the bundle being copied. Written only by `app.create_replacement_case()` (foundation, migration 0033) for slice O's replacement route; never changed; kept after deletion as the record of consent. | case_id (the new case), replaces_case_id, instructing_party_consented, recorded_by, recorded_at |
 | `support_staff` | Who works for Avodeck support. Added and removed by hand in SQL (`docs/ops/support-staff.md`); no route writes it. | person_id, added_at, removed_at |
+| `support_accounts` | An account Avodeck support created for a new person (for example an expert trying Avodeck): no password (the person sets their own from an emailed link that lasts 1 hour, then MFA) and no team (a team's own owners and admins invite). `invited` until the person first completes MFA, then `active` (derived, not stored). Slice O, migration 1012; read and written only through staff-only database functions. | person_id, created_by, created_at, last_sent_at |
 
 ### 4.3 Case
 
@@ -249,6 +251,7 @@ One instruction: who it's for, who's involved, what was asked.
 | `case_links` | Connections between cases (a related inquest, a previous instruction, a case this one replaces). Links never share data. | case_id, linked_case_id, kind |
 | `instruction_versions` | Each letter of instruction or set of oral instructions, in order. Questions belong to one of these. Foundation creates the table (migration 0019); slice C fills it. | case_id, version_no, kind (pack key: letter/supplementary/oral), document_id, received_on, locked_at, locked_by (oral wording is in `case_instructions`) |
 | `case_instructions` | The words of oral instructions, one record per oral instruction version and date received, typed or from dictation. Slice C. | case_id, instruction_version_id, text (encrypted), source (typed/dictated), transcript_id, received_on |
+| `case_subject_identity` | The subject's own name, other names and date of birth, each sealed with the case key, so identifier stripping can hide them (ADR 0026). Named expert writes; the worker reads. Slice C. | case_id, name, other_names, date_of_birth |
 | `case_subject_keys` | A keyed hash of the subject's identifier, for the duplicate-case warning. The identifier itself is never stored. Slice C. | case_id, key_hash |
 | `conflict_answers` | The expert's answers to the conflict-of-interest questions (keys from the jurisdiction pack's `conflicts.yaml`), which feed their declaration. Slice C. | case_id, question_key, answer (yes/no), detail (encrypted; only with yes), answered_by, version, created_at, updated_at |
 | `conflict_answer_history` | Every conflict answer as it was given or changed, written only by a database trigger; append-only. The answers behind a declaration are the latest rows before it; a newer row means the declaration is out of date. Slice C. | case_id, question_key, answer (yes/no), detail (encrypted), answered_by, created_at, recorded_at |
@@ -278,6 +281,8 @@ The records received, every page and word, and the facts found on them.
 | `ocr_words` | Every word read on a page, with where it sits. Facts cite these words, which is how every fact points to its exact place. | page_id, word_index, text, polygon, confidence, source (ocr/embedded/expert) |
 | `facts` | A single thing found on a page (a consultation, a result, a prescription…), linked to the exact words it came from. Suggested by the computer, then checked by the expert. | case_id, page_id, kind, fields, value, word_ids[], bbox, event_date, date_basis, available_at, availability_basis, status, version, model_task, model_id, prompt_version |
 | `fact_verifications` | The history of every check the expert made on a fact (correct, not right, changed). Never edited. | case_id, fact_id, person_id, seq, action (correct/not_right/edit/move/remapped; `remapped` rows come from the reading job with no person), old_value, new_value, old_fields, new_fields, old_word_ids, new_word_ids, old_page_id, new_page_id, reason, correction_id, at, prev_hash, hash |
+| `second_readings` | Another reading of a page we couldn't read (T-10, ADR 0030): one row per page, its status, a reason code, and the model's copied lines sealed with the case key. Never merged into the expert's text. | case_id, page_id, status, reason, lines, requested_by, requested_at, finished_at |
+| `transcript_views` | What the reader saw while reading by transcript: which entry, how long, or that a page's picture was opened. The server adds them up to decide a page is read; that read goes into `page_reads` with `via = 'transcript'`. Never edited. | case_id, page_id, person_id, entry_id, dwell_ms, picture_opened, at |
 | `page_reads` | Proof the expert read each page: who, when, how long. Never edited; each row is chained to the last so tampering shows. | case_id, page_id, person_id, seq, at, dwell_seconds, counts_for_citing, prev_hash, hash |
 | `fact_flags` | Facts the expert marked to come back to under "points against" (`points`), and checked facts the reading job flagged "Please check" after a page was read again (`recheck`, no person). | case_id, fact_id, person_id, flagged_for, at |
 | `word_corrections` | The named expert's reading of words the computer misread (decision 0018). Sealed; the computer's reading in `ocr_words` is kept. A later reading of the same words, or new words for the page, replaces it. Belongs to a page (no case_id); goes with the page, and with a purged quarantined page. | page_id, word_ids, text (sealed), person_id, created_at, superseded_at |
@@ -285,6 +290,7 @@ The records received, every page and word, and the facts found on them.
 | `page_notes` | The expert's own bookmarks and private notes on a page, screen 09 (0214). Kept per person and page; only that person sees them (RLS); not part of the records, not reading, never cited and never sent to AI. The note is sealed. Removed when both are cleared. Belongs to a page (no case_id); goes with the page. | page_id, person_id, bookmarked, note (sealed), created_at, updated_at |
 | `missing_items` | Documents mentioned in the records but not in the bundle, to ask for. | case_id, description (sealed), citing_page_id, reference_key, word_ids, reference_date, status, reason (sealed), received_page_id, version |
 | `record_gaps` | Periods where a record source seems to go quiet (possible missing records). | case_id, source_type, fact_kind, gap_start, gap_end, last_page_id, confirmed, version |
+| `record_entries` | Where each entry starts and ends on a page, for the records transcript (ADR 0028). Holds no text. | case_id, page_id, kind, first_n, last_n, author_role, specialty, event_date, date_basis, extraction_version |
 | `instructing_party_requests` | Emails asking the instructing party for missing or clearer records, and when they were sent. | case_id, items, body_text, sent_via, sent_at, message_id, follow_up_on, quarantined_page_ids |
 | `case_processing` | The expert's controls over reading the bundle: a request to stop at the next page, and the opt-in to read it again with a newer model. | case_id, cancel_requested_at, cancel_requested_by, reprocess_opted_at, reprocess_opted_by |
 
@@ -395,6 +401,7 @@ The machinery behind everything: keys, jobs, notifications, logs.
 | `case_keys` | The case's encryption key (scrambled by the key service); destroying it makes the case unreadable. | case_id, wrapped_key, key_ref, created_at, destroyed_at |
 | `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, step, pct, eta_seconds, step_done, step_total, code_version, error_code, requested_by |
 | `job_steps` | The steps of a job that have finished, so a retried or requeued job skips them (F6). | job_id, case_id, step, created_at |
+| `job_support_actions` | Each time Avodeck support resumed a paused job or requeued a failed one, with what the job was before (so a requeue that resets attempts keeps the history). Ids and codes only; goes with its job (migration 0035). | job_id, action (resume/requeue), reason_code, from_status, error_code, attempts, person_id (staff), created_at |
 | `job_kind_actions` | The case action each job kind needs; `app.enqueue_job()` looks it up, so a caller cannot choose a weaker one. | kind, action |
 | `scheduled_runs` | One row per daily job per date it ran, so a missed date catches up exactly once (F28). | name, run_date, started_at |
 | `uploads` | A file being sent in 8 MB chunks: which chunks have arrived, and the document it became. | case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received, status, document_id, append, expires_at, completed_at |
@@ -437,14 +444,15 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does | Notes |
 |---|---|---|---|
-| POST | `/auth/sign-in` | `{email, password, captcha}` → Supabase Auth → sets httpOnly session cookie | Rate-limited; returns `mfa_required` if MFA not yet completed |
+| POST | `/auth/sign-in` | `{email, password, captcha}` → Supabase Auth → sets httpOnly session cookie | Rate-limited; the password alone signs in (`status: signed_in`, `mfa_enrolled`) at `aal1`; the code is asked for at risky actions (ADR 0025) |
 | POST | `/auth/mfa/enroll` | Starts TOTP enrolment; returns QR code | First login |
 | POST | `/auth/mfa/verify` | `{code}` → session upgraded to `aal2` | Also used for step-up before 🔒 actions |
 | POST | `/auth/sign-out` | Revokes Supabase session, clears cookie | |
 | POST | `/auth/password/forgot` | `{email}` → Supabase sends reset email via Resend (custom SMTP) | Same response whether or not the email exists |
-| POST | `/auth/password/reset` | `{token, new_password}` → leaked-password check → all sessions revoked | |
-| GET | `/cell` | Public: `{support_phone, support_hours, storage_place}` from the cell's environment, null when unset (sign-in screen) | |
-| GET | `/auth/session` | Is the session valid, MFA level, minutes until timeout | |
+| POST | `/auth/password/reset` | `{token, new_password}` → leaked-password check → all sessions revoked; clears `must_change_password` | |
+| POST | `/auth/password/change` | Signed in: `{current_password, new_password}` → the current one checked (400 `wrong_password`, audited `auth.password_change_failed`) → new password set, `must_change_password` cleared, other devices signed out; audited `auth.password_changed` | CSRF; 422 `same_password`; `no-store`. A person with `must_change_password` gets 403 `password_change_required` on every signed-in route except this, `/auth/session`, `/me`, the MFA steps and sign-out (ADR 0024) |
+| GET | `/cell` | Public: `{storage_place}` from the cell's environment, null when unset (sign-in screen) | |
+| GET | `/auth/session` | Is the session valid, MFA level, minutes until timeout, `must_change_password` | |
 | GET | `/me` | Person record (with the short greeting name from the jurisdiction pack's `professional_titles`, e.g. "Dr Morgan", and when the password was last reset), expert profile (if any), memberships (with how many people are in each organisation) and whether MFA is enrolled | Creates the `people` row and the personal organisation on first call |
 | POST | `/me/sessions/revoke-all` | Signs out all devices | 🔒 |
 
@@ -482,10 +490,11 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | GET | `/cases/{case_id}/pack` | Merged pack for this case: vocabulary, workflow steps and screens, lanes, question types, deadlines, declarations | Drives the case header and wording |
 | GET | `/cases/{case_id}/steps/progress` | One entry per pack workflow step: `done`, `total`, `percent` (null when the step has nothing to count). A step names its counts in `meters` in `workflow.yaml` (`pages_read`, `questions_confirmed`, `facts_decided`, `questions_with_opinion`, `report_stages`); read-only | Shows on each step pill in the case header |
 | PATCH | `/cases/{case_id}` | Update case details | |
-| POST | `/cases/{case_id}/uploads` | Start an upload `{kind, filename, size, sha256, append?}` → `upload_id`; `append` marks later records | |
-| PUT | `/uploads/{upload_id}/chunks/{n}` | Send an 8 MB chunk; FastAPI streams it to Supabase Storage | Resumable: missing chunks can be re-sent |
-| GET | `/uploads/{upload_id}` | Which chunks have arrived and which are missing, to resume | |
-| POST | `/uploads/{upload_id}/complete` | Check sha256, register the document, queue virus scan | 409 `chunks_missing` lists the missing chunks; 422 `sha256_mismatch`. Publishes `DocumentUploaded(case_id, document_id, appended)` in the same transaction; slice A's subscriber queues the virus scan (`scan_document`) and processing, and if it fails nothing is registered |
+| POST | `/cases/{case_id}/uploads` | Start an upload `{kind, filename, size, sha256, append?}` → `upload_id`; `append` marks later records | 422 `file_empty` on size 0; the filename refuses control characters; 429 `too_many_uploads` above 20 open or finalizing uploads per person. `Idempotency-Key`: the same key replays |
+| PUT | `/uploads/{upload_id}/chunks/{n}` | Send an 8 MB chunk with `X-Chunk-SHA256` (required); FastAPI streams it to Supabase Storage | Resumable: missing chunks can be re-sent. `Content-Length` is checked before the body is read and the stream is capped (413 `chunk_too_large`). 422 `chunk_sha_missing`, 422 `chunk_corrupted` (nothing stored), 409 `upload_busy` (another part or a complete holds the lock; retry), 409 `upload_closed` |
+| GET | `/uploads/{upload_id}` | The upload's `status`, which chunks have arrived and which are missing, `failure`, `expires_at`, `sha256`, `filename` and `kind` | How the browser follows a 202 and how it resumes; access is re-checked here |
+| POST | `/uploads/{upload_id}/cancel` | Give up an open upload | `case.upload`. 200 `{status:"cancelled"}` while `open`; 409 `upload_closed` once finalizing or later. The parts are removed by the daily sweep |
+| POST | `/uploads/{upload_id}/complete` | Claim the upload and queue the check that registers the document | Body `{sha256}` (the whole file, required: 422 `file_sha_missing`; 422 `file_hash_mismatch` before any Storage read when it differs from the hash given at start). 409 `chunks_missing` lists the missing chunks. Otherwise **202 `{status:"finalizing"}`**: the upload moves to `finalizing` and a `finalize_upload` worker job re-reads, decrypts and hashes every part, then in one transaction inserts the document, moves the upload to `complete` and publishes `DocumentUploaded(case_id, document_id, appended)`; slice A's subscriber queues the virus scan (`scan_document`) and processing, and if it fails nothing is registered. The browser polls `GET /uploads/{upload_id}`: `complete` carries the document, `open` carries the parts to resend (F44), `failed` carries `failure`. A repeat complete returns the same 202 or, once finished, the same document (200); one carrying a different hash is 409 `file_hash_mismatch`. 409 `upload_closed` on a terminal upload |
 | GET | `/cases/{case_id}/documents/{document_id}/file` | Stream the stored file back through FastAPI | `Cache-Control: private, no-store` |
 | POST | `/cases/{case_id}/prefill` | T-04 suggest fields from the letter | 202 + job; 409 without a letter |
 | GET | `/cases/{case_id}/prefill` | Suggestions with their word ids, whether the letter is still being read, how many were refused | |
@@ -829,12 +838,17 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | POST | `/cases/{case_id}/support-access` | Named expert grants support 24-hour access to one case | 🔒; shown on the case |
 | DELETE | `/cases/{case_id}/support-access/{grant_id}` | Revoke | |
 | GET | `/cases/{case_id}/support-access` | The case's support grants and whether each is active now | Anyone who can see the case |
-| GET | `/support/cases?q=` | Support console: find cases by id or named expert's email; metadata only | Support staff, MFA in the last 10 minutes on every call |
+| GET | `/support/cases?q=` | Support console: find cases by id or named expert's email; metadata only | Support staff, MFA completed in this session (ADR 0020, 0025) |
 | GET | `/support/cases/{case_id}` | Support console: one case's metadata and grants, and where it is stuck (jobs, pages, suggestions, questions, report, close, offline copies, named expert changes, deadlines) in counts and codes only; the look is audited on the case | Support staff, as above |
 | GET | `/support/people?q=` | Support console: an account found by its sign-in email: closed or not, MFA set up, locked out until, backup codes left, last MFA, an email change waiting, custodian named, the cases that stop it closing; never a name, an email or a date of birth; audited as `support.person_looked_up` | Support staff, as above |
 | GET | `/support/organisations/{organisation_id}` | Support console: a practice or team's members (role and dates), invites (state and dates, never the token or email), owners, open cases and named expert changes; audited as `support.org_looked_up` | Support staff, as above |
 | GET | `/support/cell/status` | Support console: dictation and key service set up in this cell, the worker's last heartbeat, work waiting and work paused | Support staff, as above |
 | POST | `/support/custody-transfers` | Record that a served case's records pass, read-only, to the expert's named records custodian or to the case's team organisation, with a note of the evidence seen | Support staff, as above; flag `support_custody_transfer`; **(legal check)** |
+| GET | `/support/accounts` | Accounts support created, with `invited` / `active` | Support staff, MFA completed in this session (ADR 0020, 0025) |
+| POST | `/support/accounts` | Create an account for a new person `{full_name, email}` (any other field 422; support adds nobody to a team): Supabase Auth login with a temporary password made by FastAPI (ADR 0024), `people` row (`must_change_password`) and own practice, and, when the cell has mail, after commit the set-password email (`account.created`: the link and that it lasts 1 hour, never the password); answers the account with `temporary_password` once (`no-store`; a repeat with the same key answers `temporary_password: null`, `password_shown: true`); any failure after the login is made deletes it; `Idempotency-Key` required | Support staff (no fresh MFA, ADR 0023); 409 `conflict` for an email that already has an account, 422 `invalid_email` for one Auth will not take; 429 `too_many_attempts` after 20 an hour, refused attempts counted (audited `support.account_refused`, a transaction of its own) and creates queued on the staff member's lock; audited `support.account_created` |
+| POST | `/support/accounts/{account_id}/temporary-password` | New temporary password, shown once like the first, for an account still `invited`; the old one stops working and the person is signed out everywhere; no email | Support staff; `Idempotency-Key`; 429 `sent_recently` within a minute; 409 once `active`; audited `support.account_password_renewed` |
+| POST | `/support/jobs/{job_id}/resume` | Put a paused job back on the queue (the worker moves it paused → running); body `{reason_code}`; the named expert gets a patient-free email | Support staff, as above; flag `support_job_resume`; audited `support.job_resumed` on the case; 409 `job_not_paused`, `case_on_hold` |
+| POST | `/support/jobs/{job_id}/requeue` | Put a failed job back on the queue (failed → queued, attempts reset; history kept in `job_support_actions`); body `{reason_code}`; the named expert gets a patient-free email | Support staff, as above; flag `support_job_requeue`; audited `support.job_requeued` on the case; 409 `job_not_failed` |
 
 **Case setup (slice C)**
 
@@ -868,6 +882,7 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | GET / POST | `/cases/{case_id}/exhibits` | Audio, video, imaging: listed, never paged | A |
 | GET | `/cases/{case_id}/bundle/versions` | What each delivery of records added | A |
 | POST | `/cases/{case_id}/process/cancel` | Stop processing at a page boundary | A |
+| POST | `/cases/{case_id}/process/retry` | Try again: put the case's failed processing jobs back on the queue | A |
 | POST | `/cases/{case_id}/reprocess` | Opt in to a newer model; checked facts never change | A |
 | GET / POST | `/cases/{case_id}/comments` | Comments on a page, fact or paragraph | D; never in reports |
 | PATCH | `/cases/{case_id}/comments/{comment_id}` | Edit or resolve | D |
@@ -1172,7 +1187,7 @@ At every gate (before the MVP, each phase, each new country or specialty) run th
 
 ## 9. Security and compliance requirements that change the code
 
-- **Login:** MFA mandatory; session in an httpOnly, Secure, SameSite=Strict cookie; CSRF token on state changes; 30-minute inactivity timeout; sign-ins logged.
+- **Login:** password only (ADR 0025); every expert sets up MFA, asked for at the first risky action, and rule 10 step-up (`aal2` in the last 10 minutes) guards sign, send, export, delete and retention changes; a risky action from a session without a code answers 403 `mfa_required` (`mfa_enrolled` says whether to set it up) and after 10 minutes 403 `step_up_required`; session in an httpOnly, Secure, SameSite=Strict cookie; CSRF token on state changes; 30-minute inactivity timeout; sign-ins logged.
 - **Cloud credentials:** App Platform can't assume AWS IAM roles, so each service (api, worker, deletion job) has its own narrowly scoped IAM user: Bedrock invoke on the named London model ARNs only, KMS on the cell key only, every request restricted to eu-west-2 by policy condition. Keys live in App Platform encrypted environment variables, are rotated every 90 days, and CloudTrail alerts on any use outside eu-west-2 or any new key creation. Moving to IAM Roles Anywhere (short-lived certificate-based credentials) is in `docs/decisions/deferred.md`.
 - **Data:** encryption at rest (Supabase) plus per-case envelope keys for page text and images, wrapped by AWS KMS London (ADR 0010), so deletion can crypto-shred. Slices call `core/crypto.py` only.
 - **Status changes:** only those in `docs/spec/state-machines.md`, enforced in services and by database triggers.

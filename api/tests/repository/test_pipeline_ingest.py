@@ -1,6 +1,6 @@
 """Slice A increment 1: an uploaded file is scanned, split and numbered (architecture 7 step 1).
 
-Completing an upload queues `scan_document` in the upload's own transaction. An infected file is
+Finalising an upload queues `scan_document` in the transaction that registers the document. An infected file is
 flagged and audited and never becomes pages. A clean file goes on to `process_bundle`: every page
 gets a permanent `bundle_page_no`, 1..N in upload order across documents, and a page image
 (150-200 dpi) and thumbnail sealed under their own purpose. Running the job again changes nothing.
@@ -80,7 +80,7 @@ def kinds(h: Harness) -> list[str]:
 
 async def test_completing_an_upload_queues_a_scan_in_the_same_transaction(h: Harness) -> None:
     await h.upload(text_pdf(WORDS_A))
-    assert kinds(h) == ["scan_document"]
+    assert kinds(h) == ["finalize_upload", "scan_document"], "the scan is queued with the document, by the job"
 
 
 async def test_a_clean_file_is_split_and_numbered_in_upload_order_across_documents(h: Harness) -> None:

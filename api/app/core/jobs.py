@@ -18,6 +18,10 @@
 - A job of a case on hold is not run: it stays `queued` with `case_on_hold` until the case resumes
   (`app.core.case_hold.release_case_hold`), unless its kind is registered with `runs_on_hold=True`.
 - A worker that dies stops its heartbeat; `JobWorker.requeue_stalled()` puts its jobs back (F6).
+- Avodeck support resumes a paused job or requeues a failed one with `support_job_action()` (current
+  staff only, in the database): a resumed job goes back on the queue and the worker moves it
+  paused -> running; a requeued one goes failed -> queued with `attempts` 0, and what it was is kept in
+  `job_support_actions`.
 """
 
 from __future__ import annotations
@@ -117,6 +121,35 @@ class JobRegistry:
 
 
 registry = JobRegistry()
+
+SUPPORT_JOB_ACTIONS = ("resume", "requeue")
+
+
+@dataclass(frozen=True)
+class SupportJobOutcome:
+    """`outcome` is `ok`, `not_found`, `job_not_paused`, `job_not_failed` or `case_on_hold`; nothing was
+    written unless it is `ok`. `expert_email` is the named expert's, for the patient-free notice."""
+
+    outcome: str
+    case_id: uuid.UUID | None
+    status: str | None
+    expert_email: str | None
+
+
+async def support_job_action(
+    conn: AsyncConnection, job_id: uuid.UUID, action: str, reason_code: str, *, queue: str = registry.queue
+) -> SupportJobOutcome:
+    """Support resumes a paused job (`resume`) or requeues a failed one (`requeue`) on `queue`
+    (`app.support_job_action()`, migration 0035). Raises 42501 for anyone not current support staff."""
+    if action not in SUPPORT_JOB_ACTIONS:
+        raise ValueError(f"unknown support job action {action!r}")
+    cur = await conn.execute(
+        "select outcome, case_id, status, expert_email from app.support_job_action(%s, %s, %s, %s)",
+        (job_id, action, reason_code, queue),
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    return SupportJobOutcome(*row)
 
 
 class JobContext:
@@ -370,11 +403,18 @@ class JobWorker:
             return
         except Exception as exc:  # noqa: BLE001 - the type only: messages may carry patient text
             logger.warning("job %s of kind %s failed on attempt %d: %s", job, kind_name, attempt, type(exc).__name__)
-            await self._finish(case, job, "failed", error_code="job_error")
             if attempt < self.max_attempts:
+                # running -> failed -> queued in ONE transaction (the guard allows each step): under read
+                # committed no one else sees `failed`, so a reader never takes a retry for the end.
                 async with self.database.job(case) as conn:
-                    await conn.execute("update app.jobs set status = 'queued' where id = %s", (job,))
+                    await conn.execute(
+                        "update app.jobs set status = 'failed', error_code = 'job_error' where id = %s", (job,)
+                    )
+                    await conn.execute(
+                        "update app.jobs set status = 'queued', finished_at = null where id = %s", (job,)
+                    )
                 raise _TryAgain from None
+            await self._finish(case, job, "failed", error_code="job_error")
             return
         await self._finish(case, job, "done", pct=100)
 

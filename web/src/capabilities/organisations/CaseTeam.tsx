@@ -80,7 +80,7 @@ function NamedExpert({ caseId }: { caseId: string }) {
           {flag("replacement_case") && (
             <>
               <p className="av-muted">{w("case_team.replacement_hint")}</p>
-              <Button onClick={() => void replace()}>{w("case_team.replacement")}</Button>
+              <Button onClick={() => replace()}>{w("case_team.replacement")}</Button>
             </>
           )}
         </>
@@ -106,7 +106,7 @@ function NamedExpert({ caseId }: { caseId: string }) {
             <Button variant="secondary" onClick={() => setOpen(false)}>
               {w("case_team.cancel")}
             </Button>
-            <Button disabled={!chosen} onClick={() => void move()}>
+            <Button disabled={!chosen} onClick={() => move()}>
               {w("case_team.save")}
             </Button>
           </div>
@@ -131,8 +131,8 @@ function SupportCard({ caseId }: { caseId: string }) {
   const { act, message } = useAct();
   const grants = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/support-access", { params: { path: { case_id: caseId } } })), [caseId], { cache: "organisations/CaseTeam#SupportCard:grants" });
   const [reason, setReason] = useState<(typeof REASONS)[number]>("help");
-  const active = grants.data?.grants.find((g) => g.active);
-  const ended = (grants.data?.grants ?? []).filter((g) => !g.active);
+  const active = grants.data?.active ?? undefined;
+  const ended = grants.data?.ended ?? [];
   const grant = async () => {
     const done = await act(() => unwrap(api.POST("/v1/cases/{case_id}/support-access", { params: { path: { case_id: caseId } }, body: { reason } })), () => w("support.card.granted"));
     if (done) grants.reload();
@@ -158,7 +158,7 @@ function SupportCard({ caseId }: { caseId: string }) {
         (active ? (
           <>
             <p>{w("support.card.active", { left: leftText(active.expires_at) })}</p>
-            <Button variant="danger" onClick={() => void revoke(active.id)}>
+            <Button variant="danger" onClick={() => revoke(active.id)}>
               {w("support.card.revoke")}
             </Button>
           </>
@@ -177,7 +177,7 @@ function SupportCard({ caseId }: { caseId: string }) {
                 ))}
               </select>
             </div>
-            <Button onClick={() => void grant()}>{w("support.card.grant")}</Button>
+            <Button onClick={() => grant()}>{w("support.card.grant")}</Button>
           </div>
         ))}
       {ended.length > 0 && (

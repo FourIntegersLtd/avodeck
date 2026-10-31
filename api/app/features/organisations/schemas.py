@@ -29,6 +29,11 @@ class PolicyUpdate(Strict):
     max_retention_years: Annotated[int, Field(strict=True, ge=1, le=100)] | None = None
 
 
+class BlockingCase(BaseModel):
+    case_id: uuid.UUID
+    label: str
+
+
 class Organisation(BaseModel):
     id: uuid.UUID
     name: str
@@ -39,6 +44,8 @@ class Organisation(BaseModel):
     created_at: datetime
     allowed_actions: list[str] = []  # organisation actions this person may do here (permissions.md)
     assignable_roles: list[OrgRole] = []  # the roles this person may give
+    # Only on `GET /organisations/{id}`: the cases this person keeps as named expert if they leave (F31).
+    blocking_cases: list[BlockingCase] = []
 
 
 class OrganisationList(BaseModel):
@@ -65,7 +72,9 @@ class OrgMember(BaseModel):
 
 
 class OrgMemberList(BaseModel):
-    members: list[OrgMember]
+    members: list[OrgMember]  # everyone, kept for older callers
+    current_members: list[OrgMember] = []
+    former_members: list[OrgMember] = []
 
 
 class RoleChange(Strict):
@@ -131,6 +140,7 @@ class Invite(BaseModel):
 
 class InviteList(BaseModel):
     invites: list[Invite]
+    pending_invites: list[Invite] = []
 
 
 class InviteAccepted(BaseModel):
@@ -161,6 +171,8 @@ class SupportGrant(BaseModel):
 
 class SupportGrantList(BaseModel):
     grants: list[SupportGrant]
+    active: SupportGrant | None = None
+    ended: list[SupportGrant] = []
 
 
 # Support answers carry no free text (rule 6; tests/guards/test_organisations_support_rule6.py): every string
@@ -185,6 +197,7 @@ class SupportCase(BaseModel):
 
 class SupportCaseList(BaseModel):
     cases: list[SupportCase]
+    served_case_ids: list[uuid.UUID] = []
 
 
 class SupportCaseGrant(BaseModel):
@@ -428,3 +441,41 @@ class CloseAccountPreview(BaseModel):
     """The cases closing the account would delete, each with whether its export is done."""
 
     cases: list[CloseAccountCase]
+
+
+AccountEmail = Annotated[str, StringConstraints(max_length=254, pattern=r"^[^@\s]+@[^@\s]+$")]
+
+
+class SupportAccountCreate(Strict):
+    """A new person's account, made by Avodeck support: support never chooses the password (Avodeck makes a
+    temporary one) and adds no team (a team's own owners and admins invite people; any other field is 422)."""
+
+    full_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+    email: Email
+
+
+class SupportAccount(BaseModel):
+    """An account support created: ids, email, codes and dates only (rule 6: no name)."""
+
+    id: uuid.UUID
+    person_id: uuid.UUID
+    email: AccountEmail
+    status: Literal["invited", "active"]
+    created_at: datetime
+    last_sent_at: datetime
+
+
+# Five groups of four from `accounts.ALPHABET` (no 0, O, 1, l or I): a code, not free text (rule 6 guard).
+TEMPORARY_PASSWORD = r"^[A-HJ-NP-Za-hjkmnp-z2-9]{4}(-[A-HJ-NP-Za-hjkmnp-z2-9]{4}){4}$"
+
+
+class SupportAccountWithPassword(SupportAccount):
+    """An account with its temporary password (ADR 0024): in this one answer only (`Cache-Control: no-store`).
+    A repeat with the same Idempotency-Key answers `temporary_password: null` and `password_shown: true`."""
+
+    temporary_password: str | None = Field(default=None, repr=False, pattern=TEMPORARY_PASSWORD)
+    password_shown: bool = False
+
+
+class SupportAccountList(BaseModel):
+    accounts: list[SupportAccount]

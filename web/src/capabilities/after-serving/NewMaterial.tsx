@@ -6,7 +6,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, IconTile, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { BackLink, Button, IconTile, LinkButton, LoadError, Loading, Notice, TextField, Updating } from "../../foundation/ui";
 import { PeopleIcon, NewDocIcon, TickGreenIcon, WarnIcon } from "./icons";
 import { dayMonth, keyName, useLocale, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
@@ -39,6 +39,7 @@ export function NewMaterial() {
     }
   }, [caseId, document]);
   const checking = useWaiting(() => pages.reload(), pages.data?.pages.length);
+  const updating = report.loading && !!report.data;
   const registering = useWaiting(() => report.reload(), report.data?.claims.length);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +59,7 @@ export function NewMaterial() {
   };
 
   const rep = report.data;
-  const needAttention = rep ? rep.claims.filter((c) => c.discrepancy && !c.expert_confirmed).length : 0;
+  const needAttention = rep?.needs_attention_count ?? 0;
   const meeting = screenPath("expert_meeting", { caseId });
 
   return (
@@ -76,7 +77,7 @@ export function NewMaterial() {
             <IconTile><NewDocIcon /></IconTile>
             <span>
               <h3 id="new-pages">{list.length === 0 ? w("new.title_none") : w("new.pages", { count: list.length })}</h3>
-              {list.length > 0 && <span className="av-muted">{w("new.range", { from: fmt(Math.min(...list.map((p) => p.page_no))), to: fmt(Math.max(...list.map((p) => p.page_no))), read: list.filter((p) => p.read).length, total: list.length })}</span>}
+              {list.length > 0 && <span className="av-muted">{w("new.range", { from: fmt(pages.data.first_page ?? 0), to: fmt(pages.data.last_page ?? 0), read: pages.data.read_count ?? 0, total: list.length })}</span>}
             </span>
           </div>
           {list.length === 0 ? (
@@ -92,7 +93,7 @@ export function NewMaterial() {
               )}
               <div className="av-after-actions">
                 {unread && <LinkButton to={`/cases/${caseId}/read/${unread.page_no}`}>{w("new.read_action")}</LinkButton>}
-                <button type="button" className="av-after-linkbtn" onClick={() => void check()}>{w("new.check")}</button>
+                <Button variant="link" onClick={check}>{w("new.check")}</Button>
               </div>
             </>
           )}
@@ -117,7 +118,10 @@ export function NewMaterial() {
           {rep && <p>{w("new.checked", { count: needAttention })}</p>}
         </section>
       </div>
-      {rep && <Claims caseId={caseId} report={rep} />}
+      {updating && <Updating label={w("new.updating")} />}
+      <div className="av-busy-dim" aria-busy={updating}>
+        {rep && <Claims caseId={caseId} report={rep} />}
+      </div>
       {rep && meeting && <div className="av-after-footer"><LinkButton to={meeting} arrow>{w("new.prepare")}</LinkButton></div>}
     </div>
   );
@@ -145,7 +149,7 @@ function Register({ caseId, document, onStart }: { caseId: string; document: str
       <TextField label={w("new.expert_name")} name="expert_name" value={expertName} onChange={(e) => setExpertName(e.target.value)} />
       <TextField label={w("new.expert_role")} name="expert_role" value={expertRole} onChange={(e) => setExpertRole(e.target.value)} />
       <div className="av-after-footer">
-        <Button disabled={!receivedOn} onClick={() => void go()}>{w("new.register")}</Button>
+        <Button disabled={!receivedOn} onClick={go}>{w("new.register")}</Button>
       </div>
     </div>
   );
@@ -163,8 +167,8 @@ function Claims({ caseId, report }: { caseId: string; report: Schemas["OpposingR
       setError(errorMessage(err, ERRORS));
     }
   };
-  const matching = report.claims.filter((c) => c.status === "matches");
-  const rows = report.claims.filter((c) => c.status !== "matches");
+  const matching = report.matching_claims;
+  const rows = report.other_claims;
   const folded = matching.slice(1);
   const rowFor = (base: Claim) => {
     const c = over[base.id] ?? base;
@@ -186,7 +190,7 @@ function Claims({ caseId, report }: { caseId: string; report: Schemas["OpposingR
           )}
           {c.expert_confirmed
             ? <p role="status">{w("new.confirmed")}</p>
-            : c.discrepancy && shown(c) && <div><Button variant="secondary" onClick={() => void confirm(c)}>{w("new.confirm")}</Button></div>}
+            : c.discrepancy && shown(c) && <div><Button variant="secondary" onClick={() => confirm(c)}>{w("new.confirm")}</Button></div>}
         </td>
       </tr>
     );

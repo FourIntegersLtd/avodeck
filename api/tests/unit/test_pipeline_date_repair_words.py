@@ -29,9 +29,7 @@ def test_pointer_on_page_sets_event_date() -> None:
     kind = pack.fact_kinds()[0]["key"]
     field = dates.date_field(pack, kind)
     assert field is not None
-    when, basis = date_repair.resolve_fact_event_date(
-        kind, {field: "03/04/2024"}, ["w2", "w3"], ordered, set(), pack
-    )
+    when, basis = date_repair.resolve_fact_event_date(kind, {field: "03/04/2024"}, ["w2", "w3"], ordered, set(), pack)
     assert when == READ_AS[pack.date_order]
     assert basis == dates.PRINTED
 

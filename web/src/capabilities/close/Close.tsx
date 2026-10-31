@@ -10,7 +10,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, CaseHeader, Dialog, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { Button, CaseHeader, Dialog, LoadError, Loading, Notice, TextField, useBusy } from "../../foundation/ui";
 import "./close.css";
 import { w, type CloseKey } from "./words";
 
@@ -237,9 +237,9 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
       {making.state === "failed" && <Notice tone="error"><p>{w("copies.failed")}</p></Notice>}
       <div className="av-close-actions">
         {making.state === "ready" ? (
-          <Button onClick={() => void download(making.job)}>{w("copies.download")}</Button>
+          <Button onClick={() => download(making.job)}>{w("copies.download")}</Button>
         ) : (
-          <Button variant="secondary" disabled={making.state === "making" || chosen.length === 0} onClick={() => void make()}>
+          <Button variant="secondary" disabled={making.state === "making" || chosen.length === 0} onClick={make}>
             {w("copies.download_n" as CloseKey, { count: chosen.length })}
           </Button>
         )}
@@ -292,6 +292,7 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
   const saved = summary.retention_policy ?? "keep_default";
   const [choice, setChoice] = useState<string>(saved);
   const [confirming, setConfirming] = useState(false);
+  const busy = useBusy();
   const [message, setMessage] = useState<Message>(null);
   const limit = summary.max_retention_years ?? null;
   const tooLong = limit !== null && summary.retention_years > limit; // the organisation keeps records for less
@@ -319,7 +320,7 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
       return;
     }
     setChoice(value);
-    void save(value as Policy);
+    void busy.run(() => save(value as Policy));
   };
 
   return (
@@ -328,13 +329,14 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
       <fieldset className="av-choices">
         <legend className="av-visually-hidden">{w("keep.legend")}</legend>
         {props.canDeleteNow && (
-          <Option name="policy" value="delete_now" checked={choice === "delete_now"} disabled={deleteNowBlocked} label={w("keep.delete_now")} hint={deleteNowHint} onChange={pick} />
+          <Option name="policy" value="delete_now" checked={choice === "delete_now"} disabled={deleteNowBlocked || busy.busy} label={w("keep.delete_now")} hint={deleteNowHint} onChange={pick} />
         )}
-        <Option name="policy" value="keep_default" checked={choice === "keep_default"} disabled={tooLong} label={w("keep.keep_default", { years: summary.retention_years })} hint={tooLong ? w("keep.limited", { years: limit }) : w("keep.usual")} onChange={pick} />
+        <Option name="policy" value="keep_default" checked={choice === "keep_default"} disabled={tooLong || busy.busy} label={w("keep.keep_default", { years: summary.retention_years })} hint={tooLong ? w("keep.limited", { years: limit }) : w("keep.usual")} onChange={pick} />
         <Option
           name="policy"
           value="return_then_delete"
           checked={choice === "return_then_delete"}
+          disabled={busy.busy}
           label={props.party ? w("keep.return_then_delete", { party: props.party }) : w("keep.return_then_delete_plain")}
           onChange={pick}
         />
@@ -356,7 +358,7 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
               onClick={() => {
                 setConfirming(false);
                 setChoice("delete_now");
-                void save("delete_now");
+                void busy.run(() => save("delete_now"));
               }}
             >
               {w("keep.confirm_yes")}
@@ -399,9 +401,8 @@ function Hold(props: { caseId: string; summary: Summary; locale: string; canHold
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const id = useId();
-  const active = summary.holds.filter((h) => h.released_at === null);
-  const until = active.map((h) => h.until).filter((u): u is string => u !== null).sort().at(-1);
-  const pausedText = active.some((h) => h.until === null) || !until ? w("hold.paused") : w("hold.paused_until", { date: formatDate(until, locale) });
+  const active = summary.active_holds ?? [];
+  const pausedText = summary.paused_until ? w("hold.paused_until", { date: formatDate(summary.paused_until, locale) }) : w("hold.paused");
 
   const resume = async () => {
     setError(null);
@@ -436,7 +437,7 @@ function Hold(props: { caseId: string; summary: Summary; locale: string; canHold
       </div>
       {summary.held ? (
         props.canRelease && (
-          <Button variant="secondary" onClick={() => void resume()}>
+          <Button variant="secondary" onClick={resume}>
             {w("hold.resume")}
           </Button>
         )
@@ -492,7 +493,7 @@ function PauseDialog({ caseId, onClose, onDone }: { caseId: string; onClose: () 
           <Button variant="secondary" onClick={onClose}>
             {w("hold.cancel")}
           </Button>
-          <Button disabled={!reason} onClick={() => void confirm()}>
+          <Button disabled={!reason} onClick={confirm}>
             {w("hold.confirm")}
           </Button>
         </div>
@@ -516,11 +517,11 @@ function Closing(props: { party: string | null; caseId: string; status: string; 
   };
   let button: ReactNode = null;
   if ((status === "active" || status === "served") && can("case.settle")) {
-    button = <Button arrow onClick={() => void run(() => unwrap(api.POST("/v1/cases/{case_id}/settle", { params: { path } })))}>{w("close.settle")}</Button>;
+    button = <Button arrow onClick={() => run(() => unwrap(api.POST("/v1/cases/{case_id}/settle", { params: { path } })))}>{w("close.settle")}</Button>;
   } else if ((status === "settled" || status === "withdrawn") && can("case.archive")) {
-    button = <Button arrow onClick={() => void run(() => unwrap(api.POST("/v1/cases/{case_id}/archive", { params: { path } })))}>{w("close.archive")}</Button>;
+    button = <Button arrow onClick={() => run(() => unwrap(api.POST("/v1/cases/{case_id}/archive", { params: { path } })))}>{w("close.archive")}</Button>;
   } else if (status === "archived" && can("case.reopen")) {
-    button = <Button variant="secondary" onClick={() => void run(() => unwrap(api.POST("/v1/cases/{case_id}/reopen", { params: { path } })))}>{w("close.reopen")}</Button>;
+    button = <Button variant="secondary" onClick={() => run(() => unwrap(api.POST("/v1/cases/{case_id}/reopen", { params: { path } })))}>{w("close.reopen")}</Button>;
   }
   if (!button) return null;
   return (

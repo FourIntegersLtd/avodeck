@@ -11,17 +11,16 @@ export function Leave() {
   const navigate = useNavigate();
   const { act, message } = useAct({ conflict: "organisations.error.last_owner" });
   const org = useResource(() => unwrap(api.GET("/v1/organisations/{org_id}", { params: { path: { org_id: orgId } } })), [orgId], { cache: "organisations/Leave#Leave:org" });
-  const today = useResource(() => unwrap(api.GET("/v1/today")), [], { cache: "organisations/Leave#Leave:today" });
 
   if (org.error?.status === 404) return <NotFoundPage />;
-  if (org.error || today.error) {
+  if (org.error) {
     return (
       <div className="av-page">
-        <LoadError onRetry={() => (org.reload(), today.reload())} />
+        <LoadError onRetry={() => org.reload()} />
       </div>
     );
   }
-  if (!org.data || !today.data) {
+  if (!org.data) {
     return (
       <div className="av-page">
         <Loading />
@@ -29,7 +28,7 @@ export function Leave() {
     );
   }
   const { name, kind } = org.data;
-  const kept = today.data.cases.filter((c) => c.organisation_id === orgId && c.your_role === "named_expert");
+  const kept = org.data.blocking_cases;
   const leave = async () => {
     const done = await act(async () => {
       await unwrap(api.POST("/v1/organisations/{org_id}/leave", { params: { path: { org_id: orgId } } }));
@@ -69,7 +68,7 @@ export function Leave() {
             <Button variant="secondary" onClick={() => navigate("/account")}>
               {w("leave.stay")}
             </Button>
-            <Button variant="danger" onClick={() => void leave()}>
+            <Button variant="danger" onClick={() => leave()}>
               {w("leave.button", { name })}
             </Button>
           </div>

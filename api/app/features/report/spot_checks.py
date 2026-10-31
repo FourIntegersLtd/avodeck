@@ -24,7 +24,7 @@ import secrets
 import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from cryptography.hazmat.primitives import hashes
@@ -34,7 +34,8 @@ from PIL import Image, ImageDraw, ImageFont
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
-from app.core.contracts.case_names import party_names
+from app.core.ai.pii import DATE_OF_BIRTH, known_dates
+from app.core.contracts.case_identity import identity_for
 from app.core.contracts.document_words import apply_corrections, current_corrections, word_purpose
 from app.core.crypto import CaseCrypto
 from app.core.packs import MergedPack
@@ -107,6 +108,17 @@ def _name_patterns(names: Iterable[str]) -> list[re.Pattern[str]]:
     """Each part of each name as a whole word, ignoring case, however short ("Wu" in "Wu", "WU." and "Wu's")."""
     parts = {_EDGE.sub("", p) for n in names for p in n.split()}
     return [re.compile(rf"(?i)\b{re.escape(p)}\b") for p in sorted(parts - {""}, key=len, reverse=True)]
+
+
+def with_birth_dates(recognise: Recognise, dates_of_birth: Sequence[date], order: str, language: str) -> Recognise:
+    """The pack's recogniser, and the subject's known dates of birth in any written form as well."""
+
+    def both(text: str) -> list[tuple[int, int, str]]:
+        found = list(recognise(text))
+        found.extend((a, b, DATE_OF_BIRTH) for a, b in known_dates(text, dates_of_birth, order, language))
+        return found
+
+    return both
 
 
 def masked_words(words: Sequence[tuple[str, str]], names: Iterable[str], recognise: Recognise) -> set[str]:
@@ -264,8 +276,9 @@ async def prepare(
     token: str,
 ) -> None:
     """Draw and seal the colleague's items for a new spot-check."""
-    names = await party_names(conn, crypto, case_id, with_parts=True)
-    recognise = pack.identifier_recognisers()
+    who = await identity_for(conn, crypto, case_id)
+    names = who.names  # parties and the subject, with parts
+    recognise = with_birth_dates(pack.identifier_recognisers(), who.dates_of_birth, pack.date_order, pack.language)
     label = word(pack.language, "spot_check_watermark", ref=str(check_id)[:8])
     cur = await conn.execute(
         "select distinct on (c.fact_id) c.fact_id, c.value_snapshot, f.page_id, f.word_ids from app.citations c"

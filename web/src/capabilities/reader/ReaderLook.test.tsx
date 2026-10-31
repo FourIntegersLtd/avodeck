@@ -19,14 +19,14 @@ describe.each([
     mockReader(pack, { progress: { read: 1104, total: 1231, seconds_left: 7620 } });
     renderAt(PATH);
     const n = new Intl.NumberFormat(pack.locale);
-    const text = `Page 118 of ${n.format(1231)}. You've read ${n.format(1104)}. ${n.format(127)} to go.`;
-    expect(await screen.findByText(text)).toBeVisible();
+    expect(await screen.findByText(`${n.format(1104)} of ${n.format(1231)} read`)).toBeVisible();
+    expect(screen.getByText(new RegExp(`${n.format(127)} to go`))).toBeVisible();
   });
 
   test("the keyboard help is not on the side; the ? key opens it in More tools", async () => {
     mockReader(pack);
     const { user } = renderAt(PATH);
-    await screen.findByRole("button", { name: "Mark as read" });
+    await screen.findByRole("button", { name: "I've read this page" });
     expect(screen.queryByText("Keyboard shortcuts")).not.toBeInTheDocument();
     await user.keyboard("?");
     expect(await screen.findByRole("group", { name: "Keyboard shortcuts" })).toBeVisible();
@@ -42,15 +42,18 @@ describe.each([
     expect(within(card).queryByText("Date")).not.toBeInTheDocument();
   });
 
-  test("a suggestion asks to be checked with a plain label, and Why not? opens on request", async () => {
-    mockReader(pack, { alreadyRead: true });
+  test("a suggestion asks to be checked with a plain label; Not right opens Why not?, and Cancel closes it without marking", async () => {
+    const api = mockReader(pack, { alreadyRead: true });
     const { user } = renderAt(PATH);
     const card = await screen.findByRole("article", { name: /Dr P consultation/ });
     expect(within(card).getByText("Please check")).toBeVisible();
-    const why = within(card).getByLabelText("Why not? (optional)");
-    expect(why).not.toBeVisible();
-    await user.click(within(card).getByText("Add a reason"));
-    expect(why).toBeVisible();
+    expect(within(card).queryByLabelText("Why not? (optional)")).toBeNull();
+    expect(within(card).queryByText("Add a reason")).toBeNull();
+    await user.click(within(card).getByRole("button", { name: "Not right" }));
+    expect(within(card).getByLabelText("Why not? (optional)")).toHaveFocus();
+    await user.click(within(card).getByRole("button", { name: "Cancel" }));
+    expect(within(card).queryByLabelText("Why not? (optional)")).toBeNull();
+    expect(api.verifies).toHaveLength(0);
   });
 });
 

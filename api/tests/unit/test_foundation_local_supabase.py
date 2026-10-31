@@ -67,6 +67,15 @@ def test_a_linked_worktree_never_falls_back_to_the_main_checkouts_database(tmp_p
             local_db_port(worktree, run=run)
 
 
+def test_a_linked_worktree_whose_status_names_the_main_or_founder_database_is_refused(tmp_path: Path) -> None:
+    """A worktree whose config.toml keeps the main project id resolves to the main checkout's stack."""
+    worktree = checkout(tmp_path, linked=True)
+    for port in ("55322", "56322"):
+        status = f'DB_URL="postgresql://postgres:postgres@127.0.0.1:{port}/postgres"\n'
+        with pytest.raises(RuntimeError, match="TEST_DATABASE_"):
+            local_db_port(worktree, run=runner(status))
+
+
 def test_the_dsns_use_the_port_unless_the_environment_names_them() -> None:
     dsns = test_dsns("58422", env={})
     assert dsns == {

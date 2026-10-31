@@ -82,6 +82,10 @@ export async function stubReader(page: Page, pack: Pack): Promise<Seen> {
       for (let n = from; n <= to; n++) pages.push({ page_no: n, page_id: pageId(n), source_type: null, read: n < 118 || (read && n === 118), in_period: null, unreadable: false, duplicate_of_page_no: null, turn: 0 });
       return json(route, { pages, next_cursor: to < LAST ? to : null });
     }
+    if (path === `${c}/search` && method === "POST") {
+      const box = { x0: 0.1, y0: 0.2, x1: 0.3, y1: 0.25 };
+      return json(route, { pages: [{ page_no: 12, hits: 3, boxes: [box] }, { page_no: 40, hits: 1, boxes: [box] }], total_hits: 4 });
+    }
     const m = path.match(/\/pages\/(\d+)(\/\w+)?$/);
     if (m) {
       const n = Number(m[1]);
@@ -97,7 +101,7 @@ export async function stubReader(page: Page, pack: Pack): Promise<Seen> {
         return json(route, detail(n));
       }
       if (tail === "/words") return read ? json(route, { words: WORDS, reading: WORDS.map((x) => x.text).join(" ") }) : json(route, { error: { code: "blind_read", message: "" } }, 423);
-      if (tail === "/facts") return read ? json(route, { facts }) : json(route, { error: { code: "blind_read", message: "" } }, 423);
+      if (tail === "/facts") return read ? json(route, { facts, reassigned: false, done: 0, total: facts.length, highlights: facts.map((f) => ({ id: f.id, word_ids: f.word_ids, bbox: f.bbox })) }) : json(route, { error: { code: "blind_read", message: "" } }, 423);
       if (tail === "") return json(route, detail(n));
     }
     return json(route, { error: { code: "not_found", message: "" } }, 404);

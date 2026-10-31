@@ -8,6 +8,7 @@ a password, a code or a token.
 
 from __future__ import annotations
 
+import base64
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -31,6 +32,10 @@ class AuthError(ApiError):
 
 class InvalidToken(Exception):
     """An access token failed verification."""
+
+
+# Supabase Auth's codes for "this email already has a login"; any other refusal of the email is 422.
+_EMAIL_EXISTS = frozenset({"email_exists", "user_already_exists"})
 
 
 def _unavailable() -> AuthError:
@@ -147,7 +152,10 @@ class SupabaseAuth:
                 self._check(await self._call("DELETE", f"/factors/{factor['id']}", token=access_token))
         body = self._check(await self._call("POST", "/factors", token=access_token, json={"factor_type": "totp"}))
         totp = body.get("totp") or {}
-        return {"factor_id": str(body["id"]), "qr_code": totp["qr_code"], "secret": totp["secret"], "uri": totp["uri"]}
+        qr_code = totp["qr_code"]
+        if not qr_code.startswith("data:"):  # the REST API sends bare SVG; supabase-js adds the prefix
+            qr_code = "data:image/svg+xml;base64," + base64.b64encode(qr_code.encode()).decode()
+        return {"factor_id": str(body["id"]), "qr_code": qr_code, "secret": totp["secret"], "uri": totp["uri"]}
 
     async def factors(self, access_token: str) -> list[dict[str, Any]]:
         body = self._check(await self._call("GET", "/user", token=access_token))
@@ -192,6 +200,46 @@ class SupabaseAuth:
         if 400 <= resp.status_code < 500:
             raise AuthError("email_unavailable", "That email address cannot be used.", 409)
         self._check(resp)
+
+    async def admin_create_user(self, email: str, *, password: str | None = None) -> uuid.UUID:
+        """A login with a confirmed email and, for support's accounts, a temporary password (ADR 0024)."""
+        payload: dict[str, Any] = {"email": email, "email_confirm": True}
+        if password is not None:
+            payload["password"] = password
+        resp = await self._call("POST", "/admin/users", admin=True, json=payload)
+        if resp.status_code in (400, 409, 422):
+            try:
+                body = resp.json() if resp.content else {}
+            except ValueError:
+                body = {}
+            code = (body.get("error_code") or body.get("code")) if isinstance(body, dict) else None
+            if code in _EMAIL_EXISTS:
+                raise AuthError("conflict", "An account with this email already exists.", 409)
+            raise AuthError("invalid_email", "Check the email address and try again.", 422)
+        return uuid.UUID(str(self._check(resp)["id"]))
+
+    async def admin_delete_user(self, person_id: uuid.UUID) -> None:
+        """Best effort: undo a login whose Avodeck account could not be made."""
+        try:
+            await self._call("DELETE", f"/admin/users/{person_id}", admin=True)
+        except AuthError:
+            pass
+
+    async def admin_recovery_token(self, email: str) -> str:
+        """The set-password token the reset page verifies; Auth sends no email for it (FastAPI does)."""
+        body = self._check(
+            await self._call("POST", "/admin/generate_link", admin=True, json={"type": "recovery", "email": email})
+        )
+        token = body.get("hashed_token") or (body.get("properties") or {}).get("hashed_token")
+        if not token:
+            raise _unavailable()
+        return str(token)
+
+    async def admin_has_mfa(self, person_id: uuid.UUID) -> bool:
+        """Whether the person has a verified authenticator app (support never replaces their password then)."""
+        resp = await self._call("GET", f"/admin/users/{person_id}/factors", admin=True)
+        listed: Any = resp.json() if resp.status_code < 400 else self._check(resp)
+        return any(f.get("factor_type") == "totp" and f.get("status") == "verified" for f in listed)
 
     async def admin_delete_totp_factors(self, person_id: uuid.UUID) -> None:
         resp = await self._call("GET", f"/admin/users/{person_id}/factors", admin=True)

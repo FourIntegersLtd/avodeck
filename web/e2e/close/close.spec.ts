@@ -21,6 +21,8 @@ const SUMMARY = {
   delete_after: "2033-07-14",
   held: false,
   holds: [],
+  active_holds: [],
+  paused_until: null,
   deletion_started: false,
   deleted_at: null,
 };

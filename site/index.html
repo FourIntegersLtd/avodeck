@@ -2,18 +2,16 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Avodeck · Every page read. Every fact traced.</title>
-<meta name="description" content="Avodeck sorts and numbers your bundle, links every date, result and prescription to the exact words on the page, and leaves the opinion, and the signature, entirely to you.">
-<!-- Where pilot requests are POSTed (JSON: name, email, volume). Leave empty to fall back to email. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Avodeck</title>
+<meta name="description" content="Avodeck helps GP expert witnesses get through thousands of pages of medical records, linking every appointment, test result and prescription to the exact words on the page.">
+<!-- Where pilot requests are POSTed (JSON: name, email, volume, slowdown). Leave empty to fall back to email. -->
 <meta name="pilot-endpoint" content="">
 <meta name="pilot-email" content="">
-<!-- Where the Avodeck app lives. Links marked data-app-path open there (local dev: the Vite server). -->
-<meta name="app-url" content="">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;family=Outfit:wght@600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reenie+Beanie&amp;family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -25,15 +23,17 @@
       <svg width="30.5" height="40" viewBox="8 8 84 110" aria-hidden="true"><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" fill="#0F3D2C"/><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" transform="translate(50 76) scale(0.80) translate(-50 -76)" fill="#E4F3D6"/><circle cx="50" cy="83" r="17" fill="#1E6B4E"/></svg>
       <span class="logo-word">Avodeck</span>
     </a>
+    <span class="for-tag">For GP expert witnesses</span>
     <nav aria-label="Main" class="main-nav" id="main-nav">
       <a href="#how">How it works</a>
       <a href="#safeguards">Safeguards</a>
       <a href="#questions">Questions</a>
       <a href="#pilot" class="btn btn-primary menu-only">Join the pilot</a>
+      <a href="/sign-in" class="btn btn-ghost menu-only">Sign in</a>
     </nav>
     <div class="header-actions">
       <a href="#pilot" class="btn btn-ghost btn-sm hide-sm">Join the pilot</a>
-      <a href="http://localhost:5173/sign-in" data-app-path="/sign-in" class="btn btn-primary btn-sm hide-sm">Sign in</a>
+      <a href="/sign-in" class="btn btn-primary btn-sm hide-sm">Sign in</a>
       <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="main-nav" aria-label="Menu">
       <svg class="icon-open" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       <svg class="icon-close" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -44,28 +44,31 @@
 
 <main id="main">
 
+  <!-- 1. Hero -->
   <section id="top" class="hero">
     <div class="wrap">
       <div class="hero-copy">
-        <h1 class="hero-h">Every page read.<br><em>Every fact traced.</em></h1>
-        <p class="hero-sub">Avodeck helps GP expert witnesses review medical records by sorting the bundle and linking every detail to the exact words in the document, so you spend less time hunting through pages and more time forming your opinion.</p>
+        <h1 class="hero-h">Never miss <em>a page</em></h1>
+        <p class="hero-sub">Avodeck helps GP expert witnesses get through thousands of pages of medical records. It numbers every page and links every appointment, test result and prescription to the exact words on the page.</p>
         <div class="hero-actions">
           <a href="#pilot" class="btn btn-primary">Join the pilot <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
           <a href="#how" class="btn btn-ghost">See how it works</a>
-        </div>      </div>
+        </div>
+      </div>
 
-      <div class="hero-visual" role="img" aria-label="Illustration: a consultation entry on page 118, with one phrase highlighted and linked to a checked fact">
-        <div class="record" aria-hidden="true">
-          <div class="record-head"><span>ASHWORTH, Margaret (Mrs)</span><span>Consultations</span></div>
-          <div class="dim">03-May-2024 09:12  Reception</div>
-          <div class="dim gap-b">Rx request: ferrous fumarate. Issued.</div>
-          <div class="strong">15-May-2024 10:42  Dr P  Surgery</div>
-          <div>Problem: Haemorrhoids (new)</div>
-          <div>History: c/o bright red <mark>PR bleeding x3/52</mark>, on paper.</div>
-          <div>Tired. Thinks piles.</div>
-          <div>Plan: fybogel, anusol. Rv if persists.</div>
-          <div class="dim gap-t">03-Jun-2024 08:55  Reception</div>
-          <div class="dim">Rx request: ferrous fumarate. Issued.</div>
+      <div class="hero-visual" role="img" aria-label="Illustration: a handwritten consultation entry on page 118, with one phrase highlighted and linked to a checked fact">
+        <div class="record handwritten" aria-hidden="true">
+          <div class="record-head"><span>ASHWORTH, Margaret (Mrs)</span><span class="note-tag">Handwriting</span></div>
+          <div class="hand">
+            <span class="dim">3/5/24  Rec. Rx ferrous fum.</span>
+            <span class="l-date">15/5/24  Dr P</span>
+            <span class="l2">c/o bright red <mark>PR bleeding x3/52</mark></span>
+            <span class="l3">on paper. Tired. Thinks piles</span>
+            <span class="l4">Abdo <s>tender</s> soft, NT</span>
+            <span class="l2">Plan: fybogel, anusol</span>
+            <span class="l3">R/v if persists</span>
+            <span class="dim">3/6/24  Rec. Rx ferrous fum.</span>
+          </div>
           <div class="record-foot">Page 118</div>
         </div>
         <div class="fact-card" aria-hidden="true">
@@ -73,36 +76,36 @@
           <span class="fact-title">15 May 2024 · rectal bleeding for three weeks</span>
           <span class="checked"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Checked by you</span>
         </div>
-        <div class="connector" aria-hidden="true"></div>
-        <div class="connector-dot" aria-hidden="true"></div>
       </div>
     </div>
   </section>
 
+  <!-- 2. Trust strip -->
   <section class="assurances" aria-label="What Avodeck promises">
     <div class="wrap">
-      <div class="assurance"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM16 11l2 2 4-4"/></svg></span><span class="assurance-h">Your opinion stays yours</span><span class="assurance-p">The software never writes conclusions or prose for you.</span></div>
-      <div class="assurance"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg></span><span class="assurance-h">Every fact has a page</span><span class="assurance-p">Each entry points to the exact words it came from.</span></div>
-      <div class="assurance"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"/></svg></span><span class="assurance-h">Kept in the UK</span><span class="assurance-p">Processed and stored in the UK, never used to train AI.</span></div>
-      <div class="assurance"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H5a2 2 0 0 0-2 2v4a5 5 0 0 0 10 0V5a2 2 0 0 0-2-2h-1M8 14v1a6 6 0 0 0 12 0v-3M22 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/></svg></span><span class="assurance-h">Made by NHS GPs</span><span class="assurance-p">Built by doctors working in the NHS.</span></div>
+      <div class="assurance"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></span><span class="assurance-h">Your opinion stays yours</span><span class="assurance-p">The software never writes conclusions or prose for you.</span></div>
+      <div class="assurance"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></span><span class="assurance-h">Every fact has a page</span><span class="assurance-p">Each entry points to the exact words it came from.</span></div>
+      <div class="assurance"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="assurance-h">Kept in the UK</span><span class="assurance-p">Processed and stored in the UK, never used to train AI.</span></div>
+      <div class="assurance"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a4 4 0 008 0V3"/><path d="M10 13v3a5 5 0 0010 0v-2"/><circle cx="20" cy="12" r="2"/></svg></span><span class="assurance-h">Made by NHS GPs</span><span class="assurance-p">Built by doctors working in the NHS.</span></div>
     </div>
   </section>
 
+  <!-- 3. The problem -->
   <section aria-labelledby="why-h">
     <div class="wrap split">
       <div class="stack">
-        <span class="eyebrow">Why experts use it</span>
-        <h2 id="why-h" class="sec-h">Two thousand unsorted pages shouldn't cost you three weekends.</h2>
-        <p class="lede">You still read every page. Avodeck takes away the sorting, the cross-referencing and the page-number hunting, so your time goes on judgement.</p>
-      </div>
+        <span class="eyebrow">The problem</span>
+        <h2 id="why-h" class="sec-h">2,000 pages shouldn't cost you three weekends.</h2>
+              </div>
       <ul class="diff-list">
-        <li><span class="diff-tag">p.1–1,231</span><span class="diff-body"><span class="diff-h">Sorted and numbered. Nothing thrown away.</span><span class="diff-p">Pages are grouped by source and date, duplicates are set aside rather than deleted, and missing records are spotted, with the email to the solicitor already drafted.</span></span></li>
-        <li><span class="diff-tag">15 May</span><span class="diff-body"><span class="diff-h">See each visit as the GP saw it on the day.</span><span class="diff-p">Open any consultation and see only what the clinician could have known then: which results were back, which letters had arrived, and which guidance was in force.</span></span></li>
-        <li><span class="diff-tag">TB 2,407</span><span class="diff-body"><span class="diff-h">Walk into court with page numbers that match.</span><span class="diff-p">When the trial bundle arrives, every page your report relies on is matched to its new number, and your large-print trial pack is ready to print.</span></span></li>
+        <li><span class="diff-tag">p.1–2,180</span><span class="diff-body"><span class="diff-h">The bundle arrives unsorted.</span><span class="diff-p">Pages are out of order, some appear twice and some are missing.</span></span></li>
+        <li><span class="diff-tag">15 May</span><span class="diff-body"><span class="diff-h">Hindsight creeps in.</span><span class="diff-p">Knowing what happened later makes it hard to judge what the GP knew at the time.</span></span></li>
+        <li><span class="diff-tag">p.412?</span><span class="diff-body"><span class="diff-h">One missed page can undo the report.</span><span class="diff-p">In court, you may be asked about the one page you didn't see.</span></span></li>
       </ul>
     </div>
   </section>
 
+  <!-- 4. How it works -->
   <section id="how" class="band-white" aria-labelledby="how-h">
     <div class="wrap how">
       <div class="how-head">
@@ -110,15 +113,15 @@
         <h2 id="how-h" class="sec-h">The way you already work, with the drudgery taken out.</h2>
       </div>
       <ol class="steps">
-        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></span><span class="step-h">Prepare</span><span class="step-p">Drop in the letter and the records.</span></li>
-        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></svg></span><span class="step-h">Read</span><span class="step-p">Read each page, then check what we found.</span></li>
-        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 10h18M8 3v4M16 3v4M8 15l2.5 2.5L16 13"/></svg></span><span class="step-h">Understand</span><span class="step-p">See everything on one timeline.</span></li>
-        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16zM13.5 6.5l4 4"/></svg></span><span class="step-h">Write</span><span class="step-p">Your words, citing only facts you've checked.</span></li>
-        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg></span><span class="step-h">Court</span><span class="step-p">Ready for questions, meetings and the witness box.</span></li>
+        <li><span class="step-n">01</span><span class="step-h">Add the records</span><span class="step-p">Avodeck sorts and numbers them.</span></li>
+        <li><span class="step-n">02</span><span class="step-h">Read</span><span class="step-p">Every page, in order.</span></li>
+        <li><span class="step-n">03</span><span class="step-h">Write</span><span class="step-p">Your words, citing facts you've checked.</span></li>
+        <li><span class="step-n">04</span><span class="step-h">Go to court</span><span class="step-p">Page numbers that match the trial bundle.</span></li>
       </ol>
     </div>
   </section>
 
+  <!-- 5. The timeline -->
   <section class="timeline-band" aria-labelledby="timeline-h">
     <div class="wrap timeline-head">
       <span class="eyebrow">The whole story on one screen</span>
@@ -191,6 +194,7 @@
     </div>
   </section>
 
+  <!-- 6. Hindsight removed -->
   <section class="band-ground" aria-labelledby="hindsight-h">
     <div class="wrap showcase">
       <div class="seen" role="img" aria-label="Example: the consultation of 15 May 2024 as the GP saw it, with two earlier entries available and one later report not yet written">
@@ -214,17 +218,140 @@
     </div>
   </section>
 
+  <!-- 7. Both sides -->
+  <section class="band-white" aria-labelledby="sides-h">
+    <div class="wrap feature">
+      <div class="feature-head">
+        <span class="eyebrow">Both sides</span>
+        <h2 id="sides-h" class="sec-h">Weigh both sides. Before anyone asks.</h2>
+        <p class="lede">For each question in your instructions, the facts that support the claim and the facts that support the GP sit side by side, each with its page.</p>
+      </div>
+      <div class="sides" role="img" aria-label="Example: question 1, with two facts supporting the claim and two supporting the GP, each with its page number">
+        <p class="sides-q" aria-hidden="true"><b>Question 1.</b> Should the raised PSA have been acted on by June 2021?</p>
+        <div class="sides-grid" aria-hidden="true">
+          <div class="side side-claim">
+            <h3 class="side-h">Supports the claim</h3>
+            <ul>
+              <li><span>PSA 9.1, filed with no action</span><span class="mono">p.1,247</span></li>
+              <li><span>Urinary symptoms for three months</span><span class="mono">p.1,252</span></li>
+            </ul>
+          </div>
+          <div class="side side-gp">
+            <h3 class="side-h">Supports the GP</h3>
+            <ul>
+              <li><span>Review booked if symptoms worsened</span><span class="mono">p.1,252</span></li>
+              <li><span>No visit recorded until March 2022</span><span class="mono">p.1,301</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. Provenance -->
+  <section class="band-ground" aria-labelledby="trace-h">
+    <div class="wrap feature">
+      <div class="feature-head">
+        <span class="eyebrow">Provenance</span>
+        <h2 id="trace-h" class="sec-h">Asked where it came from? Point to it.</h2>
+        <p class="lede">Every fact links to the exact words on its page. Only facts you've checked go in your report.</p>
+      </div>
+      <div class="trace">
+        <div class="trace-page" role="img" aria-label="Example: a pathology report on page 1,247 with the PSA result highlighted">
+          <span class="page-chip" aria-hidden="true">p.1,247</span>
+          <div aria-hidden="true">
+            <div class="strong">PATHOLOGY REPORT</div>
+            <div>Specimen: serum</div>
+            <div class="gap-t">Prostate specific antigen</div>
+            <div><mark>PSA 9.1 ng/mL</mark>  (0–4.0)  HIGH</div>
+            <div class="gap-t">Comment: suggest repeat and clinical review.</div>
+            <div>Reviewed: filed.</div>
+          </div>
+        </div>
+        <div class="trace-side">
+          <div class="trace-card" aria-hidden="true">
+            <span class="checked"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>You've read this page</span>
+            <span class="trace-title">PSA 9.1 ng/mL</span>
+            <span class="trace-meta">Blood result · page 1,247</span>
+            <span class="trace-actions"><span class="btn btn-sm btn-primary">That's right</span><span class="btn btn-sm btn-outline">Not right</span></span>
+          </div>
+          <p class="trace-note">If a value isn't in those words, Avodeck won't suggest it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. The final check -->
+  <section class="band-white" aria-labelledby="check-h">
+    <div class="wrap showcase">
+      <div class="stack">
+        <span class="eyebrow">The final check</span>
+        <h2 id="check-h" class="sec-h">Checked before you sign.</h2>
+        <p class="lede">Before you sign, your report is checked against the mistakes judges most often criticise experts for, so you can put them right first.</p>
+      </div>
+      <div class="seen" role="img" aria-label="Example: final check of draft 3, with three checks passed and one warning about paragraph 14">
+        <div class="seen-head" aria-hidden="true">
+          <span class="seen-title">Final check</span>
+          <span class="seen-page">Draft 3</span>
+        </div>
+        <ul class="check-list" aria-hidden="true">
+          <li><span class="check-ok"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>Every quote matches its page</li>
+          <li><span class="check-ok"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>Declarations and statement of truth in place</li>
+          <li><span class="check-ok"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>Range of opinion addressed</li>
+          <li><span class="check-warn">!</span><span><b>Paragraph 14</b> gives an opinion without a reason.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. Ready for court -->
+  <section class="band-ground" aria-labelledby="court-h">
+    <div class="wrap showcase">
+      <div class="court-card" role="img" aria-label="Example: three pages cited in the report matched to their trial bundle numbers, a trial pack ready to print, and offline search">
+        <div class="court-cols" aria-hidden="true"><span>Your report cites</span><span>Trial bundle</span></div>
+        <ul class="court-list" aria-hidden="true">
+          <li><span class="what">GP visit, 15 May 2024</span><span class="from">p.118 →</span><span class="to">TB 2,407</span></li>
+          <li><span class="what">Ferritin result, 19 Feb 2024</span><span class="from">p.214 →</span><span class="to">TB 2,512</span></li>
+          <li><span class="what">Iron prescribed, 1 Mar 2024</span><span class="from">p.087 →</span><span class="to">TB 2,380</span></li>
+        </ul>
+        <div class="court-pack" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>Large-print trial pack ready to print</div>
+        <div class="court-pack" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Search every page, even with no signal</div>
+        <p class="court-note">An example. Page numbers are made up.</p>
+      </div>
+      <div class="stack">
+        <span class="eyebrow">Ready for court</span>
+        <h2 id="court-h" class="sec-h">Walk into court with page numbers that match.</h2>
+        <p class="lede">When the trial bundle arrives, every page your report relies on is matched to its new number, and your large-print trial pack is ready to print. In the witness box, you can find any page offline.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11. And the rest -->
+  <section class="band-white" aria-labelledby="rest-h">
+    <div class="wrap how">
+      <div class="how-head">
+        <span class="eyebrow">And the rest</span>
+        <h2 id="rest-h" class="sec-h">And everything around it.</h2>
+      </div>
+      <ul class="steps rest">
+        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M11 8v3M11 14h.01"/></svg></span><span class="step-h">Missing records request</span><span class="step-p">Gaps in the records are spotted, with the request to the solicitor already drafted.</span></li>
+        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-.8.5-1.5 1-1.5 2M12 16h.01"/></svg></span><span class="step-h">Written questions</span><span class="step-p">Answer questions on your report, linked to the pages it relies on.</span></li>
+        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20a6 6 0 0112 0M14 20a4.5 4.5 0 018 0"/></svg></span><span class="step-h">Joint statement</span><span class="step-p">Set out the points agreed and disputed with the other expert.</span></li>
+        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><span class="step-h">Your Word template</span><span class="step-p">Every report built in your own layout, headings and numbering.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 8. Safeguards -->
   <section id="safeguards" class="safeguards" aria-labelledby="safe-h">
     <div class="wrap">
       <div class="safeguards-head">
-        <h2 id="safe-h" class="sec-h">Built to stand up in the witness box.</h2>
-        <p class="on-dark">Your duty is to the court. Avodeck is built so you can say exactly how you used it, and so nothing in your report can be traced to anything other than you and the records.</p>
+        <h2 id="safe-h" class="sec-h">Built for your duty to the court.</h2>
+        <p class="on-dark">Under Part 35 your duty is to the court, not to whoever instructs you. Avodeck is built so you can say exactly how you used it, and so nothing in your report can be traced to anything other than you and the records.</p>
       </div>
       <div class="guard-grid">
-        <div class="guard"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg></span><h3 class="guard-h" style="margin:0;font-weight:400">You read first</h3><p class="guard-p">Suggestions for a page stay hidden until you've read it yourself. The record of pages you've read is kept for you.</p></div>
-        <div class="guard"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4L12 14l-3-3"/></svg></span><h3 class="guard-h" style="margin:0;font-weight:400">Only checked facts</h3><p class="guard-p">Your report can only cite entries you've checked against the page, with quotes matched word for word.</p></div>
-        <div class="guard"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 14l2 2 4-4"/></svg></span><h3 class="guard-h" style="margin:0;font-weight:400">A final check</h3><p class="guard-p">Before you sign, your report is checked against the mistakes judges most often criticise experts for.</p></div>
-        <div class="guard"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8M8 9h2"/></svg></span><h3 class="guard-h" style="margin:0;font-weight:400">Nothing hidden</h3><p class="guard-p">A plain appendix explains what the software did and didn't do, ready for anyone who asks.</p></div>
+        <div class="guard"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><h3 class="guard-h" style="margin:0;font-weight:400">You read first</h3><p class="guard-p">Suggestions for a page stay hidden until you've read it yourself. The record of pages you've read is kept for you.</p></div>
+        <div class="guard"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M9 15l2 2 4-4"/></svg></span><h3 class="guard-h" style="margin:0;font-weight:400">Nothing hidden</h3><p class="guard-p">A plain appendix explains what the software did and didn't do, ready for anyone who asks.</p></div>
       </div>
       <ul class="ticks">
         <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7CCFA6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Records processed and stored in the UK</li>
@@ -235,15 +362,15 @@
     </div>
   </section>
 
+  <!-- 9. Why Avodeck exists -->
   <section class="founder" aria-labelledby="founder-h">
     <div class="wrap wrap-narrow">
       <h2 id="founder-h" class="eyebrow" style="margin:0">Why Avodeck exists</h2>
       <figure style="margin:0;display:flex;flex-direction:column;gap:28px">
         <blockquote>
-          <p>“As a doctor, I know how much our notes hold.</p>
-          <p>A result filed and forgotten. A call that never made it into the record. A check that was done but never written down.</p>
-          <p>When a clinical negligence case comes, details like these decide it. Miss one page, and you can miss the whole story.</p>
-          <p>I built Avodeck so that every page gets read, every fact can be traced to the words it came from, and the expert can stand behind every line of their report.”</p>
+          <p>“As a GP, I know what a set of notes can hide. A result filed and forgotten. A call that never made it into the record. A check that was done but never written down.</p>
+          <p>In a clinical negligence case, it's the expert who has to find these, and judge the care by what was known at the time. Miss one page, and you can miss the whole story.</p>
+          <p>I built Avodeck so that experts can read every page, trace every fact to the words it came from, and stand behind every line of their report.”</p>
         </blockquote>
         <figcaption class="byline">
           <span><b>Dr Kenny</b><br><span class="byline-role">Founder</span></span>
@@ -252,11 +379,12 @@
     </div>
   </section>
 
+  <!-- 10. The pilot -->
   <section id="pilot" class="pilot" aria-labelledby="pilot-h">
     <div class="wrap split">
       <div class="stack">
         <span class="eyebrow">The pilot</span>
-        <h2 id="pilot-h" class="sec-h">We're inviting a small group of GP experts to shape Avodeck.</h2>
+        <h2 id="pilot-h" class="sec-h">We're inviting a small group of GP expert witnesses to shape Avodeck.</h2>
         <p style="max-width:38ch">You'll use it on your own cases, with help on hand whenever you want it, and your feedback will decide what we build next.</p>
         <p>Prefer to talk first? We'll arrange a 20-minute call at a time that suits you.</p>
       </div>
@@ -275,6 +403,9 @@
             <option>More than 100</option>
           </select>
         </label>
+        <label class="field" for="p-slow">What slows you down most? <span class="opt">(optional)</span>
+          <textarea id="p-slow" name="slowdown" rows="3" placeholder="For example, sorting the bundle"></textarea>
+        </label>
         <button type="submit" class="btn btn-primary">Request an invitation</button>
         <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
         <span class="form-note">We'll only use your details to contact you about the pilot.</span>
@@ -282,11 +413,15 @@
     </div>
   </section>
 
+  <!-- 11. FAQ -->
   <section id="questions" class="faq" aria-labelledby="faq-h">
     <div class="wrap wrap-narrow">
       <h2 id="faq-h" class="sec-h">Questions experts ask us</h2>
       <div class="faq-list">
+        <details><summary>Who is Avodeck for?<span class="faq-plus" aria-hidden="true">+</span></summary><p>GPs who write independent expert reports on breach of duty and causation in clinical negligence cases. It isn't designed for doctors responding to a claim about their own care.</p></details>
         <details><summary>Does AI write any of my report?<span class="faq-plus" aria-hidden="true">+</span></summary><p>No. It finds and labels entries in the records and shows you where they are. Every word of your opinion is yours, typed or dictated.</p></details>
+        <details><summary>Do I need to say I used it in my report?<span class="faq-plus" aria-hidden="true">+</span></summary><p>Avodeck gives you a plain appendix explaining what the software did and didn't do, so you can include it or share it if you're asked.</p></details>
+        <details><summary>What about handwriting?<span class="faq-plus" aria-hidden="true">+</span></summary><p>Pages that can't be read clearly go into a separate list for you to read yourself. Avodeck never guesses.</p></details>
         <details><summary>Is it compliant with the court rules?<span class="faq-plus" aria-hidden="true">+</span></summary><p>Reports follow Part 35 and its Practice Direction: the declaration and statement of truth are added in the exact wording, and a checklist shows each requirement as you go.</p></details>
         <details><summary>Where are the records kept?<span class="faq-plus" aria-hidden="true">+</span></summary><p>In the UK, encrypted, for each case separately. When the case ends you choose how long they're kept, and you get a certificate when they're deleted.</p></details>
         <details><summary>I'm not very good with computers. Will I manage?<span class="faq-plus" aria-hidden="true">+</span></summary><p>It's designed for exactly that: large text, one clear next step on every screen, and plain words throughout. We'll set up your first case with you.</p></details>
@@ -300,39 +435,22 @@
 <footer class="site-footer">
   <div class="wrap">
     <div class="closing">
-      <h2 class="sec-h">Spend your time on forming your opinion, not on page numbers.</h2>
+      <h2 class="sec-h">Spend your time on judgement, not on page numbers.</h2>
       <a href="#pilot" class="btn btn-light">Join the pilot <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
     </div>
     <div class="footer-grid">
       <div class="footer-about">
-        <a href="#top" class="footer-brand" aria-label="Avodeck home"><svg width="22.9" height="30" viewBox="8 8 84 110" aria-hidden="true"><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" fill="#E6F2EC"/><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" transform="translate(50 76) scale(0.80) translate(-50 -76)" fill="#2E7556"/><circle cx="50" cy="83" r="17" fill="#E6F2EC"/></svg><span class="logo-word">Avodeck</span></a>
+        <span class="footer-brand">
+          <svg width="22.9" height="30" viewBox="8 8 84 110" aria-hidden="true"><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" fill="#E6F2EC"/><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" transform="translate(50 76) scale(0.80) translate(-50 -76)" fill="#2E7556"/><circle cx="50" cy="83" r="17" fill="#E6F2EC"/></svg>
+          <span class="logo-word">Avodeck</span>
+        </span>
         <p>Records review for expert witnesses.</p>
-        <h3 class="footer-h">Address</h3>
-        <p>82a James Carter Road<br>Mildenhall, IP28 7DE<br>England, UK</p>
+        <p>82a James Carter Road, Mildenhall, IP28 7DE, England, UK</p>
       </div>
       <nav aria-label="Footer" class="footer-cols">
-        <div>
-          <h3 class="footer-h">Product</h3>
-          <ul>
-            <li><a href="#how">How it works</a></li>
-            <li><a href="#safeguards">Safeguards</a></li>
-            <li><a href="#questions">Questions</a></li>
-          </ul>
-        </div>
-        <div>
-          <h3 class="footer-h">Experts</h3>
-          <ul>
-            <li><a href="#pilot">Join the pilot</a></li>
-            <li><a href="http://localhost:5173/sign-in" data-app-path="/sign-in">Sign in</a></li>
-            <li><a href="http://localhost:5173/today" data-app-path="/today">Open Avodeck</a></li>
-          </ul>
-        </div>
-        <div>
-          <h3 class="footer-h">Legal</h3>
-          <ul>
-            <li><a href="privacy">Privacy</a></li>
-          </ul>
-        </div>
+        <div><h2 class="footer-h">Product</h2><ul><li><a href="#how">How it works</a></li><li><a href="#safeguards">Safeguards</a></li><li><a href="#questions">Questions</a></li></ul></div>
+        <div><h2 class="footer-h">Experts</h2><ul><li><a href="#pilot">Join the pilot</a></li><li><a href="/sign-in">Sign in</a></li><li><a href="/today">Open Avodeck</a></li></ul></div>
+        <div><h2 class="footer-h">Legal</h2><ul><li><a href="privacy">Privacy</a></li></ul></div>
       </nav>
     </div>
     <p class="footer-copy">© <span data-year>2026</span> Four Integers Ltd. All rights reserved.</p>
@@ -345,12 +463,6 @@
   var status = document.getElementById('form-status');
   var meta = function (n) { var m = document.querySelector('meta[name="' + n + '"]'); return m ? m.content.trim() : ''; };
 
-  // Sign-in links go to the web app: localhost:5173 under `make dev`, app-url when live, hidden if neither.
-  var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-  var appUrl = (local ? 'http://localhost:5173' : meta('app-url')).replace(/\/+$/, '');
-  document.querySelectorAll('[data-app-path]').forEach(function (a) {
-    if (appUrl) a.href = appUrl + a.getAttribute('data-app-path'); else a.hidden = true;
-  });
 
   // Phone menu: the hamburger opens the nav; choosing a link closes it.
   var header = document.querySelector('.site-header');
@@ -367,12 +479,13 @@
     var name = form.name.value.trim();
     var email = form.email.value.trim();
     var volume = form.volume.value;
+    var slowdown = form.slowdown.value.trim();
     if (!name) { status.textContent = 'Please tell us your name.'; form.name.focus(); return; }
     if (!form.email.checkValidity() || !email) { status.textContent = 'Please check your email address.'; form.email.focus(); return; }
 
     var endpoint = meta('pilot-endpoint');
     if (!endpoint) {
-      var body = 'Name: ' + name + '\nEmail: ' + email + '\nReports a year: ' + volume;
+      var body = 'Name: ' + name + '\nEmail: ' + email + '\nReports a year: ' + volume + (slowdown ? '\nWhat slows me down: ' + slowdown : '');
       window.location.href = 'mailto:' + meta('pilot-email') + '?subject=' + encodeURIComponent('Avodeck pilot') + '&body=' + encodeURIComponent(body);
       status.textContent = 'Your email app should open with your details filled in. Press send and we\'ll be in touch.';
       return;
@@ -381,7 +494,7 @@
     var button = form.querySelector('button');
     button.disabled = true;
     status.textContent = 'Sending…';
-    fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, email: email, volume: volume }) })
+    fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, email: email, volume: volume, slowdown: slowdown }) })
       .then(function (r) {
         if (!r.ok) throw new Error();
         form.reset();

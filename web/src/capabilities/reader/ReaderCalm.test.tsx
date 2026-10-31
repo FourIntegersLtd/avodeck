@@ -28,17 +28,15 @@ async function side() {
 }
 
 describe("the right side", () => {
-  test("What we found comes first, and the notes row is followed only by Couldn't read", async () => {
+  test("What we found comes first, and the notes row is last and holds the Couldn't read link", async () => {
     mockReader(launchPack, { alreadyRead: true });
     renderAt(PATH);
     const aside = await side();
     expect(aside.firstElementChild).toContainElement(within(aside).getByRole("heading", { level: 2, name: "What we found on this page" }));
-    const kids = Array.from(aside.children);
     const notes = aside.querySelector(".rd-notes");
     expect(notes).not.toBeNull();
-    const after = kids.slice(kids.indexOf(notes as Element) + 1);
-    expect(after).toHaveLength(1);
-    expect(within(after[0] as HTMLElement).getByRole("link", { name: /pages we couldn't read/ })).toBeVisible();
+    expect(aside.lastElementChild).toBe(notes);
+    expect(within(notes as HTMLElement).getByRole("link", { name: /pages we couldn't read/ })).toBeVisible();
   });
 
   test("notes are closed by default and open on a click; the bookmark is a checkbox", async () => {

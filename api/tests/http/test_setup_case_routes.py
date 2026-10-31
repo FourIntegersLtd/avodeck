@@ -497,6 +497,7 @@ async def test_the_subject_status_changes_only_the_words(client_for: ClientFor, 
         "status": status,
         "label": VOCABULARY["subject_statuses"][status],
         "representative": VOCABULARY["subject_representatives"][status],
+        "identity_recorded": False,
     }
     assert (await client.get(url(world, "pack"))).json() == before_pack
     keep = ("jurisdiction", "case_type", "specialty", "expert_role", "status", "party_role")

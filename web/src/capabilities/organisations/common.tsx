@@ -1,5 +1,5 @@
 // Small parts shared by slice O's screens.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
@@ -16,22 +16,31 @@ export const OWN_ERRORS = {
   cases_open: "organisations.close_org.cases_open",
 };
 
-/** Runs a risky call (asking for the code first when the API wants it) and keeps the plain-words result. */
-export function useAct(own: Record<string, string> = {}) {
+/** Runs a risky call (asking for the code first when the API wants it, unless `stepUp: false`: support
+ * actions never do, ADR 0023) and keeps the plain-words result. */
+export function useAct(own: Record<string, string> = {}, { stepUp: asks = true }: { stepUp?: boolean } = {}) {
   const stepUp = useStepUp();
   const [message, setMessage] = useState<Message>(null);
+  const [busy, setBusy] = useState(false);
+  const running = useRef(false);
   const act = async <T,>(action: () => Promise<T>, success?: (result: T) => string): Promise<T | undefined> => {
+    if (running.current) return undefined;
+    running.current = true;
+    setBusy(true);
     setMessage(null);
     try {
-      const result = await stepUp(action);
+      const result = asks ? await stepUp(action) : await action();
       if (result !== undefined && success) setMessage({ tone: "success", text: success(result) });
       return result;
     } catch (err) {
       setMessage({ tone: "error", text: errorMessage(err, { ...OWN_ERRORS, ...own }) });
       return undefined;
+    } finally {
+      running.current = false;
+      setBusy(false);
     }
   };
-  return { act, message, setMessage };
+  return { act, busy, message, setMessage };
 }
 
 export function MessageNotice({ message }: { message: Message }) {

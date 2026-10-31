@@ -81,6 +81,7 @@ class PackageOut(BaseModel):
 
 class PackagesOut(BaseModel):
     packages: list[PackageOut]
+    live: list[PackageOut] = []
 
 
 class PackageStatus(BaseModel):
@@ -267,7 +268,8 @@ async def list_packages(case_id: uuid.UUID, conn: DbConn, access: View) -> Packa
     rows = await repo.many(
         conn, "select * from app.offline_packages where case_id = %s order by created_at desc", (case_id,)
     )
-    return PackagesOut(packages=[await _out(conn, r) for r in rows])
+    packages = [await _out(conn, r) for r in rows]
+    return PackagesOut(packages=packages, live=[p for p in packages if p.status in ("built", "downloaded")])
 
 
 async def _package(conn: Any, case_id: uuid.UUID, package_id: uuid.UUID, lock: bool = False) -> dict[str, Any]:

@@ -21,6 +21,7 @@ from app.core.ai.bedrock import RecordedBedrock
 from app.core.db import Database
 from tests.http.test_setup_questions_routes import (  # noqa: F401
     app,
+    confirm_each,
     crypto,
     model,
     read_letter,
@@ -56,7 +57,7 @@ async def test_questions_to_confirm_until_the_set_is_confirmed(
 ) -> None:
     client = await client_for(world["expert"])
     assert await items(client, "setup_questions_to_confirm") == []
-    await read_letter(client, world, worker_db)
+    got = await read_letter(client, world, worker_db)
 
     [item] = await items(client, "setup_questions_to_confirm")
     assert item["case_id"] == str(world["case"])
@@ -64,6 +65,7 @@ async def test_questions_to_confirm_until_the_set_is_confirmed(
     assert item["label_key"].startswith("setup.") and item["action_key"].startswith("setup.")
     assert await items(await client_for(world["assistant"]), "setup_questions_to_confirm") == []
 
+    await confirm_each(client, world, got)
     assert (await client.post(url(world, "questions/confirm-all"))).status_code == 200
     assert await items(client, "setup_questions_to_confirm") == []
 

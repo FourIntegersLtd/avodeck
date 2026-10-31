@@ -3,11 +3,15 @@
 // everything can be confirmed at once, and a further letter reopens the questions with a warning.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { assumption, casePack, inCase, launchWords, note, question, questions, type PackRun } from "./testing";
+import { assumption, casePack, inCase, launchWords, note, nowAsked, question, questions, type PackRun } from "./testing";
+
+beforeEach(() => {
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:letter"), revokeObjectURL: vi.fn() }));
+});
 
 type Over = Parameters<typeof questions>[0];
 
@@ -44,7 +48,9 @@ test("confirming a question sends the version you saw", async () => {
   server.use(
     http.patch("/v1/cases/:caseId/questions/:id", async ({ request }) => {
       sent = { body: await request.json(), ifMatch: request.headers.get("if-match") };
-      return HttpResponse.json(question({ status: "confirmed", version: 2 }), { headers: { etag: '"2"' } });
+      const next = question({ status: "confirmed", version: 2 });
+      nowAsked({ questions: [next] });
+      return HttpResponse.json(next, { headers: { etag: '"2"' } });
     }),
   );
   const { user } = renderAt(`/cases/${CASE_A}/questions`);
@@ -60,7 +66,9 @@ test("changing the wording keeps the letter's own words on show", async () => {
   server.use(
     http.patch("/v1/cases/:caseId/questions/:id", async ({ request }) => {
       sent = await request.json();
-      return HttpResponse.json(question({ confirmed_text: "Were the February results acted on?", version: 2 }), { headers: { etag: '"2"' } });
+      const next = question({ confirmed_text: "Were the February results acted on?", version: 2 });
+      nowAsked({ questions: [next] });
+      return HttpResponse.json(next, { headers: { etag: '"2"' } });
     }),
   );
   const { user } = renderAt(`/cases/${CASE_A}/questions`);
@@ -83,7 +91,9 @@ test("a question outside your field can be flagged, and a note drafted about it"
   server.use(
     http.patch("/v1/cases/:caseId/questions/:id", async ({ request }) => {
       flagged = await request.json();
-      return HttpResponse.json(question({ outside_expertise: true, version: 2 }), { headers: { etag: '"2"' } });
+      const next = question({ outside_expertise: true, version: 2 });
+      nowAsked({ questions: [next] });
+      return HttpResponse.json(next, { headers: { etag: '"2"' } });
     }),
     http.post("/v1/cases/:caseId/instructing-party-notes/draft", async ({ request }) => {
       drafted = await request.json();
@@ -141,10 +151,65 @@ test("confirm questions stays off until every question and assumption is confirm
   expect(button).toBeDisabled();
   expect(screen.getByText(/Confirm the last 2 to continue/)).toBeInTheDocument();
   server.use(
-    http.patch("/v1/cases/:caseId/questions/:id", () => HttpResponse.json(question({ status: "confirmed", version: 2 }), { headers: { etag: '"2"' } })),
-    http.patch("/v1/cases/:caseId/assumptions/:id", () => HttpResponse.json(assumption({ status: "confirmed", version: 2 }), { headers: { etag: '"2"' } })),
+    http.patch("/v1/cases/:caseId/questions/:id", () => {
+      const next = question({ status: "confirmed", version: 2 });
+      nowAsked({ questions: [next] });
+      return HttpResponse.json(next, { headers: { etag: '"2"' } });
+    }),
+    http.patch("/v1/cases/:caseId/assumptions/:id", () => {
+      const next = assumption({ status: "confirmed", version: 2 });
+      nowAsked({ questions: [question({ status: "confirmed", version: 2 })], assumptions: [next] });
+      return HttpResponse.json(next, { headers: { etag: '"2"' } });
+    }),
   );
   await user.click(within(screen.getByRole("article", { name: "Question 1" })).getByRole("button", { name: "Confirm" }));
   await user.click(within(screen.getByRole("article", { name: "Assumption 1" })).getByRole("button", { name: "Confirm" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Confirm questions" })).toBeEnabled());
+});
+
+
+test("the letter pages show in the pane", async () => {
+  asked("launch");
+  server.use(
+    http.get("/v1/cases/:caseId/instructions/:versionId/pages", () => json({ page_count: 2 })),
+    http.get("/v1/cases/:caseId/instructions/:versionId/pages/:n", () => new HttpResponse(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } })),
+  );
+  renderAt(`/cases/${CASE_A}/questions`);
+  expect(await screen.findByRole("img", { name: "Page 1" })).toBeInTheDocument();
+  expect(await screen.findByRole("img", { name: "Page 2" })).toBeInTheDocument();
+});
+
+test("the add-question form adds a card", async () => {
+  asked("launch", { questions: [], assumptions: [] });
+  let sent: unknown;
+  const added = question({ id: "d1111111-1111-4111-8111-111111111111", text_verbatim: "Whether the referral was timely.", para_ref: "4(a)", kind: casePack("launch").question_types[1]!.key as string });
+  server.use(
+    http.post("/v1/cases/:caseId/questions", async ({ request }) => {
+      sent = await request.json();
+      server.use(http.get("/v1/cases/:caseId/questions", () => json(questions({ questions: [added], assumptions: [], version_no: 2 }))));
+      return json(added, 201);
+    }),
+  );
+  const { user } = renderAt(`/cases/${CASE_A}/questions`);
+  await user.click(await screen.findByRole("button", { name: "Add a question we missed" }));
+  await user.type(screen.getByLabelText("The question in the letter's words"), "Whether the referral was timely.");
+  await user.type(screen.getByLabelText("Paragraph reference (e.g. 4(a))"), "4(a)");
+  await user.selectOptions(screen.getByLabelText("What kind of question is this?"), String(casePack("launch").question_types[1]!.key));
+  await user.click(screen.getByRole("button", { name: "Add question" }));
+  await waitFor(() => expect(sent).toEqual({ text: "Whether the referral was timely.", para_ref: "4(a)", kind: casePack("launch").question_types[1]!.key }));
+  expect(await screen.findByText("Whether the referral was timely.")).toBeInTheDocument();
+});
+
+test("zero questions shows the empty state and the add button", async () => {
+  asked("launch", { questions: [], assumptions: [] });
+  renderAt(`/cases/${CASE_A}/questions`);
+  expect(await screen.findByText("We didn't find any questions in this letter. Read the letter and add them yourself.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Add a question we missed" })).toBeVisible();
+});
+
+test("the add button is hidden when locked", async () => {
+  asked("launch", { locked: true });
+  renderAt(`/cases/${CASE_A}/questions`);
+  await screen.findByRole("article", { name: "Question 1" });
+  expect(screen.queryByRole("button", { name: "Add a question we missed" })).not.toBeInTheDocument();
 });

@@ -4,7 +4,6 @@ import type { Schemas } from "../../foundation/platform-client";
 import { axisIso, statusOf } from "./shared";
 
 type Event = Schemas["Event"];
-type Lane = Schemas["Timeline"]["lanes"][number];
 
 export type GroupState = "look" | "please_check" | "checked";
 
@@ -16,8 +15,10 @@ export interface StoryGroup {
   events: Event[];
   state: GroupState;
   questionIds: string[];
-  /** 0 thing to look at, 1 linked to a question, 2 please check, 3 checked. Lower shows first. */
+  /** The most important entry's server rank (0 thing to look at, 1 linked, 2 please check, 3 checked). Lower shows first. */
   rank: number;
+  /** An entry in the group is one the server says is worth a card when zoomed far out. */
+  featured: boolean;
 }
 
 export type Level = "years" | "months" | "days";
@@ -27,12 +28,6 @@ const DAY = 86_400_000;
 export function dayMs(iso: string): number {
   const [y, m, d] = iso.split("-").map(Number);
   return Date.UTC(y!, (m ?? 1) - 1, d ?? 1);
-}
-
-function eventRank(e: Event): number {
-  if (e.has_finding) return 0;
-  if (e.question_ids.length > 0) return 1;
-  return statusOf(e.status) === "please_check" ? 2 : 3;
 }
 
 function stateOf(events: Event[]): GroupState {
@@ -53,10 +48,10 @@ export function groupByDay(laneKey: string, events: Event[]): StoryGroup[] {
   return [...byDay.entries()]
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([date, list]) => {
-      const sorted = [...list].sort((a, b) => eventRank(a) - eventRank(b) || a.page_no - b.page_no);
-      const rank = Math.min(...sorted.map(eventRank));
+      const sorted = [...list].sort((a, b) => a.rank - b.rank || a.page_no - b.page_no);
+      const rank = Math.min(...sorted.map((e) => e.rank));
       const questionIds = [...new Set(sorted.flatMap((e) => e.question_ids))];
-      return { key: `${laneKey}|${date}`, laneKey, date, events: sorted, state: stateOf(sorted), questionIds, rank };
+      return { key: `${laneKey}|${date}`, laneKey, date, events: sorted, state: stateOf(sorted), questionIds, rank, featured: sorted.some((e) => e.featured) };
     });
 }
 
@@ -125,35 +120,6 @@ export function levelFor(from: string, to: string): Level {
   if (days > 3 * 365) return "years";
   if (days <= 122) return "days";
   return "months";
-}
-
-/** Each lane's dated entries counted per month, from the month of `from` to the month of `to`. */
-export function monthlyCounts(lanes: Lane[], from: string, to: string): { months: string[]; byLane: Record<string, number[]> } {
-  const months: string[] = [];
-  let y = Number(from.slice(0, 4));
-  let m = Number(from.slice(5, 7));
-  const endKey = to.slice(0, 7);
-  for (;;) {
-    const key = `${y}-${String(m).padStart(2, "0")}`;
-    months.push(key);
-    if (key >= endKey) break;
-    m += 1;
-    if (m > 12) {
-      m = 1;
-      y += 1;
-    }
-  }
-  const index = new Map(months.map((k, i) => [k, i]));
-  const byLane: Record<string, number[]> = {};
-  for (const lane of lanes) {
-    const counts = new Array<number>(months.length).fill(0);
-    for (const e of lane.events) {
-      const i = index.get(axisIso(e)?.slice(0, 7) ?? "");
-      if (i !== undefined) counts[i]! += 1;
-    }
-    byLane[lane.key] = counts;
-  }
-  return { months, byLane };
 }
 
 /** The first group, in any lane, on a later day than `group`. */

@@ -29,7 +29,7 @@ from app.features.write.common import (
     question_header,
     require_question,
 )
-from app.features.write.lint_store import open_issues
+from app.features.write.lint_store import LintCheck, checks_for, open_issues
 from app.features.write.ports import WorkspaceGuidance
 from app.features.write.router import router
 from app.features.write.routes_opinion import OpinionOut, opinion_out
@@ -72,6 +72,7 @@ class Workspace(BaseModel):
     views: list[OpinionView]
     legal_test: str
     opinion: OpinionOut | None
+    checks: list[LintCheck]
     question: QuestionHeader
 
 
@@ -112,6 +113,7 @@ async def workspace(
     if on is None:
         on = max((c.event_date for c in chips if c.event_date), default=None)
     guidance = [] if on is None else await current.guidance.in_force(conn, case_id, pack, on)
+    opinion = await _opinion(conn, crypto, case_id, question_id, facts)
     return Workspace(
         question_id=question_id,
         chips=chips,
@@ -120,7 +122,8 @@ async def workspace(
         points=await _summary(conn, crypto, case_id, question_id, pack.point_sides()),
         views=[OpinionView(**v) for v in pack.opinion_views()],
         legal_test=pack.legal_tests(),
-        opinion=await _opinion(conn, crypto, case_id, question_id, facts),
+        opinion=opinion,
+        checks=opinion.checks if opinion else checks_for([]),
         question=await question_header(conn, pack, case_id, question_id),
     )
 
@@ -150,4 +153,5 @@ async def _opinion(
         return None
     out = await opinion_out(conn, crypto, row, facts)
     out.lint = await open_issues(conn, crypto, case_id, row["id"])
+    out.checks = checks_for(out.lint)
     return out

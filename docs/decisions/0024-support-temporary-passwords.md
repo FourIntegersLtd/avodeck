@@ -1,0 +1,18 @@
+# 0024 Support gives new accounts a temporary password
+
+Date: 2026-10-25 · Status: accepted · Decided by: the founder · Reverses: threat model T27's "support never sees the password"
+
+**Problem.** Accounts that support created had no password: the person got an emailed set-password link that lasted 1 hour. Mail is not always set up in a cell during early testing, and links ran out before people used them.
+
+**Decision.**
+- FastAPI makes a temporary password for each new account: 20 characters from an alphabet without look-alikes (no 0, O, 1, l or I), with upper case, lower case and a digit, shown in groups of four (`accounts.temporary_password`, about 115 bits).
+- It is in the create answer once, with `Cache-Control: no-store`. It is never stored in the database, logs, the audit trail, Sentry or the idempotency store: a repeat with the same `Idempotency-Key` answers the account with `temporary_password: null` and `password_shown: true`. Support tells it to the person by phone or in person, never by email.
+- "Send the invite again" becomes "Make a new temporary password" (`POST /v1/support/accounts/{account_id}/temporary-password`): a fresh password shown once the same way, only while the account is `invited` and the person still has the temporary password and no MFA (409 `already_active` otherwise, so support never replaces a password the person chose), at most once a minute (429 `sent_recently`). The old password stops working and the person is signed out everywhere. Audited `support.account_password_renewed`. No email.
+- The person must choose their own password before anything else: `people.must_change_password` is set; while it is set the server answers every signed-in route with 403 `password_change_required` except where the session stands (`GET /v1/auth/session`), who they are (`GET /v1/me`), the MFA steps (`POST /v1/auth/mfa/enroll`, `/verify`), signing out, and `POST /v1/auth/password/change`. The block is in the core `SessionRoute`, and a guard test names every route let through.
+- `POST /v1/auth/password/change` `{current_password, new_password}` (signed in, CSRF): checks the current password (400 `wrong_password`, audited `auth.password_change_failed`; 5 wrong in 15 minutes give 429 `too_many_attempts`, counted in `password_change_attempts` in a transaction of its own), needs a different new one (422 `same_password`), clears the flag, signs out the person's other devices and audits `auth.password_changed`. A reset from the email link also clears it. The flag changes only through `app.password_changed()` and `app.support_new_password()`; the API role cannot write it directly (trigger, migration 0036).
+- The account turns `active` once the person has chosen their own password and completed MFA.
+- When the cell has mail (`RESEND_API_KEY`), the person also gets the `account.created` email with a set-password link (1 hour). It never carries the password.
+
+**Consequences.** Support sees the password once, so a staff member could sign in as the person before they change it. Mitigations: staff-only access, audit of every creation and renewal, the person must change it at first sign-in and set up MFA, and a renewal signs them out everywhere. T27 is updated.
+
+**Tests.** `api/tests/guards/test_foundation_password_change.py`, `api/tests/http/test_foundation_password_change_routes.py`, `api/tests/http/test_organisations_support_accounts_routes.py`, `api/tests/repository/test_organisations_support_accounts.py`, `api/tests/unit/test_organisations_temporary_password.py`, `web/src/app/ChoosePassword.test.tsx`, `web/src/capabilities/organisations/SupportAccounts.test.tsx`.

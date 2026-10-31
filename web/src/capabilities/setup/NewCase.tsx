@@ -14,6 +14,7 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
+import { useUpload } from "../../foundation/lib/useUpload";
 import {
   api,
   ApiError,
@@ -33,6 +34,8 @@ import {
   Spinner,
   StaleChoice,
   TextField,
+  Updating,
+  useBusy,
 } from "../../foundation/ui";
 import {
   Choice,
@@ -49,6 +52,7 @@ import {
   withEtag,
   type Option,
 } from "./shared";
+import { SubjectIdentity } from "./SubjectIdentity";
 import { sw } from "./words";
 
 const trackLabel = (key: string) =>
@@ -185,6 +189,7 @@ function NewCaseForm({
         : null,
     [team?.organisation_id],
   );
+  const checkingTemplate = required.loading && required.data !== undefined;
   const [combo, setCombo] = useState(0);
   const [label, setLabel] = useState("");
   const [side, setSide] = useState<string | null>(null);
@@ -203,6 +208,7 @@ function NewCaseForm({
   const [made, setMade] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const upload = useUpload();
   const etag = useRef("");
   const sent = useRef({
     instructing: new Set<number>(),
@@ -336,7 +342,7 @@ function NewCaseForm({
         } else {
           setAdded((a) => ({ ...a, [kind]: [...a[kind], document_id] }));
         }
-      });
+      }, upload.options());
       const summary = uploadSummary(out);
       if (summary) setError(summary);
       await countPages(id);
@@ -456,6 +462,7 @@ function NewCaseForm({
             </DropZone>
           </div>
         </section>
+        {upload.status && <p role="status" className="av-muted">{upload.status}</p>}
         {made && (
           <FoundInLetter
             caseId={made}
@@ -485,7 +492,8 @@ function NewCaseForm({
               }))}
             />
           )}
-          {team && required.data?.locked && (
+          {checkingTemplate && <Updating label={sw("new_case.checking_template")} />}
+          {team && !checkingTemplate && required.data?.locked && (
             <p className="av-hint" role="note">
               {sw("new_case.template_locked", { name: team.name })}
             </p>
@@ -824,9 +832,10 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
       });
     }
   };
+  const sending = useBusy();
   const save = (e: FormEvent) => {
     e.preventDefault();
-    void send(saved.etag);
+    void sending.run(() => send(saved.etag));
   };
 
   return (
@@ -887,7 +896,7 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
             </Notice>
           )}
           <div>
-            <Button type="submit" variant="secondary">
+            <Button type="submit" variant="secondary" busy={sending.busy}>
               {t("setup.details.save")}
             </Button>
           </div>
@@ -899,13 +908,14 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
         name={instructingName}
         setName={setInstructingName}
       />
+      <SubjectIdentity caseId={caseId} />
       <SamePerson caseId={caseId} jurisdiction={saved.data.jurisdiction} />
       <OralInstructions caseId={caseId} />
       {stale && (
         <StaleChoice
           draft={form}
           saved={formOf(stale.data)}
-          onKeepMine={() => void send(stale.etag)}
+          onKeepMine={() => sending.run(() => send(stale.etag))}
           onUseSaved={() => {
             setSaved(stale);
             setForm(formOf(stale.data));
@@ -927,19 +937,20 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
 function Letter({ caseId }: { caseId: string }) {
   const path = { params: { path: { case_id: caseId } } };
   const found = useResource(
-    () => unwrap(api.GET("/v1/cases/{case_id}/instructions", path)),
+    () => unwrap(api.GET("/v1/cases/{case_id}/instructions", { params: { ...path.params, query: { letters_only: true } } })),
     [caseId],
   );
   const [reading, setReading] = useState(false);
+  const upload = useUpload();
   const [error, setError] = useState<string | null>(null);
-  const letters = (found.data ?? []).filter((i) => i.document_id);
+  const letters = found.data ?? [];
 
   const add = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setError(null);
     try {
-      const document_id = await uploadFile(caseId, file, "instructions");
+      const document_id = await uploadFile(caseId, file, "instructions", upload.options());
       const kind = letters.length > 0 ? "supplementary" : "letter";
       await unwrap(
         api.POST("/v1/cases/{case_id}/instructions", {
@@ -986,6 +997,7 @@ function Letter({ caseId }: { caseId: string }) {
         accept="application/pdf,.pdf,.docx"
         onChange={(e) => void add(e)}
       />
+      {upload.status && <p role="status" className="av-muted">{upload.status}</p>}
       {reading && (
         <Notice>
           <p>{t("setup.letter.reading")}</p>
@@ -1013,7 +1025,7 @@ function FoundInLetter({
 }) {
   const path = { params: { path: { case_id: caseId } } };
   const found = useResource(
-    () => unwrap(api.GET("/v1/cases/{case_id}/prefill", path)),
+    () => unwrap(api.GET("/v1/cases/{case_id}/prefill", { params: { ...path.params, query: { open: true } } })),
     [caseId],
   );
   const [done, setDone] = useState<Set<string>>(new Set());
@@ -1050,9 +1062,7 @@ function FoundInLetter({
       setError(errorMessage(err));
     }
   };
-  const open = (found.data?.suggestions ?? []).filter(
-    (s) => s.status === "suggested" && !done.has(s.id),
-  );
+  const open = (found.data?.suggestions ?? []).filter((s) => !done.has(s.id));
   if (!found.data || (!reading && open.length === 0)) return null;
   return (
     <Section
@@ -1126,6 +1136,7 @@ function InstructedBy({
   const current = found.data?.current ?? [];
   const showForm = adding || (Boolean(found.data) && current.length === 0);
 
+  const adding_ = useBusy();
   const add = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -1164,7 +1175,7 @@ function InstructedBy({
         </Notice>
       )}
       {showForm ? (
-        <form className="av-stack" onSubmit={(e) => void add(e)}>
+        <form className="av-stack" onSubmit={(e) => void adding_.run(() => add(e))}>
           {types.length > 1 && (
             <Select
               label={t("setup.instructed.type")}
@@ -1191,7 +1202,7 @@ function InstructedBy({
             onChange={(e) => setFirm(e.target.value)}
           />
           <div>
-            <Button type="submit" variant="secondary">
+            <Button type="submit" variant="secondary" busy={adding_.busy}>
               {t("setup.instructed.add")}
             </Button>
           </div>
@@ -1223,6 +1234,7 @@ function SamePerson({
   const [result, setResult] = useState<Schemas["DuplicateCheck"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const checking = useBusy();
   const check = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -1250,7 +1262,7 @@ function SamePerson({
       title={t("setup.same_person.title")}
       intro={t("setup.same_person.intro")}
     >
-      <form className="av-stack" onSubmit={(e) => void check(e)}>
+      <form className="av-stack" onSubmit={(e) => void checking.run(() => check(e))}>
         <TextField
           label={t("setup.same_person.identifier")}
           name="identifier"
@@ -1260,7 +1272,7 @@ function SamePerson({
           onChange={(e) => setIdentifier(e.target.value)}
         />
         <div>
-          <Button type="submit" variant="secondary">
+          <Button type="submit" variant="secondary" busy={checking.busy}>
             {t("setup.same_person.check")}
           </Button>
         </div>
@@ -1292,6 +1304,7 @@ function OralInstructions({ caseId }: { caseId: string }) {
     tone: "success" | "error";
     text: string;
   } | null>(null);
+  const saving = useBusy();
   const save = async (e: FormEvent) => {
     e.preventDefault();
     setMessage(null);
@@ -1316,7 +1329,7 @@ function OralInstructions({ caseId }: { caseId: string }) {
       title={t("setup.oral.title")}
       intro={t("setup.oral.intro")}
     >
-      <form className="av-stack" onSubmit={(e) => void save(e)}>
+      <form className="av-stack" onSubmit={(e) => void saving.run(() => save(e))}>
         <DictationBox
           caseId={caseId}
           context="oral_instructions"
@@ -1342,6 +1355,7 @@ function OralInstructions({ caseId }: { caseId: string }) {
           <Button
             type="submit"
             variant="secondary"
+            busy={saving.busy}
             disabled={!text.trim() || !on}
           >
             {t("setup.oral.save")}

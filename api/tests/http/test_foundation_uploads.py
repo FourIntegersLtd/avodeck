@@ -23,6 +23,7 @@ from app.core.storage import SupabaseStorage
 from tests.support.db import ClientFor
 from tests.support.files import CHUNK, MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
+from tests.support.uploads import run_finalize
 
 pytestmark = pytest.mark.anyio
 
@@ -37,8 +38,13 @@ async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage) -> FastAPI:
-    return build_app(api_db, auth_env, storage=storage, crypto=CaseCrypto(LocalKeyProvider.generate()))
+def crypto() -> CaseCrypto:
+    return CaseCrypto(LocalKeyProvider.generate())
+
+
+@pytest.fixture
+def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage, crypto: CaseCrypto) -> FastAPI:
+    return build_app(api_db, auth_env, storage=storage, crypto=crypto)
 
 
 @pytest.fixture
@@ -59,8 +65,16 @@ async def put_chunk(client: httpx.AsyncClient, upload: str, n: int, data: bytes,
     return await client.put(
         f"/v1/uploads/{upload}/chunks/{n}",
         content=data,
-        headers={"content-type": "application/octet-stream", **headers},
+        headers={
+            "content-type": "application/octet-stream",
+            "x-chunk-sha256": hashlib.sha256(data).hexdigest(),
+            **headers,
+        },
     )
+
+
+async def finish(client: httpx.AsyncClient, upload: str, file: SyntheticFile) -> httpx.Response:
+    return await client.post(f"/v1/uploads/{upload}/complete", json={"sha256": file.sha256()})
 
 
 def no_storage_link(resp: httpx.Response, auth_env: dict[str, str]) -> None:
@@ -74,6 +88,8 @@ async def test_a_300_mb_pdf_uploads_in_8_mb_chunks_resumes_after_a_dropped_chunk
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_dsn: str,
     admin: psycopg.Connection,
     auth_env: dict[str, str],
 ) -> None:
@@ -104,7 +120,7 @@ async def test_a_300_mb_pdf_uploads_in_8_mb_chunks_resumes_after_a_dropped_chunk
     assert resp.json()["missing"] == [20]
     assert len(resp.json()["received"]) == 37
 
-    resp = await client.post(f"/v1/uploads/{upload_id}/complete")
+    resp = await finish(client, upload_id, file)
     assert resp.status_code == 409, resp.text
     assert resp.json()["error"]["code"] == "chunks_missing"
     assert resp.json()["error"]["missing"] == [20]
@@ -112,8 +128,14 @@ async def test_a_300_mb_pdf_uploads_in_8_mb_chunks_resumes_after_a_dropped_chunk
     resp = await put_chunk(client, upload_id, 20, file.chunk(20))
     assert resp.status_code == 200, resp.text
 
-    resp = await client.post(f"/v1/uploads/{upload_id}/complete")
-    assert resp.status_code == 201, resp.text
+    resp = await finish(client, upload_id, file)
+    assert resp.status_code == 202, resp.text
+    assert resp.json() == {"status": "finalizing"}
+    assert admin.execute("select count(*) from app.documents where case_id = %s", (team["case"],)).fetchone() == (0,)
+    await run_finalize(worker_dsn, admin, upload_id, storage, crypto)
+
+    resp = await finish(client, upload_id, file)
+    assert resp.status_code == 200, resp.text
     no_storage_link(resp, auth_env)
     done = resp.json()
     assert done["sha256"] == file.sha256()
@@ -148,15 +170,30 @@ async def test_a_300_mb_pdf_uploads_in_8_mb_chunks_resumes_after_a_dropped_chunk
 
 
 async def test_completing_records_an_audit_row_and_a_second_complete_returns_the_same_document(
-    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection
+    client_for: ClientFor,
+    team: dict[str, uuid.UUID],
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_dsn: str,
 ) -> None:
     file = SyntheticFile(3 * MB, seed=11)
     client = await client_for(team["expert"])
     upload_id = (await start(client, team["case"], file)).json()["upload_id"]
     assert (await put_chunk(client, upload_id, 1, file.chunk(1))).status_code == 200
-    first = await client.post(f"/v1/uploads/{upload_id}/complete")
-    assert first.status_code == 201, first.text
-    again = await client.post(f"/v1/uploads/{upload_id}/complete")
+    claimed = await finish(client, upload_id, file)
+    assert claimed.status_code == 202, claimed.text
+    again_early = await finish(client, upload_id, file)  # a repeat while the job is queued: not a new claim
+    assert again_early.status_code == 202, again_early.text
+    claims = admin.execute(
+        "select person_id from app.audit_log where action = 'upload.completed' and target = %s",
+        (f"upload:{upload_id}",),
+    ).fetchall()
+    assert claims == [(team["expert"],)]
+    await run_finalize(worker_dsn, admin, upload_id, storage, crypto)
+    first = await finish(client, upload_id, file)
+    assert first.status_code == 200, first.text
+    again = await finish(client, upload_id, file)
     assert again.status_code == 200, again.text
     assert again.json()["document_id"] == first.json()["document_id"]
     count = admin.execute("select count(*) from app.documents where case_id = %s", (team["case"],)).fetchone()
@@ -165,7 +202,11 @@ async def test_completing_records_an_audit_row_and_a_second_complete_returns_the
         "select action, target, person_id from app.audit_log where case_id = %s order by seq desc limit 1",
         (team["case"],),
     ).fetchone()
-    assert audit == ("document.uploaded", f"document:{first.json()['document_id']}", team["expert"])
+    # Written by the job, which has no signed-in person (the audit policy for the worker requires none);
+    # who sent the file is kept on the document.
+    assert audit == ("document.uploaded", f"document:{first.json()['document_id']}", None)
+    sender = admin.execute("select uploaded_by from app.documents where id = %s", (first.json()["document_id"],))
+    assert sender.fetchone() == (team["expert"],)
 
 
 async def test_a_file_whose_sha256_does_not_match_is_refused_and_not_registered(
@@ -175,9 +216,12 @@ async def test_a_file_whose_sha256_does_not_match_is_refused_and_not_registered(
     client = await client_for(team["expert"])
     upload_id = (await start(client, team["case"], file, sha256="a" * 64)).json()["upload_id"]
     await put_chunk(client, upload_id, 1, file.chunk(1))
-    resp = await client.post(f"/v1/uploads/{upload_id}/complete")
+    resp = await finish(client, upload_id, file)
     assert resp.status_code == 422, resp.text
-    assert resp.json()["error"]["code"] == "sha256_mismatch"
+    assert resp.json()["error"]["code"] == "file_hash_mismatch"
+    # Refused in the request: no job was queued, the upload is still open and no document exists.
+    state = admin.execute("select status, finalize_job_id from app.uploads where id = %s", (upload_id,)).fetchone()
+    assert state == ("open", None)
     assert admin.execute("select count(*) from app.documents where case_id = %s", (team["case"],)).fetchone() == (0,)
 
 

@@ -8,7 +8,7 @@ import { change, deadline, question, Q2, questionsName, serve, type PackRun } fr
 import type { Schemas } from "../../foundation/platform-client";
 
 const url = `/cases/${CASE_A}/served`;
-const trial = (over: Partial<Schemas["HearingOut"]> = {}): Schemas["HearingOut"] => ({
+const trial = (over: Partial<Schemas["HearingOut"]> = {}): Omit<Schemas["HearingOut"], "live"> & { live?: boolean } => ({
   id: "h1", type: "trial", starts_on: "2027-06-14", ends_on: "2027-06-16", status: "scheduled", venue: "Court 4", direction_id: null, replaced_by_hearing_id: null, changed_at: null, version: 1, ...over,
 });
 

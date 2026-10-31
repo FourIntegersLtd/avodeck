@@ -102,7 +102,7 @@ function SignView({ caseId, version, check, declarations, onChanged }: { caseId:
       {status === "draft" && (
         <>
           {!ready && (
-            <Notice tone="warning">
+            <Notice tone="amber">
               <LinkButton variant="secondary" to={`/cases/${caseId}/final-check`}>{w("sign.go_check")}</LinkButton>
             </Notice>
           )}
@@ -118,7 +118,7 @@ function SignView({ caseId, version, check, declarations, onChanged }: { caseId:
       )}
       {(status === "served" || status === "withdrawn") && (
         <>
-          <Notice><p>{w("sign.served_note")}</p></Notice>
+          <Notice tone="mint"><p>{w("sign.served_note")}</p></Notice>
           {downloads}
           <Servings caseId={caseId} versionId={version.id} />
           <div className="rp-bar">
@@ -208,14 +208,14 @@ function Draft({ caseId, doc, declarations, downloads, onDone }: { caseId: strin
         <Notice tone="error">
           <p>{error.message}</p>
           {error.action && <LinkButton to={error.action.to}>{error.action.label}</LinkButton>}
-          {error.code === "declaration_not_acknowledged" && <Button variant="secondary" onClick={() => void acknowledge()}>{w("sign.acknowledge")}</Button>}
+          {error.code === "declaration_not_acknowledged" && <Button variant="secondary" onClick={() => acknowledge()}>{w("sign.acknowledge")}</Button>}
         </Notice>
       )}
-      {read && <Notice tone="success"><p>{w("sign.acknowledged")}</p></Notice>}
-      {signed && <Notice tone="success"><p>{w("sign.signed")}</p></Notice>}
+      {read && <Notice tone="mint"><p>{w("sign.acknowledged")}</p></Notice>}
+      {signed && <Notice tone="mint"><p>{w("sign.signed")}</p></Notice>}
       <div className="rp-bar">
         {downloads}
-        <Button arrow disabled={!confirmed || busy} onClick={() => void sign()}>{busy ? w("sign.signing") : party ? w("sign.submit", { party }) : w("sign.submit_plain")}</Button>
+        <Button arrow disabled={!confirmed || busy} onClick={() => sign()}>{busy ? w("sign.signing") : party ? w("sign.submit", { party }) : w("sign.submit_plain")}</Button>
       </div>
     </>
   );
@@ -240,7 +240,7 @@ function Serve({ caseId, versionId, onDone }: { caseId: string; versionId: strin
   return (
     <section className="rp-card av-stack" aria-labelledby="serve-title">
       <h3 id="serve-title">{w("sign.serve")}</h3>
-      <Notice tone="success"><p>{w("sign.signed")}</p></Notice>
+      <Notice tone="mint"><p>{w("sign.signed")}</p></Notice>
       <p>{w("sign.serve_intro")}</p>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       <TextField label={w("sign.served_on")} name="served_on" type="date" value={servedOn} onChange={(e) => setServedOn(e.target.value)} />
@@ -254,7 +254,7 @@ function Serve({ caseId, versionId, onDone }: { caseId: string; versionId: strin
       </div>
       <div className="rp-bar">
         <span />
-        <Button arrow onClick={() => void serve()} disabled={!servedOn}>{w("sign.serve")}</Button>
+        <Button arrow onClick={() => serve()} disabled={!servedOn}>{w("sign.serve")}</Button>
       </div>
     </section>
   );
@@ -306,7 +306,7 @@ function Withdraw({ caseId, versionId, onDone }: { caseId: string; versionId: st
           <div className="av-stack">
             <TextField label={w("sign.withdraw_reason")} name="reason" value={reason} onChange={(e) => setReason(e.target.value)} error={problem ?? undefined} />
             <div className="av-row">
-              <Button variant="danger" onClick={() => void confirm()}>{w("sign.withdraw_confirm")}</Button>
+              <Button variant="danger" onClick={() => confirm()}>{w("sign.withdraw_confirm")}</Button>
               <Button variant="secondary" onClick={() => setOpen(false)}>{w("sign.cancel")}</Button>
             </div>
           </div>

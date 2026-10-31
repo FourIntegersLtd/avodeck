@@ -110,7 +110,7 @@ function Workspace({ caseId }: { caseId: string }) {
   };
   return (
     <>
-      {missing && <Notice tone="warning"><p>{w("invoice.billing_missing")}</p></Notice>}
+      {missing && <Notice tone="amber"><p>{w("invoice.billing_missing")}</p></Notice>}
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       <div className="rp-grid">
         <TimeCard caseId={caseId} />
@@ -132,10 +132,10 @@ function Workspace({ caseId }: { caseId: string }) {
           {latest ? (
             <>
               <a className="av-button av-button--secondary" href={pdf(latest)}>{w("invoice.download")}</a>
-              {latest.status === "draft" && <Button arrow onClick={() => void send(latest)}>{w("invoice.send")}</Button>}
+              {latest.status === "draft" && <Button arrow onClick={() => send(latest)}>{w("invoice.send")}</Button>}
             </>
           ) : (
-            <Button arrow onClick={() => void create()}>{w("invoice.create")}</Button>
+            <Button arrow onClick={() => create()}>{w("invoice.create")}</Button>
           )}
         </div>
       </div>
@@ -148,7 +148,7 @@ function Workspace({ caseId }: { caseId: string }) {
             <section className="av-card av-stack" aria-labelledby="another-title">
               <h3 id="another-title">{w("invoice.list")}</h3>
               <TextField label={w("invoice.expenses")} name="expenses" inputMode="decimal" value={expenses} onChange={(e) => setExpenses(e.target.value)} />
-              <div className="av-row"><Button variant="secondary" onClick={() => void create()}>{w("invoice.create")}</Button></div>
+              <div className="av-row"><Button variant="secondary" onClick={() => create()}>{w("invoice.create")}</Button></div>
             </section>
           )}
         </div>
@@ -188,7 +188,7 @@ function TimeCard({ caseId }: { caseId: string }) {
         {adjusting && <Adjust caseId={caseId} stages={time.stages} onClose={() => setAdjusting(false)} onSaved={() => { setAdjusting(false); found.reload(); }} />}
       </section>
       {time.estimate_hours != null && !time.over_estimate && time.instructing_party && (
-        <div className="rp-within"><Notice tone="success">
+        <div className="rp-within"><Notice tone="mint">
           <p className="rp-within__line">
             <svg className="rp-tick" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
             <strong>{w("invoice.within_estimate_lead")}</strong>{" "}
@@ -265,7 +265,7 @@ function InvoicePaper({ caseId, invoice, from, caseLabel, act, download }: { cas
       <p className="rp-paper__small">{w("invoice.locked_note")}</p>
       <div className="rp-payment">
         <span><strong>{w("invoice.payment")}</strong> <span>{paymentWord}</span></span>
-        {open && <button type="button" className="av-text-link rp-linkbtn" onClick={() => void pay("paid")}>{w("invoice.mark_paid")}</button>}
+        {open && <Button variant="link" className="av-text-link rp-linkbtn" onClick={() => pay("paid")}>{w("invoice.mark_paid")}</Button>}
       </div>
       {(open || !isDraft || download) && (
         <details className="rp-fold rp-fold--inner">
@@ -276,9 +276,9 @@ function InvoicePaper({ caseId, invoice, from, caseLabel, act, download }: { cas
               <>
                 <div className="av-row">
                   <TextField label={w("invoice.part_amount")} name="paid_amount" inputMode="decimal" value={part} onChange={(e) => setPart(e.target.value)} />
-                  <Button variant="secondary" disabled={!part.trim()} onClick={() => void pay("part_paid", part.trim())}>{w("invoice.mark_part")}</Button>
+                  <Button variant="secondary" disabled={!part.trim()} onClick={() => pay("part_paid", part.trim())}>{w("invoice.mark_part")}</Button>
                 </div>
-                <div className="av-row"><Button variant="quiet" onClick={() => void pay("written_off")}>{w("invoice.written_off")}</Button></div>
+                <div className="av-row"><Button variant="quiet" onClick={() => pay("written_off")}>{w("invoice.written_off")}</Button></div>
               </>
             )}
             {!isDraft && <div className="av-row"><Button variant="secondary" onClick={() => setCrediting(true)}>{w("invoice.credit")}</Button></div>}
@@ -351,7 +351,7 @@ function EstimateForm({ caseId, time }: { caseId: string; time: Schemas["TimeOut
       ))}
       {current.estimate_hours && <p>{w("invoice.estimate_total", { hours: current.estimate_hours })}</p>}
       <div className="av-row">
-        <Button variant="secondary" onClick={() => void save()}>{w("invoice.estimate_save")}</Button>
+        <Button variant="secondary" onClick={() => save()}>{w("invoice.estimate_save")}</Button>
         {saved && <span role="status">{w("invoice.estimate_saved")}</span>}
       </div>
     </section>
@@ -388,7 +388,7 @@ function Adjust({ caseId, stages, onClose, onSaved }: { caseId: string; stages: 
         <TextField label={w("invoice.adjust_minutes")} name="minutes" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value)} />
         <TextField label={w("invoice.adjust_reason")} name="reason" value={reason} onChange={(e) => setReason(e.target.value)} />
         <div className="av-row">
-          <Button onClick={() => void save()}>{w("invoice.adjust_save")}</Button>
+          <Button onClick={() => save()}>{w("invoice.adjust_save")}</Button>
           <Button variant="secondary" onClick={onClose}>{w("invoice.cancel")}</Button>
         </div>
       </div>
@@ -433,7 +433,7 @@ function BillingDetails({ initial: p, etag, onSaved }: { initial: Schemas["Billi
       <TextField label={w("invoice.billing_rate")} name="hourly_rate" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
       <TextField label={w("invoice.billing_prefix")} name="invoice_prefix" value={prefix} onChange={(e) => setPrefix(e.target.value)} />
       <div className="av-row">
-        <Button variant="secondary" onClick={() => void save()}>{w("invoice.billing_save")}</Button>
+        <Button variant="secondary" onClick={() => save()}>{w("invoice.billing_save")}</Button>
         {saved && <span role="status">{w("invoice.billing_saved")}</span>}
       </div>
     </section>
@@ -477,7 +477,7 @@ function BankForm({ initial, etag, onSaved }: { initial: Bank | null; etag: stri
         <TextField key={f} label={w(`invoice.bank_${f}`)} name={`bank_${f}`} value={values[f]} onChange={(e) => { const v = e.target.value; setValues((all) => ({ ...all, [f]: v })); }} />
       ))}
       <div className="av-row">
-        <Button variant="secondary" onClick={() => void save()}>{w("invoice.bank_save")}</Button>
+        <Button variant="secondary" onClick={() => save()}>{w("invoice.bank_save")}</Button>
         {saved && <span role="status">{w("invoice.billing_saved")}</span>}
       </div>
     </section>
@@ -507,7 +507,7 @@ function Credit({ caseId, invoiceId, onClose, onSaved }: { caseId: string; invoi
         <TextField label={w("invoice.credit_amount")} name="amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <TextField label={w("invoice.credit_reason")} name="reason" value={reason} onChange={(e) => setReason(e.target.value)} />
         <div className="av-row">
-          <Button onClick={() => void save()}>{w("invoice.credit_save")}</Button>
+          <Button onClick={() => save()}>{w("invoice.credit_save")}</Button>
           <Button variant="secondary" onClick={onClose}>{w("invoice.cancel")}</Button>
         </div>
       </div>

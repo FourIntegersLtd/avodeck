@@ -17,20 +17,22 @@ from app.core.contracts.today import NeedsYouRegistry
 from app.core.contracts.today import needs_you as default_needs_you
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.db import Database
-from app.core.email import Mailer, OutboxMailer
+from app.core.email import Mailer, OutboxMailer, mail_configured
 from app.core.errors import install_error_handlers
 from app.core.features import DEFAULT_PACKAGE as DEFAULT_FEATURES
 from app.core.features import feature_routers, start_features
 from app.core.packs import PackLibrary, default_library
 from app.core.routes.account import account_public, account_router
-from app.core.routes.auth import auth_pending, auth_public, auth_signed_in, auth_status
+from app.core.routes.auth import auth_password, auth_pending, auth_public, auth_signed_in, auth_status
 from app.core.routes.cases import cases_router
 from app.core.routes.cell import cell_public_router
 from app.core.routes.dictation import dictation_socket, transcripts_router
+from app.core.routes.help import help_router
 from app.core.routes.jobs import jobs_router
 from app.core.routes.me import me_router
 from app.core.routes.notifications import notifications_router
 from app.core.routes.packs import case_pack_router, packs_router
+from app.core.routes.support import support_router
 from app.core.routes.today import today_router
 from app.core.routes.uploads import uploads_router
 from app.core.speech import SpeechClient
@@ -119,6 +121,8 @@ def create_app(
     app.state.auth = auth
     app.state.app_origin = auth.settings.app_origin if auth is not None else None
     app.state.mailer = mailer if mailer is not None else OutboxMailer()
+    # Mail that is only a convenience (support's set-password link) is skipped when no mail service is set up.
+    app.state.mail_configured = mailer is not None or mail_configured()
     app.state.packs = packs if packs is not None else default_library()
     app.state.storage = storage
     app.state.crypto = crypto
@@ -136,11 +140,12 @@ def create_app(
         auth_pending,
         auth_status,
         auth_signed_in,
+        auth_password,
         account_public,
         account_router,
     )
     files = (uploads_router, jobs_router, transcripts_router, dictation_socket)
-    people = (me_router, today_router, notifications_router)
+    people = (me_router, help_router, today_router, notifications_router, support_router)
     slices = (pipeline_router, colleague_router, esign_webhook_router)  # public: token- or signature-gated
     for r in (*routers, *people, cases_router, packs_router, case_pack_router, *files, *slices):
         mount(app, r)

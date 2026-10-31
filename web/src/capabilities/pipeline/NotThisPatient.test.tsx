@@ -22,6 +22,7 @@ function mock(pack: Schemas["CasePack"], opts: { suggestions?: Q[]; quarantined?
       json(summary(pack, { quarantine_suggestions: opts.suggestions ?? [412, 413, 414].map(suggested), quarantined: opts.quarantined ?? [] })),
     ),
     http.get(`/v1/cases/${CASE_ID}/pages/:pageNo/thumbnail`, () => new HttpResponse(THUMB, { headers: { "Content-Type": "image/jpeg" } })),
+    http.get(`/v1/cases/${CASE_ID}/pages/:pageNo/image`, () => new HttpResponse(THUMB, { headers: { "Content-Type": "image/jpeg" } })),
   );
   return party;
 }
@@ -149,6 +150,38 @@ describe.each([
     await waitFor(() => expect(posted).toEqual([pageId(7)]));
   });
 
+  test("?page= page set aside sends a reason code the server accepts, not an empty one", async () => {
+    mock(pack, { suggestions: [] });
+    const reasons: unknown[] = [];
+    server.use(
+      http.get(`/v1/cases/${CASE_ID}/pages/7`, () => json({ page_id: pageId(7), page_no: 7 })),
+      http.post(`/v1/cases/${CASE_ID}/pages/:pageId/quarantine`, async ({ request }) => {
+        reasons.push(((await request.json()) as { reason: unknown }).reason);
+        return json({ ...suggested(7), status: "confirmed" });
+      }),
+      http.post(`/v1/cases/${CASE_ID}/instructing-party-requests/draft`, () => json(draft({ label: packWords(pack).askLabel }))),
+    );
+    const { user } = renderAt(`${PATH}?page=7`);
+    await user.click(within(await screen.findByRole("heading", { name: "p.7" }).then((h) => h.closest("li")!)).getByRole("button", { name: "Not Mrs A's" }));
+    await user.click(screen.getByRole("button", { name: "Set aside 1 page and draft the note" }));
+    await waitFor(() => expect(reasons).toHaveLength(1));
+    expect(String(reasons[0])).toMatch(/^[a-z_]{1,40}$/);
+  });
+
+  test("?page= page kept as the patient's is not dismissed on the server: there is no suggestion to dismiss", async () => {
+    mock(pack, { suggestions: [] });
+    let deleted = false;
+    server.use(
+      http.get(`/v1/cases/${CASE_ID}/pages/7`, () => json({ page_id: pageId(7), page_no: 7 })),
+      http.delete(`/v1/cases/${CASE_ID}/pages/:pageId/quarantine`, () => ((deleted = true), apiError(404, "not_found"))),
+    );
+    const { user, router } = renderAt(`${PATH}?page=7`);
+    await user.click(within(await screen.findByRole("heading", { name: "p.7" }).then((h) => h.closest("li")!)).getByRole("button", { name: "It is Mrs A's" }));
+    await user.click(screen.getByRole("button", { name: "Save my choices" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/cases/${CASE_ID}/bundle`));
+    expect(deleted).toBe(false);
+  });
+
   test("?page= for a page already listed does not add it twice and fetches nothing", async () => {
     mock(pack);
     let fetched = false;
@@ -159,7 +192,26 @@ describe.each([
     expect(fetched).toBe(false);
   });
 
-  test("the pages sit in a grid, a chosen 'not' is amber and the explanation is one card under the grid", async () => {
+  test("each page waiting shows the whole page, large enough to read, beside its choice", async () => {
+    mock(pack, { suggestions: [suggested(412)], quarantined: [{ ...suggested(413), status: "confirmed" }] });
+    const asked: string[] = [];
+    server.use(
+      http.get(`/v1/cases/${CASE_ID}/pages/:pageNo/image`, ({ params }) => (asked.push(String(params.pageNo)), new HttpResponse(THUMB, { headers: { "Content-Type": "image/jpeg" } }))),
+      http.get(`/v1/cases/${CASE_ID}/pages/413/image`, () => apiError(404, "not_found")),
+    );
+    renderAt(PATH);
+    await screen.findByRole("heading", { level: 1, name: "These pages may belong to someone else" });
+    const first = pageCard(412);
+    const picture = first.querySelector(".pl-pagecard__picture") as HTMLElement;
+    const decide = first.querySelector(".pl-pagecard__decide") as HTMLElement;
+    await waitFor(() => expect(within(picture).getByRole("img", { name: "Page 412" }).tagName).toBe("IMG"));
+    expect(asked).toContain("412");
+    expect(within(decide).getByRole("button", { name: "Not Mrs A's" })).toBeVisible();
+    // A page already set aside has no full picture any more; its small one still shows.
+    await waitFor(() => expect(within(pageCard(413)).getByRole("img", { name: "Page 413" }).tagName).toBe("IMG"));
+  });
+
+  test("the pages sit in a grid, a chosen answer is pressed and the explanation is one card under the grid", async () => {
     mock(pack);
     const { container, user } = renderAt(PATH);
     await screen.findByRole("heading", { level: 1, name: "These pages may belong to someone else" });
@@ -167,9 +219,9 @@ describe.each([
     expect(container.querySelector(".pl-grid ~ .pl-explain-card")).not.toBeNull();
     const first = pageCard(412);
     await user.click(within(first).getByRole("button", { name: "Not Mrs A's" }));
-    expect(within(first).getByRole("button", { name: "Not Mrs A's" })).toHaveClass("pl-choice--not");
+    expect(within(first).getByRole("button", { name: "Not Mrs A's" })).toHaveAttribute("aria-pressed", "true");
     await user.click(within(first).getByRole("button", { name: "It is Mrs A's" }));
-    expect(within(first).getByRole("button", { name: "It is Mrs A's" })).toHaveClass("pl-choice--is");
+    expect(within(first).getByRole("button", { name: "It is Mrs A's" })).toHaveAttribute("aria-pressed", "true");
   });
 });
 

@@ -163,9 +163,7 @@ async def test_the_correction_must_say_the_value_too(admin: psycopg.Connection, 
     assert corrections(admin, world) == []
 
 
-async def test_corrected_words_must_be_among_the_cited_words(
-    admin: psycopg.Connection, world: dict[str, Any]
-) -> None:
+async def test_corrected_words_must_be_among_the_cited_words(admin: psycopg.Connection, world: dict[str, Any]) -> None:
     client = world["client"]
     await read(client, world)
     first, second = (await facts(client, world))[:2]

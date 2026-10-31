@@ -200,6 +200,7 @@ class ByWords:
                 ],
                 "availability_evidence": [],
                 "actions_requested_of_clinician": [],
+                "entries": [],
             }
         )
 

@@ -191,3 +191,13 @@ async def test_the_copy_carries_the_case_label_and_each_facts_source_type_with_i
     kinds = {s["key"]: s for s in content["source_types"]}
     assert kinds["primary_care_record"]["colour"] == "#1E6B4E" and kinds["primary_care_record"]["label"] == "GP record"
     assert kinds["hospital"]["colour"].startswith("#")
+
+
+async def test_the_list_says_which_copies_are_live(client_for: ClientFor, world: World) -> None:
+    kept = await create(client_for, world)
+    gone = await create(client_for, world)
+    removed = await (await client_for(world.expert)).delete(world.url(f"offline-packages/{gone['id']}"))
+    assert removed.status_code == 204
+    body = (await (await client_for(world.expert)).get(world.url("offline-packages"))).json()
+    assert {p["id"] for p in body["packages"]} == {kept["id"], gone["id"]}
+    assert [p["id"] for p in body["live"]] == [kept["id"]]

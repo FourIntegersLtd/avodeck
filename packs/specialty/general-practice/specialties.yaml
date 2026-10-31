@@ -1,0 +1,17 @@
+# Clinical specialties an entry (usually a hospital letter or referral) can name.
+specialties:
+  - {key: cardiology, label: entry.specialty.cardiology}
+  - {key: dermatology, label: entry.specialty.dermatology}
+  - {key: diabetes, label: entry.specialty.diabetes}
+  - {key: ent, label: entry.specialty.ent}
+  - {key: gastroenterology, label: entry.specialty.gastroenterology}
+  - {key: gynaecology, label: entry.specialty.gynaecology}
+  - {key: mental_health, label: entry.specialty.mental_health}
+  - {key: neurology, label: entry.specialty.neurology}
+  - {key: oncology, label: entry.specialty.oncology}
+  - {key: ophthalmology, label: entry.specialty.ophthalmology}
+  - {key: paediatrics, label: entry.specialty.paediatrics}
+  - {key: respiratory, label: entry.specialty.respiratory}
+  - {key: rheumatology, label: entry.specialty.rheumatology}
+  - {key: trauma_and_bones, label: entry.specialty.trauma_and_bones}
+  - {key: urology, label: entry.specialty.urology}

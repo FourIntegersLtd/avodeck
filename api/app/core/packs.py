@@ -20,6 +20,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import logging
 import os
 import re
 import sys
@@ -34,6 +35,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import jsonschema_rs
 import yaml
 
+log = logging.getLogger(__name__)
 REPO = Path(__file__).resolve().parents[3]
 LAYERS = ("jurisdiction", "case-type", "specialty")
 
@@ -51,7 +53,10 @@ OPTIONAL: dict[str, frozenset[str]] = {
         {"meetings.yaml", "legal_tests.md", "final_checks.yaml", "conflicts.yaml", "invoice.yaml"}
     ),
     "case-type": frozenset({"final_checks.yaml", "declarations.md", "opinion.yaml"}),
-    "specialty": frozenset({"checks.yaml", "final_checks.yaml", "vocabulary.yaml"}),
+    "specialty": frozenset(
+        {"checks.yaml", "final_checks.yaml", "vocabulary.yaml"}
+        | {"entries.yaml", "specialties.yaml", "result_groups.yaml", "reading_prompts.yaml"}
+    ),
     "overlay": frozenset(
         {"records.yaml", "guidelines.yaml", "vocabulary.yaml", "speech_phrases.yaml", "drug_monitoring.yaml"}
         | {"checks.yaml", "lanes.yaml", "sources.yaml", "final_checks.yaml", "facts.yaml"}
@@ -61,6 +66,7 @@ OPTIONAL: dict[str, frozenset[str]] = {
 REGISTRIES = frozenset(
     {"fact_kinds", "source_types", "lanes", "checks", "sections", "appendices", "question_types", "steps"}
     | {"required_contents", "types", "deadlines", "sources"}
+    | {"entry_kinds", "author_roles", "specialties", "result_groups", "term_groups"}
 )
 _SCREEN_ONLY_VOCABULARY = frozenset(
     {
@@ -94,6 +100,10 @@ END_OF_DAY = time(23, 59, 59)
 
 class PackError(Exception):
     """A pack is missing, invalid or breaks a lint rule. The app does not start with one."""
+
+
+class PackNotApproved(PackError):
+    """A production cell (`PACKS_APPROVED_ONLY=1`) found wording a lawyer has not yet checked."""
 
 
 class DeadlineError(Exception):
@@ -605,6 +615,32 @@ class MergedPack:
     def source_types(self) -> list[dict[str, Any]]:
         return self._registry("sources.yaml", "source_types")
 
+    def entry_kinds(self) -> list[dict[str, Any]]:
+        """What one entry in a record can be (`entries.yaml`), each with `transcript` include|exclude."""
+        return self._registry("entries.yaml", "entry_kinds")
+
+    def transcript_entry_kinds(self) -> frozenset[str]:
+        """Entry kinds the records transcript lays out; the rest are administrative and fold to a line."""
+        return frozenset(k["key"] for k in self.entry_kinds() if k.get("transcript") == "include")
+
+    def letter_entry_kind(self) -> str | None:
+        """The entry kind marked `letter: true`, or None."""
+        return next((k["key"] for k in self.entry_kinds() if k.get("letter") is True), None)
+
+    def author_roles(self) -> list[dict[str, Any]]:
+        return self._registry("entries.yaml", "author_roles")
+
+    def entry_specialties(self) -> list[dict[str, Any]]:
+        return self._registry("specialties.yaml", "specialties")
+
+    def result_groups(self) -> list[dict[str, Any]]:
+        """Named results with the words a page uses for them (`result_groups.yaml`)."""
+        return self._registry("result_groups.yaml", "result_groups")
+
+    def reading_prompt_groups(self) -> list[dict[str, Any]]:
+        """Word groups that point the reader at places in the record (`reading_prompts.yaml`): an index only."""
+        return self._registry("reading_prompts.yaml", "term_groups")
+
     def lanes(self) -> list[dict[str, Any]]:
         """Lanes top to bottom, each with its `kinds` (empty if none) and optional `when` (lanes.schema.json)."""
         return [{**lane, "kinds": lane.get("kinds", [])} for lane in self._registry("lanes.yaml", "lanes")]
@@ -772,14 +808,18 @@ class MergedPack:
         if task == "T-02":
             sections = [s["key"] for s in self.report_sections()]
             return {**base, "report_sections": [*sections, *([] if "other" in sections else ["other"])]}
-        return {
+        default: dict[str, Any] = {
             "date_order": self.date_order,
             "language": self.language,
             "fact_kinds": [{"key": f["key"], "fields": f.get("fields", {})} for f in self.fact_kinds()],
             "source_types": [{"key": s["key"]} for s in self.source_types()],
             "vocabulary": self._prompt_vocabulary(),
             "record_hints": self.record_hints(),
+            "entry_kinds": [{"key": k["key"]} for k in self.entry_kinds()],
+            "author_roles": [r["key"] for r in self.author_roles()],
+            "specialties": [s["key"] for s in self.entry_specialties()],
         }
+        return default
 
     # deadlines
     def deadline(self, kind: str, served: date | datetime) -> Deadline:
@@ -870,6 +910,7 @@ class PackLibrary:
                 _validate(pack, self.schema_dir)
                 if approved_only:
                     _check_approved(pack)
+                _check_declaration_verified(pack, approved_only)
         self._check_overlays()
         self._lint()
         self._combined: dict[tuple[str, str, str], MergedPack] = {}
@@ -1014,6 +1055,17 @@ def _check_approved(pack: Pack) -> None:
     meta = pack.meta
     if meta.get("status") != "approved" or not meta.get("approved_by") or not meta.get("approved_on"):
         raise PackError(f"{pack.rel('pack.yaml')}: not approved (needs status approved, approved_by and approved_on)")
+
+
+def _check_declaration_verified(pack: Pack, approved_only: bool) -> None:
+    """`verify_before_launch: true` blocks a production cell; elsewhere it is a warning naming the key only."""
+    declaration = pack.files.get("declarations.md")
+    if declaration is None or declaration["front"].get("verify_before_launch") is not True:
+        return
+    key = declaration["front"]["key"]
+    if approved_only:
+        raise PackNotApproved(f"{pack.rel('declarations.md')}: declaration '{key}' is not yet checked by a lawyer")
+    log.warning("declaration '%s' in %s/%s is not yet checked by a lawyer", key, pack.layer, pack.code)
 
 
 @cache

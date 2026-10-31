@@ -12,7 +12,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from typing import Annotated, Any, Literal
 
-from fastapi import Depends, Request, Response
+from fastapi import Depends, Query, Request, Response
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -28,6 +28,7 @@ from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
 from app.core.packs import MergedPack
 from app.features.setup.common import cell, invalid, library, not_found
+from app.features.setup.identity import read_date_of_birth, save_identity
 from app.features.setup.router import router
 
 CaseRole = Literal["co_expert", "supervisor", "assistant", "viewer"]
@@ -38,6 +39,7 @@ KEY = r"^[a-z][a-z0-9_]{0,39}$"
 ViewMetadata = Annotated[CaseAccess, Depends(require_case_access("case.view_metadata"))]
 ViewContent = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
 ManageMembers = Annotated[CaseAccess, Depends(require_case_access("case.manage_members"))]
+DeclareConflicts = Annotated[CaseAccess, Depends(require_case_access("conflict.declare"))]  # named expert only
 EditSetup = Annotated[CaseAccess, Depends(require_case_access("case.edit_setup"))]
 Upload = Annotated[CaseAccess, Depends(require_case_access("case.upload"))]
 ChangeJurisdiction = Annotated[CaseAccess, Depends(require_case_access("case.change_jurisdiction"))]
@@ -538,15 +540,19 @@ async def _new_version(
 
 @router.get("/cases/{case_id}/instructions", response_model=list[Instruction])
 async def list_instructions(
-    case_id: uuid.UUID, access: ViewContent, conn: DbConn, request: Request
+    case_id: uuid.UUID,
+    access: ViewContent,
+    conn: DbConn,
+    request: Request,
+    letters_only: Annotated[bool, Query(description="Only the versions that have their file attached.")] = False,
 ) -> list[Instruction]:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
             "select v.id, v.version_no, v.kind, v.document_id, coalesce(i.received_on, v.received_on) as received_on,"
             " v.locked_at is not null as locked, i.text, i.source from app.instruction_versions v"
             " left join app.case_instructions i on i.instruction_version_id = v.id"
-            " where v.case_id = %s order by v.version_no",
-            (case_id,),
+            " where v.case_id = %s and (not %s or v.document_id is not null) order by v.version_no",
+            (case_id, letters_only),
         )
         rows = await cur.fetchall()
     crypto: CaseCrypto | None = request.app.state.crypto
@@ -751,6 +757,40 @@ async def save_subject_key(
         (case_id, key),
     )
     await audit.record(conn, action="case.subject_key_saved", target=f"case:{case_id}", case_id=case_id)
+    return Response(status_code=204)
+
+
+class SubjectIdentityIn(BaseModel):
+    """The person's own words for themselves; sealed on arrival, never returned, never logged."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(max_length=200)
+    other_names: list[str] = Field(default_factory=list, max_length=20)
+    date_of_birth: str | None = Field(default=None, max_length=40, description="Written in the pack's date order.")
+
+
+@router.put("/cases/{case_id}/subject/identity", status_code=204)
+async def save_subject_identity(
+    case_id: uuid.UUID,
+    body: SubjectIdentityIn,
+    access: DeclareConflicts,
+    request: Request,
+    conn: DbConn,
+    crypto: Crypto,
+) -> Response:
+    """Named expert only. Parsed in the pack's date order, stored as an ISO date, sealed with the case key."""
+    name = body.name.strip()
+    others = [o.strip() for o in body.other_names if o.strip()]
+    if not name:
+        raise invalid("name")
+    born = None
+    if body.date_of_birth is not None and body.date_of_birth.strip():
+        born = read_date_of_birth(body.date_of_birth, await _pack(request, conn, case_id))
+        if born is None:
+            raise invalid("date_of_birth")
+    await save_identity(conn, crypto, case_id, name=name, other_names=others, date_of_birth=born)
+    await audit.record(conn, action="subject.identity_set", target=f"case:{case_id}", case_id=case_id)
     return Response(status_code=204)
 
 
@@ -974,6 +1014,7 @@ class Subject(BaseModel):
     status: str | None
     label: str
     representative: str | None
+    identity_recorded: bool = Field(description="Whether the person's name is recorded; never the values.")
 
 
 @router.get("/cases/{case_id}/subject", response_model=Subject)
@@ -983,7 +1024,14 @@ async def get_subject(case_id: uuid.UUID, access: ViewMetadata, request: Request
     row = await cur.fetchone()
     assert row is not None
     pack = await _pack(request, conn, case_id)
+    flag = await (await conn.execute("select app.case_identity_recorded(%s)", (case_id,))).fetchone()
+    recorded = bool(flag and flag[0])
     for status in pack.subject_statuses():
         if status["key"] == row[0]:
-            return Subject(status=row[0], label=str(status["label"]), representative=status["representative"])
-    return Subject(status=None, label=pack.term("subject"), representative=None)
+            return Subject(
+                status=row[0],
+                label=str(status["label"]),
+                representative=status["representative"],
+                identity_recorded=recorded,
+            )
+    return Subject(status=None, label=pack.term("subject"), representative=None, identity_recorded=recorded)

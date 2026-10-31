@@ -82,11 +82,11 @@ export function FinalCheck() {
   if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
   if (found.loading && found.data === undefined) return <div className="av-page"><Loading /></div>;
   const check = found.data ?? null;
-  const failed = check?.results.filter((r) => r.outcome === "failed") ?? [];
-  const notRun = check?.results.filter((r) => r.outcome === "not_run") ?? [];
-  const passed = check?.results.filter((r) => r.outcome === "passed") ?? [];
-  const ready = !!check && check.passed && check.current;
-  const title = failed.length > 0 ? w("check.title_fix", { count: failed.length }) : ready ? w("check.title_ok") : w("check.title");
+  const failed = check?.failed ?? [];
+  const notRun = check?.not_run ?? [];
+  const passed = check?.passed_checks ?? [];
+  const ready = !!check?.ready;
+  const title = (check?.failed_count ?? 0) > 0 ? w("check.title_fix", { count: check?.failed_count }) : ready ? w("check.title_ok") : w("check.title");
 
   return (
     <div className="av-page rp-page rp-page--narrow">
@@ -105,10 +105,10 @@ export function FinalCheck() {
         </div>
       </div>
       {error && <Notice tone="error"><p>{error}</p>{action && <LinkButton to={action.to}>{action.label}</LinkButton>}</Notice>}
-      {wait.waiting && <Notice><p>{w("check.running")}</p></Notice>}
-      {!check && !wait.waiting && <Notice><p>{w("check.none")}</p></Notice>}
-      {check && !check.current && <Notice tone="warning"><p>{w("check.out_of_date")}</p></Notice>}
-      {check?.declaration_changed && <Notice tone="warning"><p>{w("check.declaration_changed")}</p></Notice>}
+      {wait.waiting && <Notice tone="mint"><p>{w("check.running")}</p></Notice>}
+      {!check && !wait.waiting && <Notice tone="mint"><p>{w("check.none")}</p></Notice>}
+      {check && !check.current && <Notice tone="amber"><p>{w("check.out_of_date")}</p></Notice>}
+      {check?.declaration_changed && <Notice tone="amber"><p>{w("check.declaration_changed")}</p></Notice>}
 
       {(failed.length > 0 || notRun.length > 0) && (
         <ul className="rp-fixes">
@@ -148,11 +148,11 @@ export function FinalCheck() {
       <div className="rp-bar">
         <div className="rp-bar__actions">
           <button type="button" className="av-text-link rp-linkbtn" aria-expanded={spotOpen} onClick={() => setSpotOpen(!spotOpen)}>{w("check.spot")}</button>
-          {check && <button type="button" className="av-text-link rp-linkbtn" onClick={() => void run()} disabled={wait.waiting}>{w("check.run_again")}</button>}
+          {check && <Button variant="link" className="av-text-link rp-linkbtn" onClick={() => run()} disabled={wait.waiting}>{w("check.run_again")}</Button>}
         </div>
         <div className="rp-bar__actions">
           {!check ? (
-            <Button onClick={() => void run()} disabled={wait.waiting}>{w("check.run")}</Button>
+            <Button onClick={() => run()} disabled={wait.waiting}>{w("check.run")}</Button>
           ) : ready ? (
             <LinkButton arrow to={`/cases/${caseId}/sign`}>{w("check.sign")}</LinkButton>
           ) : (
@@ -173,7 +173,7 @@ function Failed({ caseId, result }: { caseId: string; result: Result }) {
   const to = fix ? (screenPath(fix.screen, { caseId, params: { item: fix.item } }) ?? `/cases/${caseId}`) : null;
   return (
     <li aria-label={nameOf(result)}>
-      <Callout title={nameOf(result)} icon={<AlertIcon />} actions={to ? <LinkButton to={to}>{w("check.fix")}</LinkButton> : undefined}>
+      <Callout title={nameOf(result)} icon={<AlertIcon />} actions={to ? <LinkButton variant="secondary" to={to}>{w("check.fix")}</LinkButton> : undefined}>
         {explanation(result) && <p>{explanation(result)}</p>}
         {result.count > 1 && <p>{w("check.count", { count: result.count })}</p>}
       </Callout>
@@ -229,7 +229,7 @@ function SpotCheck({ caseId }: { caseId: string }) {
       <p>{w("check.spot_intro")}</p>
       {error && <Notice tone="error"><p>{error}</p>{action && <LinkButton to={action.to}>{action.label}</LinkButton>}</Notice>}
       {started && (
-        <Notice tone="success">
+        <Notice tone="mint">
           <p>{w("check.spot_sent")}</p>
           <p className="av-report-mono">{w("check.spot_link", { path: `${window.location.origin}/spot-check/${started.token}` })}</p>
           <p>{w("check.spot_once", { date: longDate(started.expires_at, locale) })}</p>
@@ -237,7 +237,7 @@ function SpotCheck({ caseId }: { caseId: string }) {
       )}
       <TextField label={w("check.spot_email")} name="reviewer_email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       <div className="av-row">
-        <Button variant="secondary" disabled={!email.includes("@")} onClick={() => void send()}>{w("check.spot_send")}</Button>
+        <Button variant="secondary" disabled={!email.includes("@")} onClick={() => send()}>{w("check.spot_send")}</Button>
       </div>
       {(list.data?.spot_checks.length ?? 0) > 0 && (
         <>
@@ -258,10 +258,10 @@ function SpotCheck({ caseId }: { caseId: string }) {
 function SpotRow({ spot }: { spot: Schemas["SpotCheckOut"] }) {
   if (spot.locked) return <p>{w("check.spot_locked", { email: spot.reviewer_email })}</p>;
   if (spot.responses.length === 0) return <p>{w("check.spot_waiting", { email: spot.reviewer_email })}</p>;
-  const agree = spot.responses.filter((r) => r.agrees).length;
+  const agree = spot.agree_count;
   return (
     <>
-      <p>{w("check.spot_answered", { email: spot.reviewer_email, agree, total: spot.responses.length })}</p>
+      <p>{w("check.spot_answered", { email: spot.reviewer_email, agree, total: spot.total })}</p>
       {spot.responses.filter((r) => !r.agrees && r.reason).map((r) => (
         <p key={r.fact_id} className="av-muted">{w("check.spot_disagree", { reason: r.reason })}</p>
       ))}

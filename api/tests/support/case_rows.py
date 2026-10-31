@@ -140,6 +140,7 @@ def _setup_rows(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str
         "insert into app.case_links (case_id, linked_case_id, kind) values (%s, %s, 'related')", (w.case, other)
     )
     admin.execute("insert into app.case_subject_keys (case_id, key_hash) values (%s, %s)", (w.case, "a" * 64))
+    admin.execute("insert into app.case_subject_identity (case_id, name) values (%s, %s)", (w.case, b"sealed"))
     admin.execute("insert into app.case_withdrawals (case_id, reason) values (%s, %s)", (w.case, b"sealed"))
     admin.execute(
         "insert into app.conflict_answers (case_id, question_key, answer) values (%s, 'zz_known', 'no')", (w.case,)
@@ -156,6 +157,7 @@ def _setup_rows(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str
         "case_instructing_parties": 1,
         "case_links": 1,
         "case_subject_keys": 1,
+        "case_subject_identity": 1,
         "case_withdrawals": 1,
         "conflict_answers": 1,
         "conflict_answer_history": 1,
@@ -200,6 +202,11 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
         (w.case,),
     )
     admin.execute(
+        "insert into app.record_entries (case_id, page_id, kind, first_n, last_n, extraction_version)"
+        " values (%s, %s, 'zz_kind', 1, 1, 'zz')",
+        (w.case, page),
+    )
+    admin.execute(
         "insert into app.document_parts (case_id, parent_document_id, document_id, part_no, media_type)"
         " values (%s, %s, %s, 1, 'application/pdf')",
         (w.case, doc, part),
@@ -226,6 +233,7 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
         "page_replacements": 1,
         "missing_items": 1,
         "record_gaps": 1,
+        "record_entries": 1,
         "document_parts": 1,
         "document_scans": 1,
         "exhibits": 1,
@@ -248,7 +256,24 @@ def _reader_logs(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[st
         "insert into app.fact_flags (case_id, fact_id, flagged_for, person_id) values (%s, %s, 'points', %s)",
         (w.case, fact, w.expert),
     )
-    return {"documents": 1, "pages": 1, "facts": 1, "page_reads": 1, "fact_verifications": 1, "fact_flags": 1}
+    admin.execute(
+        "insert into app.transcript_views (case_id, page_id, person_id, picture_opened) values (%s, %s, %s, true)",
+        (w.case, page, w.expert),
+    )
+    admin.execute(
+        "insert into app.second_readings (case_id, page_id, requested_by) values (%s, %s, %s)",
+        (w.case, page, w.expert),
+    )
+    return {
+        "documents": 1,
+        "pages": 1,
+        "facts": 1,
+        "page_reads": 1,
+        "transcript_views": 1,
+        "second_readings": 1,
+        "fact_verifications": 1,
+        "fact_flags": 1,
+    }
 
 
 def _understand_rows(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:

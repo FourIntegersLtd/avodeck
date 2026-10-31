@@ -493,3 +493,40 @@ async def test_passed_checks_say_how_much_they_looked_at_and_pack_checks_explain
     for result in run["results"]:
         if result["source"] == "pack" and world.combo.codes[0] == "gb-eaw":
             assert result["explain"], "the launch pack words each check's explanation"
+
+
+@pytest.mark.usefixtures("model")
+async def test_the_run_is_grouped_by_outcome_with_a_count_and_a_ready_flag(
+    client_for: ClientFor,
+    worker_db: Database,
+    seed: Seed,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    world: World,
+    reads: Reads,
+) -> None:
+    await make_ready(seed, admin, aconn, world, reads)
+    await build_now(client_for, worker_db, world)
+    run = await check_now(client_for, worker_db, world)
+    assert run["ready"] is True and run["failed_count"] == 0 and run["failed"] == []
+    assert {r["key"] for r in run["not_run"]} == NOT_RUN
+    assert [r["key"] for r in run["passed_checks"]] == [r["key"] for r in run["results"] if r["outcome"] == "passed"]
+    assert len(run["passed_checks"]) + len(run["not_run"]) == len(run["results"])
+
+
+@pytest.mark.usefixtures("model")
+async def test_a_failed_run_lists_the_failures_and_is_not_ready(
+    client_for: ClientFor,
+    worker_db: Database,
+    seed: Seed,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    world: World,
+    reads: Reads,
+) -> None:
+    await make_ready(seed, admin, aconn, world, reads, read_all=False, decided=False, body=f"{CLEAN}\n\n{UNCITED_DATE}")
+    await build_now(client_for, worker_db, world)
+    run = await check_now(client_for, worker_db, world)
+    assert {r["key"] for r in run["failed"]} == {"dates_cited", "all_pages_read", "findings_decided"}
+    assert run["failed_count"] == 3 and run["ready"] is False
+    assert all(r["outcome"] == "passed" for r in run["passed_checks"])

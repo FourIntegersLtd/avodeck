@@ -1,13 +1,16 @@
-// S01 Sign in: password, then the 6-digit code. The first time, the expert sets up the code and
-// sees backup codes once. A lost phone uses a backup code; a forgotten password gets a link.
+// S01 Sign in: the password alone (ADR 0025); the 6-digit code is asked for at risky actions
+// (foundation/lib/stepUp.tsx), where the expert first sets it up and sees backup codes once. The code
+// and set-up steps stay for an API that still asks at sign-in. A lost phone uses a backup code; a
+// forgotten password gets a link.
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "../../foundation/i18n";
+import { BackupCodeList, SetupSteps } from "../../foundation/lib/authenticator";
 import { DevSkipCode, rememberDevEmail } from "../../foundation/lib/DevSkipCode";
 import { useResource } from "../../foundation/lib/useResource";
 import { errorMessage } from "../../foundation/lib/errors";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, CodeField, Loading, Notice, SupportLine, TextField } from "../../foundation/ui";
+import { Button, Checkbox, CodeField, Loading, Notice, TextField } from "../../foundation/ui";
 import { AuthLayout } from "./AuthLayout";
 
 type Step = "password" | "code" | "enrol" | "codes" | "recover" | "forgot";
@@ -24,7 +27,7 @@ export function SignIn() {
   const go = (next: Step) => setStep(next);
   const finish = () => navigate(arrived.from && arrived.from !== "/sign-in" ? arrived.from : "/today", { replace: true });
   const afterPassword = (result: Schemas["SignInResult"]) => {
-    if (result.status === "signed_in") finish(); // the local API skips the code (DEV_SKIP_MFA)
+    if (result.status === "signed_in") finish();
     else go(result.mfa_enrolled ? "code" : "enrol");
   };
   const afterCode = (result: Schemas["Verified"]) => {
@@ -127,7 +130,6 @@ function PasswordStep({ onDone, go }: { onDone: (r: Schemas["SignInResult"]) => 
           {t("sign_in.note.link_end")} <PrivateNote />
         </p>
       </div>
-      <SupportLine />
     </>
   );
 }
@@ -190,18 +192,7 @@ function EnrolStep({ onDone }: { onDone: (r: Schemas["Verified"]) => void }) {
       {!setup && !error && <Loading inline />}
       {setup && (
         <>
-          <ol className="av-stack">
-            <li>{t("sign_in.enrol.step_app")}</li>
-            <li>
-              <p>{t("sign_in.enrol.step_scan")}</p>
-              <img className="av-qr" src={setup.qr_code} alt={t("sign_in.enrol.qr_alt")} />
-              <p>{t("sign_in.enrol.key")}</p>
-              <p>
-                <code className="av-mono">{setup.secret}</code>
-              </p>
-            </li>
-            <li>{t("sign_in.enrol.step_code")}</li>
-          </ol>
+          <SetupSteps setup={setup} />
           <CodeForm onDone={onDone} submitLabel={t("sign_in.code.submit")} secret={setup.secret} />
         </>
       )}
@@ -213,12 +204,7 @@ function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => void })
   return (
     <>
       <h1>{t("sign_in.codes.title")}</h1>
-      <p>{t("sign_in.codes.intro")}</p>
-      <ul className="av-codes">
-        {codes.map((code) => (
-          <li key={code}>{code}</li>
-        ))}
-      </ul>
+      <BackupCodeList codes={codes} />
       <Button wide onClick={onDone}>
         {t("sign_in.codes.saved")}
       </Button>
