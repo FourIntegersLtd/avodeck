@@ -114,7 +114,9 @@ async def test_the_file_holds_the_entries_in_order_without_names_or_birth_dates(
     world = {"case": case, "expert": expert}
     await record_identity(aconn, crypto, world["case"])
     doc = await add_document(aconn, world["case"])
-    two = await add_page(aconn, crypto, world["case"], doc, 2, [Spec("zz_session", ("second entry",), day=date(2020, 2, 1))])
+    two = await add_page(
+        aconn, crypto, world["case"], doc, 2, [Spec("zz_session", ("second entry",), day=date(2020, 2, 1))]
+    )
     one = await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", (SENTENCE,), day=date(2020, 1, 1))])
     await read(api_db, world, one, two)
     client = await client_for(world["expert"])

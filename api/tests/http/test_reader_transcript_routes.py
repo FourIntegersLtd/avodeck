@@ -97,7 +97,7 @@ async def test_entries_not_read_yet_queue_the_job_once(
     client = await client_for(world["expert"])
     for _ in range(2):
         body = (await client.get(f"{base(world)}/transcript/entries")).json()
-        assert body == {"status": "preparing", "total": 0, "entries": []}
+        assert body == {"status": "preparing", "total": 0, "entries": [], "picture_pages": []}
     row = admin.execute(
         "select count(*) from app.jobs where case_id = %s and kind = 'extract_entries'", (world["case"],)
     ).fetchone()

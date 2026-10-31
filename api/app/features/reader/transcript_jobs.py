@@ -14,15 +14,18 @@ import uuid
 import docx
 from psycopg import AsyncConnection
 
+from app.core import audit
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ApiError
 from app.core.jobs import JobContext, JobRegistry, registry
 from app.core.packs import PackLibrary, default_library
 from app.core.storage import StorageError, SupabaseStorage, case_prefix, storage_settings
-from app.features.reader import transcript
+from app.features.reader import repo, transcript
+from app.features.reader.transcript_words import label_text, show_date, word
 
 KIND = "export_transcript"
 PAGE = 200
+DOWNLOADED = "case.transcript_downloaded"
 
 
 class _Services:
@@ -56,17 +59,14 @@ def transcript_path(case_id: uuid.UUID, job_id: uuid.UUID) -> str:
     return f"{case_prefix(case_id)}/exports/{job_id}/transcript.docx"
 
 
-def _label(key: str) -> str:
-    return key.replace("_", " ").capitalize()
-
-
-def build(entries: list[transcript.TranscriptEntry]) -> bytes:
+def build(entries: list[transcript.TranscriptEntry], *, date_order: str, language: str) -> bytes:
     document = docx.Document()
-    document.add_heading("Records transcript", level=0)
+    document.add_heading(word(language, "title"), level=0)
     for e in entries:
-        parts = [f"Page {e.page_no}", e.event_date.isoformat() if e.event_date else "undated", _label(e.kind)]
-        if e.author_role:
-            parts.append(_label(e.author_role))
+        parts = [word(language, "page", number=e.page_no), show_date(e.event_date, date_order, language)]
+        parts.append(label_text(e.kind_label))
+        if e.author_label:
+            parts.append(label_text(e.author_label))
         document.add_heading(", ".join(parts), level=2)
         for line in e.lines:
             document.add_paragraph(line)
@@ -86,29 +86,60 @@ async def export_transcript(ctx: JobContext) -> None:
         )
         if await cur.fetchone() is None:
             return
+        cur = await conn.execute("select named_expert_id from app.cases where id = %s", (ctx.case_id,))
+        named = (await cur.fetchone() or (None,))[0]
+        codes = await repo.case_codes(conn, ctx.case_id)
+        if named is None or codes is None:
+            return
+        pack = library.for_case(codes)
         everything: list[transcript.TranscriptEntry] = []
         while True:
-            got = await transcript.entries(conn, crypto, library, ctx.case_id, offset=len(everything), limit=PAGE)
+            got = await transcript.entries(
+                conn, crypto, library, ctx.case_id, offset=len(everything), limit=PAGE, only_read_by=named
+            )
             everything += got.entries
             if not got.entries or len(everything) >= got.total:
                 break
         path = transcript_path(ctx.case_id, ctx.job_id)
-        await storage.put(path, await crypto.encrypt(conn, ctx.case_id, build(everything), purpose=path))
+        document = build(everything, date_order=pack.date_order, language=pack.language)
+        await storage.put(path, await crypto.encrypt(conn, ctx.case_id, document, purpose=path))
+
+
+def _missing(error: StorageError) -> bool:
+    """True when storage said the object is not there (not any other fault)."""
+    return str(error).rsplit(" ", 1)[-1] in ("400", "404")
 
 
 async def take(
     conn: AsyncConnection, storage: SupabaseStorage, crypto: CaseCrypto, case_id: uuid.UUID, job_id: uuid.UUID
 ) -> bytes:
-    """The Word file, once: the stored copy is removed as it is handed over."""
+    """The Word file, once. That it was taken is the audit row, so a copy that could not be removed is never
+    handed over twice; the caller removes the stored copy after the transaction commits (`remove`)."""
     path = transcript_path(case_id, job_id)
     await conn.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (path,))
+    cur = await conn.execute(
+        "select 1 from app.audit_log where case_id = %s and action = %s and target = %s",
+        (case_id, DOWNLOADED, f"export:{job_id}"),
+    )
+    if await cur.fetchone() is not None:
+        raise ApiError("not_found", "This file has already been downloaded.", 404)
     try:
         blob = await storage.get(path)
-    except StorageError:
-        raise ApiError("not_found", "This file has already been downloaded.", 404) from None
+    except StorageError as error:
+        if _missing(error):
+            raise ApiError("not_found", "This file has already been downloaded.", 404) from None
+        raise ApiError("unavailable", "File storage is not ready.", 503) from None
     data = await crypto.decrypt(conn, case_id, blob, purpose=path)
-    await storage.delete([path])
+    await audit.record(conn, action=DOWNLOADED, target=f"export:{job_id}", case_id=case_id)
     return data
+
+
+async def remove(storage: SupabaseStorage, case_id: uuid.UUID, job_id: uuid.UUID) -> None:
+    """Removes the stored copy once the download is recorded. A failure leaves it for the daily sweep."""
+    try:
+        await storage.delete([transcript_path(case_id, job_id)])
+    except StorageError:
+        pass
 
 
 def register(reg: JobRegistry) -> None:
