@@ -23,23 +23,27 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends, Request, Response
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from psycopg import AsyncConnection
+from psycopg.errors import LockNotAvailable
 from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, check_case_access, require_case_access
 from app.core.contracts.events import DocumentUploaded, events
 from app.core.crypto import CaseCrypto, StoredFileChanged
-from app.core.errors import ApiError
+from app.core.db import Database, RequestScope
+from app.core.errors import ApiError, error_response
 from app.core.http import CurrentScope, DbConn, router
-from app.core.storage import SupabaseStorage, upload_prefix
+from app.core.storage import StorageError, SupabaseStorage, upload_prefix
 
 CHUNK_SIZE = 8 * 1024 * 1024
 MAX_FILE_SIZE = 500 * 1024 * 1024
 CODE = r"^[a-z][a-z0-9_]{0,39}$"
 
+LOCK_WAIT_MS = 5000  # the longest a call waits for another call on the same upload
 SHA256_HEX = re.compile(r"[0-9a-fA-F]{64}")
 _log = logging.getLogger(__name__)
 
@@ -174,7 +178,13 @@ async def _load_locked(conn: AsyncConnection, upload_id: uuid.UUID) -> dict[str,
     transaction (`_fail`), which would wait on a row lock forever. Receiving a part and completing both take
     it, so a part cannot land between completing's read of the parts and the document being made."""
     await _load(conn, upload_id)  # not found / no access, before anything is locked
-    await conn.execute("select pg_advisory_xact_lock(hashtextextended(%s::text, 0))", (str(upload_id),))
+    # Wait a few seconds at most for another call on the same upload, then say so; later statements wait as usual.
+    await conn.execute("select set_config('lock_timeout', %s, true)", (f"{LOCK_WAIT_MS}ms",))
+    try:
+        await conn.execute("select pg_advisory_xact_lock(hashtextextended(%s::text, 0))", (str(upload_id),))
+    except LockNotAvailable:
+        raise ApiError("upload_busy", "This upload is being worked on. Try again in a moment.", 409) from None
+    await conn.execute("select set_config('lock_timeout', '0', true)")
     return await _load(conn, upload_id)
 
 
@@ -219,31 +229,48 @@ async def put_chunk(
     return ChunkReceived(received=list(updated[0]))
 
 
-async def _fail(request: Request, upload: Upload, storage: SupabaseStorage, why: dict[str, object]) -> None:
-    """Close an upload whose stored bytes do not match, for good, in its own transaction (the request's is
-    rolled back by the error), and delete its stored parts, but only if this call is the one that closed it:
-    an upload another call has already finished keeps its parts. Logs ids and hashes (or a part number),
-    never any content."""
-    async with request.app.state.database.request(request.state.scope) as other:
-        cur = await other.execute(
-            "update app.uploads set status = 'failed' where id = %s and status = 'open' returning id",
-            (upload.upload_id,),
-        )
-        closed = await cur.fetchone()
-    if closed is None:
-        return
-    audit.record_detached(action="upload.failed", target=f"upload:{upload.upload_id}", case_id=upload.case_id)
-    _log.warning(
-        "upload failed its stored-bytes check",
-        extra={"upload_id": str(upload.upload_id), "case_id": str(upload.case_id), **why},
-    )
-    prefix = _prefix(upload.case_id, upload.upload_id)
+async def _close_failed(
+    database: Database, scope: RequestScope, upload: Upload, storage: SupabaseStorage, why: dict[str, object]
+) -> None:
+    """Close an upload whose stored bytes do not match, for good, and delete its stored parts, but only if
+    this call is the one that closed it: an upload another call has already finished keeps its parts.
+    Logs ids and hashes (or a part number), never any content. Runs after the error response has gone and
+    the request's transaction (with its lock and connection) is over, in a transaction of its own."""
     try:
-        await storage.delete([_chunk_path(prefix, n) for n in range(1, upload.chunk_count + 1)])
-    except Exception as exc:  # noqa: BLE001 - the upload is already closed; the daily sweep leaves stray parts
-        _log.error(
-            "failed upload parts not deleted", extra={"upload_id": str(upload.upload_id), "error": type(exc).__name__}
+        async with database.request(scope) as conn:
+            cur = await conn.execute(
+                "update app.uploads set status = 'failed' where id = %s and status = 'open' returning id",
+                (upload.upload_id,),
+            )
+            closed = await cur.fetchone()
+            if closed is not None:
+                await audit.record(
+                    conn, action="upload.failed", target=f"upload:{upload.upload_id}", case_id=upload.case_id
+                )
+        if closed is None:
+            return
+        _log.warning(
+            "upload failed its stored-bytes check",
+            extra={"upload_id": str(upload.upload_id), "case_id": str(upload.case_id), **why},
         )
+        prefix = _prefix(upload.case_id, upload.upload_id)
+        await storage.delete([_chunk_path(prefix, n) for n in range(1, upload.chunk_count + 1)])
+    except Exception as exc:  # noqa: BLE001 - nothing to tell the sender; the upload stays open until it expires
+        _log.error("failed upload not closed", extra={"upload_id": str(upload.upload_id), "error": type(exc).__name__})
+
+
+def _failed(
+    request: Request, upload: Upload, storage: SupabaseStorage, why: dict[str, object], error: ApiError
+) -> JSONResponse:
+    """The error response for a failed check, carrying the work of closing the upload to run once it is sent.
+
+    Returned, not raised, and closed afterwards, so the failing call never holds a second pooled connection
+    while it still holds its first (and the upload's lock): ten failing calls at once cannot starve the pool."""
+    response = error_response(error.status, error.code, error.message, **error.extra)
+    response.background = BackgroundTask(
+        _close_failed, request.app.state.database, request.state.scope, upload, storage, why
+    )
+    return response
 
 
 @uploads_router.post("/v1/uploads/{upload_id}/complete", status_code=201, response_model=UploadedDocument)
@@ -255,7 +282,7 @@ async def complete_upload(
     storage: Storage,
     crypto: Crypto,
     body: CompleteUpload | None = None,
-) -> UploadedDocument:
+) -> UploadedDocument | JSONResponse:
     await _load(conn, upload_id)  # not found / no access first, whatever else is wrong
     claimed = ((body.sha256 if body is not None else None) or "").lower()
     if not SHA256_HEX.fullmatch(claimed):
@@ -279,19 +306,28 @@ async def complete_upload(
     part_hashes: dict[str, str] = row["chunk_sha256"]  # type: ignore[assignment]
     for n in range(1, upload.chunk_count + 1):
         path = _chunk_path(prefix, n)
-        data = await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path)
+        try:
+            stored = await storage.get(path)
+        except StorageError:
+            # A failed check on a call just ahead of this one may be deleting the parts as we read: if the
+            # part is gone the upload is closed; if it is still there, storage itself failed.
+            if path in await storage.list(prefix):
+                raise
+            raise ApiError("upload_closed", "This upload has finished. Start the upload again.", 409) from None
+        data = await crypto.decrypt(conn, case_id, stored, purpose=path)
         # Each part must still be the bytes whose hash was kept when it arrived.
         if not hmac.compare_digest(hashlib.sha256(data).hexdigest(), part_hashes.get(str(n), "")):
-            await _fail(request, upload, storage, {"part": n})
-            raise ApiError("chunk_hash_mismatch", "A part changed after it arrived. Add the file again.", 422, part=n)
+            error = ApiError("chunk_hash_mismatch", "A part changed after it arrived. Add the file again.", 422, part=n)
+            return _failed(request, upload, storage, {"part": n}, error)
         digest.update(data)
     stored_sha = digest.hexdigest()
     if not hmac.compare_digest(stored_sha, claimed):
-        await _fail(request, upload, storage, {"expected_sha256": claimed, "stored_sha256": stored_sha})
-        raise ApiError("file_hash_mismatch", "The file did not verify after it was added. Add it again.", 422)
+        error = ApiError("file_hash_mismatch", "The file did not verify after it was added. Add it again.", 422)
+        return _failed(request, upload, storage, {"expected_sha256": claimed, "stored_sha256": stored_sha}, error)
     if not hmac.compare_digest(stored_sha, str(row["sha256"])):
-        await _fail(request, upload, storage, {"expected_sha256": str(row["sha256"]), "stored_sha256": stored_sha})
-        raise ApiError("sha256_mismatch", "The file changed on the way. Upload it again.", 422)
+        error = ApiError("sha256_mismatch", "The file changed on the way. Upload it again.", 422)
+        why: dict[str, object] = {"expected_sha256": str(row["sha256"]), "stored_sha256": stored_sha}
+        return _failed(request, upload, storage, why, error)
     cur = await conn.execute(
         "insert into app.documents (case_id, kind, filename, storage_path, sha256, sha256_verified_at, uploaded_by)"
         " values (%s, %s, %s, %s, %s, now(), app.current_person_id()) returning id",
@@ -300,10 +336,15 @@ async def complete_upload(
     created = await cur.fetchone()
     assert created is not None
     document_id: uuid.UUID = created[0]
-    await conn.execute(
-        "update app.uploads set status = 'complete', document_id = %s, completed_at = now() where id = %s",
+    # The daily sweep does not take the upload's lock: if it expired the upload since the check above, this
+    # matches nothing, and the document made a moment ago goes with the rolled-back transaction.
+    cur = await conn.execute(
+        "update app.uploads set status = 'complete', document_id = %s, completed_at = now()"
+        " where id = %s and status = 'open' returning id",
         (document_id, upload_id),
     )
+    if await cur.fetchone() is None:
+        raise ApiError("upload_closed", "This upload has finished. Start the upload again.", 409)
     await audit.record(conn, action="document.uploaded", target=f"document:{document_id}", case_id=case_id)
     await events.publish(conn, DocumentUploaded(case_id=case_id, document_id=document_id, appended=bool(row["append"])))
     return UploadedDocument(document_id=document_id, sha256=stored_sha, size=upload.size)
