@@ -201,6 +201,28 @@ async def test_the_file_holds_only_pages_the_named_expert_has_read(
     assert "readword" in joined and "unreadword" not in joined
 
 
+async def test_a_page_the_computer_could_not_read_is_said_so_in_the_file(
+    api_db: Database,
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    crypto: CaseCrypto,
+    world: dict[str, Any],
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    ok = await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("readword",))])
+    failed = await add_page(aconn, crypto, world["case"], doc, 2, [], failed=True)
+    await add_page(aconn, crypto, world["case"], doc, 3, [], failed=True)  # not read by the expert: left out
+    await read(api_db, world, ok, failed)
+    client = await client_for(world["expert"])
+    job = await build(client, worker_db, admin, world)
+    resp = await client.get(f"/v1/cases/{world['case']}/transcript/download/{job}")
+    text = paragraphs(resp.content)
+    assert sum("look at the picture" in p for p in text) == 1
+    assert any("Page 2" in p for p in text) and not any("Page 3" in p for p in text)
+
+
 async def test_nothing_is_built_while_the_named_expert_has_read_nothing(
     client_for: Any, aconn: psycopg.AsyncConnection, crypto: CaseCrypto, world: dict[str, Any]
 ) -> None:

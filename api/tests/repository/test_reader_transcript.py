@@ -183,6 +183,28 @@ async def test_an_unreadable_page_that_has_entries_is_listed_but_one_with_none_i
     assert got.picture_pages == [2]
 
 
+async def test_a_page_the_computer_could_not_read_is_listed_apart_from_pages_with_no_entries(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [], failed=True)
+    await add_page(aconn, CRYPTO, world["case"], doc, 2, [])
+    await add_page(aconn, CRYPTO, world["case"], doc, 3, [Spec("zz_session", ("fine",))])
+    got = await listed(api_db, world)
+    assert got.unread_pages == [1]
+    assert got.picture_pages == [2]
+    assert [e.page_no for e in got.entries] == [3]
+
+
+async def test_a_page_the_computer_could_not_read_is_read_when_its_picture_is_opened(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [], failed=True)
+    await add_page(aconn, CRYPTO, world["case"], doc, 2, [Spec("zz_session", ("fine",))])
+    assert await seen(api_db, world, world["expert"], page_no=1, picture_opened=True) == [1]
+
+
 async def test_someone_without_access_sees_no_entries(
     api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
 ) -> None:
