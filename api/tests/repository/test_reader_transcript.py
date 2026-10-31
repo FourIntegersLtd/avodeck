@@ -292,11 +292,12 @@ async def test_entries_on_a_page_that_is_not_to_be_read_are_refused(
 ) -> None:
     doc = await add_document(aconn, world["case"])
     keep = await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("kept",))])
-    extra: dict[str, Any] = {
+    options: dict[str, dict[str, Any]] = {
         "quarantined": {"quarantined": True},
         "duplicate": {"duplicate_of": keep.page_id},
         "superseded": {"superseded_by": keep.page_id},
-    }[kind]
+    }
+    extra = options[kind]
     built = await add_page(aconn, CRYPTO, world["case"], doc, 2, [Spec("zz_session", ("x",))], **extra)
     with pytest.raises(transcript.UnknownEntry):
         await seen(api_db, world, world["expert"], entry_id=built.entry_ids[0], dwell_ms=transcript.SEEN_MS)
