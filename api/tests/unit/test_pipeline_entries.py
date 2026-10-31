@@ -53,7 +53,7 @@ def test_the_schema_has_entries_built_from_the_pack_and_no_free_text(combo: Comb
 def test_the_validator_refuses_free_text_in_an_entry(combo: Combo) -> None:
     pack = pack_of(combo)
     validator = jsonschema_rs.validator_for(extract.output_schema(pack))
-    page = {
+    page: dict[str, Any] = {
         "source_type": None,
         "printed_dates": [],
         "facts": [],
