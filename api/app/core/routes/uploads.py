@@ -359,7 +359,7 @@ async def _claim(
 @uploads_router.post(
     "/v1/uploads/{upload_id}/complete",
     status_code=202,
-    response_model=UploadedDocument | Finalizing,
+    response_model=None,  # the two answers are declared below, one status each (no mixed union in the schema)
     responses={200: {"model": UploadedDocument}, 202: {"model": Finalizing}},
 )
 async def complete_upload(

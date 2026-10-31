@@ -7,6 +7,7 @@ They are expected to fail until the corresponding implementation is done.
 from __future__ import annotations
 
 import hashlib
+import json
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any
@@ -207,9 +208,10 @@ async def test_db_allows_finalizing_to_open_reopen(
         (team["case"],),
     ))
     upload_id = only(admin.execute(
-        "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received)"
-        " values (%s, %s, 'records', 'test.pdf', 16000000, %s, %s, 2, '{1,2}') returning id",
-        (team["case"], team["expert"], "c" * 64, 8 * MB),
+        "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received,"
+        " chunk_sha256)"
+        " values (%s, %s, 'records', 'test.pdf', 16000000, %s, %s, 2, '{1,2}', %s) returning id",
+        (team["case"], team["expert"], "c" * 64, 8 * MB, json.dumps({"1": "1" * 64, "2": "2" * 64})),
     ))
     admin.commit()
     admin.execute(
@@ -217,14 +219,16 @@ async def test_db_allows_finalizing_to_open_reopen(
         (job_id, upload_id),
     )
     admin.commit()
-    # Reopen: remove chunk 2 from received and go back to open
+    # Reopen: drop only chunk 2 (and its hash) and go back to open
     admin.execute(
-        "update app.uploads set status = 'open', received = '{1}', chunk_sha256 = '{}' where id = %s",
-        (upload_id,),
+        "update app.uploads set status = 'open', received = '{1}', chunk_sha256 = %s where id = %s",
+        (json.dumps({"1": "1" * 64}), upload_id),
     )
     admin.commit()
-    row = admin.execute("select status, received from app.uploads where id = %s", (upload_id,)).fetchone()
-    assert row == ("open", [1])
+    row = admin.execute(
+        "select status, received, chunk_sha256 from app.uploads where id = %s", (upload_id,)
+    ).fetchone()
+    assert row == ("open", [1], {"1": "1" * 64})
 
 
 # --- Filename and empty file validation ---
