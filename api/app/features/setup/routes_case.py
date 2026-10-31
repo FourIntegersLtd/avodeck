@@ -28,6 +28,7 @@ from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
 from app.core.packs import MergedPack
 from app.features.setup.common import cell, invalid, library, not_found
+from app.features.setup.identity import read_date_of_birth, save_identity
 from app.features.setup.router import router
 
 CaseRole = Literal["co_expert", "supervisor", "assistant", "viewer"]
@@ -38,6 +39,7 @@ KEY = r"^[a-z][a-z0-9_]{0,39}$"
 ViewMetadata = Annotated[CaseAccess, Depends(require_case_access("case.view_metadata"))]
 ViewContent = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
 ManageMembers = Annotated[CaseAccess, Depends(require_case_access("case.manage_members"))]
+DeclareConflicts = Annotated[CaseAccess, Depends(require_case_access("conflict.declare"))]  # named expert only
 EditSetup = Annotated[CaseAccess, Depends(require_case_access("case.edit_setup"))]
 Upload = Annotated[CaseAccess, Depends(require_case_access("case.upload"))]
 ChangeJurisdiction = Annotated[CaseAccess, Depends(require_case_access("case.change_jurisdiction"))]
@@ -758,6 +760,40 @@ async def save_subject_key(
     return Response(status_code=204)
 
 
+class SubjectIdentityIn(BaseModel):
+    """The person's own words for themselves; sealed on arrival, never returned, never logged."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(max_length=200)
+    other_names: list[str] = Field(default_factory=list, max_length=20)
+    date_of_birth: str | None = Field(default=None, max_length=40, description="Written in the pack's date order.")
+
+
+@router.put("/cases/{case_id}/subject/identity", status_code=204)
+async def save_subject_identity(
+    case_id: uuid.UUID,
+    body: SubjectIdentityIn,
+    access: DeclareConflicts,
+    request: Request,
+    conn: DbConn,
+    crypto: Crypto,
+) -> Response:
+    """Named expert only. Parsed in the pack's date order, stored as an ISO date, sealed with the case key."""
+    name = body.name.strip()
+    others = [o.strip() for o in body.other_names if o.strip()]
+    if not name:
+        raise invalid("name")
+    born = None
+    if body.date_of_birth is not None and body.date_of_birth.strip():
+        born = read_date_of_birth(body.date_of_birth, await _pack(request, conn, case_id))
+        if born is None:
+            raise invalid("date_of_birth")
+    await save_identity(conn, crypto, case_id, name=name, other_names=others, date_of_birth=born)
+    await audit.record(conn, action="subject.identity_set", target=f"case:{case_id}", case_id=case_id)
+    return Response(status_code=204)
+
+
 @router.post("/cases/duplicate-check", response_model=DuplicateCheck)
 async def duplicate_check(body: DuplicateCheckIn, request: Request, conn: DbConn, crypto: Crypto) -> DuplicateCheck:
     """Cases you can see whose subject has the same identifier, in the same jurisdiction."""
@@ -978,6 +1014,7 @@ class Subject(BaseModel):
     status: str | None
     label: str
     representative: str | None
+    identity_recorded: bool = Field(description="Whether the person's name is recorded; never the values.")
 
 
 @router.get("/cases/{case_id}/subject", response_model=Subject)
@@ -987,7 +1024,14 @@ async def get_subject(case_id: uuid.UUID, access: ViewMetadata, request: Request
     row = await cur.fetchone()
     assert row is not None
     pack = await _pack(request, conn, case_id)
+    flag = await (await conn.execute("select app.case_identity_recorded(%s)", (case_id,))).fetchone()
+    recorded = bool(flag and flag[0])
     for status in pack.subject_statuses():
         if status["key"] == row[0]:
-            return Subject(status=row[0], label=str(status["label"]), representative=status["representative"])
-    return Subject(status=None, label=pack.term("subject"), representative=None)
+            return Subject(
+                status=row[0],
+                label=str(status["label"]),
+                representative=status["representative"],
+                identity_recorded=recorded,
+            )
+    return Subject(status=None, label=pack.term("subject"), representative=None, identity_recorded=recorded)

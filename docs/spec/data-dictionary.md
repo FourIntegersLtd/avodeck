@@ -280,6 +280,13 @@ A joint expert is one with two or more current instructing parties; no separate 
 | transcript_id | The dictation they came from, if dictated |
 | received_on | The date the instructions were given |
 
+### case_subject_identity
+| Field | In plain words |
+|---|---|
+| name | The person's own name, sealed with the case key; only used to hide it from the reading tools |
+| other_names | Other names they are known by (a list), sealed |
+| date_of_birth | Their date of birth, read in the pack's date order and sealed |
+
 ### case_subject_keys
 | Field | In plain words |
 |---|---|

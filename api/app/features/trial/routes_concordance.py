@@ -44,6 +44,7 @@ from app.features.trial.common import (
 from app.features.trial.pdfs import Document, render
 from app.features.trial.router import router
 from app.features.trial.services import current
+from app.features.trial.storage import Sealer, put_sealed
 from app.features.trial.words import word
 
 Status = Literal["matched", "to_confirm", "missing"]
@@ -142,10 +143,10 @@ def _row(row: dict[str, Any], cited: dict[uuid.UUID, list[int]]) -> RowOut:
     )
 
 
-async def _queue(conn: Any, storage: Any, case_id: uuid.UUID, data: bytes, **values: Any) -> BundleQueued:
+async def _queue(conn: Any, storage: Any, crypto: Any, case_id: uuid.UUID, data: bytes, **values: Any) -> BundleQueued:
     bundle_id = uuid.uuid4()
     path = trial_path(case_id, "bundles", f"{bundle_id}.pdf")
-    await storage.put(path, data)
+    await put_sealed(Sealer(crypto, storage), conn, case_id, path, data)
     job_id = await registry.enqueue(conn, case_id, "match_trial_bundle")
     await conn.execute(
         "insert into app.court_bundles (id, case_id, hearing_id, version, status, storage_path, sha256,"
@@ -171,6 +172,7 @@ async def upload_court_bundle(
     conn: DbConn,
     access: Upload,
     storage: Storage,
+    crypto: Crypto,
     received_on: date | None = None,
     hearing_id: uuid.UUID | None = None,
 ) -> BundleQueued:
@@ -186,7 +188,7 @@ async def upload_court_bundle(
     if existing is not None:
         raise conflict("bundle_exists", "A court bundle is already here. Send the new one as a re-issue.")
     return await _queue(
-        conn, storage, case_id, data, hearing_id=hearing_id, version=1, received_on=received_on or date.today()
+        conn, storage, crypto, case_id, data, hearing_id=hearing_id, version=1, received_on=received_on or date.today()
     )
 
 
@@ -198,6 +200,7 @@ async def supersede_court_bundle(
     conn: DbConn,
     access: Upload,
     storage: Storage,
+    crypto: Crypto,
     received_on: date | None = None,
 ) -> BundleQueued:
     old = await repo.one(
@@ -212,6 +215,7 @@ async def supersede_court_bundle(
     queued = await _queue(
         conn,
         storage,
+        crypto,
         case_id,
         data,
         hearing_id=old["hearing_id"],

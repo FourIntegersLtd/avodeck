@@ -32,6 +32,7 @@ from typing import Any
 from psycopg import AsyncConnection
 
 from app.core.ai import pii, provenance
+from app.core.contracts.case_identity import Identity, identity_for
 from app.core.crypto import CaseCrypto
 from app.core.jobs import JobContext, registry
 from app.core.packs import MergedPack
@@ -47,14 +48,6 @@ PREFILL_VALUE = "prefill_value"
 _ISO = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 
 
-async def case_names(conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID) -> list[str]:
-    """The names of the case's parties, for `pii.strip`."""
-    cur = await conn.execute("select name from app.case_parties where case_id = %s order by created_at, id", (case_id,))
-    return [
-        (await crypto.decrypt(conn, case_id, bytes(r[0]), purpose=PARTY_NAME)).decode() for r in await cur.fetchall()
-    ]
-
-
 async def read_document(
     conn: AsyncConnection, storage: SupabaseStorage, crypto: CaseCrypto, case_id: uuid.UUID, prefix: str
 ) -> bytes:
@@ -64,14 +57,14 @@ async def read_document(
     return b"".join(parts)
 
 
-async def read_letter(ctx: JobContext, pack: MergedPack, document_prefix: str, names: list[str]) -> Letter:
+async def read_letter(ctx: JobContext, pack: MergedPack, document_prefix: str, who: Identity) -> Letter:
     services = current()
     _, ocr = services.ai()
     storage, crypto = services.files()
     async with ctx.transaction() as conn:
         document = await read_document(conn, storage, crypto, ctx.case_id, document_prefix)
     letter = Letter.from_ocr(await ocr.analyse(document, "layout"))
-    letter.mask(pack=pack, names=names, dates_of_birth=())
+    letter.mask(pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
     return letter
 
 
@@ -126,13 +119,21 @@ async def _extract_one(ctx: JobContext, version_id: uuid.UUID, version_no: int, 
     _, crypto = services.files()
     async with ctx.transaction() as conn:
         pack = await _case_pack(conn, ctx.case_id)
-        names = await case_names(conn, crypto, ctx.case_id)
+        who = await identity_for(conn, crypto, ctx.case_id)
     await ctx.progress(10, step="ocr")
-    letter = await read_letter(ctx, pack, prefix, names)
+    letter = await read_letter(ctx, pack, prefix, who)
     await ctx.progress(40, step="questions")
     task = ai_tasks.t06(pack)
     async with ctx.transaction() as conn:
-        out = await kit.run(conn, task, pack=pack, text=letter.prompt_text(), case_id=ctx.case_id, names=names)
+        out = await kit.run(
+            conn,
+            task,
+            pack=pack,
+            text=letter.prompt_text(),
+            case_id=ctx.case_id,
+            names=who.names,
+            dates_of_birth=who.dates_of_birth,
+        )
     questions, rejected_q = checked_items(letter, out["questions"])
     assumptions, rejected_a = checked_items(letter, out["assumptions"])
     outside = set(pack.outside_expertise_question_types())
@@ -324,13 +325,21 @@ async def prefill_case(ctx: JobContext) -> None:
             return
         version_id, _, prefix = latest
         pack = await _case_pack(conn, ctx.case_id)
-        names = await case_names(conn, crypto, ctx.case_id)
+        who = await identity_for(conn, crypto, ctx.case_id)
     await ctx.progress(10, step="ocr")
-    letter = await read_letter(ctx, pack, prefix, names)
+    letter = await read_letter(ctx, pack, prefix, who)
     await ctx.progress(50, step="prefill")
     task = ai_tasks.t04(pack)
     async with ctx.transaction() as conn:
-        out = await kit.run(conn, task, pack=pack, text=letter.prompt_text(), case_id=ctx.case_id, names=names)
+        out = await kit.run(
+            conn,
+            task,
+            pack=pack,
+            text=letter.prompt_text(),
+            case_id=ctx.case_id,
+            names=who.names,
+            dates_of_birth=who.dates_of_birth,
+        )
     kept: list[tuple[Mapping[str, Any], list[str], str]] = []
     for item in out["suggestions"]:
         checked = check_suggestion(letter, pack, item)

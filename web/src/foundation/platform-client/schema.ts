@@ -3273,6 +3273,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/subject/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Subject Identity
+         * @description Named expert only. Parsed in the pack's date order, stored as an ISO date, sealed with the case key.
+         */
+        put: operations["save_subject_identity_v1_cases__case_id__subject_identity_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/support-access": {
         parameters: {
             query?: never;
@@ -11452,12 +11472,32 @@ export interface components {
         };
         /** Subject */
         Subject: {
+            /**
+             * Identity Recorded
+             * @description Whether the person's name is recorded; never the values.
+             */
+            identity_recorded: boolean;
             /** Label */
             label: string;
             /** Representative */
             representative: string | null;
             /** Status */
             status: string | null;
+        };
+        /**
+         * SubjectIdentityIn
+         * @description The person's own words for themselves; sealed on arrival, never returned, never logged.
+         */
+        SubjectIdentityIn: {
+            /**
+             * Date Of Birth
+             * @description Written in the pack's date order.
+             */
+            date_of_birth?: string | null;
+            /** Name */
+            name: string;
+            /** Other Names */
+            other_names?: string[];
         };
         /** SubjectKeyIn */
         SubjectKeyIn: {
@@ -21688,6 +21728,48 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SubjectKeyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    save_subject_identity_v1_cases__case_id__subject_identity_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubjectIdentityIn"];
             };
         };
         responses: {

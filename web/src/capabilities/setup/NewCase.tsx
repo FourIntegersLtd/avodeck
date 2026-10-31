@@ -51,6 +51,7 @@ import {
   withEtag,
   type Option,
 } from "./shared";
+import { SubjectIdentity } from "./SubjectIdentity";
 import { sw } from "./words";
 
 const trackLabel = (key: string) =>
@@ -904,6 +905,7 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
         name={instructingName}
         setName={setInstructingName}
       />
+      <SubjectIdentity caseId={caseId} />
       <SamePerson caseId={caseId} jurisdiction={saved.data.jurisdiction} />
       <OralInstructions caseId={caseId} />
       {stale && (

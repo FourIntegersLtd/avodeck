@@ -26,7 +26,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from app.core.ai.kit import InvalidOutput
-from app.core.contracts.case_names import party_names
+from app.core.contracts.case_identity import Identity, identity_for
 from app.core.contracts.facts import CITABLE_STATUSES
 from app.core.contracts.questions import confirmed_questions
 from app.core.jobs import JobContext, registry
@@ -59,17 +59,28 @@ REMIND_DAYS = 3
 
 
 async def _run(
-    conn: Any, task: Any, *, pack: MergedPack, text: str, case_id: uuid.UUID, names: Sequence[str] = ()
+    conn: Any,
+    task: Any,
+    *,
+    pack: MergedPack,
+    text: str,
+    case_id: uuid.UUID,
+    names: Sequence[str],
+    dates_of_birth: Sequence[date],
 ) -> dict[str, Any]:
     """Run an AI task; output that never matches its schema counts as nothing found."""
     try:
-        return await current().model().run(conn, task, pack=pack, text=text, case_id=case_id, names=names)
+        return (
+            await current()
+            .model()
+            .run(conn, task, pack=pack, text=text, case_id=case_id, names=names, dates_of_birth=dates_of_birth)
+        )
     except InvalidOutput:
         logger.warning("task %s gave no usable output", task.task_id)
         return {}
 
 
-async def _read_document(ctx: JobContext, pack: MergedPack, document_id: uuid.UUID) -> tuple[Letter, list[str]]:
+async def _read_document(ctx: JobContext, pack: MergedPack, document_id: uuid.UUID) -> tuple[Letter, Identity]:
     services = current()
     storage, crypto = services.files()
     ocr = services.reader()
@@ -79,10 +90,10 @@ async def _read_document(ctx: JobContext, pack: MergedPack, document_id: uuid.UU
         parts = []
         for path in sorted(await storage.list(doc["storage_path"])):
             parts.append(await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path))
-        names = await party_names(conn, crypto, ctx.case_id)
+        who = await identity_for(conn, crypto, ctx.case_id)
     letter = Letter.from_ocr(await ocr.analyse(b"".join(parts), "layout"))
-    letter.mask(pack=pack, names=names, dates_of_birth=())
-    return letter, names
+    letter.mask(pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
+    return letter, who
 
 
 async def _pack(ctx: JobContext) -> MergedPack:
@@ -119,10 +130,16 @@ async def _extract_round(
     async with ctx.transaction() as conn:
         have = await fetch_one(conn, "select count(*) as n from app.written_questions where round_id = %s", (round_id,))
     if not (have and have["n"]):
-        letter, names = await _read_document(ctx, pack, document_id)
+        letter, who = await _read_document(ctx, pack, document_id)
         async with ctx.transaction() as conn:
             out = await _run(
-                conn, ai_tasks.t20a(pack), pack=pack, text=letter.prompt_text(), case_id=ctx.case_id, names=names
+                conn,
+                ai_tasks.t20a(pack),
+                pack=pack,
+                text=letter.prompt_text(),
+                case_id=ctx.case_id,
+                names=who.names,
+                dates_of_birth=who.dates_of_birth,
             )
             accepted, rejected = checked_items(letter, out.get("questions", []))
             if rejected:
@@ -172,8 +189,16 @@ async def _suggest(ctx: JobContext, pack: MergedPack, round_id: uuid.UUID) -> No
             for r in rows
         ]
         lines += [f"[paragraph {p.id}] {p.text}" for p in own]
-        names = await party_names(conn, crypto, ctx.case_id)
-        out = await _run(conn, ai_tasks.t20b(pack), pack=pack, text="\n".join(lines), case_id=ctx.case_id, names=names)
+        who = await identity_for(conn, crypto, ctx.case_id)
+        out = await _run(
+            conn,
+            ai_tasks.t20b(pack),
+            pack=pack,
+            text="\n".join(lines),
+            case_id=ctx.case_id,
+            names=who.names,
+            dates_of_birth=who.dates_of_birth,
+        )
         asked = {str(r["id"]) for r in rows}
         known = {str(p.id) for p in own}
         kinds = set(pack.written_question_classifications())
@@ -218,8 +243,16 @@ async def find_may_matter(ctx: JobContext) -> None:
             return
         lines = [f"[fact {f['id']}] {f['value']}" for f in facts]
         lines += [f"[question {q.id}] {q.wording}" for q in questions]
-        names = await party_names(conn, crypto, ctx.case_id)
-        out = await _run(conn, ai_tasks.t21a(pack), pack=pack, text="\n".join(lines), case_id=ctx.case_id, names=names)
+        who = await identity_for(conn, crypto, ctx.case_id)
+        out = await _run(
+            conn,
+            ai_tasks.t21a(pack),
+            pack=pack,
+            text="\n".join(lines),
+            case_id=ctx.case_id,
+            names=who.names,
+            dates_of_birth=who.dates_of_birth,
+        )
         offered = {str(f["id"]): f for f in facts}
         asked = {str(q.id) for q in questions}
         for item in out.get("items", []):
@@ -259,10 +292,16 @@ async def _verify_report(ctx: JobContext, pack: MergedPack, report_id: uuid.UUID
             conn, "select count(*) as n from app.opposing_claims where document_id = %s", (document_id,)
         )
     if not (have and have["n"]):
-        letter, names = await _read_document(ctx, pack, document_id)
+        letter, who = await _read_document(ctx, pack, document_id)
         async with ctx.transaction() as conn:
             out = await _run(
-                conn, ai_tasks.t21b(pack), pack=pack, text=letter.prompt_text(), case_id=ctx.case_id, names=names
+                conn,
+                ai_tasks.t21b(pack),
+                pack=pack,
+                text=letter.prompt_text(),
+                case_id=ctx.case_id,
+                names=who.names,
+                dates_of_birth=who.dates_of_birth,
             )
             accepted, _ = checked_items(letter, out.get("claims", []))
             number = 0
@@ -334,8 +373,16 @@ async def _check_claims(ctx: JobContext, pack: MergedPack, document_id: uuid.UUI
                         " ".join(f"{{{w}}}{t}" for w, t in words),
                     ]
                 )
-                names = await party_names(conn, crypto, ctx.case_id)
-                out = await _run(conn, ai_tasks.t21c(pack), pack=pack, text=prompt, case_id=ctx.case_id, names=names)
+                who = await identity_for(conn, crypto, ctx.case_id)
+                out = await _run(
+                    conn,
+                    ai_tasks.t21c(pack),
+                    pack=pack,
+                    text=prompt,
+                    case_id=ctx.case_id,
+                    names=who.names,
+                    dates_of_birth=who.dates_of_birth,
+                )
                 if out.get("status") not in ai_tasks.CLAIM_RESULTS:
                     continue  # stays unchecked; the job can run again
                 on_page = {w for w, _ in words}
@@ -375,9 +422,15 @@ async def _compare_positions(ctx: JobContext, pack: MergedPack, report_id: uuid.
                 if c["paragraph_ref"]:
                     text = await unseal(conn, crypto, ctx.case_id, c["text_verbatim"], CLAIM)
                     lines.append(f"[theirs {c['paragraph_ref']}] {text}")
-            names = await party_names(conn, crypto, ctx.case_id)
+            who = await identity_for(conn, crypto, ctx.case_id)
             out = await _run(
-                conn, ai_tasks.t21d(pack), pack=pack, text="\n".join(lines), case_id=ctx.case_id, names=names
+                conn,
+                ai_tasks.t21d(pack),
+                pack=pack,
+                text="\n".join(lines),
+                case_id=ctx.case_id,
+                names=who.names,
+                dates_of_birth=who.dates_of_birth,
             )
             asked = {str(q.id) for q in questions}
             known_own = {str(p.id) for p in own}
@@ -428,9 +481,15 @@ async def find_dependents(ctx: JobContext) -> None:
             old = await unseal(conn, crypto, ctx.case_id, change["old_text"], CHANGE_OLD)
             new = await unseal(conn, crypto, ctx.case_id, change["new_text"], CHANGE_NEW)
             lines = [f"[changed] {old}", f"[now] {new}", *(f"[paragraph {p.id}] {p.text}" for p in others)]
-            names = await party_names(conn, crypto, ctx.case_id)
+            who = await identity_for(conn, crypto, ctx.case_id)
             out = await _run(
-                conn, ai_tasks.t21e(pack), pack=pack, text="\n".join(lines), case_id=ctx.case_id, names=names
+                conn,
+                ai_tasks.t21e(pack),
+                pack=pack,
+                text="\n".join(lines),
+                case_id=ctx.case_id,
+                names=who.names,
+                dates_of_birth=who.dates_of_birth,
             )
             known = {str(p.id) for p in others}
             kept: list[dict[str, Any]] = []

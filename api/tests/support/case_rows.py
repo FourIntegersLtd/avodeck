@@ -140,6 +140,7 @@ def _setup_rows(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str
         "insert into app.case_links (case_id, linked_case_id, kind) values (%s, %s, 'related')", (w.case, other)
     )
     admin.execute("insert into app.case_subject_keys (case_id, key_hash) values (%s, %s)", (w.case, "a" * 64))
+    admin.execute("insert into app.case_subject_identity (case_id, name) values (%s, %s)", (w.case, b"sealed"))
     admin.execute("insert into app.case_withdrawals (case_id, reason) values (%s, %s)", (w.case, b"sealed"))
     admin.execute(
         "insert into app.conflict_answers (case_id, question_key, answer) values (%s, 'zz_known', 'no')", (w.case,)
@@ -156,6 +157,7 @@ def _setup_rows(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str
         "case_instructing_parties": 1,
         "case_links": 1,
         "case_subject_keys": 1,
+        "case_subject_identity": 1,
         "case_withdrawals": 1,
         "conflict_answers": 1,
         "conflict_answer_history": 1,

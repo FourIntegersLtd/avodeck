@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import contextlib
 import uuid
-from collections.abc import Awaitable, Callable, Iterator, Sequence
+from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
-from datetime import date
 from typing import Any
 
 from psycopg import AsyncConnection
@@ -20,17 +19,11 @@ from app.core import jobs
 from app.core.ai.embed import Embedder, RecordedEmbedder
 from app.core.ai.kit import AiKit
 from app.core.ai.ocr import OcrClient
+from app.core.contracts.case_identity import Identity, identity_for
 from app.core.crypto import CaseCrypto
 from app.core.email import Mailer
 from app.core.packs import PackLibrary
 from app.core.scan import VirusScanner
-
-
-@dataclass(frozen=True)
-class Identity:
-    names: Sequence[str] = ()
-    dates_of_birth: Sequence[date] = ()
-
 
 IdentityFor = Callable[[AsyncConnection, uuid.UUID], Awaitable[Identity]]
 
@@ -38,6 +31,18 @@ IdentityFor = Callable[[AsyncConnection, uuid.UUID], Awaitable[Identity]]
 async def no_identity(conn: AsyncConnection, case_id: uuid.UUID) -> Identity:
     """Until the case keeps the subject's names, only the pack's recognisers strip identifiers."""
     return Identity()
+
+
+def identity_with(crypto: CaseCrypto) -> IdentityFor:
+    """The case's parties, subject and date of birth, opened with the cell's key, as the pipeline strips them."""
+
+    async def identity(conn: AsyncConnection, case_id: uuid.UUID) -> Identity:
+        return await identity_for(conn, crypto, case_id)
+
+    return identity
+
+
+__all__ = ["Identity", "identity_with"]
 
 
 @dataclass
@@ -83,15 +88,17 @@ def from_env() -> PipelineServices:
     from app.core.storage import SupabaseStorage, storage_settings
 
     ai = live_or_recorded()
+    crypto = CaseCrypto(key_provider_from_env())
     return PipelineServices(
         storage=SupabaseStorage(storage_settings()),
-        crypto=CaseCrypto(key_provider_from_env()),
+        crypto=crypto,
         scanner=scanner_from_env(),
         ocr=ai.ocr,
         kit=ai.kit,
         packs=default_library(),
         registry=jobs.registry,
         embedder=embedder_from_env(),
+        identity=identity_with(crypto),
     )
 
 

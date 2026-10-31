@@ -5,6 +5,9 @@
 - `match_trial_bundle`: the court bundle's pages (text layer, else OCR Read) matched to the expert's
   numbered pages by what is on them (`matching.py`); one concordance row per page.
 - `build_trial_pack`: the large-print trial pack (`pack_document.py`), hashed and stored.
+- `reseal_trial_files`: one-off, seals trial files stored before sealing (`reseal.py`).
+
+Stored files are sealed under the case key (`storage.py`); hashes are over the plain file.
 """
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ import uuid
 
 from psycopg import AsyncConnection
 
+from app.core.contracts.case_identity import identity_for
 from app.core.contracts.document_words import apply_corrections, current_corrections, word_purpose
 from app.core.contracts.served import latest_served
 from app.core.jobs import JobContext, registry
@@ -24,7 +28,9 @@ from app.features.trial.common import pack_for, sha256, trial_path
 from app.features.trial.matching import OurPage, match_pages
 from app.features.trial.pack_document import pack_document
 from app.features.trial.pdfs import render_counted
+from app.features.trial.reseal import reseal_plain_files
 from app.features.trial.services import TrialServices, current
+from app.features.trial.storage import get_sealed, put_sealed
 
 
 async def page_texts(services: TrialServices, pdf: bytes) -> list[list[str]]:
@@ -48,12 +54,20 @@ async def read_agenda(ctx: JobContext) -> None:
             return
         crypto, kit = services.case_crypto(), services.model()
         pack = await pack_for(conn, services.packs, ctx.case_id)
-        pdf = await services.files().get(version["storage_path"])
+        pdf = await get_sealed(services, conn, ctx.case_id, version["storage_path"])
         flat = [w for page in await page_texts(services, pdf) for w in page]
         words = {f"w{n}": text for n, text in enumerate(flat, start=1)}
         request = "\n".join(f"{ref}\t{text}" for ref, text in words.items())
+        who = await identity_for(conn, crypto, ctx.case_id)
         answer = await kit.run(
-            conn, ai_tasks.t22a(pack), pack=pack, text=request, case_id=ctx.case_id, subject="agenda"
+            conn,
+            ai_tasks.t22a(pack),
+            pack=pack,
+            text=request,
+            case_id=ctx.case_id,
+            subject="agenda",
+            names=who.names,
+            dates_of_birth=who.dates_of_birth,
         )
         copied = agenda_reading.copied_items(answer, words)
         earlier = await repo.one(
@@ -110,7 +124,7 @@ async def match_trial_bundle(ctx: JobContext) -> None:
         bundle = await repo.one(conn, "select * from app.court_bundles where job_id = %s", (ctx.job_id,))
         if bundle is None or bundle["status"] == "superseded":
             return
-        pdf = await services.files().get(bundle["storage_path"])
+        pdf = await get_sealed(services, conn, ctx.case_id, bundle["storage_path"])
         theirs = [" ".join(words) for words in await page_texts(services, pdf)]
         ours = await our_pages(services, conn, ctx.case_id)
         by_key = {p.key: p for p in ours}
@@ -152,7 +166,7 @@ async def build_trial_pack(ctx: JobContext) -> None:
         pdf, pages, per_section = render_counted(built.document)
         pack_id = uuid.uuid4()
         path = trial_path(ctx.case_id, "packs", f"{pack_id}.pdf")
-        await services.files().put(path, pdf)
+        await put_sealed(services, conn, ctx.case_id, path, pdf)
         hearing_id = settings["hearing_id"] if settings else None
         built_from = await freshness.stamp(conn, ctx.case_id, hearing_id)
         await conn.execute(
@@ -179,3 +193,14 @@ async def build_trial_pack(ctx: JobContext) -> None:
         )
 
     await ctx.step("build", work)
+
+
+@registry.kind("reseal_trial_files", interactive=False, changes_case=False)
+async def reseal_trial_files(ctx: JobContext) -> None:
+    """One-off: seal this case's trial files written before sealing (safe to run again)."""
+    services = current()
+
+    async def work(conn: AsyncConnection) -> None:
+        await reseal_plain_files(conn, services, ctx.case_id)
+
+    await ctx.step("reseal", work)

@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core import audit
 from app.core.ai.kit import InvalidOutput
 from app.core.auth.step_up import require_step_up
+from app.core.contracts.case_identity import identity_for
 from app.core.contracts.served import latest_served
 from app.core.errors import ProcessingPaused
 from app.core.http import DbConn, IfMatch, etag, stale
@@ -45,6 +46,7 @@ from app.features.trial.pdfs import render_counted
 from app.features.trial.ports import answers_of
 from app.features.trial.router import router
 from app.features.trial.services import current
+from app.features.trial.storage import Sealer, get_sealed
 
 Section = Literal["report", "chronology", "readiness", "joint_statement", "written_answers", "legal_tests", "guidance"]
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
@@ -276,13 +278,13 @@ async def preview_pack(case_id: uuid.UUID, conn: DbConn, access: View, pack: Pac
     dependencies=[Depends(require_step_up)],
     responses={200: {"content": {"application/pdf": {}}}},
 )
-async def download_pack(case_id: uuid.UUID, conn: DbConn, access: View, storage: Storage) -> Response:
+async def download_pack(case_id: uuid.UUID, conn: DbConn, access: View, storage: Storage, crypto: Crypto) -> Response:
     row = await _latest_pack(conn, case_id)
     if row is None:
         raise not_found()
     await audit.record(conn, action="trial.pack_downloaded", target=str(row["id"]), case_id=case_id)
     return Response(
-        content=await storage.get(row["storage_path"]),
+        content=await get_sealed(Sealer(crypto, storage), conn, case_id, row["storage_path"]),
         media_type="application/pdf",
         headers={**NO_STORE, "Content-Disposition": 'attachment; filename="trial-pack.pdf"'},
     )
@@ -313,6 +315,7 @@ async def check_new_note(
     if sentences and sources:
         try:
             kit = current().model()
+            who = await identity_for(conn, crypto, case_id)
             result = await kit.run(
                 conn,
                 ai_tasks.t24(pack, len(sentences), list(sources)),
@@ -320,6 +323,8 @@ async def check_new_note(
                 text="\n".join(lines),
                 case_id=case_id,
                 subject="note",
+                names=who.names,
+                dates_of_birth=who.dates_of_birth,
             )
             for s in result["sentences"]:
                 found[int(s["sentence_index"])] = (s["source"], str(s["reason"]))

@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core import audit
 from app.core.ai.kit import InvalidOutput
+from app.core.contracts.case_identity import identity_for
 from app.core.contracts.served import ServedReport, latest_served
 from app.core.errors import ProcessingPaused
 from app.core.http import DbConn, IfMatch, etag, stale
@@ -59,6 +60,7 @@ from app.features.trial.ports import ReportChange
 from app.features.trial.router import router
 from app.features.trial.services import current
 from app.features.trial.statement import statement_pdf
+from app.features.trial.storage import Sealer, get_sealed, put_sealed
 
 MeetingStatus = Literal["draft", "out_for_signature", "signed", "signed_external"]
 Deviation = Literal["consistent", "changed", "unclear"]
@@ -415,7 +417,7 @@ async def add_participant(
 
 
 async def _queue_agenda(
-    request: Request, case_id: uuid.UUID, meeting_id: uuid.UUID, conn: Any, storage: Any
+    request: Request, case_id: uuid.UUID, meeting_id: uuid.UUID, conn: Any, storage: Any, crypto: Any
 ) -> AgendaQueued:
     row = await _meeting(conn, case_id, meeting_id)
     if row["status"] in SIGNED:
@@ -428,7 +430,7 @@ async def _queue_agenda(
     version_no = int(found[0]) if found else 1
     version_id = uuid.uuid4()
     path = trial_path(case_id, "agendas", f"{version_id}.pdf")
-    await storage.put(path, data)
+    await put_sealed(Sealer(crypto, storage), conn, case_id, path, data)
     job_id = await registry.enqueue(conn, case_id, "read_agenda")
     await conn.execute(
         "insert into app.agenda_versions (id, case_id, meeting_id, version_no, storage_path, sha256, job_id)"
@@ -440,18 +442,30 @@ async def _queue_agenda(
 
 @router.post("/cases/{case_id}/expert-meetings/{meeting_id}/agenda", status_code=202, response_model=AgendaQueued)
 async def upload_agenda(
-    case_id: uuid.UUID, meeting_id: uuid.UUID, request: Request, conn: DbConn, access: Upload, storage: Storage
+    case_id: uuid.UUID,
+    meeting_id: uuid.UUID,
+    request: Request,
+    conn: DbConn,
+    access: Upload,
+    storage: Storage,
+    crypto: Crypto,
 ) -> AgendaQueued:
-    return await _queue_agenda(request, case_id, meeting_id, conn, storage)
+    return await _queue_agenda(request, case_id, meeting_id, conn, storage, crypto)
 
 
 @router.post(
     "/cases/{case_id}/expert-meetings/{meeting_id}/agenda-versions", status_code=202, response_model=AgendaQueued
 )
 async def new_agenda_version(
-    case_id: uuid.UUID, meeting_id: uuid.UUID, request: Request, conn: DbConn, access: Upload, storage: Storage
+    case_id: uuid.UUID,
+    meeting_id: uuid.UUID,
+    request: Request,
+    conn: DbConn,
+    access: Upload,
+    storage: Storage,
+    crypto: Crypto,
 ) -> AgendaQueued:
-    return await _queue_agenda(request, case_id, meeting_id, conn, storage)
+    return await _queue_agenda(request, case_id, meeting_id, conn, storage, crypto)
 
 
 @router.get("/cases/{case_id}/expert-meetings/{meeting_id}/agenda-versions", response_model=AgendaVersionsOut)
@@ -462,10 +476,13 @@ async def list_agenda_versions(
     return AgendaVersionsOut(versions=[AgendaVersionOut(**v) for v in await repo.agenda_versions(conn, meeting_id)])
 
 
-async def _check_position(conn: Any, pack: Any, case_id: uuid.UUID, served: str, draft: str) -> tuple[str, str]:
+async def _check_position(
+    conn: Any, crypto: Any, pack: Any, case_id: uuid.UUID, served: str, draft: str
+) -> tuple[str, str]:
     """T-22c's label for a drafted position against the served one (unclear if the check cannot run)."""
     try:
         kit = current().model()
+        who = await identity_for(conn, crypto, case_id)
         answer = await kit.run(
             conn,
             ai_tasks.t22c(pack),
@@ -473,6 +490,8 @@ async def _check_position(conn: Any, pack: Any, case_id: uuid.UUID, served: str,
             text=f"served\t{' '.join(served.split())}\ndraft\t{' '.join(draft.split())}",
             case_id=case_id,
             subject="position",
+            names=who.names,
+            dates_of_birth=who.dates_of_birth,
         )
     except (ProcessingPaused, InvalidOutput):
         return "unclear", "check_unavailable"
@@ -514,7 +533,7 @@ async def change_item(
             sets["deviation"], sets["deviation_reason"] = "consistent", "copied_from_report"
         else:
             sets["deviation"], sets["deviation_reason"] = await _check_position(
-                conn, pack, case_id, original, body.own_position
+                conn, crypto, pack, case_id, original, body.own_position
             )
         row["deviation"] = sets["deviation"]
     if "other_positions" in given:
@@ -585,7 +604,7 @@ async def prepare_statement(
     pdf, pages = statement_pdf(pack, _label(pack, meeting["type"]), meeting, names, items)
     digest = sha256(pdf)
     path = trial_path(case_id, "meetings", meeting_id, f"{digest}.pdf")
-    await storage.put(path, pdf)
+    await put_sealed(Sealer(crypto, storage), conn, case_id, path, pdf)
     await conn.execute(
         "update app.expert_meetings set prepared_path = %s, prepared_sha256 = %s, prepared_pages = %s,"
         " prepared_at = now() where id = %s",
@@ -596,12 +615,12 @@ async def prepare_statement(
 
 @router.post("/cases/{case_id}/expert-meetings/{meeting_id}/send-for-signature")
 async def send_for_signature(
-    case_id: uuid.UUID, meeting_id: uuid.UUID, conn: DbConn, access: Sign, storage: Storage
+    case_id: uuid.UUID, meeting_id: uuid.UUID, conn: DbConn, access: Sign, storage: Storage, crypto: Crypto
 ) -> Response:
     meeting = await _meeting(conn, case_id, meeting_id)
     if meeting["status"] != "draft" or not meeting["prepared_path"]:
         raise conflict("not_prepared", "Prepare the statement first.")
-    pdf = await storage.get(meeting["prepared_path"])
+    pdf = await get_sealed(Sealer(crypto, storage), conn, case_id, meeting["prepared_path"])
     reference = secrets.token_urlsafe(32)
     await conn.execute(
         "update app.expert_meetings set status = 'out_for_signature', signing_reference_sha256 = %s,"
@@ -625,6 +644,7 @@ async def signed_external(
     access: Sign,
     pack: Pack,
     storage: Storage,
+    crypto: Crypto,
 ) -> MeetingSummary:
     meeting = await _meeting(conn, case_id, meeting_id)
     if meeting["status"] in SIGNED:
@@ -634,7 +654,7 @@ async def signed_external(
     data = await pdf_body(request)
     digest = sha256(data)
     path = trial_path(case_id, "meetings", meeting_id, f"signed-{digest}.pdf")
-    await storage.put(path, data)
+    await put_sealed(Sealer(crypto, storage), conn, case_id, path, data)
     row = await repo.one(
         conn,
         "update app.expert_meetings set status = 'signed_external', signed_sha256 = %s, signed_at = now()"

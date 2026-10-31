@@ -353,9 +353,7 @@ async def test_a_new_temporary_password_replaces_the_old_one_not_more_than_once_
         "select target from app.audit_log where action = 'support.account_password_renewed' and person_id = %s",
         (staff,),
     ).fetchall() == [(f"person:{person}",)]
-    assert admin.execute(
-        "select must_change_password from app.people where id = %s", (person,)
-    ).fetchone() == (True,)
+    assert admin.execute("select must_change_password from app.people where id = %s", (person,)).fetchone() == (True,)
 
 
 async def test_an_active_account_gets_no_new_temporary_password(

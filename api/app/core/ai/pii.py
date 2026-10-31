@@ -61,6 +61,11 @@ _DAY_WORD_YEAR = re.compile(
 _WORD_DAY_YEAR = re.compile(r"\b([^\W\d_]{3,})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4}|\d{2})(?!\d)", re.I)
 
 
+# A prompt that sends one word per line: "<id><tab or space><word>" (w36<tab>Jane, p1w5 Jane). The ids stay;
+# only the words are matched, with a line break counting as a space, so a name or date spread over lines is found.
+_WORD_LINE = re.compile(r"^([A-Za-z]+\d+(?:[A-Za-z]+\d+)*[\t ])")
+
+
 @dataclass(frozen=True)
 class Stripped:
     """The text with identifiers replaced, and how many of each kind were removed."""
@@ -185,6 +190,11 @@ def strip(
 ) -> Stripped:
     """Replace every identifier in `text` with a placeholder. Never logs or returns the originals."""
     language = pack.language
+    lines = text.split("\n")
+    prefixes = [m.group(1) if (m := _WORD_LINE.match(line)) else "" for line in lines]
+    layered = any(prefixes)
+    if layered:
+        text = "\n".join(line[len(prefix) :] for line, prefix in zip(lines, prefixes, strict=True))
     person_of: dict[tuple[int, int], int] = {}
     name_spans: list[tuple[int, int]] = []
     for pattern, person in _name_patterns(names):
@@ -216,16 +226,46 @@ def strip(
     numbers: dict[tuple[str, str], int] = {}
     per_kind: Counter[str] = Counter()
     counts: Counter[str] = Counter()
-    out: list[str] = []
-    cursor = 0
+    marks: list[str] = []
     for span in chosen:
         ident = (span.kind, span.key)
         if ident not in numbers:
             per_kind[span.kind] += 1
             numbers[ident] = per_kind[span.kind]
-        out.append(text[cursor : span.start])
-        out.append(f"[{span.kind}_{numbers[ident]}]")
+        marks.append(f"[{span.kind}_{numbers[ident]}]")
         counts[span.kind] += 1
+
+    if layered:
+        return Stripped(text=_per_line(text, prefixes, chosen, marks), counts=dict(counts))
+    out: list[str] = []
+    cursor = 0
+    for span, mark in zip(chosen, marks, strict=True):
+        out.append(text[cursor : span.start])
+        out.append(mark)
         cursor = span.end
     out.append(text[cursor:])
     return Stripped(text="".join(out), counts=dict(counts))
+
+
+def _per_line(flat: str, prefixes: list[str], chosen: list[_Span], marks: list[str]) -> str:
+    """Put the placeholders back line by line: a match over several lines marks each of its words."""
+    out: list[str] = []
+    start = 0
+    first = 0
+    for line, prefix in zip(flat.split("\n"), prefixes, strict=True):
+        end = start + len(line)
+        while first < len(chosen) and chosen[first].end <= start:
+            first += 1
+        pos, pieces = start, []
+        for span, mark in zip(chosen[first:], marks[first:], strict=True):
+            if span.start >= end:
+                break
+            lo, hi = max(span.start, start), min(span.end, end)
+            if lo < hi:
+                pieces.append(flat[pos:lo])
+                pieces.append(mark)
+                pos = hi
+        pieces.append(flat[pos:end])
+        out.append(prefix + "".join(pieces))
+        start = end + 1
+    return "\n".join(out)
