@@ -16042,6 +16042,63 @@
         "title": "SearchPage",
         "type": "object"
       },
+      "SecondReadingLine": {
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "confidence"
+        ],
+        "title": "SecondReadingLine",
+        "type": "object"
+      },
+      "SecondReadingOut": {
+        "properties": {
+          "lines": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SecondReadingLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "none",
+              "queued",
+              "done",
+              "refused",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "SecondReadingOut",
+        "type": "object"
+      },
       "SectionIn": {
         "additionalProperties": false,
         "properties": {
@@ -30497,6 +30554,138 @@
           }
         },
         "summary": "Mark Read",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/pages/{page_no}/second-reading": {
+      "get": {
+        "operationId": "get_second_reading_v1_cases__case_id__pages__page_no__second_reading_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_no",
+            "required": true,
+            "schema": {
+              "title": "Page No",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecondReadingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Second Reading",
+        "tags": [
+          "reader"
+        ]
+      },
+      "post": {
+        "operationId": "ask_second_reading_v1_cases__case_id__pages__page_no__second_reading_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_no",
+            "required": true,
+            "schema": {
+              "title": "Page No",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "on_request",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "On Request",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Ask Second Reading",
         "tags": [
           "reader"
         ]

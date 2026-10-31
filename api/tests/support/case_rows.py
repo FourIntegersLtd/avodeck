@@ -260,12 +260,17 @@ def _reader_logs(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[st
         "insert into app.transcript_views (case_id, page_id, person_id, picture_opened) values (%s, %s, %s, true)",
         (w.case, page, w.expert),
     )
+    admin.execute(
+        "insert into app.second_readings (case_id, page_id, requested_by) values (%s, %s, %s)",
+        (w.case, page, w.expert),
+    )
     return {
         "documents": 1,
         "pages": 1,
         "facts": 1,
         "page_reads": 1,
         "transcript_views": 1,
+        "second_readings": 1,
         "fact_verifications": 1,
         "fact_flags": 1,
     }

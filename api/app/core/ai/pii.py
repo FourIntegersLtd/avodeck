@@ -190,9 +190,7 @@ class Span:
     kind: str
 
 
-def _chosen(
-    text: str, *, pack: MergedPack, names: Sequence[str], dates_of_birth: Sequence[date]
-) -> list[_Span]:
+def _chosen(text: str, *, pack: MergedPack, names: Sequence[str], dates_of_birth: Sequence[date]) -> list[_Span]:
     """The identifiers in `text` with overlaps resolved (the longest wins), in text order."""
     language = pack.language
     person_of: dict[tuple[int, int], int] = {}

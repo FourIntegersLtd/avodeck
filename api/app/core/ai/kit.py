@@ -28,9 +28,9 @@ import jsonschema_rs
 from psycopg import AsyncConnection
 
 from app.core.ai import pii
-from app.core.ai.mask import MaskedImage
 from app.core.ai.bedrock import BedrockClient, ModelRequest, ModelResponse, ModelUnavailable, ServiceBusy
 from app.core.ai.cell import check_endpoint, model_for
+from app.core.ai.mask import MaskedImage
 from app.core.config import AiSettings
 from app.core.errors import ProcessingPaused
 from app.core.packs import MergedPack

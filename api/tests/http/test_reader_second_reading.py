@@ -24,13 +24,13 @@ from PIL import Image
 from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.kit import AiKit
 from app.core.ai.ocr import OcrPage, OcrResult, OcrWord
+from app.core.contracts.document_words import page_pdf_path, word_purpose
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.jobs import JobContext
 from app.core.packs import default_library
 from app.core.storage import SupabaseStorage
 from app.features.reader import second_reading
-from app.core.contracts.document_words import page_pdf_path, word_purpose
 from tests.support.ai import ScriptedBedrock, cell, response
 from tests.support.files import build_app, local_storage
 from tests.support.identity import NAME, leaked, record_identity

@@ -91,7 +91,11 @@ def spans_for(words: list[OcrWord], pack: MergedPack) -> list[pii.Span]:
 
 def masked(words: list[OcrWord], pack: MergedPack, **kw: object) -> MaskedImage:
     return mask.mask_page(
-        picture(), words, (WIDTH_IN, HEIGHT_IN), spans_for(words, pack), pad_px=kw.pop("pad_px", 2)  # type: ignore[arg-type]
+        picture(),
+        words,
+        (WIDTH_IN, HEIGHT_IN),
+        spans_for(words, pack),
+        pad_px=kw.pop("pad_px", 2),  # type: ignore[arg-type]
     )
 
 
@@ -226,11 +230,19 @@ def test_a_request_with_no_picture_keeps_its_recording_key() -> None:
 
 def test_the_live_call_adds_the_picture_as_an_image_block_after_the_text(pack: MergedPack) -> None:
     m = masked(page_words_on_a_line(), pack)
-    request = ModelRequest(
-        model_id="m", system="s", context={}, text="t", schema={}, image=m, image_sha256=m.sha256
-    )
+    request = ModelRequest(model_id="m", system="s", context={}, text="t", schema={}, image=m, image_sha256=m.sha256)
     content = _params(request)["messages"][0]["content"]
     assert content[-1] == {"image": {"format": "png", "source": {"bytes": m.data}}}
-    assert "image" not in _params(dataclasses.replace(request, image=None, image_sha256=None))["messages"][0]["content"][-1]
+    assert (
+        "image"
+        not in _params(dataclasses.replace(request, image=None, image_sha256=None))["messages"][0]["content"][-1]
+    )
 
 
+def test_turned_words_follow_the_page_a_quarter_turn() -> None:
+    from app.core.ai.mask import turned_words
+
+    word = OcrWord("w", "x", (1.0, 0.5, 2.0, 0.5, 2.0, 1.0, 1.0, 1.0), 0.9)
+    [t] = turned_words([word], 4.0, 2.0, 90)
+    assert t.polygon == (1.5, 1.0, 1.5, 2.0, 1.0, 2.0, 1.0, 1.0)
+    assert turned_words([word], 4.0, 2.0, 0) == [word]

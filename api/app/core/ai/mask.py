@@ -20,7 +20,7 @@ from __future__ import annotations
 import hashlib
 import io
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from PIL import Image, ImageDraw
@@ -29,7 +29,7 @@ from app.core.ai.ocr import OcrWord
 from app.core.ai.pii import Span
 
 IMAGE_DPI = 150  # the page picture's resolution (features/pipeline/render.py)
-MIN_CONFIDENCE = 0.6  # mean OCR confidence under which identifiers may have been misread
+MIN_CONFIDENCE = 0.35  # unreadable pages read low as a whole, and those are the pages T-10 is for
 FRAME_TOLERANCE = 0.03  # share of the page's size the picture may differ by
 DEFAULT_PAD_PX = 6
 
@@ -85,11 +85,11 @@ def mask_page(
     if sum(w.confidence for w in words) / len(words) < min_confidence:
         raise MaskUnsafe("low_confidence")
     try:
-        picture = Image.open(io.BytesIO(image))
-        picture.load()
+        opened = Image.open(io.BytesIO(image))
+        opened.load()
     except Exception:
         raise MaskUnsafe("unreadable_picture") from None
-    picture = picture.convert("RGB")
+    picture = opened.convert("RGB")
     expected = (page_size[0] * dpi, page_size[1] * dpi)
     if any(abs(got - want) > want * FRAME_TOLERANCE + 2 for got, want in zip(picture.size, expected, strict=True)):
         raise MaskUnsafe("frame_uncertain")
@@ -137,3 +137,22 @@ def mask_page(
         boxes=tuple(boxes),
         _seal=_SEAL,
     )
+
+
+def turned_words(words: Sequence[OcrWord], width: float, height: float, rotation: int) -> list[OcrWord]:
+    """Words found on the page as it was scanned, turned clockwise by `rotation` degrees to sit on the picture."""
+    if rotation % 360 == 0:
+        return list(words)
+    out: list[OcrWord] = []
+    for w in words:
+        pts: list[float] = []
+        for x, y in zip(w.polygon[0::2], w.polygon[1::2], strict=True):
+            if rotation == 90:
+                x, y = height - y, x
+            elif rotation == 180:
+                x, y = width - x, height - y
+            elif rotation == 270:
+                x, y = y, width - x
+            pts += [x, y]
+        out.append(replace(w, polygon=tuple(pts)))
+    return out
