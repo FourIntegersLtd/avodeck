@@ -42,6 +42,7 @@ from tests.support.db import ClientFor
 from tests.support.files import CHUNK, build_app
 from tests.support.jobs import FINISHED, isolated_registry, open_worker, run_until_finished
 from tests.support.packs import REPO
+from tests.support.uploads import run_finalize
 
 ROOT = FIXTURES / "pipeline"
 EVAL = REPO / "evals" / "gb-eaw" / "clin-neg-breach" / "general-practice"
@@ -247,8 +248,13 @@ class Harness:
             )
             assert sent.status_code == 200, sent.status_code
         done = await self.client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": body["sha256"]})
-        assert done.status_code == 201, done.status_code
-        return uuid.UUID(done.json()["document_id"])
+        assert done.status_code == 202, done.status_code
+        await run_finalize(self.worker_dsn, self.admin, upload_id, self.storage, self.crypto, finish=True)
+        status = await self.client.get(f"/v1/uploads/{upload_id}")
+        assert status.status_code == 200, status.text
+        document = status.json()["document_id"]
+        assert document is not None, status.text
+        return uuid.UUID(document)
 
     def job_ids(self) -> list[uuid.UUID]:
         return [r[0] for r in self.admin.execute("select id from app.jobs where case_id = %s", (self.case_id,))]

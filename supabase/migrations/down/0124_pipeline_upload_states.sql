@@ -4,7 +4,9 @@ set role app_migrator;
 drop function if exists app.mark_upload_cleaned(uuid);
 
 -- Restore expire_uploads to its pre-0124 signature (returns 2 columns, not 3)
-create or replace function app.expire_uploads(p_run_date date)
+revoke execute on function app.expire_uploads(date) from app_worker;
+drop function app.expire_uploads(date);
+create function app.expire_uploads(p_run_date date)
   returns table (expired_case_id uuid, expired_upload_id uuid)
   language plpgsql
   security definer
@@ -27,6 +29,9 @@ begin
   end loop;
 end
 $$;
+
+revoke execute on function app.expire_uploads(date) from public, app_api, app_worker;
+grant execute on function app.expire_uploads(date) to app_worker;
 
 -- Restore guard to 0122 version
 create or replace function app.uploads_guard() returns trigger
@@ -71,5 +76,7 @@ alter table app.uploads
   drop column failure,
   drop column finalize_job_id,
   drop column finalizing_at;
+
+-- The purge order is restored by down/1019_organisations_purge_order_uploads.sql.
 
 reset role;

@@ -1,7 +1,6 @@
 -- Down 0037: remove source tracking columns and restore the previous questions_guard.
 set role app_migrator;
 
-alter table app.assumptions drop column if exists source_instruction_version_id;
 alter table app.questions drop column if exists source_instruction_version_id;
 alter table app.questions drop column if exists source;
 

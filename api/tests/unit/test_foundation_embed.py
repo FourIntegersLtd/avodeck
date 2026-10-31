@@ -66,7 +66,7 @@ def test_empty_text_still_gives_a_unit_vector() -> None:
 
 def test_the_cell_config_chooses_the_embedder() -> None:
     assert isinstance(embedder_from_env({"EMBEDDER": "recorded"}), RecordedEmbedder)
-    with pytest.raises(ConfigError):
-        embedder_from_env({})
+    # Unset: auto-detect. No model files at MODELS_DIR, so the recorded embedder.
+    assert isinstance(embedder_from_env({"MODELS_DIR": "/no/such/models"}), RecordedEmbedder)
     with pytest.raises(ConfigError):
         embedder_from_env({"EMBEDDER": "somewhere-else"})

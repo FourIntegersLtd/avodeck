@@ -33,6 +33,9 @@ const OWN_WORDS = [
   "chunk_sha_missing",
   "file_sha_missing",
   "chunks_missing",
+  "size_mismatch",
+  "chunk_unreadable",
+  "chunk_hash_mismatch",
   "not_checked",
   "stale_link",
 ];

@@ -46,6 +46,42 @@ One Vercel project (`avodeck-site`, root directory `web`) serves `avodeck.com`: 
 
 Vercel rewrites do not carry WebSockets, so live dictation (`/v1/.../dictation`) needs the API on a subdomain of the web domain (for example `api.avodeck.com` behind the same site) before it works in the cloud. Everything else works through the rewrite.
 
+## Uploads: limits to confirm before the first real bundle
+
+A bundle is sent as 8 MiB chunks (`PUT /v1/uploads/{id}/chunks/{n}`), so every hop must carry a
+**9 MiB** request body and a slow response. `POST /v1/uploads/{id}/complete` answers in milliseconds
+(it enqueues a job and returns 202), and the browser then polls `GET /v1/uploads/{id}`, so no request
+waits on finalisation. Confirm these on the real deployment and write the numbers in:
+
+| Limit | Where | Needs | Measured |
+|---|---|---|---|
+| Request body size | Vercel rewrite `/v1/:path*` | ≥ 9 MiB | |
+| Request body size | Railway `api` | ≥ 9 MiB | |
+| Response timeout | Vercel rewrite | ≥ 120 s | |
+| Response timeout | Railway `api` | ≥ 120 s | |
+| Storage object size | Supabase Storage | ≥ 9 MiB per part | |
+| Storage request rate | Supabase Storage | ~15 PUTs per 100 MB bundle, 3 at a time | |
+
+How to measure, once `api.avodeck.com` is live (no case data needed; both calls are refused before
+any body limit applies, so a 413 or 502 is the proxy, not the API):
+
+```
+head -c 9437184 /dev/zero > /tmp/9mib.bin
+curl -i -X PUT --data-binary @/tmp/9mib.bin \
+  -H 'content-type: application/octet-stream' \
+  https://avodeck.com/v1/uploads/00000000-0000-4000-8000-000000000000/chunks/1
+```
+
+A `413` or an HTML error page from the edge means the body limit is below 9 MiB: raise it, or lower
+`CHUNK_SIZE` on both sides (it is one constant in `api/app/core/routes/uploads.py` and the server
+tells the browser the size, so only the server changes). For the timeout, call an endpoint that takes
+two minutes to answer and check nothing between the browser and the API cuts it off.
+
+Browser side, measured 2026-10-31 on the built page under the production CSP (`web/e2e/pipeline/upload-large.spec.ts`, a real 121 MB 900-page bundle): whole-file SHA-256 correct, 2.5 s to hash, 15 chunks totalling exactly the file size, 6 MB JS heap at the end, no CSP or WebAssembly violation. Nothing is buffered, so a 500 MB bundle should hash in about 10 s with the same memory.
+
+`AVODECK_SCRATCH_DIR` and `AVODECK_SCRATCH_SLOTS` are read only by `StoredDocument.spool()`, which is
+still a stub; they need no value until a consumer uses it.
+
 ## Check a deploy
 
 - `curl https://<api-service>.up.railway.app/v1/cell` returns the cell.

@@ -45,6 +45,7 @@ from tests.support.db import ClientFor
 from tests.support.files import local_storage
 from tests.support.packs import LAUNCH
 from tests.support.seed import Seed
+from tests.support.uploads import complete_and_finalize
 
 pytestmark = pytest.mark.anyio
 
@@ -156,9 +157,7 @@ async def upload(client: Any, case: uuid.UUID, data: bytes, filename: str) -> st
         headers={"content-type": "application/octet-stream", "x-chunk-sha256": hashlib.sha256(data).hexdigest()},
     )
     assert put.status_code == 200
-    done = await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": hashlib.sha256(data).hexdigest()})
-    assert done.status_code in (200, 201)
-    return str(done.json()["document_id"])
+    return await complete_and_finalize(client, upload_id, hashlib.sha256(data).hexdigest())
 
 
 async def add_letter(
