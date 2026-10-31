@@ -434,6 +434,7 @@ async def test_a_supplementary_letter_reopens_the_set_and_keeps_the_questions(
 ) -> None:
     client = await client_for(world["expert"])
     first = await read_letter(client, world, worker_db)
+    await confirm_each(client, world, first)
     assert (await client.post(url(world, "questions/confirm-all"))).status_code == 200
 
     added = await add_letter(client, world, SUPPLEMENTARY, "supplementary")

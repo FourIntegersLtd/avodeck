@@ -170,8 +170,8 @@ async def list_questions(
         LetterItem(id=i, kind=k, para_ref=ref, text_verbatim=text, outside_expertise=out)  # type: ignore[arg-type]
         for ref, i, k, text, out in sorted(cited, key=lambda c: _para_key(str(c[0])))
     ]
-    done = sum(q.status == "confirmed" for q in questions)
-    confirmed_count = done + sum(a.status == "confirmed" for a in assumptions)
+    done = sum(q.status in ("confirmed", "edited") for q in questions)
+    confirmed_count = done + sum(a.status in ("confirmed", "edited") for a in assumptions)
     total = len(questions) + len(assumptions)
     locked = bool(latest and latest["locked"])
     unread = bool(latest and latest["unread"])
@@ -354,18 +354,29 @@ async def confirm_all(case_id: uuid.UUID, access: Confirm, conn: DbConn) -> Conf
         if latest["failed"]:
             raise ApiError("letter_not_read", "The letter could not be read. Ask for it to be read again.", 409)
         raise conflict("The letter is still being read.")
+    # Count questions and assumptions, and refuse if any are still unreviewed.
     counts = []
     for table in ("questions", "assumptions"):
-        await conn.execute(
-            f"update app.{table} set status = 'confirmed' where case_id = %s and status = 'suggested'",  # noqa: S608
-            (case_id,),
-        )
         cur = await conn.execute(f"select count(*) from app.{table} where case_id = %s", (case_id,))  # noqa: S608
         found = await cur.fetchone()
         counts.append(int(found[0]) if found else 0)
+        cur = await conn.execute(
+            f"select count(*) from app.{table} where case_id = %s and status = 'suggested'",  # noqa: S608
+            (case_id,),
+        )
+        suggested = await cur.fetchone()
+        if suggested and int(suggested[0]) > 0:
+            raise ApiError(
+                "questions_not_reviewed",
+                f"{int(suggested[0])} {table} still need reviewing.",
+                409,
+            )
     if counts[0] == 0:
         raise conflict("There are no questions to confirm.")
-    await conn.execute("update app.instruction_versions set locked_at = now() where id = %s", (latest["id"],))
+    await conn.execute(
+        "update app.instruction_versions set locked_at = now(), locked_by = app.current_person_id() where id = %s",
+        (latest["id"],),
+    )
     await audit.record(conn, action="questions.locked", target=f"instruction_version:{latest['id']}", case_id=case_id)
     return Confirmed(instruction_version_id=latest["id"], locked=True, questions=counts[0], assumptions=counts[1])
 
