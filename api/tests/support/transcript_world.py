@@ -67,9 +67,10 @@ async def add_page(
     )
     if analysed:
         await aconn.execute(
-            "insert into app.page_analysis (page_id, case_id, extracted_at, entries_extracted_at, needs_human)"
-            " values (%s, %s, now(), case when %s then null else now() end, %s)",
-            (page, case, failed, failed),
+            "insert into app.page_analysis (page_id, case_id, extracted_at, entries_extracted_at, needs_human,"
+            " entries_failed_at) values (%s, %s, now(), case when %s then null else now() end, %s,"
+            " case when %s then now() end)",
+            (page, case, failed, failed, failed),
         )
     built = Built(page)
     n = 0
