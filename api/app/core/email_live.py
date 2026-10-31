@@ -107,8 +107,8 @@ def _layout(subject: str, headline: str, paragraphs: list[str], action: tuple[st
         label, url = action
         button = (
             f'<p style="margin: 24px 0 0"><a href="{html.escape(url, quote=True)}" style="display: inline-block; '
-            f"background: {_GREEN}; color: #ffffff; text-decoration: none; padding: 14px 28px; line-height: 24px; "
-            f'border-radius: 980px; font-size: 15px; font-weight: 600">{html.escape(label)}</a></p>'
+            f"background: {_GREEN}; color: #ffffff; text-decoration: none; padding: 14px 28px; line-height: 28px; "
+            f'border-radius: 12px; font-size: 15px; font-weight: 700">{html.escape(label)}</a></p>'
         )
     return (
         '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />'

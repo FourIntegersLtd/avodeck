@@ -291,7 +291,7 @@ def test_the_headline_and_paragraphs_have_eventtzs_spacing_with_a_17px_body() ->
     assert body_sizes == {17}
 
 
-def test_the_pill_button_is_eventtzs_and_at_least_52px_tall() -> None:
+def test_the_pill_button_is_eventtzs_and_at_least_56px_tall() -> None:
     html = squash(invite_html())
     assert '<p style="margin: 24px 0 0">' in html
     for piece in (
@@ -301,13 +301,13 @@ def test_the_pill_button_is_eventtzs_and_at_least_52px_tall() -> None:
         "color: #ffffff",
         "text-decoration: none",
         "padding: 14px 28px",
-        "border-radius: 980px",
+        "border-radius: 12px",
         "font-size: 15px",
-        "font-weight: 600",
+        "font-weight: 700",
     ):
         assert piece in html, piece
     line_height = int(re.search(r"padding: 14px 28px;[^\"]*line-height: (\d+)px", html).group(1))  # type: ignore[union-attr]
-    assert 14 * 2 + line_height >= 52
+    assert 14 * 2 + line_height >= 56
 
 
 def test_the_footer_names_avodeck_and_claims_no_company_details() -> None:
