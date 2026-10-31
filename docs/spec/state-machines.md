@@ -125,12 +125,18 @@ Every step is idempotent, so retrying from the start is always safe. Finished st
 ## Upload (`uploads.status`)
 
 ```
-open ──complete (all chunks in, sha256 matches)──▶ complete
+open ──complete──▶ finalizing ──job verifies all parts──▶ complete
+  │                    ├──missing part──▶ open (client resends)
+  │                    ├──unreadable/hash/size mismatch──▶ failed
+  │                    └──expired past expires_at (job dead)──▶ expired
+  ├──client cancels──▶ cancelled
   ├──7 days unfinished──▶ expired
   └──stored file does not match the sha256 sent with `complete`──▶ failed
 ```
 
-Chunks can be sent (and re-sent) only while `open`. Completing twice returns the same document. A `failed` upload is closed for good (409 `upload_closed`); its stored parts are deleted and no document exists (F43). Enforced by `app.uploads_guard` (SQLSTATE `AV409`). The daily `expire_uploads` schedule (`core/housekeeping.py`, keyed by date, F28) expires open uploads past `expires_at`, deletes their chunks from Storage and writes `upload.expired` to the audit log.
+Chunks can be sent (and re-sent) only while `open`. `complete` claims the upload as `finalizing` and enqueues a `finalize_upload` worker job that re-reads, decrypts and hashes every part. Success inserts the document and moves to `complete`; a missing part reopens to `open` so the client can resend; an unreadable part, hash or size mismatch moves to `failed`. Completing twice returns the same document or the same 202. A `failed` upload is closed for good (409 `upload_closed`; F43). Cancelled and failed uploads' parts are cleaned by the daily sweep, which sets `cleaned_at` only after Storage deletion succeeds (R8).
+
+Enforced by `app.uploads_guard` (SQLSTATE `AV409`). The daily `expire_uploads` schedule (`core/housekeeping.py`, keyed by date, F28) expires open uploads past `expires_at` and finalizing uploads whose job is done/failed past `expires_at`, deletes their chunks from Storage (paginated), and returns terminal rows needing cleanup.
 
 ## Finding (`findings.decision`)
 
