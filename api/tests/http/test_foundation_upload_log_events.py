@@ -106,8 +106,8 @@ async def test_the_sweep_logs_upload_expired_and_upload_cleaned_with_counts_and_
     with caplog.at_level(logging.INFO):
         async with worker_db.anonymous() as conn:
             await expire_uploads(conn, date.today() + timedelta(days=1), storage)
-    (expired,) = events(caplog, "upload.expired")
-    (cleaned,) = events(caplog, "upload.cleaned")
-    assert expired.upload_id == str(uid) and cleaned.upload_id == str(uid)  # type: ignore[attr-defined]
+    # Other terminal uploads in the same database may be swept too: look at this one's events only.
+    (expired,) = [e for e in events(caplog, "upload.expired") if e.upload_id == str(uid)]  # type: ignore[attr-defined]
+    (cleaned,) = [e for e in events(caplog, "upload.cleaned") if e.upload_id == str(uid)]  # type: ignore[attr-defined]
     assert cleaned.parts == 1  # type: ignore[attr-defined]
     assert "secret-name" not in caplog.text
