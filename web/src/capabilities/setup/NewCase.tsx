@@ -14,6 +14,7 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
+import { UploadStatus } from "../../foundation/lib/UploadControls";
 import { useUpload } from "../../foundation/lib/useUpload";
 import {
   api,
@@ -326,6 +327,7 @@ function NewCaseForm({
   const drop = (kind: "letter" | "records" | "other") => (files: File[]) =>
     void guard(async () => {
       const id = await ensureCase();
+      upload.begin();
       const path = { params: { path: { case_id: id } } };
       let letters = added.letters.length;
       const out = await uploadFiles(id, files, kind === "letter" ? "instructions" : kind, async (file, document_id) => {
@@ -344,7 +346,7 @@ function NewCaseForm({
         }
       }, upload.options());
       const summary = uploadSummary(out);
-      if (summary) setError(summary);
+      if (summary && !upload.stopped()) setError(summary);
       await countPages(id);
     });
   /** The page counts of the files dropped so far (read from each PDF's page tree; a failure just shows no count). */
@@ -462,7 +464,7 @@ function NewCaseForm({
             </DropZone>
           </div>
         </section>
-        {upload.status && <p role="status" className="av-muted">{upload.status}</p>}
+        <UploadStatus upload={upload} />
         {made && (
           <FoundInLetter
             caseId={made}
@@ -949,6 +951,7 @@ function Letter({ caseId }: { caseId: string }) {
     const file = e.target.files?.[0];
     if (!file) return;
     setError(null);
+    upload.begin();
     try {
       const document_id = await uploadFile(caseId, file, "instructions", upload.options());
       const kind = letters.length > 0 ? "supplementary" : "letter";
@@ -962,7 +965,7 @@ function Letter({ caseId }: { caseId: string }) {
       setReading(true);
       found.reload();
     } catch (err) {
-      setError(errorMessage(err, { invalid: "setup.letter.invalid" }));
+      if (!upload.stopped()) setError(errorMessage(err, { invalid: "setup.letter.invalid" }));
     }
   };
 
@@ -997,7 +1000,7 @@ function Letter({ caseId }: { caseId: string }) {
         accept="application/pdf,.pdf,.docx"
         onChange={(e) => void add(e)}
       />
-      {upload.status && <p role="status" className="av-muted">{upload.status}</p>}
+      <UploadStatus upload={upload} />
       {reading && (
         <Notice>
           <p>{t("setup.letter.reading")}</p>

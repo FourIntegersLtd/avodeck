@@ -80,7 +80,7 @@ test("the record is under av.upload.<person>.<case>.<upload> once the upload has
 test("the record is removed when the upload fails and when it is cancelled", async () => {
   server.use(http.post("/v1/cases/:caseId/uploads", () => json(view(), 201)));
   serve();
-  server.use(http.put("/v1/uploads/:id/chunks/:n", () => json({ error: { code: "file_too_large" } }, { status: 422 })));
+  server.use(http.put("/v1/uploads/:id/chunks/:n", () => HttpResponse.json({ error: { code: "file_too_large" } }, { status: 422 })));
   await expect(uploadInParts(CASE, file(), "records", false, opts)).rejects.toBeTruthy();
   expect(listUploads(PERSON, CASE)).toEqual([]);
   const stop = new AbortController();

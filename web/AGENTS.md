@@ -10,7 +10,7 @@ The frontend renders screens and sends user actions to FastAPI. Nothing else.
 - No Supabase, Azure or AWS SDKs, keys or URLs. CI fails the build if any appear.
 - Search, filters, sort order and counts come from the API; the browser never filters a fetched list to decide what the user sees.
 - No business logic that the server must enforce (blind read, ownership, locking, provenance). The frontend may mirror it for display, never replace it.
-- Auth is a cookie set by FastAPI. Do not store tokens in `localStorage`, `sessionStorage` or JS memory.
+- Auth is a cookie set by FastAPI. Do not store tokens in `localStorage`, `sessionStorage` or JS memory. The one exception: `foundation/lib/uploadStore.ts` keeps a running upload's record (ids, size, modified time, file hash, request keys, expiry; never a name, contents or token) in `localStorage` so a refresh can resume it.
 - Send the CSRF token header on every state-changing request (the client does this).
 - Every edit sends `If-Match` with the ETag it loaded; a 412 shows the "which version do you want to keep?" prompt, never a silent overwrite. Create, send, sign, serve and pay actions send an `Idempotency-Key` (the client does this), so a double click does one thing.
 - Show what the server allows: the case's permissions for this person come from `GET /cases/{id}` (`allowed_actions`); hide or disable the rest, but the server still decides.
