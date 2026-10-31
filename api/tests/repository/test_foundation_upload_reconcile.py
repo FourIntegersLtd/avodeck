@@ -194,3 +194,93 @@ async def test_logs_counts_only(
         await reconcile(worker_db, storage, case)
     assert caplog.records
     assert str(case) not in caplog.text and str(cancelled) not in caplog.text and "uploads/" not in caplog.text
+
+
+async def test_a_completed_documents_prefix_is_never_deleted_even_without_its_upload_row(
+    worker_db: Database, storage: SupabaseStorage, admin: psycopg.Connection, case: uuid.UUID, seed: Seed
+) -> None:
+    doc = seed.document(case)
+    folder = uuid.uuid4()  # the upload row is gone from view, but the document's bytes live at this path
+    paths = await put_chunks(storage, case, str(folder))
+    age(admin, paths, days=30)
+    admin.execute("update app.documents set storage_path = %s where id = %s", (upload_prefix(case, folder), doc))
+    await reconcile(worker_db, storage, case)
+    assert len(await storage.list(upload_prefix(case, folder))) == 3
+
+
+async def test_a_connection_not_scoped_to_the_case_deletes_nothing(
+    worker_db: Database, storage: SupabaseStorage, admin: psycopg.Connection, case: uuid.UUID
+) -> None:
+    folder = uuid.uuid4()
+    paths = await put_chunks(storage, case, str(folder))
+    age(admin, paths, days=30)
+    async with worker_db.anonymous() as conn:  # sees no rows at all: every folder would look row-less
+        await reconcile_upload_objects(conn, storage, case)
+    assert len(await storage.list(upload_prefix(case, folder))) == 3
+
+
+async def test_the_sweep_leaves_the_connection_unscoped_afterwards(
+    worker_db: Database, storage: SupabaseStorage, admin: psycopg.Connection, case: uuid.UUID
+) -> None:
+    from datetime import date
+
+    from app.core.housekeeping import sweep_uploads
+
+    add_upload(admin, case)
+    admin.execute("update app.uploads set expires_at = now() - interval '1 hour' where case_id = %s", (case,))
+    async with worker_db.anonymous() as conn:
+        await sweep_uploads(conn, date.today())
+        row = await (await conn.execute("select app.current_job_case_id()")).fetchone()
+    assert row == (None,)
+
+
+class _Rows:
+    def __init__(self, rows: list[tuple[object, ...]]) -> None:
+        self.rows = rows
+
+    async def fetchall(self) -> list[tuple[object, ...]]:
+        return self.rows
+
+    async def fetchone(self) -> tuple[object, ...] | None:
+        return self.rows[0] if self.rows else None
+
+
+class _Conn:
+    async def execute(self, sql: str, params: object = ()) -> _Rows:
+        if "current_job_case_id" in sql:
+            return _Rows([(True,)])
+        return _Rows([])
+
+    def transaction(self) -> object:
+        raise AssertionError("nothing to mark")
+
+
+class _EmptyFolderStorage:
+    def __init__(self, folder: uuid.UUID, times: dict[str, object]) -> None:
+        self.folder, self.times = folder, times
+
+    async def list_folders(self, _prefix: str) -> list[str]:
+        return [str(self.folder)]
+
+    async def list_object_times(self, _prefix: str) -> dict[str, object]:
+        return self.times
+
+    async def list_recursive(self, _prefix: str) -> list[str]:
+        return []
+
+
+async def test_a_row_less_folder_with_no_objects_is_not_counted_as_deleted(case: uuid.UUID) -> None:
+    result = await reconcile_upload_objects(
+        _Conn(),  # type: ignore[arg-type]
+        _EmptyFolderStorage(uuid.uuid4(), {}),  # type: ignore[arg-type]
+        case,
+    )
+    assert (result.deleted, result.failed) == (0, 0)
+
+
+async def test_an_object_time_that_is_not_aware_utc_is_never_a_reason_to_delete(case: uuid.UUID) -> None:
+    from datetime import datetime
+
+    store = _EmptyFolderStorage(uuid.uuid4(), {"x": datetime(2020, 1, 1)})  # naive: Storage sent no offset
+    result = await reconcile_upload_objects(_Conn(), store, case)  # type: ignore[arg-type]
+    assert result.left == 1

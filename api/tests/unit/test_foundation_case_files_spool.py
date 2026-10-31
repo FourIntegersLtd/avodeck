@@ -151,3 +151,57 @@ async def test_stored_document_spool_decrypts_every_chunk_in_order(scratch: Path
     )
     async with doc.spool(None, max_memory=0) as f:  # type: ignore[arg-type]
         assert f.read() == b"0102"
+
+
+async def test_rollover_with_a_buffered_prefix_keeps_every_byte(scratch: Path) -> None:
+    async with spool_chunks(pieces(b"abcd", b"efgh", b"ij"), max_memory=6) as f:  # first chunk buffered, then disk
+        assert list(scratch.iterdir()) == []
+        assert f.read() == b"abcdefghij"
+
+
+async def test_the_low_space_check_runs_on_every_spool(scratch: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[int] = []
+    monkeypatch.setattr(case_files, "warn_if_scratch_low", lambda: calls.append(1))
+    for _ in range(2):
+        async with spool_chunks(pieces(b"a"), max_memory=0):
+            pass
+    assert len(calls) == 2
+
+
+async def test_the_source_is_closed_promptly_when_the_cap_is_hit(scratch: Path) -> None:
+    closed: list[bool] = []
+
+    async def source() -> AsyncIterator[bytes]:
+        try:
+            yield b"abcdef"
+            yield b"more"
+        finally:
+            closed.append(True)
+
+    with pytest.raises(SpoolTooLarge):
+        async with spool_chunks(source(), max_memory=0, max_size=3):
+            pass
+    assert closed == [True]  # not left to the garbage collector
+
+
+async def test_the_source_is_closed_when_the_consumer_raises(scratch: Path) -> None:
+    closed: list[bool] = []
+
+    async def source() -> AsyncIterator[bytes]:
+        try:
+            yield b"abc"
+            yield b"def"
+        finally:
+            closed.append(True)
+
+    with pytest.raises(RuntimeError):
+        async with spool_chunks(source(), max_memory=0):
+            raise RuntimeError("consumer failed")
+    assert closed == [True]
+
+
+def test_zero_scratch_slots_is_refused() -> None:
+    with pytest.raises(ValueError):
+        case_files.scratch_slots("0")
+    assert case_files.scratch_slots("") == 2
+    assert case_files.scratch_slots("3") == 3
