@@ -15,7 +15,7 @@
 .av-how-walk__step--back { animation: av-how-in-back 320ms ease-out both; }
 .av-how-walk__step h3 { margin: 0 0 var(--space-2); font-size: var(--text-h2); color: var(--green-dark); }
 .av-how-walk__number { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; background: var(--green); color: var(--on-accent); font-size: var(--text-large); font-weight: 700; }
-.av-how-walk__never { padding: var(--space-4); border-left: 4px solid var(--green); background: var(--surface-soft); border-radius: var(--radius); font-weight: 700; animation: av-how-fade 400ms ease-out both; }
+.av-how-walk__never { font-size: var(--text-small); color: var(--ink-soft); animation: av-how-fade 400ms ease-out both; }
 .av-how-walk__actions { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-3); }
 .av-how-walk__nav { display: flex; flex-wrap: wrap; gap: var(--space-3); }
 

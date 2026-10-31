@@ -13,6 +13,8 @@ export interface DropZoneProps {
   added?: boolean;
   /** Other words for "Added". */
   addedLabel?: string;
+  /** A small mark beside the title, such as a star for what is needed now. */
+  mark?: ReactNode;
   /** Anything shown under the words, such as "6 files · 1,268 pages". */
   children?: ReactNode;
   onFiles: (files: File[]) => void;
@@ -22,7 +24,7 @@ export interface DropZoneProps {
  * A card that takes files by drag and drop, or by the "Choose files" control, which is a real file
  * input the keyboard can reach. The files go to the caller; nothing is read here.
  */
-export function DropZone({ title, hint, icon, accept, multiple, disabled, added, addedLabel, children, onFiles }: DropZoneProps) {
+export function DropZone({ title, hint, icon, accept, multiple, disabled, added, addedLabel, mark, children, onFiles }: DropZoneProps) {
   const [over, setOver] = useState(false);
   const stop = (e: DragEvent) => e.preventDefault();
   return (
@@ -53,7 +55,10 @@ export function DropZone({ title, hint, icon, accept, multiple, disabled, added,
           )}
         </div>
       )}
-      <span className="av-dropzone__title">{title}</span>
+      <span className="av-dropzone__titlerow">
+        <span className="av-dropzone__title">{title}</span>
+        {mark}
+      </span>
       {hint && <span className="av-dropzone__hint">{hint}</span>}
       {children}
       <label className="av-dropzone__browse">

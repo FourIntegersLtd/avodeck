@@ -163,16 +163,11 @@ const CARDS = [
   { key: "team", d: "M16 11a3 3 0 1 0-6 0 3 3 0 0 0 6 0zM5 20c0-3 3-5 7-5s7 2 7 5" },
 ] as const;
 
-/** S03e: faded placeholder rows, one clear way to start, and three short reassurances. */
+/** S03e: one clear way to start, and three short reassurances. */
 function CasesEmpty() {
   return (
     <>
       <section className="av-card av-cases-empty">
-        <div aria-hidden="true">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="av-cases-empty__ghost" />
-          ))}
-        </div>
         <div className="av-cases-empty__message">
           <IconTile tone="mint">
             <Icon d="M6 3h9l4 4v14H6zM14 3v5h5" size={26} />

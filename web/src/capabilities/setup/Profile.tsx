@@ -155,7 +155,16 @@ function ProfileView(props: ViewProps) {
   const doneStep = (step: (typeof STEPS)[number]) => !missing.includes(step);
   const aboutDone = doneStep("about");
   const done = STEPS.length - missing.length;
-  const firstOpen = STEPS.findIndex((step) => missing.includes(step));
+  const [active, setActive] = useState<number | null>(null);
+  const firstOpen = active ?? STEPS.findIndex((step) => missing.includes(step));
+  const parts = useRef<HTMLDivElement>(null);
+  /** Clicking or tabbing into a part moves the green outline to it. */
+  const follow = (target: EventTarget) => {
+    const part = (target as Element).closest?.("section.av-card");
+    const all = [...(parts.current?.querySelectorAll(":scope > .av-setup-pair > section.av-card") ?? [])];
+    const index = part ? all.indexOf(part) : -1;
+    if (index >= 0 && index < PARTS) setActive(index);
+  };
   const next = missing[0] ? t(`setup.profile.step.${missing[0]}`) : "";
   const specialty =
     about.specialties[0] ?? props.packs[0]?.specialty.code ?? "";
@@ -165,7 +174,12 @@ function ProfileView(props: ViewProps) {
   >;
 
   return (
-    <div className="av-page av-page--wide av-stack">
+    <div
+      ref={parts}
+      className="av-page av-page--wide av-stack av-setup-profile"
+      onFocusCapture={(e) => follow(e.target)}
+      onPointerDownCapture={(e) => follow(e.target)}
+    >
       <div className="av-row av-row--spread av-setup-title">
         <div className="av-setup-title__text">
           <h1>{t("setup.profile.title")}</h1>
@@ -241,9 +255,9 @@ function ProfileView(props: ViewProps) {
         />
         <section
           aria-labelledby="setup-goes-with-you"
-          className="av-card av-stack"
+          className="av-card av-stack av-setup-section"
         >
-          <div className="av-row av-row--spread">
+          <div className="av-row av-row--spread av-setup-sechead">
             <div>
               <h2 id="setup-goes-with-you">
                 {t("setup.profile.goes_with_you")}

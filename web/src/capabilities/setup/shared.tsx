@@ -115,7 +115,7 @@ export function Select({ label, options, ...select }: { label: string; options: 
  */
 export function Section({ id, title, intro, mark, action, current, children }: { id: string; title: string; intro?: string; mark?: ReactNode; action?: ReactNode; current?: boolean; children: ReactNode }) {
   return (
-    <section aria-labelledby={id} aria-current={current ? "step" : undefined} className={`av-card av-stack${current ? " av-setup-current" : ""}`}>
+    <section aria-labelledby={id} aria-current={current ? "step" : undefined} className={`av-card av-stack av-setup-section${current ? " av-setup-current" : ""}`}>
       <div className="av-stack av-setup-sechead">
         <div className="av-row av-row--spread">
           <div className="av-row">

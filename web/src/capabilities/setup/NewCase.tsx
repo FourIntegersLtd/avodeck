@@ -8,6 +8,7 @@ import {
   useState,
   type ChangeEvent,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { humanise, t } from "../../foundation/i18n";
@@ -58,6 +59,63 @@ import { sw } from "./words";
 
 const trackLabel = (key: string) =>
   t(`setup.court_track.${key}`, {}, humanise(key));
+
+/** Not every case goes to court, so the tracks always end with a plain "no track" answer. */
+const NO_TRACK = "none";
+const trackOptions = (keys: string[]): Option[] => [
+  ...keys.map((k) => ({ value: k, label: trackLabel(k) })),
+  { value: NO_TRACK, label: t("setup.case.no_track") },
+];
+const trackSent = (value: string | null) => (value === NO_TRACK ? null : value);
+
+/** A star for what you need now, a quiet word for what can wait (S04 board). */
+function Need({ must }: { must?: boolean }) {
+  return must ? (
+    <span className="av-setup-star" aria-hidden="true">
+      *
+    </span>
+  ) : (
+    <span className="av-setup-optional">{t("setup.optional")}</span>
+  );
+}
+
+/** One numbered part of the page: its own card, a header row with the star, a line, then the fields. */
+function Group({
+  number,
+  title,
+  intro,
+  introId,
+  must,
+  children,
+}: {
+  number: number;
+  title: string;
+  intro?: string;
+  introId?: string;
+  must?: boolean;
+  children: ReactNode;
+}) {
+  const id = `setup-part-${number}`;
+  return (
+    <section aria-labelledby={id} className="av-card av-setup-block">
+      <div className="av-setup-block__head">
+        <span className="av-setup-block__number" aria-hidden="true">
+          {number}
+        </span>
+        <div className="av-setup-block__heading">
+          <h2 id={id}>{title}</h2>
+          {intro && (
+            <p className="av-muted" id={introId}>
+              {intro}
+            </p>
+          )}
+        </div>
+        <Need must={must} />
+      </div>
+      <div className="av-setup-block__body">{children}</div>
+    </section>
+  );
+}
 
 /** Party role choices from a key -> word map; the joint answer, if the pack has one, comes last. */
 function sideOptions(words: Record<string, string>): Option[] {
@@ -227,7 +285,7 @@ function NewCaseForm({
   const fields = () => ({
     label: label.trim() || t("setup.new_case.untitled"),
     party_role: side,
-    court_track: track,
+    court_track: trackSent(track),
     due_date: due || null,
     subject_status: subject,
   });
@@ -404,66 +462,73 @@ function NewCaseForm({
           <div>
             <h1>{t("setup.new_case.title")}</h1>
             <p className="av-muted av-setup-lead">
-              {t("setup.new_case.intro", { sender })}
+              {t("setup.new_case.needed_note")}
             </p>
           </div>
         </div>
-        <section
-          aria-label={t("setup.new_case.files")}
-          className="av-setup-drops"
+        <Group
+          number={1}
+          title={t("setup.new_case.files")}
+          intro={t("setup.new_case.intro", { sender })}
+          must
         >
-          <div className="av-setup-drop">
-            <DropZone
-              title={t("setup.new_case.letter")}
-              icon={ICONS.letter}
-              added={added.letters.length > 0}
-              accept="application/pdf,.pdf,.docx"
-              disabled={busy}
-              onFiles={drop("letter")}
-            >
-              {added.letters.length > 0 && (
-                <AddedFiles
-                  lines={added.letters.map((l) => ({
-                    text: l.name,
-                    detail: pageDetail(pages[l.id]),
-                  }))}
-                />
-              )}
-            </DropZone>
+          <div className="av-setup-drops">
+            <div className="av-setup-drop">
+              <DropZone
+                title={t("setup.new_case.letter")}
+                mark={<Need />}
+                icon={ICONS.letter}
+                added={added.letters.length > 0}
+                accept="application/pdf,.pdf,.docx"
+                disabled={busy}
+                onFiles={drop("letter")}
+              >
+                {added.letters.length > 0 && (
+                  <AddedFiles
+                    lines={added.letters.map((l) => ({
+                      text: l.name,
+                      detail: pageDetail(pages[l.id]),
+                    }))}
+                  />
+                )}
+              </DropZone>
+            </div>
+            <div className="av-setup-drop">
+              <DropZone
+                title={t("setup.new_case.records")}
+                mark={<Need must />}
+                hint={t("setup.new_case.records_hint")}
+                icon={ICONS.records}
+                added={added.records.length > 0}
+                multiple
+                disabled={busy}
+                onFiles={drop("records")}
+              >
+                {added.records.length > 0 && (
+                  <AddedFiles
+                    lines={[{ text: filesLine(added.records, pages) }]}
+                  />
+                )}
+              </DropZone>
+            </div>
+            <div className="av-setup-drop">
+              <DropZone
+                title={t("setup.new_case.other")}
+                mark={<Need />}
+                hint={t("setup.new_case.other_hint")}
+                icon={ICONS.other}
+                added={added.other.length > 0}
+                multiple
+                disabled={busy}
+                onFiles={drop("other")}
+              >
+                {added.other.length > 0 && (
+                  <AddedFiles lines={[{ text: filesLine(added.other, pages) }]} />
+                )}
+              </DropZone>
+            </div>
           </div>
-          <div className="av-setup-drop">
-            <DropZone
-              title={t("setup.new_case.records")}
-              hint={t("setup.new_case.records_hint")}
-              icon={ICONS.records}
-              added={added.records.length > 0}
-              multiple
-              disabled={busy}
-              onFiles={drop("records")}
-            >
-              {added.records.length > 0 && (
-                <AddedFiles
-                  lines={[{ text: filesLine(added.records, pages) }]}
-                />
-              )}
-            </DropZone>
-          </div>
-          <div className="av-setup-drop">
-            <DropZone
-              title={t("setup.new_case.other")}
-              hint={t("setup.new_case.other_hint")}
-              icon={ICONS.other}
-              added={added.other.length > 0}
-              multiple
-              disabled={busy}
-              onFiles={drop("other")}
-            >
-              {added.other.length > 0 && (
-                <AddedFiles lines={[{ text: filesLine(added.other, pages) }]} />
-              )}
-            </DropZone>
-          </div>
-        </section>
+        </Group>
         <UploadStatus upload={upload} />
         {made && (
           <FoundInLetter
@@ -473,206 +538,206 @@ function NewCaseForm({
             onUse={apply}
           />
         )}
-        <section
-          aria-labelledby="setup-few-questions"
-          className="av-card av-stack av-setup-form"
-        >
-          <h2 id="setup-few-questions">{t("setup.new_case.few_questions")}</h2>
-          {memberships.length > 1 && (
-            <Choice
-              legend={t("setup.new_case.who_for")}
-              hint={t("setup.new_case.who_for_hint")}
-              name="organisation"
-              value={organisation}
-              onChange={setOrganisation}
-              options={memberships.map((m) => ({
-                value: m.organisation_id,
-                label:
-                  m.kind === "personal"
-                    ? t("setup.new_case.own_practice")
-                    : m.name,
-              }))}
+          <Group number={2} title={t("setup.new_case.group_case")} must>
+            {memberships.length > 1 && (
+              <Choice
+                legend={t("setup.new_case.who_for")}
+                hint={t("setup.new_case.who_for_hint")}
+                name="organisation"
+                value={organisation}
+                onChange={setOrganisation}
+                options={memberships.map((m) => ({
+                  value: m.organisation_id,
+                  label:
+                    m.kind === "personal"
+                      ? t("setup.new_case.own_practice")
+                      : m.name,
+                }))}
+              />
+            )}
+            {checkingTemplate && <Updating label={sw("new_case.checking_template")} />}
+            {team && !checkingTemplate && required.data?.locked && (
+              <p className="av-hint" role="note">
+                {sw("new_case.template_locked", { name: team.name })}
+              </p>
+            )}
+            {packs.length > 1 && (
+              <Choice
+                legend={t("setup.new_case.kind")}
+                name="combination"
+                value={String(combo)}
+                onChange={(v) => setCombo(Number(v))}
+                options={packs.map((p, i) => ({
+                  value: String(i),
+                  label: t("setup.new_case.kind_option", {
+                    case_type: p.case_type.name,
+                    specialty: p.specialty.name,
+                  }),
+                }))}
+              />
+            )}
+            <TextField
+              label={t("setup.case.label")}
+              hint={t("setup.case.label_hint")}
+              name="label"
+              required
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
             />
-          )}
-          {checkingTemplate && <Updating label={sw("new_case.checking_template")} />}
-          {team && !checkingTemplate && required.data?.locked && (
-            <p className="av-hint" role="note">
-              {sw("new_case.template_locked", { name: team.name })}
-            </p>
-          )}
-          {packs.length > 1 && (
-            <Choice
-              legend={t("setup.new_case.kind")}
-              name="combination"
-              value={String(combo)}
-              onChange={(v) => setCombo(Number(v))}
-              options={packs.map((p, i) => ({
-                value: String(i),
-                label: t("setup.new_case.kind_option", {
-                  case_type: p.case_type.name,
-                  specialty: p.specialty.name,
-                }),
-              }))}
-            />
-          )}
-          <TextField
-            label={t("setup.case.label")}
-            hint={t("setup.case.label_hint")}
-            name="label"
-            required
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-          />
-          <div className="av-stack">
-            {instructing.map((row, i) => (
-              <div key={i} className="av-setup-pair">
-                <TextField
-                  label={rowLabel(t("setup.instructed.title"), i)}
-                  name={`instructed_by_${i}`}
-                  value={row.name}
-                  onChange={(e) =>
-                    setInstructing(
-                      instructing.map((r, j) =>
-                        j === i ? { ...r, name: e.target.value } : r,
-                      ),
-                    )
-                  }
-                />
-                <TextField
-                  label={rowLabel(t("setup.new_case.their_firm"), i)}
-                  name={`firm_${i}`}
-                  value={row.firm}
-                  onChange={(e) =>
-                    setInstructing(
-                      instructing.map((r, j) =>
-                        j === i ? { ...r, firm: e.target.value } : r,
-                      ),
-                    )
-                  }
-                />
-              </div>
-            ))}
-            <div>
-              <LinkAction
-                onClick={() =>
-                  setInstructing([...instructing, { name: "", firm: "" }])
-                }
-              >
-                <span aria-hidden="true" className="av-setup-plus">
-                  +
-                </span>
-                {t("setup.instructed.add_another")}
-              </LinkAction>
-            </div>
-          </div>
-          {Object.keys(words).length > 0 && (
-            <Choice
-              legend={t("setup.case.side")}
-              name="side"
-              value={side}
-              onChange={setSide}
-              options={sideOptions(words)}
-            />
-          )}
-          <div className="av-setup-pair">
+          </Group>
+          <Group number={3} title={t("setup.new_case.group_people")}>
             <div className="av-stack">
-              {against.map((name, i) => (
-                <TextField
-                  key={i}
-                  label={rowLabel(
-                    String(vocabulary.other_side_prompt ?? ""),
-                    i,
-                  )}
-                  hint={
-                    i === 0
-                      ? String(vocabulary.other_side_example ?? "")
-                      : undefined
-                  }
-                  name={`against_${i}`}
-                  value={name}
-                  onChange={(e) =>
-                    setAgainst(
-                      against.map((v, j) => (j === i ? e.target.value : v)),
-                    )
-                  }
-                />
+              {instructing.map((row, i) => (
+                <div key={i} className="av-setup-pair">
+                  <TextField
+                    label={rowLabel(t("setup.instructed.title"), i)}
+                    name={`instructed_by_${i}`}
+                    value={row.name}
+                    onChange={(e) =>
+                      setInstructing(
+                        instructing.map((r, j) =>
+                          j === i ? { ...r, name: e.target.value } : r,
+                        ),
+                      )
+                    }
+                  />
+                  <TextField
+                    label={rowLabel(t("setup.new_case.their_firm"), i)}
+                    name={`firm_${i}`}
+                    value={row.firm}
+                    onChange={(e) =>
+                      setInstructing(
+                        instructing.map((r, j) =>
+                          j === i ? { ...r, firm: e.target.value } : r,
+                        ),
+                      )
+                    }
+                  />
+                </div>
               ))}
               <div>
-                <LinkAction onClick={() => setAgainst([...against, ""])}>
+                <LinkAction
+                  onClick={() =>
+                    setInstructing([...instructing, { name: "", firm: "" }])
+                  }
+                >
                   <span aria-hidden="true" className="av-setup-plus">
                     +
                   </span>
-                  {String(vocabulary.other_side_add_another ?? t("setup.new_case.add_another"))}
+                  {t("setup.instructed.add_another")}
                 </LinkAction>
               </div>
             </div>
-            {statuses.length > 0 && (
+            {Object.keys(words).length > 0 && (
               <Choice
-                legend={t("setup.new_case.subject_is")}
-                hint={
-                  vocabulary.subject_status_hint
-                    ? String(vocabulary.subject_status_hint)
-                    : undefined
-                }
-                name="subject_status"
-                value={subject}
-                onChange={setSubject}
-                segmented
-                options={statuses.map(([value, word]) => ({
-                  value,
-                  label: humanise(word),
-                }))}
+                legend={t("setup.case.side")}
+                name="side"
+                value={side}
+                onChange={setSide}
+                options={sideOptions(words)}
               />
             )}
-          </div>
-          <div className="av-setup-pair">
-            <TextField
-              label={t("setup.case.due")}
-              name="due_date"
-              type="date"
-              value={due}
-              onChange={(e) => setDue(e.target.value)}
-            />
-            {place && place.court_tracks.length > 0 && (
-              <Choice
-                legend={t("setup.case.track")}
-                name="track"
-                value={track}
-                onChange={setTrack}
-                segmented
-                options={place.court_tracks.map((k) => ({
-                  value: k,
-                  label: trackLabel(k),
-                }))}
+            <div className="av-setup-block__fields">
+              <div className="av-stack">
+                {against.map((name, i) => (
+                  <TextField
+                    key={i}
+                    label={rowLabel(
+                      String(vocabulary.other_side_prompt ?? ""),
+                      i,
+                    )}
+                    hint={
+                      i === 0
+                        ? String(vocabulary.other_side_example ?? "")
+                        : undefined
+                    }
+                    name={`against_${i}`}
+                    value={name}
+                    onChange={(e) =>
+                      setAgainst(
+                        against.map((v, j) => (j === i ? e.target.value : v)),
+                      )
+                    }
+                  />
+                ))}
+                <div>
+                  <LinkAction onClick={() => setAgainst([...against, ""])}>
+                    <span aria-hidden="true" className="av-setup-plus">
+                      +
+                    </span>
+                    {String(vocabulary.other_side_add_another ?? t("setup.new_case.add_another"))}
+                  </LinkAction>
+                </div>
+              </div>
+              {statuses.length > 0 && (
+                <Choice
+                  legend={t("setup.new_case.subject_is")}
+                  hint={
+                    vocabulary.subject_status_hint
+                      ? String(vocabulary.subject_status_hint)
+                      : undefined
+                  }
+                  name="subject_status"
+                  value={subject}
+                  onChange={setSubject}
+                  segmented
+                  options={statuses.map(([value, word]) => ({
+                    value,
+                    label: humanise(word),
+                  }))}
+                />
+              )}
+            </div>
+          </Group>
+          <Group number={4} title={t("setup.new_case.group_court")}>
+            <div className="av-setup-block__fields">
+              <TextField
+                label={t("setup.case.due")}
+                name="due_date"
+                type="date"
+                value={due}
+                onChange={(e) => setDue(e.target.value)}
               />
-            )}
-          </div>
-          <div className="av-setup-q av-stack av-setup-oral">
-            <p className="av-setup-q-label" aria-hidden="true">
-              {oralLabel}
-            </p>
-            <p className="av-setup-q-hint" id="setup-oral-hint">{sw("new_case.oral_hint")}</p>
-            {made ? (
-              <DictationBox
-                bar
-                caseId={made}
-                context="oral_instructions"
-                label={oralLabel}
-                value={oral}
-                onChange={setOral}
-                rows={4}
-              />
-            ) : (
-              <TextArea
-                label={oralLabel}
-                aria-describedby="setup-oral-hint"
-                rows={4}
-                value={oral}
-                onChange={(e) => setOral(e.target.value)}
-              />
-            )}
-          </div>
-        </section>
+              {place && place.court_tracks.length > 0 && (
+                <Choice
+                  legend={t("setup.case.track")}
+                  name="track"
+                  value={track}
+                  onChange={setTrack}
+                  segmented
+                  options={trackOptions(place.court_tracks)}
+                />
+              )}
+            </div>
+          </Group>
+          <Group
+            number={5}
+            title={t("setup.new_case.group_told")}
+            intro={sw("new_case.oral_hint")}
+            introId="setup-oral-hint"
+          >
+            <div className="av-setup-oral">
+              {made ? (
+                <DictationBox
+                  bar
+                  caseId={made}
+                  context="oral_instructions"
+                  label={oralLabel}
+                  value={oral}
+                  onChange={setOral}
+                  rows={4}
+                />
+              ) : (
+                <TextArea
+                  label={oralLabel}
+                  aria-describedby="setup-oral-hint"
+                  rows={4}
+                  value={oral}
+                  onChange={(e) => setOral(e.target.value)}
+                />
+              )}
+            </div>
+          </Group>
         {error && (
           <Notice tone="error">
             <p>{error}</p>
@@ -806,6 +871,7 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
       ...form,
       label: form.label.trim(),
       due_date: form.due_date || null,
+      court_track: trackSent(form.court_track),
     };
     try {
       const next = await withEtag(
@@ -879,10 +945,7 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
               segmented
               value={form.court_track}
               onChange={(v) => setForm({ ...form, court_track: v })}
-              options={place.court_tracks.map((k) => ({
-                value: k,
-                label: trackLabel(k),
-              }))}
+              options={trackOptions(place.court_tracks)}
             />
           )}
           <TextField
