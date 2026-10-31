@@ -96,13 +96,13 @@ async def test_delete_of_1001_keys_is_two_batches_and_missing_keys_are_fine(stor
         await store.put(key, b"x")  # the other 981 never existed
 
     calls: list[int] = []
-    original = store._client.delete_objects  # type: ignore[attr-defined]
+    original = store._client.delete_objects
 
     def counting(**kwargs: object) -> object:
-        calls.append(len(kwargs["Delete"]["Objects"]))  # type: ignore[index,call-overload]
+        calls.append(len(kwargs["Delete"]["Objects"]))  # type: ignore[index]
         return original(**kwargs)
 
-    store._client.delete_objects = counting  # type: ignore[attr-defined,method-assign]
+    store._client.delete_objects = counting
     await store.delete(keys)
     assert calls == [1000, 1]
     assert await store.list_recursive(base) == []

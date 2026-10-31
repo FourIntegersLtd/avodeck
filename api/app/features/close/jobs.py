@@ -32,7 +32,7 @@ from app.core.email import deletion_certificate_mail
 from app.core.jobs import JobContext, JobRegistry, registry
 from app.core.notifications import notify
 from app.core.packs import PackLibrary, default_library
-from app.core.storage import StorageError, CaseFileStorage, case_prefix, storage_settings
+from app.core.storage import CaseFileStorage, StorageError, case_prefix, storage_settings
 from app.features.close.schemas import EXPORT_KINDS
 from app.features.close.service import DEFAULT_POLICY, delete_after, export_path, selection_path
 

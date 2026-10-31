@@ -7,8 +7,10 @@ memory or in the repository. Nothing here is a real document.
 from __future__ import annotations
 
 import hashlib
+import logging
 import random
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -37,11 +39,30 @@ def moto_endpoint() -> str:
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
             port = probe.getsockname()[1]
+        # The stand-in's access log prints every key, which carries case ids: never in test output (rule 6).
+        werkzeug = logging.getLogger("werkzeug")
+        werkzeug.setLevel(logging.WARNING)
+        werkzeug.propagate = False
         _moto = ThreadedMotoServer(ip_address="127.0.0.1", port=port, verbose=False)
         _moto.start()
         atexit.register(_moto.stop)
     host, port = _moto.get_host_and_port()
     return f"http://{host}:{port}"
+
+
+def age_objects(paths: list[str], *, days: int) -> None:
+    """Make the stand-in report these objects as written `days` ago.
+
+    S3 sets `LastModified` itself and there is no API to change it, so the test reaches into moto's
+    own store, which runs in this process. The real adapter still reads the time over HTTP.
+    """
+    from moto.core import DEFAULT_ACCOUNT_ID  # type: ignore[attr-defined]
+    from moto.s3.models import s3_backends
+
+    bucket = s3_backends[DEFAULT_ACCOUNT_ID]["global"].buckets[STORAGE_BUCKET]
+    when = datetime.now(UTC) - timedelta(days=days)
+    for path in paths:
+        bucket.keys[path].last_modified = when
 
 
 def storage_env(auth_env: dict[str, str] | None = None, **overrides: str) -> dict[str, str]:

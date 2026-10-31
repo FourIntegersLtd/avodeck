@@ -111,7 +111,20 @@ jobs:
       - name: OpenAPI fuzzing (Schemathesis) against the API on the local Supabase
         if: hashFiles('openapi.json') != ''
         run: |
-          set -a; eval "$(scripts/local_api_env.sh)"; set +a
+          # Case files live on S3 (ADR 0032), so the API needs an object store or every route that
+          # touches one answers 503 and the fuzzer calls that a server error. moto is the same local
+          # stand-in the tests use; S3_ENDPOINT_URL is guarded to local addresses only.
+          (cd api && poetry run moto_server -p 5050 > "$RUNNER_TEMP/moto.log" 2>&1 &)
+          for i in $(seq 1 30); do curl -s -o /dev/null http://localhost:5050 && break; sleep 1; done
+          set -a
+          eval "$(scripts/local_api_env.sh)"
+          AWS_REGION=eu-west-2
+          AWS_ALLOWED_REGIONS=eu-west-2
+          AWS_ACCESS_KEY_ID=test-access-key
+          AWS_SECRET_ACCESS_KEY=test-secret-key
+          STORAGE_BUCKET=case-files-test
+          S3_ENDPOINT_URL=http://localhost:5050
+          set +a
           (cd api && poetry run uvicorn app.main:app --port 8000 > "$RUNNER_TEMP/api.log" 2>&1 &)
           for i in $(seq 1 60); do curl -sf http://localhost:8000/health > /dev/null && break; sleep 1; done
           make -C api schemathesis API_URL=http://localhost:8000
