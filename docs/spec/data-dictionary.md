@@ -524,6 +524,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | lines | The model's copy of the handwriting, sealed with the case key; shown beside the page, never merged into the expert's words |
 | requested_by / requested_at / finished_at | Who asked, when, and when it ended (0216). A job records its outcome only for the request it read, so asking again is never overwritten by an older job |
 | page_rotation | How the page was turned when the expert asked; if it differs when the job runs, the request is refused (`page_changed`, 0217) |
+| image_sha256 | A fingerprint of the page picture as stored when the expert asked; if the picture was redrawn since, the request is refused (`page_changed`, 0218) |
 
 ### transcript_views
 | Field | In plain words |

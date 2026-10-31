@@ -9,9 +9,11 @@ lines are stored sealed, shown beside the page and never merged into the expert'
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import uuid
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -163,35 +165,49 @@ async def _fresh_words(
     return mask.turned_words(page.words, page.width, page.height, rotation), size
 
 
-async def _unchanged(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, asked_at: int | None) -> None:
-    """Refuse when the page is not as it was when the expert asked: turned since, or a page job may redraw it."""
+async def _unchanged(
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    asked: tuple[int | None, str | None],
+    picture_sha: str | None = None,
+) -> None:
+    """Refuse when the page is not as it was when the expert asked, or its picture may not match its words.
+
+    The picture is the one stored when asked (`picture_sha`, its sealed bytes), the page is turned as it was,
+    no page job is queued, running or paused, and the newest page job did not fail (a failed redraw can leave
+    the picture and the turn disagreeing: slice A does not store which turn the picture was drawn at)."""
+    rotation, sha = asked
     cur = await conn.execute("select rotation from app.pages where id = %s", (page_id,))
     row = await cur.fetchone()
-    if row is None or asked_at is None or row[0] != asked_at:
+    if row is None or rotation is None or sha is None or row[0] != rotation:
+        raise _Refused("page_changed")
+    if picture_sha is not None and picture_sha != sha:
         raise _Refused("page_changed")
     cur = await conn.execute(
-        "select 1 from app.jobs where case_id = %s and kind = any(%s) and status in ('queued', 'running', 'paused')",
+        "select status from app.jobs where case_id = %s and kind = any(%s) order by created_at desc",
         (case_id, list(PAGE_JOBS)),
     )
-    if await cur.fetchone() is not None:
+    statuses = [r[0] for r in await cur.fetchall()]
+    if any(st in ("queued", "running", "paused") for st in statuses) or statuses[:1] == ["failed"]:
         raise _Refused("page_changed")
 
 
-def _found(words: list[OcrWord], pack: Any, identity: Any) -> set[str]:
-    """The identifiers `pii.spans` finds in these words, as normalised strings (never logged)."""
+def _found(words: list[OcrWord], pack: Any, identity: Any) -> Counter[str]:
+    """How many times `pii.spans` finds each identifier in these words (normalised; never logged)."""
     plain = " ".join(" ".join(w.text.split()) for w in words)
     spans = pii.spans(plain, pack=pack, names=identity.names, dates_of_birth=identity.dates_of_birth)
-    return {" ".join(plain[s.start : s.end].lower().split()) for s in spans}
+    return Counter(" ".join(plain[s.start : s.end].lower().split()) for s in spans)
 
 
 async def _read_one(
-    conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, asked_at: int | None
+    conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, asked: tuple[int | None, str | None]
 ) -> list[dict[str, Any]]:
     storage, crypto, library = services.get_storage(), services.get_crypto(), services.get_packs()
     kit = services.get_kit()
     if kit is None:
         raise ProcessingPaused("model_unavailable")
-    await _unchanged(conn, case_id, page_id, asked_at)
+    await _unchanged(conn, case_id, page_id, asked)
     cur = await conn.execute(
         "select p.image_path, p.rotation, a.width, a.height, c.jurisdiction, c.case_type, c.specialty"
         " from app.pages p join app.cases c on c.id = p.case_id"
@@ -211,7 +227,7 @@ async def _read_one(
         words, size = await _fresh_words(conn, storage, crypto, case_id, page_id, rotation)
         runs = []  # the fresh reading has its own word ids
         # an identifier in the expert's own text that the fresh reading did not find has no box to paint
-        if _found(stored, pack, identity) - _found(words, pack, identity):
+        if _found(stored, pack, identity) - _found(words, pack, identity):  # any identifier with fewer boxes
             raise _Refused("identifier_unmatched")
     elif width and height:
         size = (float(width), float(height))
@@ -221,9 +237,10 @@ async def _read_one(
     plain = " ".join(" ".join(w.text.split()) for w in words)
     spans = pii.spans(plain, pack=pack, names=identity.names, dates_of_birth=identity.dates_of_birth)
     try:
-        picture = await crypto.decrypt(conn, case_id, await storage.get(image_path), purpose=image_path)
-        await _unchanged(conn, case_id, page_id, asked_at)
-        masked = mask.mask_page(picture, words, size, spans, runs=runs, names=identity.names)
+        sealed_picture = await storage.get(image_path)
+        picture = await crypto.decrypt(conn, case_id, sealed_picture, purpose=image_path)
+        await _unchanged(conn, case_id, page_id, asked, picture_sha=hashlib.sha256(sealed_picture).hexdigest())
+        masked = mask.mask_page(picture, words, size, spans, runs=runs, names=identity.names, pack=pack)
     except StorageError:
         raise _Refused("unreadable_picture") from None
     except mask.MaskUnsafe as unsafe:
@@ -255,17 +272,17 @@ async def second_reading(ctx: JobContext) -> None:
     crypto = services.get_crypto()
     async with ctx.transaction() as conn:
         cur = await conn.execute(
-            "select page_id, requested_at, page_rotation from app.second_readings"
+            "select page_id, requested_at, page_rotation, image_sha256 from app.second_readings"
             " where case_id = %s and status = 'queued' order by requested_at",
             (ctx.case_id,),
         )
         waiting = await cur.fetchall()
-    for page_id, requested_at, asked_at in waiting:
+    for page_id, requested_at, asked_rotation, asked_sha in waiting:
         try:
             async with ctx.transaction() as conn:
                 status, reason, sealed = "done", None, None
                 try:
-                    lines = await _read_one(conn, ctx.case_id, page_id, asked_at)
+                    lines = await _read_one(conn, ctx.case_id, page_id, (asked_rotation, asked_sha))
                     sealed = await crypto.encrypt(
                         conn, ctx.case_id, json.dumps(lines).encode(), purpose=lines_purpose(page_id)
                     )

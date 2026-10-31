@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -31,7 +30,7 @@ from psycopg import AsyncConnection
 from app.core.ai import pii
 from app.core.ai.bedrock import BedrockClient, ModelRequest, ModelResponse, ModelUnavailable, ServiceBusy
 from app.core.ai.cell import check_endpoint, model_for
-from app.core.ai.mask import MaskedImage
+from app.core.ai.mask import MaskedImage, is_genuine
 from app.core.config import AiSettings
 from app.core.errors import ProcessingPaused
 from app.core.packs import MergedPack
@@ -117,7 +116,7 @@ class AiKit:
         """Like `run`, with a page picture whose identifiers `mask.mask_page` painted out. Raw bytes are refused."""
         if not isinstance(masked, MaskedImage):
             raise TypeError("run_image takes a MaskedImage made by mask.mask_page")
-        if hashlib.sha256(masked.data).hexdigest() != masked.sha256:
+        if not is_genuine(masked):
             raise TypeError("the picture is not the one that was masked")
         check_endpoint(self.settings, self.bedrock.endpoint)
         model_id = model_for(self.settings, task.model)

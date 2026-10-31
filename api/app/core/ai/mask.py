@@ -34,7 +34,8 @@ from typing import Any
 from PIL import Image, ImageDraw
 
 from app.core.ai.ocr import OcrWord
-from app.core.ai.pii import Span
+from app.core.ai.pii import MONTHS, Span
+from app.core.packs import MergedPack
 
 IMAGE_DPI = 150  # the page picture's resolution (features/pipeline/render.py)
 MIN_CONFIDENCE = 0.35  # unreadable pages read low as a whole, and those are the pages T-10 is for
@@ -43,7 +44,9 @@ FRAME_TOLERANCE = 0.03  # share of the page's size the picture may differ by
 DEFAULT_PAD_PX = 6
 
 _KEY = secrets.token_bytes(32)  # per process: a seal made here cannot be copied into another picture
-_DATE_LIKE = re.compile(r"\d{1,4}\s*[/.\-]\s*\d{1,2}(\s*[/.\-]\s*\d{1,4})?|\d{6,}")
+_DATE_LIKE = re.compile(r"\d{1,4}\s*[/.\-]\s*\d{1,2}\s*[/.\-]\s*\d{2,4}|\d{6,}")
+_DIGIT_LIKE = set("0123456789OolI|")  # letters handwriting is read as in place of a digit
+_AS_DIGITS = str.maketrans("OolI|", "00111")
 
 
 def _seal_for(sha256: str) -> str:
@@ -70,10 +73,17 @@ class MaskedImage:
     _seal: Any = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        if hashlib.sha256(self.data).hexdigest() != self.sha256:
-            raise TypeError("the picture does not match its hash")
-        if not isinstance(self._seal, str) or not hmac.compare_digest(self._seal, _seal_for(self.sha256)):
-            raise TypeError("a MaskedImage is made by mask.mask_page only")
+        if not is_genuine(self):
+            raise TypeError("a MaskedImage is made by mask.mask_page only, and its picture is the one it sealed")
+
+
+def is_genuine(image: MaskedImage) -> bool:
+    """True when the picture is the one `mask_page` sealed: its hash and its seal both match."""
+    return (
+        hashlib.sha256(image.data).hexdigest() == image.sha256
+        and isinstance(image._seal, str)
+        and hmac.compare_digest(image._seal, _seal_for(image.sha256))
+    )
 
 
 def _normalised(text: str) -> str:
@@ -94,17 +104,67 @@ def _distance(a: str, b: str) -> int:
 
 
 def _name_tokens(names: Sequence[str]) -> set[str]:
-    return {t for name in names for t in re.split(r"[^\w]+", name.lower()) if len(_letters(t)) >= 2}
+    return {t for name in names for part in re.split(r"[^\w]+", name.lower()) if len(t := _letters(part)) >= 2}
+
+
+def _close_to_name(seen: str, tokens: set[str]) -> bool:
+    """Short tokens (under 3 letters) match exactly; 3 to 5 letters allow one change, longer ones two. From 4
+    letters, the same first letter and a length within 1 also counts when the changes are at most half."""
+    for t in tokens:
+        if len(t) < 3:
+            if seen == t:
+                return True
+            continue
+        gap = _distance(seen, t)
+        if gap <= (1 if len(t) <= 5 else 2):
+            return True
+        if len(t) >= 4 and seen[0] == t[0] and abs(len(seen) - len(t)) <= 1 and gap <= len(t) // 2:
+            return True
+    return False
+
+
+def _digitish(text: str) -> bool:
+    """Mostly digits (or letters read for digits, like O, l and I), at least three of them, one a real digit."""
+    chars = [c for c in text if c.isalnum() or c == "|"]
+    like = sum(1 for c in chars if c in _DIGIT_LIKE)
+    return bool(chars) and any(c.isdigit() for c in chars) and like >= 3 and like / len(chars) > 0.6
 
 
 def _doubtful(word: OcrWord, tokens: set[str]) -> bool:
-    """A word read below the floor that nearly spells a name token or looks like a date."""
-    if _DATE_LIKE.search(word.text):
+    """A word read below the floor that nearly spells a name token, looks like a date or is mostly digits."""
+    if _DATE_LIKE.search(word.text.translate(_AS_DIGITS)) or _digitish(word.text):
         return True
     seen = _letters(word.text)
-    return bool(seen) and any(
-        _distance(seen, t) <= 2 or (seen[0] == t[0] and abs(len(seen) - len(t)) <= 1) for t in tokens
-    )
+    return bool(seen) and _close_to_name(seen, tokens)
+
+
+def _doubtful_digit_runs(words: Sequence[OcrWord], doubt: list[int], pack: MergedPack | None) -> bool:
+    """Neighbouring doubtful words with digits that together could be an identifier number or a date."""
+    i = 0
+    while i < len(doubt):
+        j = i
+        while j + 1 < len(doubt) and doubt[j + 1] == doubt[j] + 1:
+            j += 1
+        text = " ".join(words[k].text for k in doubt[i : j + 1]).translate(_AS_DIGITS)
+        if sum(c.isdigit() for c in text) >= 6:
+            return True
+        if pack is not None:
+            find = pack.identifier_recognisers()
+            if find(text) or find("".join(c for c in text if c.isdigit())):
+                return True
+        i = j + 1
+    return False
+
+
+def _misread_month(words: Sequence[OcrWord], i: int, months: Sequence[str]) -> bool:
+    """A month name read with one letter wrong (or its short form) with digits within two words of it."""
+    seen = _letters(words[i].text)
+    if len(seen) < 3:
+        return False
+    near = [w for k, w in enumerate(words) if k != i and abs(k - i) <= 2]
+    if not any(c.isdigit() for w in near for c in w.text):
+        return False
+    return any((len(seen) >= 4 and _distance(seen, m) <= 1) or (len(seen) == 3 and seen == m[:3]) for m in months)
 
 
 def _has_place(word: OcrWord) -> bool:
@@ -124,6 +184,7 @@ def mask_page(
     word_floor: float = WORD_FLOOR,
     runs: Sequence[Sequence[str]] = (),
     names: Sequence[str] = (),
+    pack: MergedPack | None = None,
 ) -> MaskedImage:
     """`words` in the order `spans` were found over (their `plain_text`); `page_size` (width, height) in inches.
 
@@ -165,9 +226,12 @@ def mask_page(
         if members & touched:
             touched |= members
     tokens = _name_tokens(names)
-    for i, w in enumerate(words):
-        if i not in touched and w.confidence < word_floor and _doubtful(w, tokens):
-            raise MaskUnsafe("doubtful_word")
+    months = MONTHS.get(pack.language, ()) if pack is not None else ()
+    doubt = [i for i, w in enumerate(words) if i not in touched and w.confidence < word_floor]
+    if any(_doubtful(words[i], tokens) or _misread_month(words, i, months) for i in doubt) or _doubtful_digit_runs(
+        words, [i for i in doubt if any(c.isdigit() or c in _DIGIT_LIKE for c in words[i].text)], pack
+    ):
+        raise MaskUnsafe("doubtful_word")
 
     draw = ImageDraw.Draw(picture)
     boxes: list[tuple[int, int, int, int]] = []

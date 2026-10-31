@@ -507,7 +507,12 @@ async def test_a_failed_page_job_after_a_turn_refuses_because_the_picture_may_no
 ) -> None:
     page = await make_page(aconn, storage, crypto, world["case"], ["Seen", "today"])
     admin.execute("update app.pages set rotation = 180 where id = %s", (page,))
-    admin.execute("insert into app.jobs (case_id, kind, status) values (%s, 'process_pages', 'failed')", (world["case"],))
+    failed = admin.execute(
+        "insert into app.jobs (case_id, kind) values (%s, 'process_pages') returning id", (world["case"],)
+    ).fetchone()
+    assert failed is not None
+    admin.execute("update app.jobs set status = 'running' where id = %s", (failed[0],))
+    admin.execute("update app.jobs set status = 'failed' where id = %s", (failed[0],))
     client = await client_for(world["expert"])
     job = await _asked(client, world)
     await run(worker_db, admin, world, job)
