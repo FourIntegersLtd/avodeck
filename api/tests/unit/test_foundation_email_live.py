@@ -394,3 +394,43 @@ def test_the_app_origin_comes_from_the_cell_config() -> None:
     assert settings is not None and settings.app_origin == "https://app.example.test"
     other = mail_settings(ENV)
     assert other is not None and other.app_origin is None
+
+
+LOGO = "https://avodeck.com/email-logo.png?v=1&x=2"
+
+
+def test_a_logo_url_puts_the_picture_in_the_header_cell() -> None:
+    mail = Mail("a@example.test", "org.invite", params_for("org.invite"))
+    html = squash(render(mail, logo_url=LOGO).html)
+    assert (
+        '<img src="https://avodeck.com/email-logo.png?v=1&amp;x=2" width="134" height="40" alt="Avodeck" '
+        'style="display:block;border:0;outline:none;text-decoration:none;">'
+    ) in html
+    assert "padding: 16px 20px; text-align: center" in html
+    assert "font-size: 22px; font-weight: 700; letter-spacing" not in html, "the picture replaces the text wordmark"
+    assert "<img" not in render(mail, logo_url=LOGO).text
+
+
+def test_without_a_logo_url_the_text_wordmark_is_kept() -> None:
+    html = squash(render(Mail("a@example.test", "org.invite", params_for("org.invite"))).html)
+    assert "<img" not in html and "font-size: 22px; font-weight: 700; letter-spacing: 0.02em" in html
+
+
+def test_the_logo_url_comes_from_the_cell_config_and_must_be_a_web_address() -> None:
+    settings = mail_settings({**ENV, "EMAIL_LOGO_URL": LOGO})
+    assert settings is not None and settings.logo_url == LOGO
+    unset = mail_settings(ENV)
+    assert unset is not None and unset.logo_url is None
+    with pytest.raises(ConfigError):
+        mail_settings({**ENV, "EMAIL_LOGO_URL": "javascript:alert(1)"})
+
+
+async def test_the_live_mailer_sends_the_logo_in_the_html() -> None:
+    script = Script(httpx.Response(200))
+
+    async def no_sleep(_: float) -> None:
+        return None
+
+    live = ResendMailer(KEY, SENDER, transport=httpx.MockTransport(script), sleep=no_sleep, logo_url=LOGO)
+    await live.send(Mail("a@example.test", "org.invite", params_for("org.invite")))
+    assert "email-logo.png" in json.loads(script.requests[0].content)["html"]
