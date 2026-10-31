@@ -298,3 +298,19 @@ async def test_an_object_time_that_is_not_aware_utc_is_never_a_reason_to_delete(
     store = _EmptyFolderStorage(uuid.uuid4(), {"x": datetime(2020, 1, 1)})  # naive: Storage sent no offset
     result = await reconcile_upload_objects(_Conn(), store, case)  # type: ignore[arg-type]
     assert result.left == 1
+
+
+async def test_reconciling_logs_the_upload_reconciled_event_with_counts_only(
+    worker_db: Database,
+    storage: SupabaseStorage,
+    admin: psycopg.Connection,
+    case: uuid.UUID,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    cancelled = add_upload(admin, case, "cancelled")
+    await put_chunks(storage, case, str(cancelled))
+    with caplog.at_level(logging.INFO, logger="app.core.housekeeping"):
+        await reconcile(worker_db, storage, case)
+    (event,) = [r for r in caplog.records if r.getMessage() == "upload.reconciled"]
+    assert {event.deleted, event.left, event.failed} <= set(range(0, 100))  # type: ignore[attr-defined]
+    assert hasattr(event, "deleted") and hasattr(event, "left") and hasattr(event, "failed")
