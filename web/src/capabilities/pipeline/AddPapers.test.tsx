@@ -86,6 +86,25 @@ describe.each([
     expect(within(back).queryByText("Add these papers")).toBeNull();
   }, 15000);
 
+  test("a part that is slow to arrive shows its step, and leaving the page cancels the upload", async () => {
+    const seen = mock(pack);
+    let cancels = 0;
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((r) => (release = r));
+    onTestFinished(() => release());
+    server.use(
+      http.put("/v1/uploads/:id/chunks/:n", async () => (await held, new Response(null, { status: 204 }))),
+      http.post("/v1/uploads/:id/cancel", () => (cancels += 1, json({ status: "cancelled" }))),
+    );
+    const { user, unmount } = renderAt(PATH);
+    await user.upload(await screen.findByLabelText("Choose files"), pdf("a.pdf"));
+    await user.click(screen.getByRole("button", { name: "Add these papers" }));
+    expect(await screen.findByRole("button", { name: "Sending your file…" })).toBeVisible();
+    unmount();
+    await waitFor(() => expect(cancels).toBe(1));
+    expect(seen.appends).toEqual([]);
+  });
+
   test("a failed upload says so in plain words and keeps the files so the expert can try again", async () => {
     // The start is tried again for five minutes of failing (chunkedUpload.ts); take the waiting out.
     let clock = 0;
