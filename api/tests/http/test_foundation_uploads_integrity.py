@@ -1,8 +1,9 @@
 """A stored file comes back exactly as it went up, or not at all (ADR 0010, architecture 5.3).
 
 Each chunk is sealed to its own storage path, so a chunk moved into another chunk's place cannot be
-opened. The download re-checks the whole file's SHA-256 as it streams and stops with an error when
-a part is missing or changed, rather than sending a file that is not the one uploaded.
+opened. The download re-checks the whole file's SHA-256 as it streams: a part that is gone is a 404
+before any bytes are sent, and a part that cannot be opened stops the read, rather than sending a
+file that is not the one uploaded.
 """
 
 from __future__ import annotations
@@ -15,7 +16,8 @@ import psycopg
 import pytest
 from fastapi import FastAPI
 
-from app.core.crypto import CaseCrypto, CryptoError, LocalKeyProvider
+from app.core.case_files import StoredFileCorrupt
+from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.storage import SupabaseStorage
 from tests.support.db import ClientFor
@@ -85,7 +87,7 @@ async def test_chunks_swapped_in_storage_do_not_download(
     a, b = await storage.get(first), await storage.get(second)
     await storage.put(first, b)
     await storage.put(second, a)
-    with pytest.raises(CryptoError):
+    with pytest.raises(StoredFileCorrupt):
         await download(client_for, team, path)
 
 
@@ -94,5 +96,5 @@ async def test_a_chunk_missing_from_storage_does_not_download(
 ) -> None:
     path, prefix = await uploaded(client_for, team, admin)
     await storage.delete([sorted(await storage.list(prefix))[-1]])
-    with pytest.raises(CryptoError):
-        await download(client_for, team, path)
+    client = await client_for(team["expert"])
+    assert (await client.get(path)).status_code == 404  # nothing is sent, not a stream that breaks half way

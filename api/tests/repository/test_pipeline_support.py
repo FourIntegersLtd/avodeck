@@ -249,7 +249,7 @@ class Harness:
             assert sent.status_code == 200, sent.status_code
         done = await self.client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": body["sha256"]})
         assert done.status_code == 202, done.status_code
-        await run_finalize(self.worker_dsn, self.admin, upload_id, self.storage, self.crypto)
+        await run_finalize(self.worker_dsn, self.admin, upload_id, self.storage, self.crypto, finish=True)
         status = await self.client.get(f"/v1/uploads/{upload_id}")
         assert status.status_code == 200, status.text
         document = status.json()["document_id"]

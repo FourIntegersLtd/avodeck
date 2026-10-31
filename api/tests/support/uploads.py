@@ -72,16 +72,35 @@ async def run_finalize(
     crypto: CaseCrypto,
     *,
     attempt: int = 1,
+    finish: bool = False,
 ) -> None:
-    """Run the upload's `finalize_upload` job once, inline, as the worker would (raises as the job would)."""
+    """Run the upload's `finalize_upload` job once, inline, as the worker would (raises as the job would).
+
+    `finish`: also keep the job row as the worker would (`running`, then `done`), for tests that wait
+    on every job of the case. Off by default, so tests that watch the row themselves see it untouched.
+    """
     from app.core.uploads import finalize
 
     found = row(admin, "select finalize_job_id, case_id from app.uploads where id = %s", upload)
     assert found is not None and found[0] is not None, "the upload has no finalize job"
-    job_id, case_id = found
+    job_id, case_id = found[0], uuid.UUID(str(found[1]))
     async with worker_database(worker_dsn) as database:
+        if finish:
+            async with database.job(case_id) as conn:
+                await conn.execute(
+                    "update app.jobs set status = 'running', attempts = attempts + 1,"
+                    " started_at = coalesce(started_at, now()) where id = %s",
+                    (job_id,),
+                )
         ctx = JobContext(database, job_id, case_id, "finalize_upload", attempt)  # type: ignore[arg-type]
         await finalize(ctx, storage, crypto)
+        if finish:
+            async with database.job(case_id) as conn:
+                await conn.execute(
+                    "update app.jobs set status = 'done', pct = 100, eta_seconds = 0,"
+                    " finished_at = now() where id = %s",
+                    (job_id,),
+                )
 
 
 @functools.lru_cache(maxsize=1)
@@ -108,7 +127,9 @@ async def complete_and_finalize(client: httpx.AsyncClient, upload: str, digest: 
     app = client._transport.app  # type: ignore[attr-defined]  # the test app behind httpx's ASGI transport
     dsns = _dsns()
     with psycopg.connect(dsns["TEST_DATABASE_ADMIN_URL"], autocommit=True, connect_timeout=5) as admin:
-        await run_finalize(dsns["TEST_DATABASE_URL_DIRECT"], admin, upload, app.state.storage, app.state.crypto)
+        await run_finalize(
+            dsns["TEST_DATABASE_URL_DIRECT"], admin, upload, app.state.storage, app.state.crypto, finish=True
+        )
     status = await client.get(f"/v1/uploads/{upload}")
     assert status.status_code == 200, status.text
     document = status.json()["document_id"]
