@@ -93,7 +93,12 @@ def test_an_unknown_template_raises() -> None:
 
 async def test_an_unknown_template_is_refused_before_any_request() -> None:
     calls: list[httpx.Request] = []
-    mailer = ResendMailer(KEY, SENDER, transport=httpx.MockTransport(lambda r: calls.append(r) or httpx.Response(200)))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200)
+
+    mailer = ResendMailer(KEY, SENDER, transport=httpx.MockTransport(handler))
     with pytest.raises(ValueError):
         await mailer.send(Mail("a@example.test", "no.such_template"))
     assert calls == []
