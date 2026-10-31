@@ -192,24 +192,6 @@ $$;
 revoke execute on function app.mark_upload_cleaned(uuid) from public, app_api;
 grant execute on function app.mark_upload_cleaned(uuid) to app_worker;
 
--- Purge order: uploads now references jobs (finalize_job_id), so it must be deleted first -----
-do $$
-declare
-  current_order text[] := app.case_purge_order();
-  new_order text[] := '{}';
-  t text;
-begin
-  foreach t in array current_order loop
-    if t <> 'uploads' then
-      if t = 'jobs' then
-        new_order := array_append(new_order, 'uploads');
-      end if;
-      new_order := array_append(new_order, t);
-    end if;
-  end loop;
-  execute 'create or replace function app.case_purge_order() returns text[] language sql immutable parallel safe'
-       || ' set search_path = '''' as $f$ select ' || quote_literal(new_order::text) || '::text[] $f$';
-end
-$$;
+-- The purge order is owned by 1015_foundation_purge_order_uploads.sql (it must run after every fixed-list purge migration).
 
 reset role;

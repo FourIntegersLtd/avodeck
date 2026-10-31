@@ -29,15 +29,20 @@ async def expire_uploads(conn: AsyncConnection, run_date: date, storage: Supabas
         "select expired_case_id, expired_upload_id, expired_status from app.expire_uploads(%s)", (run_date,)
     )
     rows = await cur.fetchall()
-    cleaned: list[uuid.UUID] = []
     if storage is not None:
         for case_id, upload_id, _status in rows:
+            prefix = upload_prefix(case_id, upload_id)
             try:
-                paths = await storage.list(upload_prefix(case_id, upload_id))
+                paths = await storage.list(prefix)
                 if paths:
                     await storage.delete(paths)
-                await conn.execute("select app.mark_upload_cleaned(%s)", (upload_id,))
-                cleaned.append(upload_id)
+                    # Cleaned only once Storage no longer lists the parts (R8: after the deletion, not after a try).
+                    if await storage.list(prefix):
+                        _log.warning("upload parts still stored, will retry", extra={"upload_id": str(upload_id)})
+                        continue
+                # A savepoint per row: a database error on one row must not abort the sweep's own transaction.
+                async with conn.transaction():
+                    await conn.execute("select app.mark_upload_cleaned(%s)", (upload_id,))
             except Exception:  # noqa: BLE001
                 _log.warning("upload cleanup failed, will retry", extra={"upload_id": str(upload_id)})
     return [upload_id for _, upload_id, _ in rows]

@@ -53,8 +53,8 @@ def row(admin: psycopg.Connection, sql: str, *args: object) -> tuple[object, ...
 
 
 @asynccontextmanager
-async def worker_database(worker_dsn: str) -> AsyncIterator[Database]:
-    database = Database(worker_dsn, max_size=2)
+async def worker_database(worker_dsn: str, max_size: int = 2) -> AsyncIterator[Database]:
+    database = Database(worker_dsn, max_size=max_size)
     await database.open()
     try:
         yield database

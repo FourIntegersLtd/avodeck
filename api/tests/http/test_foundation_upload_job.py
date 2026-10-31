@@ -9,6 +9,7 @@ upload for good. No log line or audit row carries any file content.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from collections.abc import AsyncIterator
@@ -331,3 +332,69 @@ async def test_a_download_whose_object_is_gone_is_a_404_before_any_bytes_stream(
     await storage.delete([path_of(team, upload, 1)])
     resp = await client.get(f"/v1/cases/{team['case']}/documents/{document}/file")
     assert resp.status_code == 404, resp.text
+
+
+async def test_a_reopen_is_audited_without_a_person_and_names_only_the_upload(
+    client_for: ClientFor,
+    team: dict[str, uuid.UUID],
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_dsn: str,
+) -> None:
+    file = SyntheticFile(17 * MB, seed=71)
+    client = await client_for(team["expert"])
+    upload = await claimed(client, team, file)
+    await storage.delete([path_of(team, upload, 2)])
+    await run_finalize(worker_dsn, admin, upload, storage, crypto)
+    found = admin.execute(
+        "select person_id, case_id, action, target from app.audit_log where action = 'upload.chunk_missing'"
+        " and target = %s",
+        (f"upload:{upload}",),
+    ).fetchall()
+    assert found == [(None, team["case"], "upload.chunk_missing", f"upload:{upload}")]
+
+
+async def test_a_dead_job_does_not_revive_an_upload_past_its_expiry(
+    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection
+) -> None:
+    file = SyntheticFile(3 * MB, seed=72)
+    client = await client_for(team["expert"])
+    upload = await claimed(client, team, file)
+    before = row(admin, "select finalize_job_id, finalizing_at from app.uploads where id = %s", upload)
+    admin.execute("set session_replication_role = replica")  # the queue's guard only allows the real moves
+    admin.execute("update app.jobs set status = 'failed' where id = %s", (before[0],))  # type: ignore[index]
+    admin.execute("set session_replication_role = default")
+    admin.execute("update app.uploads set expires_at = now() - interval '1 hour' where id = %s", (upload,))
+    resp = await complete(client, upload, file.sha256())
+    assert resp.status_code == 409, resp.text
+    assert resp.json()["error"]["code"] == "upload_closed"
+    assert row(admin, "select finalize_job_id, finalizing_at from app.uploads where id = %s", upload) == before
+
+
+async def test_streaming_holds_no_connection_so_a_one_connection_pool_still_finishes_the_job(
+    client_for: ClientFor,
+    team: dict[str, uuid.UUID],
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_dsn: str,
+) -> None:
+    """The key is reloaded in its own short transaction (here before every part, as its cache never holds)."""
+    from datetime import timedelta
+
+    from tests.support.uploads import worker_database
+
+    file = SyntheticFile(17 * MB, seed=73)
+    client = await client_for(team["expert"])
+    upload = await claimed(client, team, file)
+    forgetful = CaseCrypto(crypto.provider, ttl=timedelta(0))
+    found = row(admin, "select finalize_job_id, case_id from app.uploads where id = %s", upload)
+    assert found is not None
+    from app.core.jobs import JobContext
+    from app.core.uploads import finalize
+
+    async with worker_database(worker_dsn, max_size=1) as database:
+        ctx = JobContext(database, found[0], found[1], "finalize_upload", 1)  # type: ignore[arg-type]
+        await asyncio.wait_for(finalize(ctx, storage, forgetful), timeout=30)
+    assert row(admin, "select status from app.uploads where id = %s", upload) == ("complete",)

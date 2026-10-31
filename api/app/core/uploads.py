@@ -146,6 +146,10 @@ async def _reopen(ctx: JobContext, row: dict[str, Any], verdict: _Verdict, ids: 
             (verdict.part, str(verdict.part), row["id"], ctx.job_id),
         )
         reopened = await cur.fetchone()
+        if reopened is not None:  # the part number is in the log below; the audit row names only the upload
+            await audit.record(
+                conn, action="upload.chunk_missing", target=f"upload:{row['id']}", case_id=row["case_id"]
+            )
     if reopened is not None:
         _log.warning("upload.chunk_missing", extra={**ids, "part": verdict.part})
 
@@ -203,6 +207,10 @@ async def _register(ctx: JobContext, row: dict[str, Any], verdict: _Verdict, ids
         _log.info("upload.superseded", extra=ids)
 
 
+# Waits while the case is on hold (runs_on_hold stays False): finalising adds a document and starts the
+# pipeline's scan, which is the processing a hold queues (state-machines.md "On hold"). The sweep expires the
+# upload if the hold outlasts `expires_at` (migration 0125). `changes_case=False`: it is not serialised per case,
+# since each upload finalises on its own under its own lock.
 @registry.kind(FINALIZE_UPLOAD, interactive=True, changes_case=False)
 async def finalize_upload(ctx: JobContext) -> None:
     storage, crypto = _services()

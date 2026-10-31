@@ -77,4 +77,6 @@ alter table app.uploads
   drop column finalize_job_id,
   drop column finalizing_at;
 
+-- The purge order is restored by down/1015_foundation_purge_order_uploads.sql.
+
 reset role;
