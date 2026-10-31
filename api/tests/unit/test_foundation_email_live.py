@@ -73,17 +73,18 @@ def test_every_template_is_covered_by_the_samples() -> None:
 
 @pytest.mark.parametrize("template", sorted(TEMPLATES))
 def test_every_template_has_a_subject_and_body_using_only_its_params(template: str) -> None:
-    subject, body = render(Mail("a@example.test", template, params_for(template)))
-    assert subject.strip() and body.strip()
-    assert "{" not in subject + body, "an unfilled placeholder"
+    mail = render(Mail("a@example.test", template, params_for(template)))
+    assert mail.subject.strip() and mail.text.strip() and mail.html.strip()
+    assert "{" not in mail.subject + mail.text + mail.html.split("</style>")[-1], "an unfilled placeholder"
 
 
 @pytest.mark.parametrize("template", sorted(TEMPLATES))
 def test_a_body_shows_each_link_it_is_given(template: str) -> None:
     params = params_for(template)
-    _, body = render(Mail("a@example.test", template, params))
+    mail = render(Mail("a@example.test", template, params))
     if "link" in params:
-        assert params["link"] in body
+        assert params["link"] in mail.text
+        assert f'href="{params["link"]}"' in mail.html
 
 
 def test_an_unknown_template_raises() -> None:
@@ -129,9 +130,9 @@ async def test_the_request_carries_the_key_the_sender_and_the_words() -> None:
     assert request.method == "POST" and str(request.url) == "https://api.resend.com/emails"
     assert request.headers["authorization"] == f"Bearer {KEY}"
     body = json.loads(request.content)
-    subject, text = render(mail)
+    rendered = render(mail)
     assert body["from"] == SENDER and body["to"] == ["expert@example.test"]
-    assert body["subject"] == subject and body["text"] == text
+    assert body["subject"] == rendered.subject and body["text"] == rendered.text and body["html"] == rendered.html
     assert "reply_to" not in body
 
 
@@ -212,3 +213,108 @@ def test_the_words_use_no_forbidden_word() -> None:
     for word in packs.slice_code_forbidden_words(LAUNCH_ROOT):
         flags = 0 if len(word) <= 3 else re.IGNORECASE
         assert not re.search(rf"\b{re.escape(word)}\b", text, flags), word
+
+
+# ---- the look and the words (eventtz's structure: layout, headline, short paragraphs, one button) ----
+
+
+def test_every_template_has_a_subject_headline_and_body_and_a_warm_plain_tone() -> None:
+    from app.core.email_live import words
+
+    w = words()
+    for template in TEMPLATES:
+        assert w[f"{template}.subject"].strip() and w[f"{template}.headline"].strip()
+        bodies = [v for k, v in w.items() if k.startswith(f"{template}.body")]
+        assert bodies, template
+        for body in bodies:
+            assert 1 <= len([p for p in body.split("\n\n") if p.strip()]) <= 3, f"{template}: short body"
+    assert not any("!" in v for v in w.values()), "no exclamation marks"
+
+
+def test_the_words_name_every_role_and_month() -> None:
+    from app.core.auth.permissions import ORG_ROLES
+    from app.core.email_live import words
+
+    w = words()
+    for role in ORG_ROLES:
+        assert w[f"role.{role}"].strip()
+    for month in range(1, 13):
+        assert w[f"month.{month}"].strip()
+
+
+def test_the_html_uses_the_brand_colours_and_big_type_and_a_tall_button() -> None:
+    html = render(Mail("a@example.test", "org.invite", params_for("org.invite"))).html
+    assert html.startswith("<!DOCTYPE html>") and "Avodeck" in html
+    assert "#0F3D2C" in html and "#16201B" in html
+    sizes = [int(n) for n in re.findall(r"font-size:\s*(\d+)px", html)]
+    assert sizes and min(sizes) >= 17
+    assert "line-height: 52px" in html, "the button is at least 52px tall"
+    assert "<img" not in html, "the wordmark is text"
+
+
+def test_the_text_part_has_the_headline_the_paragraphs_and_the_action() -> None:
+    mail = render(Mail("a@example.test", "org.invite", params_for("org.invite")))
+    assert "<" not in mail.text
+    assert mail.text.splitlines()[0] == mail.text.splitlines()[0].strip() and mail.text.splitlines()[0]
+    assert LINK_PARAM in mail.text
+
+
+def test_a_template_with_no_link_gets_a_button_to_the_app_only_when_the_origin_is_known() -> None:
+    mail = Mail("a@example.test", "invoice.sent", params_for("invoice.sent"))
+    assert "<a " not in render(mail).html
+    with_origin = render(mail, app_origin="https://app.example.test")
+    assert 'href="https://app.example.test"' in with_origin.html and "https://app.example.test" in with_origin.text
+
+
+def test_every_substituted_value_is_escaped_in_the_html_and_left_plain_in_the_text() -> None:
+    nasty = '<script>alert("x")</script> & Tom\'s'
+    params = {**params_for("help.request"), "message": nasty}
+    mail = render(Mail("hello@example.test", "help.request", params))
+    assert "<script>" not in mail.html and "&lt;script&gt;" in mail.html and "&amp;" in mail.html
+    assert nasty in mail.text
+
+
+def test_a_message_keeps_its_line_breaks_in_the_html() -> None:
+    params = {**params_for("help.request"), "message": "one\ntwo\n\nthree"}
+    html = render(Mail("hello@example.test", "help.request", params)).html
+    assert "one<br>two" in html and "three" in html
+
+
+def test_dates_and_counts_read_as_words_not_codes() -> None:
+    mail = render(Mail("a@example.test", "deletion.certificate", params_for("deletion.certificate")))
+    for part in (mail.text, mail.html):
+        assert "2 January 2031" in part and "1 February 2031" in part
+        assert "2031-01-02T" not in part and "pages:3" not in part
+        assert "pages" in part
+
+
+def test_a_role_code_is_shown_as_its_word() -> None:
+    mail = render(Mail("a@example.test", "org.invite", params_for("org.invite")))
+    from app.core.email_live import words
+
+    assert words()["role.admin"] in mail.text
+
+
+async def test_the_request_carries_the_html_part_too() -> None:
+    script = Script(httpx.Response(200))
+    await mailer(script).send(Mail("a@example.test", "org.invite", params_for("org.invite")))
+    assert json.loads(script.requests[0].content)["html"].startswith("<!DOCTYPE html>")
+
+
+@pytest.mark.parametrize("sender", ["hello@avodeck.com", "Avodeck <hello@avodeck.com>"])
+def test_the_sender_may_be_a_bare_address_or_a_name_and_address(sender: str) -> None:
+    settings = mail_settings({"RESEND_API_KEY": KEY, "EMAIL_FROM": sender})
+    assert settings is not None and settings.sender == sender
+
+
+@pytest.mark.parametrize("sender", ["Avodeck <>", "Avodeck hello@avodeck.com", "hello", "<hello@avodeck.com> x"])
+def test_a_sender_that_is_not_an_address_is_a_config_error(sender: str) -> None:
+    with pytest.raises(ConfigError):
+        mail_settings({"RESEND_API_KEY": KEY, "EMAIL_FROM": sender})
+
+
+def test_the_app_origin_comes_from_the_cell_config() -> None:
+    settings = mail_settings({**ENV, "APP_ORIGIN": "https://app.example.test, https://other.example.test"})
+    assert settings is not None and settings.app_origin == "https://app.example.test"
+    other = mail_settings(ENV)
+    assert other is not None and other.app_origin is None
