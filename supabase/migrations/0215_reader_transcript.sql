@@ -7,8 +7,7 @@
 --   on screen for some milliseconds, or the page picture opened). Append-only; the server decides from
 --   these rows when a page is read. It holds no page text.
 -- * the job kind `export_transcript` builds the Word file and needs `case.export`.
--- * `app.close_stale_exports` also lists finished `export_transcript` jobs, so the daily sweep removes a
---   transcript copy nobody downloaded in time (slice H's EXPORT_KEEP_DAYS; its paths are removed too).
+-- * the daily sweep lists finished `export_transcript` jobs too: see 0805 (it must run after 0802 creates it).
 
 set role app_migrator;
 
@@ -70,18 +69,5 @@ create policy transcript_views_job on app.transcript_views for select to app_wor
   using (case_id = app.current_job_case_id());
 
 insert into app.job_kind_actions (kind, action) values ('export_transcript', 'case.export');
-
-create or replace function app.close_stale_exports(p_run_date date, p_days integer, p_window integer)
-  returns table (case_id uuid, job_id uuid)
-  language sql stable
-  security definer
-  set search_path = ''
-as $$
-  select j.case_id, j.id from app.jobs j
-  where j.kind in ('export_case', 'export_transcript') and j.finished_at is not null
-    and j.finished_at::date <= p_run_date - p_days
-    and j.finished_at::date > p_run_date - p_days - p_window
-  order by j.finished_at, j.id
-$$;
 
 reset role;
