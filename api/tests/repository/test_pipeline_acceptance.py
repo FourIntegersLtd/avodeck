@@ -238,7 +238,8 @@ def test_copies_keep_their_pictures_and_are_read_like_any_page(
     copies = {p["id"] for p in pages.values() if p["duplicate_of_page_id"]}
     assert copies and all(pages[n]["image_path"] for n, p in pages.items() if p["id"] in copies)
     unread = bundle.admin.execute(
-        "select count(*) from app.page_analysis where bundle_id = (select bundle_id from app.cases where id = %s) and page_id = any(%s) and extracted_at is null",
+        "select count(*) from app.page_analysis where bundle_id = (select bundle_id from app.cases where id = %s) and "
+        "page_id = any(%s) and extracted_at is null",
         (bundle.case_id, list(copies)),
     ).fetchone()
     assert unread == (0,), "a copy was not read"

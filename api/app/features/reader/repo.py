@@ -170,7 +170,9 @@ async def progress(conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UU
     """(pages read, pages, seconds left). Each unread page takes the person's median dwell for its kind of
     source, else their median over every page, else `DEFAULT_SECONDS_PER_PAGE`."""
     cur = await conn.execute(
-        """with shown as (select p.id, p.source_type from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %(case)s) and not p.quarantined),
+        """with shown as (select p.id, p.source_type
+                    from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %(case)s)
+                    and not p.quarantined),
                 mine as (select s.source_type, r.page_id, r.dwell_seconds from app.page_reads r
                          join shown s on s.id = r.page_id where r.person_id = %(person)s),
                 pace as (select source_type, percentile_cont(0.5) within group (order by dwell_seconds) as m
@@ -475,7 +477,8 @@ async def set_flag(
 
 async def page_id_by_no(conn: AsyncConnection, case_id: uuid.UUID, page_no: int) -> uuid.UUID | None:
     cur = await conn.execute(
-        "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and bundle_page_no = %s and not quarantined",
+        "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and bundle_page_no "
+        "= %s and not quarantined",
         (case_id, page_no),
     )
     row = await cur.fetchone()
@@ -489,7 +492,8 @@ async def unreadable_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[di
                   p.transcribed_by_expert_text is not null as has_transcription, p.needs_clearer_copy,
                   p.duplicate_of_page_id is not null as is_copy,
                   exists (select 1 from app.page_replacements r where r.page_id = p.id) as has_clearer_copy
-           from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %s) and p.unreadable and not p.quarantined
+           from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %s)
+           and p.unreadable and not p.quarantined
            order by p.bundle_page_no""",
         (case_id,),
     )
@@ -522,7 +526,8 @@ async def rotate(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, 
     """Turns the page clockwise; its new rotation, or None when the case has no such page."""
     cur = await conn.execute(
         "update app.pages set rotation = (rotation + %s) %% 360"
-        " where id = %s and bundle_id = (select bundle_id from app.cases where id = %s) and not quarantined returning rotation",
+        " where id = %s and bundle_id = (select bundle_id from app.cases where id = %s) and not quarantined returning "
+        "rotation",
         (degrees, page_id, case_id),
     )
     row = await cur.fetchone()
@@ -560,7 +565,8 @@ async def pages_to_type(conn: AsyncConnection, case_ids: list[uuid.UUID]) -> lis
 async def searchable_pages(conn: AsyncConnection, case_id: uuid.UUID) -> dict[uuid.UUID, tuple[int, uuid.UUID]]:
     """Each page that is not set aside: page id -> (page number, document id)."""
     cur = await conn.execute(
-        "select id, bundle_page_no, document_id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and not quarantined",
+        "select id, bundle_page_no, document_id from app.pages where bundle_id = (select bundle_id from app.cases "
+        "where id = %s) and not quarantined",
         (case_id,),
     )
     return {p: (int(n), d) for p, n, d in await cur.fetchall()}
@@ -629,7 +635,8 @@ async def my_notes(
     """The person's own bookmarks and notes on the case, in page order, unsealed (never logged)."""
     cur = await conn.execute(
         "select n.page_id, p.bundle_page_no, n.bookmarked, n.note, n.updated_at from app.page_notes n"
-        " join app.pages p on p.id = n.page_id where p.bundle_id = (select bundle_id from app.cases where id = %s) and n.person_id = %s"
+        " join app.pages p on p.id = n.page_id where p.bundle_id = (select bundle_id from app.cases where id = %s) and "
+        "n.person_id = %s"
         " order by p.bundle_page_no",
         (case_id, person_id),
     )

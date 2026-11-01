@@ -89,7 +89,8 @@ async def add_page(
                 sealed = await crypto.encrypt(aconn, case, word.encode(), purpose=word_purpose(page, wid))
                 await aconn.execute(
                     "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
-                    " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s::real[], 0.99, 'ocr')",
+                    " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s::real[], 0.99, "
+                    "'ocr')",
                     (page, case, n, wid, sealed, [x, y, x1, y, x1, y + 24.0, x, y + 24.0]),
                 )
                 built.word_ids.append(wid)

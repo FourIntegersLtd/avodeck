@@ -54,7 +54,8 @@ async def add_words(aconn: psycopg.AsyncConnection, case: uuid.UUID, page: uuid.
         sealed = await CRYPTO.encrypt(aconn, case, text.encode(), purpose=document_words.word_purpose(page, word_id))
         await aconn.execute(
             "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
-            " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, '{0,0,1,0,1,1,0,1}', 0.99, 'ocr')",
+            " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, '{0,0,1,0,1,1,0,1}', 0.99, "
+            "'ocr')",
             (page, case, n, word_id, sealed),
         )
 
