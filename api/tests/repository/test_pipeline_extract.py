@@ -177,7 +177,14 @@ async def test_each_page_is_asked_once_and_a_wrong_value_once_more(subset: Harne
     asked = Counter(r.subject for r in t07b_requests(subset))
     wanted: Counter[str] = Counter()  # copies are set aside after extraction: every page is asked
     for n, page in pages.items():
-        wanted[subject_of(await page_words(subset, page["id"]))] += 2 if n in (RETRIED, WRONG_TWICE) else 1
+        # RETRIED/WRONG_TWICE are asked a second time because their first value fails the words
+        # check. Separately, a page coverage.py still flags as `no_facts`/`low_coverage` after that
+        # (RETRIED's own fixture answer is deliberately narrow, planted item 15) is asked once more
+        # again, on its own (service.py's `_extract`'s empty-page re-ask): with only one recorded
+        # answer for that call, the extra ask repeats the same answer and never clears the flag.
+        base = 2 if n in (RETRIED, WRONG_TWICE) else 1
+        extra = 1 if analysis(subset, page["id"])["reason"] in ("no_facts", "low_coverage") else 0
+        wanted[subject_of(await page_words(subset, page["id"]))] += base + extra
     for n, page in pages.items():
         subject = subject_of(await page_words(subset, page["id"]))
         assert asked[subject] == wanted[subject], f"page {n} was asked {asked[subject]} times"
