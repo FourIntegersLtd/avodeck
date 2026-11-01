@@ -20,6 +20,8 @@ const WORDS = {
   "read.not_read_why": "Suggestions appear once you mark this page as read.",
   "read.reassigned": "This case has a new named expert. Every suggestion goes back to be checked again by you. Nothing has been lost.",
   "read.none_found": "We found nothing to check on this page.",
+  "read.needs_check": "We couldn't pick anything out of this page. Please read it carefully yourself.",
+  "read.may_have_missed": "We may have missed something on this page. Please read it carefully.",
   "read.mark_read": "I've read this page",
   "read.next": "Next page",
   "read.previous": "Previous page",
