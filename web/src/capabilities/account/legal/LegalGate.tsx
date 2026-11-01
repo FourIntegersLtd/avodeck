@@ -7,6 +7,7 @@ import { Button, Checkbox, Logo, Notice } from "../../../foundation/ui";
 import { DpaContent } from "./DpaContent";
 import { PrivacyContent } from "./PrivacyContent";
 import { TermsContent } from "./TermsContent";
+import { useLegalVocabulary } from "./useLegalVocabulary";
 import "./legal.css";
 
 interface DocumentStatus {
@@ -43,6 +44,7 @@ export function LegalGate({ from, onDone }: { from?: string; onDone?: () => void
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const vocabulary = useLegalVocabulary();
 
   function toggle(key: string) {
     setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -92,7 +94,7 @@ export function LegalGate({ from, onDone }: { from?: string; onDone?: () => void
               </button>
               {open[key] && (
                 <div id={`legal-${key}`} className="av-legal-panel__body" role="region" aria-label={t(title)}>
-                  <Content />
+                  <Content vocabulary={vocabulary} />
                 </div>
               )}
             </div>

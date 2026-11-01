@@ -1,4 +1,6 @@
-export function DpaContent() {
+import type { LegalVocabulary } from "./useLegalVocabulary";
+
+export function DpaContent({ vocabulary = {} }: { vocabulary?: LegalVocabulary }) {
   return (
     <>
       <p><em>Effective date: 1 November 2026</em></p>
@@ -7,7 +9,7 @@ export function DpaContent() {
       <h2>1. Who this is between</h2>
       <ul>
         <li><strong>You</strong> (the "controller") — the expert witness or organisation that uploads medical records to Avodeck.</li>
-        <li><strong>Four Integers Ltd</strong> (the "processor") — a company registered in England and Wales. Dr Aishat Abubakar is the director.</li>
+        <li><strong>Four Integers Ltd</strong> (the "processor") — a company registered in {vocabulary.company_registration_place}. Dr Aishat Abubakar is the director.</li>
       </ul>
 
       <h2>2. What this covers</h2>
@@ -30,7 +32,7 @@ export function DpaContent() {
           <tr><td>Patient identity</td><td>Name, date of birth (sealed with per-case encryption)</td></tr>
           <tr><td>Your dictated notes</td><td>Audio recordings transcribed into text</td></tr>
           <tr><td>Your opinions and report</td><td>Your written analysis and conclusions</td></tr>
-          <tr><td>Third-party identity</td><td>Solicitor names, firm names, hospital trust names</td></tr>
+          <tr><td>Third-party identity</td><td>Names of the people and organisations who instruct you, firm names, hospital trust names</td></tr>
         </tbody>
       </table>
 
@@ -105,7 +107,7 @@ export function DpaContent() {
       <p>We may update this agreement to reflect changes in how we process data or in the law. We will give you at least 30 days' notice.</p>
 
       <h2>14. Law</h2>
-      <p>This agreement is governed by the laws of England and Wales. If there is a conflict between this agreement and the terms of service, this agreement wins on data protection matters.</p>
+      <p>This agreement is governed by the laws of {vocabulary.company_registration_place}. If there is a conflict between this agreement and the terms of service, this agreement wins on data protection matters.</p>
     </>
   );
 }

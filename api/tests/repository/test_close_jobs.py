@@ -278,7 +278,8 @@ async def test_deletion_removes_quarantined_and_superseded_pages_and_their_objec
     files = await add_files(admin, seed, storage, crypto, worker_db, case)
     p1, p2, _p3 = files["pages"]
     flagged = admin.execute(
-        "select count(*) from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and (quarantined or superseded_by_page_id is not null)",
+        "select count(*) from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and "
+        "(quarantined or superseded_by_page_id is not null)",
         (case,),
     ).fetchone()
     assert flagged == (2,)

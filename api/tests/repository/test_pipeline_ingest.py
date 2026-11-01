@@ -93,7 +93,8 @@ async def test_a_clean_file_is_split_and_numbered_in_upload_order_across_documen
     assert [p["bundle_page_no"] for p in pages] == [1, 2, 3, 4, 5]
     assert [p["document_id"] for p in pages] == [first, first, first, second, second]
     scans = h.admin.execute(
-        "select document_id, clean from app.document_scans where bundle_id = (select bundle_id from app.cases where id = %s) order by scanned_at",
+        "select document_id, clean from app.document_scans where bundle_id = (select bundle_id from app.cases where id "
+        "= %s) order by scanned_at",
         (h.case_id,),
     ).fetchall()
     assert sorted(scans) == sorted([(first, True), (second, True)])

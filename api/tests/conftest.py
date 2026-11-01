@@ -74,7 +74,7 @@ def worker_dsn(test_database_dsns: dict[str, str]) -> str:
 @pytest.fixture(scope="session")
 def admin(admin_dsn: str) -> Iterator[psycopg.Connection]:
     try:
-        conn = psycopg.connect(admin_dsn, autocommit=True, connect_timeout=5)
+        conn = psycopg.connect(admin_dsn, autocommit=True, connect_timeout=20)
     except psycopg.OperationalError as exc:  # pragma: no cover - environment problem
         pytest.fail(f"local database not reachable; run `supabase start` and `supabase db reset` ({exc.sqlstate})")
     with conn:

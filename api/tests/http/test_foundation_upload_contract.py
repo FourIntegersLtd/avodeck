@@ -203,7 +203,8 @@ async def test_db_allows_finalizing_to_open_reopen(admin: psycopg.Connection, te
     )
     upload_id = only(
         admin.execute(
-            "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received,"
+            "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, "
+            "received,"
             " chunk_sha256)"
             " values (%s, %s, 'records', 'test.pdf', 16000000, %s, %s, 2, '{1,2}', %s) returning id",
             (team["case"], team["expert"], "c" * 64, 8 * MB, json.dumps({"1": "1" * 64, "2": "2" * 64})),
