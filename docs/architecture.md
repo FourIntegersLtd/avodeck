@@ -1045,7 +1045,7 @@ Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for s
 3. **Triage:** confidence + OCR/VLM disagreement → screen 10; Claude vision fallback with identifier boxes masked.
 4. **PII stripping:** Presidio + case dictionary (dates kept).
 5. **Classification + event extraction:** one Sonnet 5 call per page with cached system prompt + JSON schema, returning source type, clinical and availability dates, and facts with OCR word IDs.
-6. **Deterministic verification:** value-in-span, date normalisation in the pack's date order, schema validation; one retry, then "needs human".
+6. **Deterministic verification:** value-in-span, date normalisation in the pack's date order, schema validation; one retry, then "needs human". A page that passes all of that but still ends up with too little extracted (no kept facts, or kept facts/entries covering under half its countable words) is also flagged "needs human" (`no_facts` / `low_coverage`), unless it already has a reason from OCR or the words check.
 7. **Case-level passes:** dedup, missing references, gaps, anomaly rules, availability computation.
 8. **Indexing:** Supabase Postgres full-text + pgvector; timeline view.
 9. **Notify:** Resend email (no patient data) + in-app update via server-sent events from FastAPI.
