@@ -50,7 +50,8 @@ async def clean_unsplit(conn: AsyncConnection, case_id: uuid.UUID) -> list[Docum
     cur = await conn.execute(
         "select d.id, d.storage_path, d.filename from app.documents d"
         " join app.document_scans s on s.document_id = d.id"
-        " where d.bundle_id = (select bundle_id from app.cases where id = %s) and s.clean and s.split_at is null and d.kind = %s"
+        " where d.bundle_id = (select bundle_id from app.cases where id = %s) and s.clean and s.split_at is null and "
+        "d.kind = %s"
         " order by d.created_at, d.id",
         (case_id, RECORDS_KIND),
     )

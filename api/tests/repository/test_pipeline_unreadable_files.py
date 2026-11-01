@@ -39,7 +39,8 @@ async def test_a_locked_and_a_damaged_file_stop_alone_and_the_rest_is_numbered(h
     assert [p["document_id"] for p in h.pages()] == [first] * 3 + [last] * 2
     reasons: dict[uuid.UUID, str | None] = dict(
         h.admin.execute(
-            "select id, unreadable_reason from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+            "select id, unreadable_reason from app.documents where bundle_id = (select bundle_id from app.cases where "
+            "id = %s)",
             (h.case_id,),
         ).fetchall()
     )

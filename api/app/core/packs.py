@@ -90,6 +90,8 @@ _SCREEN_ONLY_VOCABULARY = frozenset(
         "party_name_ignore_words",
         "outside_expertise_hint",
         "coverage_question",
+        "company_registration_place",
+        "company_registered_office",
     }
 )
 CHECK_KIND_LISTS = ("action_kinds", "acknowledged_kinds", "followup_kinds", "or_kinds")

@@ -149,7 +149,8 @@ async def test_the_draft_carries_the_packs_notes_for_set_aside_and_foreign_pages
     pack = world["pack"]
     set_aside, foreign = (
         admin.execute(
-            "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and bundle_page_no = %s",
+            "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and "
+            "bundle_page_no = %s",
             (h.case_id, n),
         ).fetchone()[0]  # type: ignore[index]
         for n in (1, 3)
