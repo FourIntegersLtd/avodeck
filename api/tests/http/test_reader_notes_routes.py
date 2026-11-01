@@ -95,7 +95,7 @@ async def test_clearing_both_removes_the_row(client_for: Any, admin: psycopg.Con
     assert await mine(client, world) == []
     left = admin.execute(
         "select count(*) from app.page_notes n join app.pages p on p.id = n.page_id"
-        " where p.case_id = %s and n.person_id = %s",
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and n.person_id = %s",
         (world["case"], world["expert"]),
     ).fetchone()
     assert left == (0,)
@@ -116,7 +116,8 @@ async def test_the_note_is_sealed_and_separate_from_the_record(
     await keep(client, world, 12, bookmarked=True, note=NOTE)
     (sealed,) = admin.execute(
         "select n.note from app.page_notes n join app.pages p on p.id = n.page_id"
-        " where p.case_id = %s and p.bundle_page_no = 12 and n.person_id = %s",
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and p.bundle_page_no = 12"
+        " and n.person_id = %s",
         (world["case"], world["expert"]),
     ).fetchone() or (None,)
     assert sealed is not None and NOTE.encode() not in bytes(sealed)
