@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { StrictMode } from "react";
 import { expect, test, vi } from "vitest";
 import { hasMessage } from "../i18n";
 import { PageViewer, PageViewToolbar } from ".";
@@ -62,4 +63,29 @@ test("every viewer key exists", () => {
   for (const k of ["zoom_in", "zoom_out", "zoom_level", "turn_left", "turn_right", "fit_width", "whole_page", "reset", "brightness", "contrast", "bar", "page_alt"]) {
     expect(hasMessage(`viewer.${k}`)).toBe(true);
   }
+});
+
+test("choosing a fit reports one view change, once, even in strict mode", async () => {
+  const user = userEvent.setup();
+  const onView = vi.fn();
+  render(
+    <StrictMode>
+      <PageViewer pages={[{ src: "a.png", label: "Page 1" }]} onView={onView} />
+    </StrictMode>,
+  );
+  await user.click(screen.getByRole("button", { name: "Whole page" }));
+  expect(onView).toHaveBeenCalledTimes(1);
+  expect(onView.mock.calls[0][0].fit).toBe("page");
+});
+
+test("the paper is a named group, and a loading page is not a picture", () => {
+  render(<PageViewer pages={[{ src: null, label: "Page 1" }, { src: "b.png", label: "Page 2" }]} />);
+  expect(screen.getAllByRole("group", { name: "Page 1" })).toHaveLength(1);
+  expect(screen.getAllByRole("img")).toHaveLength(1);
+  expect(screen.getByRole("status", { name: "Loading" })).toBeTruthy();
+});
+
+test("a page can carry an id on its paper", () => {
+  render(<PageViewer pages={[{ src: "a.png", label: "Page 1", id: "page-4" }]} />);
+  expect(screen.getByRole("group", { name: "Page 1" }).id).toBe("page-4");
 });
