@@ -57,10 +57,11 @@
 
   <section id="who-we-are">
     <h2>1. Who we are</h2>
-    <p>Avodeck is made by Four Integers Ltd ("we", "us", "our"), a company registered in England and Wales.</p>
+    <p>Avodeck is made by Four Integers Ltd ("we", "us", "our"), a company registered in England and Wales. Dr Aishat Abubakar is the director.</p>
     <ul>
       <li><strong>Address:</strong> 82a James Carter Road, Mildenhall, IP28 7DE, England, UK</li>
       <li><strong>Email:</strong> <a href="mailto:hello@fourintegers.com">hello@fourintegers.com</a></li>
+      <li><strong>Data protection contact:</strong> Dr Aishat Abubakar (<a href="mailto:hello@fourintegers.com">hello@fourintegers.com</a>). We are a small company and do not have a Data Protection Officer, as we are not required to appoint one.</li>
     </ul>
   </section>
 
@@ -128,7 +129,7 @@
         <thead><tr><th scope="col">Provider</th><th scope="col">What for</th><th scope="col">Data</th><th scope="col">Where</th></tr></thead>
         <tbody>
           <tr><td>Supabase</td><td>Database, sign-in and file storage</td><td>Account and case data</td><td>London, UK</td></tr>
-          <tr><td>DigitalOcean</td><td>Running the Avodeck service</td><td>Account and case data</td><td>London, UK</td></tr>
+          <tr><td>Railway</td><td>Running the Avodeck service</td><td>Account and case data (in memory only, nothing stored)</td><td>Amsterdam, NL</td></tr>
           <tr><td>Amazon Web Services (Bedrock)</td><td>AI that finds facts in the records</td><td>Record text with identifiers removed</td><td>London, UK</td></tr>
           <tr><td>Microsoft Azure</td><td>Reading scanned pages and dictation</td><td>Page images and audio</td><td>UK South</td></tr>
           <tr><td>Resend</td><td>Sending emails</td><td>Your email address. Emails never contain patient details.</td><td>See provider</td></tr>
@@ -142,7 +143,7 @@
 
   <section id="where">
     <h2>7. Where your data is kept</h2>
-    <p>Some data, including account and technical data, may be handled by providers outside the UK, such as for email, payments, website hosting and processing. Where that happens, the transfer is protected by the UK International Data Transfer Agreement or an equivalent safeguard.</p>
+    <p>All patient data at rest (your cases, records and reports) is stored in the United Kingdom. The Avodeck service runs on Railway in the Netherlands — data passes through its servers in memory only and nothing is saved to disk there. The Netherlands is in the EEA, which has adequate data protection standards. Some account and technical data may be handled by providers outside the UK (for email, payments and website hosting). Where that happens, the transfer is protected by the UK International Data Transfer Agreement or an equivalent safeguard.</p>
   </section>
 
   <section id="security">
@@ -185,7 +186,7 @@
       <li>Complain to the Information Commissioner's Office (<a href="https://ico.org.uk">ico.org.uk</a>)</li>
     </ul>
     <p>If you are a patient whose records appear in a case, please contact the expert or the party who instructed them, as they are the controller. If you contact us, we will pass your request to them.</p>
-    <p>To use any of these rights, email <a href="mailto:hello@fourintegers.com">hello@fourintegers.com</a>. We will reply within one month.</p>
+    <p>To use any of these rights, email <a href="mailto:hello@fourintegers.com">hello@fourintegers.com</a>. We aim to acknowledge your request within 2 working days and respond fully within one month. If you are not happy with how we handle your request, you may complain to the ICO.</p>
   </section>
 
   <section id="cookies">
@@ -239,6 +240,8 @@
           <h3 class="footer-h">Legal</h3>
           <ul>
             <li><a href="privacy">Privacy</a></li>
+            <li><a href="terms">Terms</a></li>
+            <li><a href="dpa">Data processing</a></li>
           </ul>
         </div>
       </nav>

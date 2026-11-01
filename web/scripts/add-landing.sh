@@ -5,4 +5,4 @@
 # They are copied at build time, not kept in web/, so the web guards never scan the landing page's words.
 set -e
 mv dist/index.html dist/app.html
-cp ../site/index.html ../site/privacy.html ../site/styles.css ../site/favicon.svg ../site/email-logo.png dist/
+cp ../site/index.html ../site/privacy.html ../site/terms.html ../site/dpa.html ../site/styles.css ../site/favicon.svg ../site/email-logo.png dist/
