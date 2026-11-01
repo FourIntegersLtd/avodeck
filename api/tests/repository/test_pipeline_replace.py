@@ -146,7 +146,8 @@ async def test_a_page_is_replaced_once_and_a_copy_replaces_one_page(
     elsewhere = seed.case(seed.org(members={h.expert: "owner"}), h.expert)
     (foreign,) = h.admin.execute(
         "insert into app.documents (bundle_id, kind, filename, sha256)"
-        " values ((select bundle_id from app.cases where id = %s), 'records', 'other.pdf', repeat('0', 64)) returning id",
+        " values ((select bundle_id from app.cases where id = %s), 'records', 'other.pdf', repeat('0', 64))"
+        " returning id",
         (elsewhere,),
     ).fetchone()  # type: ignore[misc]
     crossed = await h.client.post(replace_path(h, page(h, 1)["id"]), json={"document_id": str(foreign)})
@@ -167,14 +168,17 @@ async def test_replacements_are_kept_per_case_for_people_who_replace_pages(h: Ha
     viewer, stranger = seed.person(), seed.person()
     seed.case_member(h.case_id, viewer, "viewer", added_by=h.expert)
     document_id = await h.upload(text_pdf(CLEARER), append=True)
-    insert = "insert into app.page_replacements (case_id, page_id, document_id, requested_by) values (%s, %s, %s, %s)"
+    insert = (
+        "insert into app.page_replacements (case_id, bundle_id, page_id, document_id, requested_by)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s)"
+    )
     for person in (viewer, stranger):
         async with h.api_db.request(scope_for(person)) as conn:
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 async with conn.transaction():
-                    await conn.execute(insert, (h.case_id, page(h, 1)["id"], document_id, person))
+                    await conn.execute(insert, (h.case_id, h.case_id, page(h, 1)["id"], document_id, person))
     async with h.api_db.request(scope_for(h.expert)) as conn:
-        await conn.execute(insert, (h.case_id, page(h, 1)["id"], document_id, h.expert))
+        await conn.execute(insert, (h.case_id, h.case_id, page(h, 1)["id"], document_id, h.expert))
     async with h.api_db.request(scope_for(viewer)) as conn:
         cur = await conn.execute("select count(*) from app.page_replacements where case_id = %s", (h.case_id,))
         assert await cur.fetchone() == (1,)

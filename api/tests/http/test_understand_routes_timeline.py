@@ -250,7 +250,8 @@ async def test_an_event_carries_its_date_basis_and_first_word_order(client_for: 
     case.admin.execute("update app.facts set date_basis = 'printed_century' where id = %s", (marked,))
     case.admin.execute(
         "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
-        " values (%s, (select bundle_id from app.cases where id = %s), 7, 'w1', 'x'::bytea, '{0,0,1,0,1,1,0,1}', 0.9, 'ocr')",
+        " values (%s, (select bundle_id from app.cases where id = %s), 7, 'w1', 'x'::bytea, '{0,0,1,0,1,1,0,1}', 0.9, "
+        "'ocr')",
         (case.page(1), case.id),
     )
     resp = await (await client_for(case.expert)).get(f"/v1/cases/{case.id}/timeline")

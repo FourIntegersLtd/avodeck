@@ -122,7 +122,8 @@ def test_people_without_access_see_no_entries(api_dsn: str, admin: psycopg.Conne
         with psycopg.connect(api_dsn) as conn:
             conn.execute("select set_config('app.person_id', %s, false)", (str(person),))
             row = conn.execute(
-                "select count(*) from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)",
+                "select count(*) from app.record_entries where bundle_id = (select bundle_id from app.cases where id = "
+                "%s)",
                 (case,),
             ).fetchone()
             assert row == (seen,)

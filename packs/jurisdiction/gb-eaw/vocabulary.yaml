@@ -1,4 +1,8 @@
 # Words that change by jurisdiction. UI strings reference these keys, never the words directly.
+# Account-level legal content (terms, privacy policy, DPA) is not tied to a case, so it reads these
+# words from GET /v1/jurisdictions/{code} instead of a case pack.
+company_registration_place: England and Wales
+company_registered_office: 82a James Carter Road, Mildenhall, IP28 7DE, England, UK
 # Party roles and instructing-party types are declared by the case-type pack; this file labels them.
 party_roles:
   instructing_side: claimant

@@ -281,8 +281,9 @@ async def test_a_page_set_aside_as_a_copy_or_given_a_clearer_copy_is_done(
     )
     later = seed.document(world["case"])
     admin.execute(
-        "insert into app.page_replacements (case_id, page_id, document_id, requested_by) values (%s, %s, %s, %s)",
-        (world["case"], world["pages"][replaced_no], later, world["expert"]),
+        "insert into app.page_replacements (case_id, bundle_id, page_id, document_id, requested_by)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s)",
+        (world["case"], world["case"], world["pages"][replaced_no], later, world["expert"]),
     )
     shown = {p["page_no"]: p for p in (await queue(client, world))["pages"]}
     assert shown[copy_no]["done"] and shown[copy_no]["is_copy"]

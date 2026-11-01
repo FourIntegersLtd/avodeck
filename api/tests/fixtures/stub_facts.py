@@ -140,7 +140,8 @@ async def load_stub_facts(
                 )
                 await conn.execute(
                     "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
-                    " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s::real[], 0.99, 'ocr')",
+                    " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s::real[], 0.99, "
+                    "'ocr')",
                     (page.page_id, case_id, n, wid, text, [x, y0, x1, y0, x1, y0 + WORD_HEIGHT, x, y0 + WORD_HEIGHT]),
                 )
                 word_ids.append(wid)
