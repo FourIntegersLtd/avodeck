@@ -60,22 +60,37 @@ async def test_document_scans_are_seen_with_case_access_or_in_the_cases_own_job(
     other = seed.document(theirs)
     async with worker_db.job(mine) as conn:
         await conn.execute(
-            "insert into app.document_scans (document_id, case_id, clean) values (%s, %s, true)", (doc, mine)
+            "insert into app.document_scans (document_id, bundle_id, clean)"
+            " values (%s, (select bundle_id from app.cases where id = %s), true)",
+            (doc, mine),
         )
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             async with conn.transaction():  # a savepoint, so the refusal does not undo the row above
                 await conn.execute(
-                    "insert into app.document_scans (document_id, case_id, clean) values (%s, %s, true)",
+                    "insert into app.document_scans (document_id, bundle_id, clean)"
+                    " values (%s, (select bundle_id from app.cases where id = %s), true)",
                     (other, theirs),
                 )
     async with worker_db.job(theirs) as conn:
-        cur = await conn.execute("select count(*) from app.document_scans where case_id = %s", (mine,))
+        cur = await conn.execute(
+            "select count(*) from app.document_scans"
+            " where bundle_id = (select bundle_id from app.cases where id = %s)",
+            (mine,),
+        )
         assert await cur.fetchone() == (0,)
     async with api_db.request(scope_for(expert)) as conn:
-        cur = await conn.execute("select document_id from app.document_scans where case_id = %s", (mine,))
+        cur = await conn.execute(
+            "select document_id from app.document_scans"
+            " where bundle_id = (select bundle_id from app.cases where id = %s)",
+            (mine,),
+        )
         assert await cur.fetchall() == [(doc,)]
     async with api_db.request(scope_for(stranger)) as conn:
-        cur = await conn.execute("select count(*) from app.document_scans where case_id = %s", (mine,))
+        cur = await conn.execute(
+            "select count(*) from app.document_scans"
+            " where bundle_id = (select bundle_id from app.cases where id = %s)",
+            (mine,),
+        )
         assert await cur.fetchone() == (0,)
 
 
@@ -86,4 +101,8 @@ async def test_page_analysis_rows_belong_to_a_page_of_the_same_case(
     page = seed.page(theirs, seed.document(theirs), 1)
     with pytest.raises(psycopg.errors.CheckViolation):
         async with worker_db.job(mine) as conn:
-            await conn.execute("insert into app.page_analysis (page_id, case_id) values (%s, %s)", (page, mine))
+            await conn.execute(
+                "insert into app.page_analysis (page_id, bundle_id)"
+                " values (%s, (select bundle_id from app.cases where id = %s))",
+                (page, mine),
+            )

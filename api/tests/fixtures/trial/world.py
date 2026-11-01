@@ -197,8 +197,8 @@ async def seal_words(aconn: AsyncConnection, case: uuid.UUID, page: uuid.UUID, w
     for n, text in enumerate(words, start=1):
         sealed = await CRYPTO.encrypt(aconn, case, text.encode(), purpose=word_purpose(page, f"w{n}"))
         await aconn.execute(
-            "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-            " values (%s, %s, %s, %s, %s, %s, 0.99, 'ocr')",
+            "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+            " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s, 0.99, 'ocr')",
             (page, case, n, f"w{n}", sealed, [0, 0, 1, 0, 1, 1, 0, 1]),
         )
 

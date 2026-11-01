@@ -205,16 +205,19 @@ async def test_exhibits_are_kept_per_case_and_recorded_only_by_the_worker(
 
     writes = [
         (
-            "insert into app.exhibits (case_id, document_id, media_type, size, sha256, storage_path)"
-            " values (%s, %s, 'audio/wav', 1, repeat('0', 64), 'x')",
+            "insert into app.exhibits (bundle_id, document_id, media_type, size, sha256, storage_path)"
+            " values ((select bundle_id from app.cases where id = %s), %s, 'audio/wav', 1, repeat('0', 64), 'x')",
             (h.case_id, document_id),
         ),
         (
-            "insert into app.document_parts (case_id, parent_document_id, document_id, part_no, media_type)"
-            " values (%s, %s, %s, 1, 'audio/wav')",
+            "insert into app.document_parts (bundle_id, parent_document_id, document_id, part_no, media_type)"
+            " values ((select bundle_id from app.cases where id = %s), %s, %s, 1, 'audio/wav')",
             (h.case_id, document_id, document_id),
         ),
-        ("delete from app.exhibits where case_id = %s", (h.case_id,)),
+        (
+            "delete from app.exhibits where bundle_id = (select bundle_id from app.cases where id = %s)",
+            (h.case_id,),
+        ),
     ]
     for sql, args in writes:
         async with h.api_db.request(scope_for(h.expert)) as conn:
@@ -223,7 +226,10 @@ async def test_exhibits_are_kept_per_case_and_recorded_only_by_the_worker(
                     await conn.execute(sql, args)
     stranger = seed.person()
     async with h.api_db.request(scope_for(stranger)) as conn:
-        cur = await conn.execute("select count(*) from app.exhibits where case_id = %s", (h.case_id,))
+        cur = await conn.execute(
+            "select count(*) from app.exhibits where bundle_id = (select bundle_id from app.cases where id = %s)",
+            (h.case_id,),
+        )
         assert await cur.fetchone() == (0,)
     unknown = await h.client.get(f"/v1/cases/{uuid.uuid4()}/exhibits")
     assert unknown.status_code == 404

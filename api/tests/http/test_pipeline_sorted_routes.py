@@ -70,7 +70,8 @@ def page(h: Harness, doc: uuid.UUID, n: int, source: str | None, printed: list[d
     pid = Seed(h.admin).page(h.case_id, doc, n)
     h.admin.execute("update app.pages set source_type = %s where id = %s", (source, pid))
     h.admin.execute(
-        "insert into app.page_analysis (page_id, case_id, printed_dates) values (%s, %s, %s)",
+        "insert into app.page_analysis (page_id, bundle_id, printed_dates)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s)",
         (pid, h.case_id, printed or []),
     )
     return pid
@@ -99,7 +100,7 @@ def arrange(h: Harness) -> None:
 async def test_pages_are_grouped_by_source_then_date_and_keep_their_numbers(h: Harness) -> None:
     arrange(h)
     before = h.admin.execute(
-        "select id, bundle_page_no from app.pages where case_id = %s order by 1", (h.case_id,)
+        "select id, bundle_page_no from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) order by 1", (h.case_id,)
     ).fetchall()
     got = await h.client.get(f"/v1/cases/{h.case_id}/bundle/sorted")
     assert got.status_code == 200, got.status_code
@@ -113,7 +114,7 @@ async def test_pages_are_grouped_by_source_then_date_and_keep_their_numbers(h: H
         (4, None, None),
     ]
     after = h.admin.execute(
-        "select id, bundle_page_no from app.pages where case_id = %s order by 1", (h.case_id,)
+        "select id, bundle_page_no from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) order by 1", (h.case_id,)
     ).fetchall()
     assert after == before, "sorting changed a page number"
 

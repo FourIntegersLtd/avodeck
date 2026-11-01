@@ -67,7 +67,8 @@ async def world(seed: Seed, admin: psycopg.Connection, aconn: psycopg.AsyncConne
     loaded = await load_stub_facts(aconn, case, pages=[118], crypto=CRYPTO)
     page_id = loaded[118].page_id
     admin.execute(
-        "insert into app.page_analysis (page_id, case_id, width, height) values (%s, %s, %s, %s)"
+        "insert into app.page_analysis (page_id, bundle_id, width, height)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s)"
         " on conflict (page_id) do update set width = excluded.width, height = excluded.height",
         (page_id, case, PAGE_WIDTH, PAGE_HEIGHT),
     )

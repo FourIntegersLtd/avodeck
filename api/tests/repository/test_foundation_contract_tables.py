@@ -17,7 +17,12 @@ import uuid
 import psycopg
 import pytest
 
-from app.core.contracts.case_tables import AWAITING_SLICE_MIGRATION, CASE_TABLES, KEPT_AFTER_CASE_DELETION
+from app.core.contracts.case_tables import (
+    AWAITING_SLICE_MIGRATION,
+    BUNDLE_SCOPED_TABLES,
+    CASE_TABLES,
+    KEPT_AFTER_CASE_DELETION,
+)
 from tests.support.contracts import add_fact, add_question, add_report_version
 from tests.support.seed import Seed
 
@@ -314,13 +319,22 @@ def test_every_table_holding_case_data_is_in_the_case_table_registry(admin: psyc
         "select table_name from information_schema.columns where table_schema = 'app' and column_name = 'case_id'"
     ).fetchall()
     with_case = {r[0] for r in rows}
-    assert {"facts", "questions", "report_versions", "pages", "uploads"} <= with_case
+    assert {"facts", "questions", "report_versions", "uploads"} <= with_case
+    assert not (BUNDLE_SCOPED_TABLES & with_case), (
+        "a bundle-scoped table has a case_id column again: drop it or remove it from BUNDLE_SCOPED_TABLES"
+    )
     missing = with_case - CASE_TABLES - KEPT_AFTER_CASE_DELETION
     assert not missing, f"add these case tables to app/core/contracts/case_tables.py: {sorted(missing)}"
     assert not (CASE_TABLES & KEPT_AFTER_CASE_DELETION)
     assert "audit_log" in KEPT_AFTER_CASE_DELETION
     assert set(AWAITING_SLICE_MIGRATION) <= CASE_TABLES | KEPT_AFTER_CASE_DELETION
-    gone = (CASE_TABLES | KEPT_AFTER_CASE_DELETION) - with_case - {"cases"} - set(AWAITING_SLICE_MIGRATION)
+    gone = (
+        (CASE_TABLES | KEPT_AFTER_CASE_DELETION)
+        - with_case
+        - {"cases", "bundles"}
+        - BUNDLE_SCOPED_TABLES
+        - set(AWAITING_SLICE_MIGRATION)
+    )
     assert not gone, f"registry names tables that do not exist: {sorted(gone)}"
 
 

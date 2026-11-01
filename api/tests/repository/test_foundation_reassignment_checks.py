@@ -112,7 +112,8 @@ async def desk(seed: Seed, api_db: Database, admin: psycopg.Connection, aconn: p
     page = loaded[118].page_id
     # Slice A records the page's size in its words' units, which boxes are drawn against.
     admin.execute(
-        "insert into app.page_analysis (page_id, case_id, width, height) values (%s, %s, %s, %s)",
+        "insert into app.page_analysis (page_id, bundle_id, width, height)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s)",
         (page, case, PAGE_WIDTH, PAGE_HEIGHT),
     )
     verified, edited, rejected, suggested, other, *_ = loaded[118].fact_ids

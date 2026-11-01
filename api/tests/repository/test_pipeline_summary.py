@@ -24,8 +24,8 @@ pytestmark = pytest.mark.anyio
 
 def document(admin: psycopg.Connection, case_id: uuid.UUID, *, version: int, name: str) -> uuid.UUID:
     row = admin.execute(
-        "insert into app.documents (case_id, kind, filename, sha256, pages, bundle_version)"
-        " values (%s, 'records', %s, %s, 0, %s) returning id",
+        "insert into app.documents (bundle_id, kind, filename, sha256, pages, bundle_version)"
+        " values ((select bundle_id from app.cases where id = %s), 'records', %s, %s, 0, %s) returning id",
         (case_id, name, "0" * 64, version),
     ).fetchone()
     assert row is not None
@@ -42,8 +42,8 @@ def page(
     unreadable: bool = False,
 ) -> uuid.UUID:
     row = admin.execute(
-        "insert into app.pages (case_id, document_id, bundle_page_no, source_type, unreadable)"
-        " values (%s, %s, %s, %s, %s) returning id",
+        "insert into app.pages (bundle_id, document_id, bundle_page_no, source_type, unreadable)"
+        " values ((select bundle_id from app.cases where id = %s), %s, %s, %s, %s) returning id",
         (case_id, doc, number, source, unreadable),
     ).fetchone()
     assert row is not None
@@ -68,8 +68,9 @@ def world(seed: Seed, admin: psycopg.Connection) -> dict[str, Any]:
     admin.execute("update app.documents set pages = 3 where id = %s", (later,))
     admin.execute("update app.pages set duplicate_of_page_id = %s where id in (%s, %s)", (p1, copy, kept))
     admin.execute(
-        "insert into app.page_analysis (page_id, case_id, duplicate_status) values (%s, %s, 'suggested'),"
-        " (%s, %s, 'kept')",
+        "insert into app.page_analysis (page_id, bundle_id, duplicate_status) values"
+        " (%s, (select bundle_id from app.cases where id = %s), 'suggested'),"
+        " (%s, (select bundle_id from app.cases where id = %s), 'kept')",
         (copy, case_id, kept, case_id),
     )
     for key in ("r1", "r2", "r3"):

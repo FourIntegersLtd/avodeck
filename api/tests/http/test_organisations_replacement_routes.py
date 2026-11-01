@@ -60,7 +60,7 @@ async def test_s3_after_serving_the_offer_leads_to_a_linked_replacement_case(
     assert admin.execute("select named_expert_id, status from app.cases where id = %s", (served,)).fetchone() == (
         world["dr_k"], "served",
     )  # fmt: skip
-    assert admin.execute("select count(*) from app.pages where case_id = %s", (new,)).fetchone() == (0,)
+    assert admin.execute("select count(*) from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)", (new,)).fetchone() == (0,)
     dr_m = await (await client_for(world["dr_m"])).get(f"/v1/cases/{new}")
     assert dr_m.status_code == 200, dr_m.text
 

@@ -277,7 +277,7 @@ class Harness:
     def pages(self) -> list[dict[str, Any]]:
         cur = self.admin.cursor(row_factory=psycopg.rows.dict_row)
         return cur.execute(
-            "select * from app.pages where case_id = %s order by bundle_page_no", (self.case_id,)
+            "select * from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) order by bundle_page_no", (self.case_id,)
         ).fetchall()
 
     async def decrypt(self, blob: bytes, purpose: str) -> bytes:

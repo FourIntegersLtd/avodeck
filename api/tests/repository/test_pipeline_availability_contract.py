@@ -64,8 +64,8 @@ async def _store(
 async def _words(conn: psycopg.AsyncConnection, case: uuid.UUID, page: uuid.UUID, count: int) -> None:
     for n in range(1, count + 1):
         await conn.execute(
-            "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-            " values (%s, %s, %s, %s, %s, %s, 0.9, 'ocr')",
+            "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+            " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s, 0.9, 'ocr')",
             (page, case, n, f"w{n}", b"x", [0, 0, 1, 0, 1, 1, 0, 1]),
         )
 
