@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
 import { expect, test } from "vitest";
-import { files, isTest, WEB } from "./walk";
+import { files, isTest, LEGAL_AGREEMENT_FILES, WEB } from "./walk";
 
 const TEXT_ATTRIBUTES = new Set(["aria-label", "aria-description", "title", "placeholder", "alt", "label"]);
 const HAS_WORDS = /[A-Za-z]{2,}/;
@@ -43,7 +43,7 @@ test("the scan finds planted text and ignores keys and class names", () => {
 });
 
 test("no component contains hard-coded user-facing text", () => {
-  const components = files(join(WEB, "src"), (rel) => rel.endsWith(".tsx") && !isTest(rel) && !rel.startsWith("src/foundation/guards/"));
+  const components = files(join(WEB, "src"), (rel) => rel.endsWith(".tsx") && !isTest(rel) && !rel.startsWith("src/foundation/guards/") && !LEGAL_AGREEMENT_FILES.has(rel));
   expect(components.length).toBeGreaterThan(5);
   const findings = components.flatMap((p) => hardcodedText(readFileSync(p, "utf8"), p).map((text) => `${p.slice(WEB.length + 1)}: ${text}`));
   expect(findings).toEqual([]);
