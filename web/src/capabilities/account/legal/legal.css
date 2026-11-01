@@ -1,3 +1,14 @@
+/* The page behind the gate: the standard background token, same as other pre-agreement screens. */
+.av-legal-page {
+  min-height: 100vh;
+  background: var(--surface-soft);
+}
+
+/* Just the mark, no nav: nothing here makes sense to click before the person has agreed. */
+.av-legal-page__brand {
+  padding: var(--space-5) var(--gutter) 0;
+}
+
 .av-legal-gate {
   max-width: 720px;
   margin: 0 auto;
@@ -5,15 +16,15 @@
 }
 
 .av-legal-gate h1 {
-  font-size: 1.5rem;
+  font-size: var(--text-h1);
   font-weight: 700;
-  color: var(--av-ink);
+  color: var(--ink);
   margin: 0 0 8px;
 }
 
 .av-legal-gate > p {
-  font-size: 1.0625rem;
-  color: var(--av-slate);
+  font-size: var(--text-body);
+  color: var(--ink-soft);
   margin: 0 0 32px;
   line-height: 1.6;
 }
@@ -26,9 +37,9 @@
 }
 
 .av-legal-panel {
-  border: 1px solid var(--av-line);
+  border: 1px solid var(--line);
   border-radius: 16px;
-  background: var(--av-surface);
+  background: var(--surface);
   overflow: hidden;
 }
 
@@ -44,16 +55,16 @@
   cursor: pointer;
   text-align: left;
   font: inherit;
-  color: var(--av-ink);
+  color: var(--ink);
   gap: 12px;
 }
 
 .av-legal-panel__header:hover {
-  background: var(--av-mint);
+  background: var(--green-tint);
 }
 
 .av-legal-panel__header:focus-visible {
-  outline: 2px solid var(--av-green);
+  outline: 2px solid var(--green);
   outline-offset: -2px;
   border-radius: 16px;
 }
@@ -64,21 +75,21 @@
 
 .av-legal-panel__title strong {
   display: block;
-  font-size: 1.0625rem;
+  font-size: var(--text-body);
   font-weight: 700;
 }
 
 .av-legal-panel__title span {
   display: block;
-  font-size: 0.875rem;
-  color: var(--av-slate);
+  font-size: var(--text-small);
+  color: var(--ink-soft);
   margin-top: 2px;
 }
 
 .av-legal-panel__chevron {
   flex-shrink: 0;
   transition: transform 0.2s ease;
-  color: var(--av-slate);
+  color: var(--ink-soft);
 }
 
 .av-legal-panel[data-open="true"] .av-legal-panel__chevron {
@@ -86,69 +97,79 @@
 }
 
 .av-legal-panel__body {
-  padding: 0 20px 24px;
-  font-size: 0.9375rem;
+  padding: 4px 20px 24px;
+  font-size: var(--text-body);
   line-height: 1.7;
-  color: var(--av-ink);
+  color: var(--ink);
   max-height: 400px;
   overflow-y: auto;
-  border-top: 1px solid var(--av-line);
+  border-top: 1px solid var(--line);
 }
 
+/* Section headings: a clear step up from body text, in the brand colour, with a divider
+   underneath so each numbered section stands apart from the last (readability pass). */
 .av-legal-panel__body h2 {
-  font-size: 1rem;
+  font-size: var(--text-large);
   font-weight: 700;
-  margin: 24px 0 8px;
+  color: var(--green-dark);
+  margin: var(--space-6) 0 var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--line);
+}
+
+.av-legal-panel__body h2:first-child {
+  margin-top: 0;
 }
 
 .av-legal-panel__body h3 {
-  font-size: 0.9375rem;
+  font-size: var(--text-body);
   font-weight: 700;
-  margin: 16px 0 6px;
+  color: var(--ink);
+  margin: var(--space-4) 0 var(--space-1);
 }
 
 .av-legal-panel__body p {
-  margin: 8px 0;
+  margin: var(--space-2) 0;
 }
 
 .av-legal-panel__body ul,
 .av-legal-panel__body ol {
-  margin: 8px 0;
-  padding-left: 24px;
+  margin: var(--space-2) 0;
+  padding-left: var(--space-5);
 }
 
 .av-legal-panel__body li {
-  margin: 4px 0;
+  margin: var(--space-1) 0;
 }
 
 .av-legal-panel__body table {
   width: 100%;
   border-collapse: collapse;
-  margin: 12px 0;
-  font-size: 0.875rem;
+  margin: var(--space-3) 0;
+  font-size: var(--text-small);
 }
 
 .av-legal-panel__body th,
 .av-legal-panel__body td {
   text-align: left;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--av-line);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
 }
 
 .av-legal-panel__body th {
   font-weight: 700;
-  background: var(--av-mint);
+  background: var(--green-tint);
 }
 
 .av-legal-agree {
   padding: 20px 24px;
-  background: var(--av-mint);
+  background: var(--green-tint);
   border-radius: 16px;
   margin-bottom: 24px;
 }
 
 .av-legal-agree .av-checkbox {
-  font-size: 1.0625rem;
+  font-size: var(--text-body);
 }
 
 .av-legal-actions {
