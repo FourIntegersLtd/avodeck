@@ -62,8 +62,9 @@ async def h(
 def held(h: Harness, doc: uuid.UUID, number: int, status: str) -> None:
     pid = Seed(h.admin).page(h.case_id, doc, number)
     h.admin.execute(
-        "insert into app.page_quarantines (case_id, page_id, status, reason) values (%s, %s, %s, 'identifiers_differ')",
-        (h.case_id, pid, status),
+        "insert into app.page_quarantines (case_id, bundle_id, page_id, status, reason)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, 'identifiers_differ')",
+        (h.case_id, h.case_id, pid, status),
     )
 
 

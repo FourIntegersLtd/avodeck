@@ -1,5 +1,9 @@
--- Undo 0128: restore the pre-bundle trigger functions (case_id checks) and trigger names.
+-- Down 0128: restore the case_id-based integrity triggers that 0128 replaced.
+-- Run after 0129's down has restored case_id on the tables that lost it.
+
 set role app_migrator;
+
+-- ── 1. Restore pipeline_same_case_page (checks case_id, not bundle_id) ──────
 
 drop trigger if exists page_analysis_same_bundle on app.page_analysis;
 drop trigger if exists ocr_words_same_bundle on app.ocr_words;
@@ -9,9 +13,7 @@ drop trigger if exists record_entries_same_bundle on app.record_entries;
 create or replace function app.pipeline_same_case_page() returns trigger
 language plpgsql as $$
 begin
-  if not exists (
-    select 1 from app.pages p where p.id = new.page_id and p.case_id = new.case_id
-  ) then
+  if not exists (select 1 from app.pages p where p.id = new.page_id and p.case_id = new.case_id) then
     raise exception 'page belongs to another case' using errcode = 'check_violation';
   end if;
   return new;
@@ -26,6 +28,8 @@ create trigger page_embeddings_same_case before insert or update on app.page_emb
   for each row execute function app.pipeline_same_case_page();
 create trigger record_entries_same_case before insert or update on app.record_entries
   for each row execute function app.pipeline_same_case_page();
+
+-- ── 2. Restore page_quarantines_guard without the bundle_id check ───────────
 
 create or replace function app.page_quarantines_guard() returns trigger
   language plpgsql
@@ -46,6 +50,8 @@ begin
   return new;
 end
 $$;
+
+-- ── 3. Restore page_replacements_guard without the bundle_id check ──────────
 
 create or replace function app.page_replacements_guard() returns trigger
   language plpgsql
