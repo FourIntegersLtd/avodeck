@@ -8,7 +8,7 @@ export function TermsContent() {
       <p>Avodeck is made by Four Integers Ltd, a company registered in England and Wales. Dr Aishat Abubakar is the director.</p>
       <ul>
         <li><strong>Address:</strong> 82a James Carter Road, Mildenhall, IP28 7DE, England, UK</li>
-        <li><strong>Email:</strong> hello@fourintegers.com</li>
+        <li><strong>Email:</strong> hello@avodeck.com</li>
       </ul>
 
       <h2>2. What Avodeck is (and is not)</h2>
@@ -84,10 +84,10 @@ export function TermsContent() {
       <p>Nothing in these terms affects your statutory rights under the Consumer Rights Act 2015 or any other law that cannot be excluded by agreement.</p>
 
       <h2>13. Complaints</h2>
-      <p>If something is not right, email hello@fourintegers.com. We aim to acknowledge your complaint within 2 working days and resolve it within 14 days.</p>
+      <p>If something is not right, email hello@avodeck.com. We aim to acknowledge your complaint within 2 working days and resolve it within 14 days.</p>
 
       <h2>14. Contact us</h2>
-      <p>For any question about these terms, email hello@fourintegers.com or write to Four Integers Ltd, 82a James Carter Road, Mildenhall, IP28 7DE, England, UK.</p>
+      <p>For any question about these terms, email hello@avodeck.com or write to Four Integers Ltd, 82a James Carter Road, Mildenhall, IP28 7DE, England, UK.</p>
     </>
   );
 }

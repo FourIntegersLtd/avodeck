@@ -8,8 +8,8 @@ export function PrivacyContent() {
       <p>Avodeck is made by Four Integers Ltd, a company registered in England and Wales. Dr Aishat Abubakar is the director.</p>
       <ul>
         <li><strong>Address:</strong> 82a James Carter Road, Mildenhall, IP28 7DE, England, UK</li>
-        <li><strong>Email:</strong> hello@fourintegers.com</li>
-        <li><strong>Data protection contact:</strong> Dr Aishat Abubakar (hello@fourintegers.com)</li>
+        <li><strong>Email:</strong> hello@avodeck.com</li>
+        <li><strong>Data protection contact:</strong> Dr Aishat Abubakar (hello@avodeck.com)</li>
       </ul>
 
       <h2>2. Our role: controller and processor</h2>
@@ -98,7 +98,7 @@ export function PrivacyContent() {
 
       <h2>10. Your rights</h2>
       <p>You have the right to see, correct, delete, take with you, object to, or limit how we use your data. You can withdraw consent at any time. You may complain to the Information Commissioner's Office (ico.org.uk).</p>
-      <p>To use any of these rights, email hello@fourintegers.com. We aim to respond within one month.</p>
+      <p>To use any of these rights, email hello@avodeck.com. We aim to respond within one month.</p>
 
       <h2>11. Cookies</h2>
       <p>This website does not use advertising or tracking cookies. Avodeck uses one essential cookie to keep you signed in securely.</p>
@@ -110,7 +110,7 @@ export function PrivacyContent() {
       <p>We may update this policy from time to time. If we make an important change, we will tell you by email or in Avodeck before it takes effect.</p>
 
       <h2>14. Contact us</h2>
-      <p>For any question about privacy, email hello@fourintegers.com or write to Four Integers Ltd, 82a James Carter Road, Mildenhall, IP28 7DE, England, UK.</p>
+      <p>For any question about privacy, email hello@avodeck.com or write to Four Integers Ltd, 82a James Carter Road, Mildenhall, IP28 7DE, England, UK.</p>
     </>
   );
 }
