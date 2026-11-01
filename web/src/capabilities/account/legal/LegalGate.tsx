@@ -42,10 +42,11 @@ export function LegalGate({ from, onDone }: { from?: string; onDone?: () => void
   }
 
   async function accept() {
+    const m = document.cookie.match(/(?:^|;\s*)av_csrf=([^;]+)/);
     const res = await fetch(`${apiOrigin()}/v1/legal-agreements/accept`, {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": m?.[1] ?? "" },
     });
     if (!res.ok) throw new Error(`Failed: ${res.status}`);
     if (onDone) onDone();
