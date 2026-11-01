@@ -307,16 +307,33 @@ async def test_the_schema_and_facts_follow_the_case_packs(
     words = embedded_words(split_pages(document)[0]).words
     answer = response(
         {
-            "source_type": source,
-            "printed_dates": [],
-            "facts": [
-                {"kind": kind, "clinician_role": None, "fields": {}, "value": words[0].text, "word_ids": [words[0].id]},
-                {"kind": kind, "clinician_role": None, "fields": {}, "value": "absent", "word_ids": [words[1].id]},
-            ],
-            "references_out": [],
-            "availability_evidence": [],
-            "actions_requested_of_clinician": [],
-            "entries": [],
+            "pages": [
+                {
+                    "page_no": 1,
+                    "source_type": source,
+                    "printed_dates": [],
+                    "facts": [
+                        {
+                            "kind": kind,
+                            "clinician_role": None,
+                            "fields": {},
+                            "value": words[0].text,
+                            "word_ids": [words[0].id],
+                        },
+                        {
+                            "kind": kind,
+                            "clinician_role": None,
+                            "fields": {},
+                            "value": "absent",
+                            "word_ids": [words[1].id],
+                        },
+                    ],
+                    "references_out": [],
+                    "availability_evidence": [],
+                    "actions_requested_of_clinician": [],
+                    "entries": [],
+                }
+            ]
         }
     )
     opened = await _open(
@@ -372,13 +389,18 @@ async def test_instructions_printed_on_a_page_cannot_add_fields_or_values(
     else:
         bad = {**good, "value": INJECTED_NAME}
     answer = {
-        "source_type": pack.source_types()[-1]["key"],
-        "printed_dates": [],
-        "facts": [good, bad] if trick == "value_not_on_page" else [bad],
-        "references_out": [],
-        "availability_evidence": [],
-        "actions_requested_of_clinician": [],
-        "entries": [],
+        "pages": [
+            {
+                "page_no": 1,
+                "source_type": pack.source_types()[-1]["key"],
+                "printed_dates": [],
+                "facts": [good, bad] if trick == "value_not_on_page" else [bad],
+                "references_out": [],
+                "availability_evidence": [],
+                "actions_requested_of_clinician": [],
+                "entries": [],
+            }
+        ]
     }
     opened = await _open(
         LAUNCH,

@@ -28,7 +28,7 @@ import hashlib
 import json
 import logging
 import uuid
-from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
@@ -434,22 +434,23 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
 async def _ask(
     ctx: JobContext, services: PipelineServices, task: Any, pack: Any, who: Any, text: str, subject: str
 ) -> dict[str, Any] | None:
-    """One T-07b call in its own transaction, so its `ai_calls` rows stay even if the page fails."""
+    """One model call (a page or a batch of pages). Uses ``run_detached`` so no pool connection
+    is held during slot waits or the Bedrock call itself."""
     assert services.kit is not None
-    async with ctx.transaction() as conn:
-        try:
-            return await services.kit.run(
-                conn,
-                task,
-                pack=pack,
-                text=text,
-                case_id=ctx.case_id,
-                names=who.names,
-                dates_of_birth=who.dates_of_birth,
-                subject=subject,
-            )
-        except InvalidOutput:
-            return None
+    try:
+        return await services.kit.run_detached(
+            ctx.database,
+            ctx.case_id,
+            task,
+            pack=pack,
+            text=text,
+            names=who.names,
+            dates_of_birth=who.dates_of_birth,
+            subject=subject,
+            job_id=ctx.job_id,
+        )
+    except InvalidOutput:
+        return None
 
 
 @dataclass(frozen=True)
@@ -528,7 +529,16 @@ def _entries_of(
 
 
 async def _extract(ctx: JobContext, services: PipelineServices) -> int:
-    """Extracts every page waiting for it; returns how many."""
+    """Extracts every page waiting for it, in batches of up to `extraction_batch_size` pages sent to
+    the model in one call (one call per batch, not per page, to stay inside the account-wide Bedrock
+    on-demand throughput ceiling). Returns how many pages were extracted.
+
+    Accepted tradeoff: a batch is asked at most twice, exactly as a single page used to be. When any
+    page in the batch still fails provenance (or the answer is unusable) on the first attempt, the
+    *whole batch* is asked again; a page still failing after that becomes `needs_human`. One
+    malformed page therefore costs a full second call for every page in its batch, not just itself —
+    accepted for the throughput win; no partial-batch recovery is attempted.
+    """
     async with ctx.transaction() as conn:
         await repo.reset_undone(conn, ctx.case_id)
         waiting = await repo.pages_to_extract(conn, ctx.case_id)
@@ -540,89 +550,133 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         raise ProcessingPaused("model_unavailable")
     task = extract.task_for(pack)
     model_id = model_for(services.kit.settings, task.model)
+    size = max(1, services.kit.settings.extraction_batch_size)
+    batches = [waiting[i : i + size] for i in range(0, len(waiting), size)]
     done = 0
 
-    async def one(page_id: uuid.UUID) -> None:
+    async def one_batch(batch: Sequence[tuple[uuid.UUID, int]]) -> None:
         nonlocal done
-        loaded = await _load_page(ctx, services, pack, who, page_id)
-        stored, size, latest, texts = loaded.stored, loaded.size, loaded.latest, loaded.texts
-        ordered, struck, text, subject = loaded.ordered, loaded.struck, loaded.text, loaded.subject
-        output: dict[str, Any] | None = None
-        kept: list[Any] = []
-        reason: str | None = None
-        if not stored:  # a page OCR could not read (F4) has nothing to ask the model about
-            kept, reason = [], "no_words"
-        for _ in range(0 if not stored else 2):
-            output = await _ask(ctx, services, task, pack, who, text, subject)
-            if output is None:
-                kept, reason = [], "invalid_output"
-                break
-            result = extract.sort_facts(output, texts, struck)
-            kept, reason = result.kept, ("not_in_words" if result.refused else None)
-            if reason is None:
-                break
-        found = dates.find([(w, t) for w, t in ordered if w not in struck], pack)
-        polygons = {w.word_id: w.polygon for w in stored}
-        width, height = size or (
-            max((x for w in stored for x in w.polygon[0::2]), default=1.0) or 1.0,
-            max((y for w in stored for y in w.polygon[1::2]), default=1.0) or 1.0,
-        )
-        evidence = extract.sort_evidence(output, ordered, struck, pack)
-        entries: list[Any] | None
-        entries, entries_rejected = _entries_of(output, ordered, struck, pack)
-        if stored and output is None:
-            entries = None  # no usable answer: not "no entries"; the page is left for a person
-        if reason is None and stored and output is not None:
-            reason = coverage.reason_for(ordered=ordered, struck=struck, kept=kept, entries=entries)
-        facts = []
-        lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
-        anchor = dates.bundle_anchor(
-            [*found, *([dates.Printed((), latest, None, False)] if latest is not None else [])]
-        )
-        for f in kept:
-            fields = dict(f.get("fields") or {})
-            when, basis, extra = date_repair.resolve_dated(
-                str(f["kind"]), fields, f["word_ids"], ordered, struck, lines, pack, anchor=anchor
-            )
-            facts.append(
-                repo.NewFact(
-                    kind=str(f["kind"]),
-                    fields=fields,
-                    value=str(f["value"]),
-                    word_ids=date_repair.cited_with(f["word_ids"], extra, ordered) if extra else list(f["word_ids"]),
-                    bbox=extract.box(f["word_ids"], polygons, width, height),
-                    event_date=when,
-                    date_basis=basis,
-                )
-            )
-        async with ctx.transaction() as conn:
-            sealed = None
-            if output is not None:
-                sealed = await services.crypto.encrypt(
-                    conn, ctx.case_id, json.dumps(output).encode(), purpose=paths.extraction_purpose(page_id)
-                )
-            await repo.store_extraction(
-                conn,
-                ctx.case_id,
-                page_id,
-                source_type=output.get("source_type") if output else None,
-                facts=facts,
-                sealed=sealed,
-                needs_human=reason is not None,
-                reason=reason,
-                task=task.task_id,
-                model_id=model_id,
-                prompt_version=task.prompt_version,
-                printed_dates=dates.printed_dates(found),
-                availability_evidence=evidence,
-                entries=entries,
-                entries_rejected=entries_rejected,
-            )
-        done += 1
-        if done % 25 == 0:
-            await ctx.progress(min(55, 40 + 15 * done // len(waiting)), step="sort")
+        loaded: dict[uuid.UUID, _LoadedPage] = {}
 
-    await bounded(waiting, one, stop=_stop(ctx))
+        async def load(item: tuple[uuid.UUID, int]) -> None:
+            loaded[item[0]] = await _load_page(ctx, services, pack, who, item[0])
+
+        await bounded(list(batch), load, stop=_stop(ctx))
+        askable = [(page_id, page_no) for page_id, page_no in batch if loaded[page_id].stored]
+        answers: dict[int, Mapping[str, Any]] = {}
+        asked = False
+        if askable:
+            # A lone page keeps its own subject (`_load_page`'s `page_subject(ordered)`), so a batch of
+            # one page can still replay a recording made before batching existed; a real batch's subject
+            # is the hash of its pages' own subjects, in order.
+            subject = (
+                loaded[askable[0][0]].subject
+                if len(askable) == 1
+                else page_subject((str(page_no), loaded[page_id].subject) for page_id, page_no in askable)
+            )
+            for _ in range(2):
+                asked = True
+                raw = await _ask(
+                    ctx,
+                    services,
+                    task,
+                    pack,
+                    who,
+                    extract.batch_text([(page_no, loaded[page_id].text) for page_id, page_no in askable]),
+                    subject,
+                )
+                answers = extract.pages_of(raw) if raw is not None else {}
+                ok = raw is not None and all(
+                    page_no in answers
+                    and not extract.sort_facts(answers[page_no], loaded[page_id].texts, loaded[page_id].struck).refused
+                    for page_id, page_no in askable
+                )
+                if ok:
+                    break
+        for page_id, page_no in batch:
+            loaded_page = loaded[page_id]
+            stored, size_, latest, texts = (
+                loaded_page.stored,
+                loaded_page.size,
+                loaded_page.latest,
+                loaded_page.texts,
+            )
+            ordered, struck = loaded_page.ordered, loaded_page.struck
+            raw_output = answers.get(page_no) if stored else None
+            output = dict(raw_output) if raw_output is not None else None
+            kept: list[Any] = []
+            reason: str | None = None
+            if not stored:  # a page OCR could not read (F4) has nothing to ask the model about
+                reason = "no_words"
+            elif output is None:
+                reason = "invalid_output" if asked else "no_words"
+            else:
+                result = extract.sort_facts(output, texts, struck)
+                kept, reason = result.kept, ("not_in_words" if result.refused else None)
+            found = dates.find([(w, t) for w, t in ordered if w not in struck], pack)
+            polygons = {w.word_id: w.polygon for w in stored}
+            width, height = size_ or (
+                max((x for w in stored for x in w.polygon[0::2]), default=1.0) or 1.0,
+                max((y for w in stored for y in w.polygon[1::2]), default=1.0) or 1.0,
+            )
+            evidence = extract.sort_evidence(output, ordered, struck, pack)
+            entries: list[Any] | None
+            entries, entries_rejected = _entries_of(output, ordered, struck, pack)
+            if stored and output is None:
+                entries = None  # no usable answer: not "no entries"; the page is left for a person
+            if reason is None and stored and output is not None:
+                reason = coverage.reason_for(ordered=ordered, struck=struck, kept=kept, entries=entries)
+            facts = []
+            lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
+            anchor = dates.bundle_anchor(
+                [*found, *([dates.Printed((), latest, None, False)] if latest is not None else [])]
+            )
+            for f in kept:
+                fields = dict(f.get("fields") or {})
+                when, basis, extra = date_repair.resolve_dated(
+                    str(f["kind"]), fields, f["word_ids"], ordered, struck, lines, pack, anchor=anchor
+                )
+                facts.append(
+                    repo.NewFact(
+                        kind=str(f["kind"]),
+                        fields=fields,
+                        value=str(f["value"]),
+                        word_ids=(
+                            date_repair.cited_with(f["word_ids"], extra, ordered) if extra else list(f["word_ids"])
+                        ),
+                        bbox=extract.box(f["word_ids"], polygons, width, height),
+                        event_date=when,
+                        date_basis=basis,
+                    )
+                )
+            async with ctx.transaction() as conn:
+                sealed = None
+                if output is not None:
+                    sealed = await services.crypto.encrypt(
+                        conn, ctx.case_id, json.dumps(output).encode(), purpose=paths.extraction_purpose(page_id)
+                    )
+                await repo.store_extraction(
+                    conn,
+                    ctx.case_id,
+                    page_id,
+                    source_type=output.get("source_type") if output else None,
+                    facts=facts,
+                    sealed=sealed,
+                    needs_human=reason is not None,
+                    reason=reason,
+                    task=task.task_id,
+                    model_id=model_id,
+                    prompt_version=task.prompt_version,
+                    printed_dates=dates.printed_dates(found),
+                    availability_evidence=evidence,
+                    entries=entries,
+                    entries_rejected=entries_rejected,
+                )
+            done += 1
+            if done % 25 == 0:
+                await ctx.progress(min(55, 40 + 15 * done // len(waiting)), step="sort")
+
+    await bounded(batches, one_batch, stop=_stop(ctx))
     return len(waiting)
 
 
