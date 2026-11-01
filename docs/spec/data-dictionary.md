@@ -445,7 +445,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | printed_dates | Dates printed on the page (used to find gaps) |
 | extraction | What was read from the page, sealed with the case key |
 | availability_evidence | When the page was received, filed, seen or sent to the clinician: each with its words on the page and the date read by code in the pack's date order (empty when the printed date could be read two ways) |
-| needs_human / reason | Whether a person must check the page, with a short reason |
+| needs_human / reason | Whether a person must check the page, with a short reason: OCR or words-check reasons (`no_words`, `invalid_output`, `not_in_words`), or, when the page reads cleanly but extraction found too little of it, `no_facts` (nothing kept) or `low_coverage` (under half the page's words covered) |
 | model_id | Which model read the page |
 | duplicate_status / duplicate_by / duplicate_at / duplicate_version | Whether it was set aside as a duplicate, who decided and when (If-Match) |
 | references_checked_at | When its mentions of other documents were checked |

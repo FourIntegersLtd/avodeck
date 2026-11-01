@@ -244,6 +244,7 @@ async def page_facts(
             Highlight(id=f["id"], word_ids=f["word_ids"], bbox=f["bbox"]) for f in rows if f["status"] != "rejected"
         ],
         reassigned=await repo.page_reassigned(conn, case_id, r["id"]),
+        needs_check=await repo.page_needs_check(conn, r["id"]),
     )
 
 

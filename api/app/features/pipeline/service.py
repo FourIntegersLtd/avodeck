@@ -53,6 +53,7 @@ from app.core.pdf import split_pages
 from app.core.scan import ScanUnavailable
 from app.features.pipeline import (
     convert,
+    coverage,
     date_repair,
     dates,
     duplicates,

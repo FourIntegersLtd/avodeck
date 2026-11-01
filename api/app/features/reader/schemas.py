@@ -104,6 +104,10 @@ class FactList(BaseModel):
         default=False,
         description="A fact on this page is suggested again because the case's named expert changed.",
     )
+    needs_check: bool = Field(
+        default=False,
+        description="We couldn't pick out everything on this page; the expert should read it carefully.",
+    )
 
 
 class PageWord(BaseModel):

@@ -57,6 +57,7 @@ pytestmark = pytest.mark.anyio
 RETRIED = 113  # first answer cites a value not in its words, the second is right
 WRONG_TWICE = 701  # both answers are wrong: the page needs a person
 STRUCK = 463  # an answer cites crossed-out words
+NO_FACTS = 9  # plenty of OCR words; the recorded answer already finds nothing on it
 
 
 @pytest.fixture
@@ -229,13 +230,37 @@ async def test_facts_match_the_expected_facts(subset: Harness) -> None:
     assert score >= 0.95, f"precision {score:.3f} over {count} facts"
 
 
-async def test_a_page_wrong_twice_needs_a_person_and_a_retried_page_does_not(subset: Harness) -> None:
+async def test_a_page_wrong_twice_needs_a_person_and_a_retried_page_is_judged_on_coverage(subset: Harness) -> None:
     pages = by_number(subset)
     assert analysis(subset, pages[WRONG_TWICE]["id"])["needs_human"] is True
-    assert analysis(subset, pages[RETRIED]["id"])["needs_human"] is False
+    # The retry-on-wrong-value mechanism itself succeeds here: the wrong fact is corrected and the
+    # page keeps its facts. But the retried page's fixture answer was only ever designed to exercise
+    # that mechanism, not full-page extraction completeness, so it covers only a small share of the
+    # page's words. coverage.py (planted item 15) correctly flags that as low_coverage; that is a
+    # real signal, not a sign the wrong-value-then-retry path failed.
+    retried_row = analysis(subset, pages[RETRIED]["id"])
+    if retried_row["needs_human"]:
+        assert retried_row["reason"] == "low_coverage", f"page {RETRIED}: {retried_row['reason']}"
     assert pages[RETRIED]["id"] in {f["page_id"] for f in facts_of(subset)}, "the retried page lost its facts"
     others = [n for n in pages if n != WRONG_TWICE]
-    assert not any(analysis(subset, pages[n]["id"])["needs_human"] for n in others)
+    # A page may legitimately be flagged no_facts/low_coverage (coverage.py, planted item 15): that is
+    # not a sign the model was wrong twice, so only words-check and invalid-output reasons stay forbidden.
+    for n in others:
+        row = analysis(subset, pages[n]["id"])
+        if row["needs_human"]:
+            assert row["reason"] in ("no_facts", "low_coverage"), f"page {n}: {row['reason']}"
+
+
+async def test_a_page_with_writing_and_no_facts_needs_a_person(subset: Harness) -> None:
+    pages = by_number(subset)
+    page = pages[NO_FACTS]
+    words = await page_words(subset, page["id"])
+    countable = sum(1 for _, (t, struck) in words.items() if not struck and any(c.isalnum() for c in t))
+    assert countable >= 40, "fixture page needs enough words to be judged"
+    assert not facts_by_number(subset).get(NO_FACTS), "fixture page should start with no facts"
+    row = analysis(subset, page["id"])
+    assert row["needs_human"] is True
+    assert row["reason"] == "no_facts"
 
 
 async def test_crossed_out_words_never_become_facts(subset: Harness) -> None:

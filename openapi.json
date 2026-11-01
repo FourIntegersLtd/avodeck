@@ -5808,6 +5808,12 @@
             "title": "Highlights",
             "type": "array"
           },
+          "needs_check": {
+            "default": false,
+            "description": "We couldn't pick out everything on this page; the expert should read it carefully.",
+            "title": "Needs Check",
+            "type": "boolean"
+          },
           "reassigned": {
             "default": false,
             "description": "A fact on this page is suggested again because the case's named expert changed.",
