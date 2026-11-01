@@ -9,6 +9,18 @@ The single source of truth for who may do what. `core/auth/require_case_access(a
 
 A person's rights on a case are the **union** of their case role and the administrative rights of their organisation role. Seeing patient content always needs a case role (named expert or case member); organisation owners and admins see case metadata only unless also added to the case.
 
+## Role-conditional blind read and verification (ADR 0034)
+
+The launch pack (`clin-neg-breach`) gives both duties below to the named expert only, matching the matrix as written. A pack may add other case roles to either list; the named expert can never be removed from either (pack lint rejects a pack that tries).
+
+- **Blind read** (`blind_read_duties`, default `[named_expert]`): a case role in this list gets a 423 on a page's facts until they have read that page (`reading.py`'s `PageReadGate`); a role not in the list sees facts without reading first. Enforced by the server, never the frontend (rule 3).
+- **Verification duty** (`verification_duties`, default `[named_expert]`): a case role in this list may check a fact (`fact.verify`, row above). Stored per case as `cases.verification_duty_roles`, set from the pack at case creation; the `facts_guard` trigger enforces it dynamically, independently of the static `fact.verify` cell in the matrix above — a pack adding a role to `verification_duties` must also widen that cell.
+- `page_reads.counts_for_citing` is unaffected by either list: only the named expert's own reads make a fact citable, even when a co-expert also carries blind-read duty.
+
+## Bundle access (ADR 0034)
+
+Pages and documents belong to a bundle (`app.bundles`), which a case reaches through `cases.bundle_id`. `app.can_access_bundle(bundle_id, action)` is true when any non-deleted case referencing that bundle passes `can_access_case` for the action — so a person's case role still governs what they may do; the bundle link only lets two cases share the same pagination and provenance.
+
 ## Case actions
 
 ✓ = allowed · — = not allowed (404 if they can't see the case at all, 403 if they can see it but not do this)

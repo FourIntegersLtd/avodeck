@@ -318,7 +318,7 @@ def _validate(pack: Pack, schema_dir: Path) -> None:
         except (ZoneInfoNotFoundError, ValueError) as exc:
             raise PackError(f"{pack.rel('pack.yaml')}: timezone '{tz}' is not a known timezone") from exc
         _identifier_finder(pack.files["identifiers.py"], pack.rel("identifiers.py"))
-    if pack.layer == "case_type":
+    if pack.layer == "case-type":
         blind_read_duties = pack.meta.get("blind_read_duties", ["named_expert"])
         if "named_expert" not in blind_read_duties:
             raise PackError(f"{pack.rel('pack.yaml')}: blind_read_duties must include named_expert")
