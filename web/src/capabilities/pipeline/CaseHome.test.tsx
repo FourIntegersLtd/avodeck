@@ -28,12 +28,12 @@ const DOCS = [
   doc(4, "other", "witness.pdf", 22, 1717, "Uploaded by you", "2026-10-02"),
 ] as unknown as Schemas["BundleSummary"]["documents"];
 
-function mock(pack: Schemas["CasePack"], opts: { stage?: string; read?: number; total?: number; questions?: number } = {}) {
+function mock(pack: Schemas["CasePack"], opts: { empty?: boolean; stage?: string; read?: number; total?: number; questions?: number } = {}) {
   signedIn({ pack });
   const steps = pack.workflow_steps as Array<{ key: string }>;
   server.use(
     http.get(`/v1/cases/${CASE_ID}`, () => json({ ...theCase(), stage: opts.stage ?? steps[1]!.key })),
-    http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => json(summary(pack, { documents: DOCS, duplicates: 38, unreadable: 6 }))),
+    http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => json(summary(pack, { documents: opts.empty ? [] : DOCS, ...(opts.empty ? { pages: 0 } : {}), duplicates: 38, unreadable: 6 }))),
     http.get(`/v1/cases/${CASE_ID}/progress`, () => json({ read: opts.read ?? 412, total: opts.total ?? 1742, seconds_left: 0 })),
     http.get(`/v1/cases/${CASE_ID}/steps/progress`, () => json({ steps: [{ key: steps[1]!.key, done: 412, total: 1742, percent: 24 }] })),
     http.get(`/v1/cases/${CASE_ID}/questions`, () => json({ questions: Array.from({ length: opts.questions ?? 4 }, (_, i) => ({ id: String(i) })), assumptions: [], locked: false, instruction_version_id: null })),
@@ -45,6 +45,13 @@ describe.each([
   { name: "fixture packs", pack: fixturePack },
 ])("Case home under the $name", ({ pack }) => {
   const steps = pack.workflow_steps as Array<{ key: string; screens?: string[] }>;
+
+  test("no documents yet: the call to action is to add the patient's records, not more papers", async () => {
+    mock(pack, { empty: true });
+    renderAt(PATH);
+    expect(await screen.findByRole("link", { name: "Add the patient's records" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Add more papers" })).toBeNull();
+  });
 
   test("lists the papers in groups by kind, each with its files, pages and how they arrived", async () => {
     mock(pack);
