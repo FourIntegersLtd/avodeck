@@ -189,7 +189,7 @@ async def test_each_page_is_asked_once_and_a_wrong_value_once_more(subset: Harne
         base = 2 if n in (RETRIED, WRONG_TWICE) else 1
         extra = 1 if analysis(subset, page["id"])["reason"] in ("no_facts", "low_coverage") else 0
         wanted[subjects[n]] += base + extra
-    for n, page in pages.items():
+    for n, _page in pages.items():
         subject = subjects[n]
         assert asked[subject] == wanted[subject], f"page {n} was asked {asked[subject]} times"
     assert sum(asked.values()) == sum(wanted.values())
