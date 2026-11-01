@@ -55,7 +55,7 @@ export function BundleReady() {
 
   if (s.pages === 0) {
     const nothingAdded = s.documents.length === 0;
-    const nothingReadable = !nothingAdded && unopened.length > 0;
+    const nothingReadable = !nothingAdded && unopened.length === s.documents.length;
     const addPapers = can(item, "case.upload") ? screenPath("add_papers", { caseId }) : null;
     const addButton = addPapers && <LinkButton to={addPapers}>{w("bundle.add_records")}</LinkButton>;
     if (nothingAdded) {
@@ -80,6 +80,7 @@ export function BundleReady() {
       <div className="av-page av-stack">
         <h1>{w("bundle.preparing_title")}</h1>
         <LinkButton to={`/cases/${caseId}/preparing`}>{w("bundle.to_preparing")}</LinkButton>
+        {unopenedCard}
       </div>
     );
   }
