@@ -215,7 +215,9 @@ The support console stores nothing of its own. Its person look-up shows, for an 
 | Field | In plain words |
 |---|---|
 | organisation_id | Which organisation owns the case (and pays for it) |
+| bundle_id | The bundle of pages this case reads; more than one case can point at the same bundle (ADR 0034) |
 | named_expert_id | The expert whose evidence this is; only they sign and verify |
+| verification_duty_roles | Which case roles may check a fact, set from the pack when the case is made (default: the named expert only) |
 | jurisdiction / case_type / specialty | The three pack codes that set the case's rules and words |
 | expert_role | What the expert was asked to do (e.g. breach of duty), from the pack |
 | pack_versions | Which version of each pack the case uses, frozen for served reports |
@@ -368,6 +370,12 @@ A joint expert is one with two or more current instructing parties; no separate 
 | kept / rejected | How many suggestions were kept, and how many refused |
 
 ## Bundle
+
+### bundles
+| Field | In plain words |
+|---|---|
+| source_case_id | The case the bundle was first created for (lineage only; never read when deciding access or deleting, ADR 0034) |
+| page_count | How many pages it has |
 
 ### documents
 | Field | In plain words |

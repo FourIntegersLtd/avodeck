@@ -174,8 +174,8 @@ async def _register(ctx: JobContext, row: dict[str, Any], verdict: _Verdict, ids
         async with ctx.transaction() as conn:
             cur = await conn.execute(
                 "insert into app.documents"
-                " (case_id, kind, filename, storage_path, sha256, sha256_verified_at, uploaded_by)"
-                " values (%s, %s, %s, %s, %s, now(), %s) returning id",
+                " (bundle_id, kind, filename, storage_path, sha256, sha256_verified_at, uploaded_by)"
+                " values ((select bundle_id from app.cases where id = %s), %s, %s, %s, %s, now(), %s) returning id",
                 (
                     row["case_id"],
                     row["kind"],

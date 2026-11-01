@@ -40,7 +40,7 @@ def register_resolve_fact_event_date(fn: ResolveFactEventDate) -> ResolveFactEve
 async def latest_printed_date(conn: AsyncConnection, case_id: uuid.UUID) -> dt.date | None:
     """The latest date printed in full on any page of the case read so far (never after today)."""
     cur = await conn.execute(
-        "select max(d) from app.page_analysis a, unnest(a.printed_dates) d where a.case_id = %s and d <= %s",
+        "select max(d) from app.page_analysis a, unnest(a.printed_dates) d where a.bundle_id = (select bundle_id from app.cases where id = %s) and d <= %s",
         (case_id, dt.date.today()),
     )
     row = await cur.fetchone()

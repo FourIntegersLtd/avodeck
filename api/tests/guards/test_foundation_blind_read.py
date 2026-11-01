@@ -112,9 +112,12 @@ async def test_suggestions_are_423_until_the_page_is_marked_read(
         resp = await expert.get(f"/v1/cases/{case}/pages/1/facts")
         assert resp.status_code == 200, resp.text
         assert (await expert.get(f"/v1/cases/{case}/pages/2/facts")).status_code == 423
+    # The assistant carries no blind-read duty under this pack (Decision B): they see
+    # suggestions without reading the page themselves, and the expert's own read never
+    # opens it for them either way.
     async with await _client(app, seed, people["assistant"]) as assistant:
         resp = await assistant.get(f"/v1/cases/{case}/pages/1/facts")
-        assert resp.status_code == 423, "one person's read does not open the page for another"
+        assert resp.status_code == 200, "a role with no blind-read duty needs no read of its own"
 
 
 @pytest.mark.anyio

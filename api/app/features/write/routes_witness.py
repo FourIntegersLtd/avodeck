@@ -40,7 +40,8 @@ async def statement_pages(
 ) -> list[uuid.UUID]:
     """The document's pages whose source type the packs mark as a statement."""
     cur = await conn.execute(
-        "select id from app.pages where case_id = %s and document_id = %s and source_type = any(%s)"
+        "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and document_id = %s and source_type = any(%s)"
         " order by bundle_page_no",
         (case_id, document_id, sorted(pack.statement_sources())),
     )
@@ -105,7 +106,10 @@ async def open_claims(conn: DbConn, crypto: CaseCrypto, case_id: uuid.UUID) -> l
 @router.post("/cases/{case_id}/witness-statements/{document_id}/compare", response_model=Queued, status_code=202)
 async def compare(case_id: uuid.UUID, document_id: uuid.UUID, request: Request, access: Write, conn: DbConn) -> Queued:
     """Ask for a statement in the case to be set beside the records (T-14c); the expert decides each claim."""
-    cur = await conn.execute("select 1 from app.documents where case_id = %s and id = %s", (case_id, document_id))
+    cur = await conn.execute(
+        "select 1 from app.documents where bundle_id = (select bundle_id from app.cases where id = %s) and id = %s",
+        (case_id, document_id),
+    )
     if await cur.fetchone() is None:
         raise not_found()
     if not await statement_pages(conn, case_id, document_id, await case_pack(request, conn, case_id)):

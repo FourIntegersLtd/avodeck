@@ -112,7 +112,6 @@ a.av-step__hit:hover .av-step--current .av-step__pill { background: var(--surfac
 .av-dictation__bar { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-top: var(--space-3); }
 .av-dictation__live { color: var(--green-dark); font-weight: 700; margin: 0; }
 
-/* App shell */
 .av-skip { position: absolute; left: var(--space-4); top: -100px; background: var(--surface); padding: var(--space-3); z-index: 20; }
 .av-skip:focus { top: var(--space-4); }
 .av-shell__header { background: var(--surface); border-bottom: 1px solid var(--line); }
@@ -120,6 +119,24 @@ a.av-step__hit:hover .av-step--current .av-step__pill { background: var(--surfac
 .av-shell__nav ul { list-style: none; display: flex; gap: var(--space-1); margin: 0; padding: 0; }
 .av-shell__nav a { display: inline-flex; align-items: center; min-height: var(--button-min-height); padding: 0 var(--space-4); border-radius: var(--radius); font-weight: 700; text-decoration: none; color: var(--ink-soft); }
 .av-shell__nav a[aria-current="page"] { background: var(--green-tint); color: var(--green-dark); }
+/* The hamburger and its drawer: mobile-only (see the breakpoint below). On a wide screen the
+   header's own nav (above) shows the main places directly, and these stay hidden. */
+.av-shell__hamburger { display: none; align-items: center; justify-content: center; min-width: var(--button-min-height); min-height: var(--button-min-height); border: 0; border-radius: var(--radius); background: transparent; color: var(--green-dark); cursor: pointer; }
+.av-shell__hamburger:hover { background: var(--surface-muted); }
+.av-shell__drawer-backdrop { position: fixed; inset: 0; z-index: 30; display: none; }
+.av-shell__drawer-scrim { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; padding: 0; background: rgba(22, 32, 27, 0.55); cursor: pointer; } /* backdrop */
+.av-shell__drawer { position: absolute; top: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: var(--space-4); width: min(320px, calc(100vw - 48px)); padding: var(--space-4); background: var(--surface); box-shadow: var(--shadow-menu); }
+.av-shell__drawer-head { display: flex; justify-content: flex-end; }
+.av-shell__drawer-close { display: inline-flex; align-items: center; justify-content: center; min-width: var(--button-min-height); min-height: var(--button-min-height); border: 0; border-radius: var(--radius); background: transparent; color: var(--ink); cursor: pointer; }
+.av-shell__drawer-close:hover { background: var(--surface-muted); }
+.av-shell__drawer-nav ul { flex-direction: column; }
+.av-shell__drawer-nav a { display: flex; }
+/* Phones and narrow tablets: the header's nav collapses into the hamburger and its drawer. */
+@media (max-width: 768px) {
+  .av-shell__header .av-shell__nav { display: none; }
+  .av-shell__hamburger { display: inline-flex; }
+  .av-shell__drawer-backdrop { display: block; }
+}
 .av-page { max-width: var(--page-width); margin: 0 auto; padding: var(--page-top) var(--gutter) var(--page-bottom); }
 .av-page--wide { max-width: var(--page-width-wide); }
 .av-logo { display: inline-flex; align-items: center; min-height: var(--button-min-height); color: var(--green-dark); text-decoration: none; }

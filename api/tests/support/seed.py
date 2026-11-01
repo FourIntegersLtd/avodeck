@@ -178,7 +178,10 @@ class Seed:
     def document(self, case: uuid.UUID) -> uuid.UUID:
         did = uuid.uuid4()
         self.admin.execute(
-            "insert into app.documents (id, case_id, kind, filename, sha256) values (%s, %s, 'records', 'f.pdf', %s)",
+            """
+            insert into app.documents (id, bundle_id, kind, filename, sha256)
+            values (%s, (select bundle_id from app.cases where id = %s), 'records', 'f.pdf', %s)
+            """,
             (did, case, "0" * 64),
         )
         return did
@@ -186,7 +189,10 @@ class Seed:
     def page(self, case: uuid.UUID, document: uuid.UUID, number: int) -> uuid.UUID:
         pid = uuid.uuid4()
         self.admin.execute(
-            "insert into app.pages (id, case_id, document_id, bundle_page_no) values (%s, %s, %s, %s)",
+            """
+            insert into app.pages (id, bundle_id, document_id, bundle_page_no)
+            values (%s, (select bundle_id from app.cases where id = %s), %s, %s)
+            """,
             (pid, case, document, number),
         )
         return pid

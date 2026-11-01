@@ -209,7 +209,9 @@ async def hidden_words(
     """Ids of the page's words to black out: masked in the computer's reading or in the expert's, and a
     corrected run is hidden whole when its corrected text is masked. Corrections never loosen the mask."""
     cur = await conn.execute(
-        "select word_id, text from app.ocr_words where page_id = %s and case_id = %s order by n", (page_id, case_id)
+        "select word_id, text from app.ocr_words where page_id = %s"
+        " and bundle_id = (select bundle_id from app.cases where id = %s) order by n",
+        (page_id, case_id),
     )
     original = [
         (wid, (await crypto.decrypt(conn, case_id, bytes(sealed), purpose=word_purpose(page_id, wid))).decode())
@@ -233,12 +235,13 @@ async def _page(
 ) -> tuple[bytes | None, tuple[float, float] | None, list[tuple[str, str]], dict[str, list[float]]]:
     cur = await conn.execute(
         "select p.image_path, a.width, a.height from app.pages p left join app.page_analysis a on a.page_id = p.id"
-        " where p.id = %s and p.case_id = %s",
+        " where p.id = %s and p.bundle_id = (select bundle_id from app.cases where id = %s)",
         (page_id, case_id),
     )
     row = await cur.fetchone()
     cur = await conn.execute(
-        "select word_id, text, polygon from app.ocr_words where page_id = %s and case_id = %s order by n",
+        "select word_id, text, polygon from app.ocr_words where page_id = %s"
+        " and bundle_id = (select bundle_id from app.cases where id = %s) order by n",
         (page_id, case_id),
     )
     words: list[tuple[str, str]] = []

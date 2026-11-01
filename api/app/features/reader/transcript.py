@@ -97,7 +97,7 @@ class Listing:
 async def _pages_to_read(conn: AsyncConnection, case_id: uuid.UUID) -> dict[uuid.UUID, int]:
     """Page id -> number for the pages a reader is to read: not a copy, not replaced, not set aside."""
     cur = await conn.execute(
-        "select id, bundle_page_no from app.pages where case_id = %s and not quarantined"
+        "select id, bundle_page_no from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and not quarantined"
         " and duplicate_of_page_id is null and superseded_by_page_id is null",
         (case_id,),
     )
@@ -233,7 +233,7 @@ async def record_seen(
     if entry_id is not None:
         cur = await conn.execute(
             "select e.page_id, p.bundle_page_no, p.unreadable from app.record_entries e"
-            f" join app.pages p on p.id = e.page_id where e.id = %s and e.case_id = %s and {live}",
+            f" join app.pages p on p.id = e.page_id where e.id = %s and e.bundle_id = (select bundle_id from app.cases where id = %s) and {live}",
             (entry_id, case_id),
         )
         found = await cur.fetchone()
@@ -248,7 +248,7 @@ async def record_seen(
     else:
         assert page_no is not None
         cur = await conn.execute(
-            f"select p.id, p.unreadable from app.pages p where p.case_id = %s and p.bundle_page_no = %s and {live}",
+            f"select p.id, p.unreadable from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %s) and p.bundle_page_no = %s and {live}",
             (case_id, page_no),
         )
         found = await cur.fetchone()

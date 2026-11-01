@@ -353,7 +353,10 @@ async def _check_claims(ctx: JobContext, pack: MergedPack, document_id: uuid.UUI
             ref = str(claim["cited_page_ref"] or "")
             page = (
                 await fetch_one(
-                    conn, "select id from app.pages where case_id = %s and bundle_page_no = %s", (ctx.case_id, int(ref))
+                    conn,
+                    "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)"
+                    " and bundle_page_no = %s",
+                    (ctx.case_id, int(ref)),
                 )
                 if ref.isdigit() and len(ref) < 9
                 else None

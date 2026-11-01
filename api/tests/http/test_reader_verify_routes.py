@@ -243,8 +243,8 @@ async def clearer_copy(
         plain = await CRYPTO.decrypt(aconn, w["case"], bytes(text), purpose=word_purpose(w["page_id"], word_id))
         sealed = await CRYPTO.encrypt(aconn, w["case"], plain, purpose=word_purpose(new, word_id))
         admin.execute(
-            "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-            " values (%s, %s, %s, %s, %s, %s, 0.99, %s)",
+            "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+            " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s, 0.99, %s)",
             (new, w["case"], n, word_id, sealed, polygon, source),
         )
     return new
@@ -281,7 +281,8 @@ async def test_a_change_updates_the_details_and_box_and_logs_old_and_new(
     """Change a detail: `fields` and `event_date` change when sent, the box follows the chosen words,
     and the log keeps the real old and new details."""
     admin.execute(
-        "insert into app.page_analysis (page_id, case_id, width, height) values (%s, %s, 1000, 1400)"
+        "insert into app.page_analysis (page_id, bundle_id, width, height)"
+        " values (%s, (select bundle_id from app.cases where id = %s), 1000, 1400)"
         " on conflict (page_id) do update set width = 1000, height = 1400",
         (world["page_id"], world["case"]),
     )
@@ -450,8 +451,8 @@ async def pack_world(
     page = seed.page(case, seed.document(case), 7)
     sealed = await CRYPTO.encrypt(aconn, case, b"Alpha", purpose=word_purpose(page, "w1"))
     admin.execute(
-        "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-        " values (%s, %s, 1, 'w1', %s, '{10,10,60,10,60,30,10,30}', 0.99, 'ocr')",
+        "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+        " values (%s, (select bundle_id from app.cases where id = %s), 1, 'w1', %s, '{10,10,60,10,60,30,10,30}', 0.99, 'ocr')",
         (page, case, sealed),
     )
     kind, fields = next((k, f) for k, f in kind_fields(combo).items() if f)
@@ -529,8 +530,8 @@ async def test_a_wrong_date_or_yes_no_is_refused_under_the_launch_packs(
     page = seed.page(case, seed.document(case), 3)
     sealed = await CRYPTO.encrypt(aconn, case, b"Alpha", purpose=word_purpose(page, "w1"))
     admin.execute(
-        "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-        " values (%s, %s, 1, 'w1', %s, '{10,10,60,10,60,30,10,30}', 0.99, 'ocr')",
+        "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+        " values (%s, (select bundle_id from app.cases where id = %s), 1, 'w1', %s, '{10,10,60,10,60,30,10,30}', 0.99, 'ocr')",
         (page, case, sealed),
     )
     fact_id = insert_fact(admin, case, page, kind, value="Alpha", word_ids=["w1"], status="suggested")

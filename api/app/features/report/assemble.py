@@ -118,7 +118,9 @@ def template_mapping(keys: Sequence[str], template: profile.ReportTemplate | Non
 
 async def methodology(conn: AsyncConnection, case_id: uuid.UUID, reads: PageReadLog | None) -> Methodology:
     """Pages the named expert has read out of the case's pages, and each AI task's metadata (no content)."""
-    cur = await conn.execute("select id from app.pages where case_id = %s", (case_id,))
+    cur = await conn.execute(
+        "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)", (case_id,)
+    )
     pages = {r[0] for r in await cur.fetchall()}
     read: set[uuid.UUID] = set()
     if reads is not None:
@@ -187,7 +189,10 @@ async def assemble(
     style: str,
 ) -> Assembly:
     language = pack.language
-    cur = await conn.execute("select id, bundle_page_no from app.pages where case_id = %s", (case_id,))
+    cur = await conn.execute(
+        "select id, bundle_page_no from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (case_id,),
+    )
     page_nos = {r[0]: int(r[1]) for r in await cur.fetchall()}
     citable = await citable_facts(conn, case_id, reads)
     citer = _Citer(style, citable, page_nos)
@@ -277,7 +282,8 @@ def _chronology(citable: Sequence[Fact], page_nos: dict[uuid.UUID, int], pack: M
 async def _documents(conn: AsyncConnection, case_id: uuid.UUID, language: str) -> list[Para]:
     cur = await conn.execute(
         "select d.filename, min(p.bundle_page_no), max(p.bundle_page_no) from app.documents d"
-        " join app.pages p on p.document_id = d.id where d.case_id = %s and p.duplicate_of_page_id is null"
+        " join app.pages p on p.document_id = d.id"
+        " where d.bundle_id = (select bundle_id from app.cases where id = %s) and p.duplicate_of_page_id is null"
         " group by d.id, d.filename order by min(p.bundle_page_no)",
         (case_id,),
     )

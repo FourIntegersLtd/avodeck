@@ -46,7 +46,8 @@ def finalizing(admin: psycopg.Connection, team: dict[str, uuid.UUID]) -> uuid.UU
 
 def document(admin: psycopg.Connection, team: dict[str, uuid.UUID]) -> uuid.UUID:
     row = admin.execute(
-        "insert into app.documents (case_id, kind, filename, sha256) values (%s, 'records', 'f.pdf', %s) returning id",
+        "insert into app.documents (bundle_id, kind, filename, sha256)"
+        " values ((select bundle_id from app.cases where id = %s), 'records', 'f.pdf', %s) returning id",
         (team["case"], "c" * 64),
     ).fetchone()
     assert row is not None

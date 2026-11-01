@@ -248,7 +248,7 @@ def cell_public(env: Mapping[str, str] | None = None) -> CellPublic:
     return CellPublic(read("STORAGE_PLACE"))
 
 
-SUPPORT_EMAIL = "hello@fourintegers.com"
+SUPPORT_EMAIL = "hello@avodeck.com"
 
 
 def support_email() -> str:

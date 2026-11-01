@@ -237,7 +237,8 @@ async def test_an_upload_with_a_document_is_never_returned_or_marked_cleaned(
     case, expert, _ = case_and_expert
     upload = finalizing_upload(admin, case, expert, "done", expires_in=timedelta(days=3))
     doc = admin.execute(
-        "insert into app.documents (case_id, kind, filename, sha256) values (%s, 'records', 'f.pdf', %s) returning id",
+        "insert into app.documents (bundle_id, kind, filename, sha256)"
+        " values ((select bundle_id from app.cases where id = %s), 'records', 'f.pdf', %s) returning id",
         (case, "0" * 64),
     ).fetchone()
     assert doc is not None

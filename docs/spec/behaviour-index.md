@@ -46,17 +46,18 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `instruction_extractions` | C | Worker (`extract_questions`) | One per letter version | Append only; counts only | Case deletion |
 | `prefill_suggestions` | C | Worker (T-04); named expert or assistant decide | Many per letter version | Decided once (accepted/dismissed); never applied by the server | Case deletion |
 | `prefill_runs` | C | Worker (`prefill_case`) | One per run | Append only; counts only | Case deletion |
-| `documents` | Foundation (A) | Named expert or assistant (upload) | Many; bundle versions | Never edited after hashing; provenance editable | Case deletion |
+| `bundles` | Foundation (ADR 0034) | Created with a case; never edited directly | One per case, shared when a case points at another's | `page_count` rises as pages are added | Outlives its creating case; a case cannot cascade-delete a bundle another case still points at |
+| `documents` | Foundation (A) | Named expert or assistant (upload) | Many; bundle versions | Never edited after hashing; provenance editable | Belongs to the bundle, not the case (ADR 0034); deleted only when every case pointing at its bundle is deleted |
 | `document_scans` | A | Worker | One per document | Scan result set once; split time set once | Case deletion |
 | `document_parts` | A | Worker | Many per email or zip | Insert only | Case deletion |
 | `exhibits` | A | Named expert or assistant | Many | Listed only | Case deletion |
-| `pages` | Foundation (A, B) | Worker; named expert for flags | Many | Number permanent; quarantine, replacement, rotation (also set once by auto-straighten) per state machine | Case deletion; quarantined images deleted earlier |
+| `pages` | Foundation (A, B) | Worker; named expert for flags | Many | Number permanent; quarantine, replacement, rotation (also set once by auto-straighten) per state machine | Belongs to the bundle, not the case (ADR 0034); quarantined images deleted earlier |
 | `page_analysis` | A | Worker; named expert or assistant for duplicate review | One per page | Worker notes; duplicate review with If-Match; cleared when a quarantined page is deleted | Case deletion |
 | `page_embeddings` | A | Worker | One per page | Remade only when the embedder changes; made from stripped text | Case deletion |
 | `page_quarantines` | A | Worker or case member suggests; only named expert confirms or undoes | Many per page; one open | State machine in the database; image and text deleted once told or after the pack's days | Case deletion |
 | `documents.split_of_page_id`, `pages.split_of_page_id` (columns, ADR 0019) | A | Named expert or assistant (page.replace) | One split per page | Set once when the halves are numbered; the original keeps its number, facts and reads | Case deletion |
 | `page_replacements` | A | Named expert or assistant (page.replace) | One per page; one per copy | Link set once; nothing moves by itself | Case deletion |
-| `ocr_words` | A | Worker; re-run on rotation | Many per page | Replaced only by rotation or opt-in reprocessing | Case deletion |
+| `ocr_words` | A | Worker; re-run on rotation | Many per page | Replaced only by rotation or opt-in reprocessing | Belongs to the bundle, not the case (ADR 0034) |
 | `facts` | Foundation (A writes, B verifies) | Worker suggests; only named expert verifies | Many per page | Never deleted; `version` rises on change; state machine in the database; citable only when verified or edited on a page the named expert has read | Case deletion; `date_basis` is `printed`, `printed_century`, `line_above` or `please_check`; the expert's verify or correct overrides it (ADR 0017) |
 | `fact_verifications` | B | Named expert (append only); the reading job adds `remapped` rows with no person (0207) | Many per fact | Append only | Case deletion; chain head on certificate |
 | `second_readings` | B | The expert who asked (page.transcribe) | One per page; asking again resets it | Status moves queued to done, refused or failed; lines sealed | Case deletion (just after `transcript_views`) |
@@ -68,7 +69,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `page_notes` | B | Each person for themselves (`page.read`), bookmarking or noting a page on screen 09 | One per person and page | Replaced by the next save; removed when bookmark and note are both cleared; only its owner sees it | Goes with its page on case deletion (no case_id, like `page_turns`) |
 | `missing_items` | A | Worker suggests; named expert or assistant updates | Many | State machine | Case deletion |
 | `record_gaps` | A | Worker; named expert confirms | Many | Recalculated when records are appended | Case deletion |
-| `record_entries` | A | Worker (`extract_entries`, T-07b) | Many per page | Replaced when the page is read again | Case deletion |
+| `record_entries` | A | Worker (`extract_entries`, T-07b) | Many per page | Replaced when the page is read again | Belongs to the bundle, not the case (ADR 0034) |
 | `instructing_party_requests` | A | Named expert or assistant drafts; named expert sends | Many | Sent ones never edited (append only, hash-chained) | Case deletion |
 | `case_processing` | A | Named expert or assistant (case.upload) | One per case | Cancel and reprocess opt-in set and cleared | Case deletion |
 | `fact_question_links` | D | Named expert | Many | State machine; stale when fact or question changes | Case deletion |

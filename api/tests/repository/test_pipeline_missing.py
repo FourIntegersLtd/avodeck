@@ -248,7 +248,9 @@ async def test_missing_items_change_only_as_allowed_and_only_by_the_request_acti
     seed.case_member(case_id, viewer, "viewer", added_by=expert)
     doc = seed.document(case_id)
     page_id = admin.execute(  # type: ignore[index]
-        "insert into app.pages (case_id, document_id, bundle_page_no) values (%s, %s, 1) returning id", (case_id, doc)
+        "insert into app.pages (bundle_id, document_id, bundle_page_no)"
+        " values ((select bundle_id from app.cases where id = %s), %s, 1) returning id",
+        (case_id, doc),
     ).fetchone()[0]
     worker_db = Database(worker_dsn, max_size=1)
     await worker_db.open()

@@ -6,3 +6,5 @@ party_roles: [instructing_side, other_side, joint]
 instructing_party_types: [lawyer]
 subject_statuses: [living, deceased, minor]   # labels and representative words: jurisdiction vocabulary
 document_kinds: []          # core kinds are enough for this case type
+blind_read_duties: [named_expert]
+verification_duties: [named_expert]

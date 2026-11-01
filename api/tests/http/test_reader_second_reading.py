@@ -112,7 +112,8 @@ async def make_page(
 ) -> uuid.UUID:
     doc, page = uuid.uuid4(), uuid.uuid4()
     await aconn.execute(
-        "insert into app.documents (id, case_id, kind, filename, sha256) values (%s, %s, 'records', 'f.pdf', %s)",
+        "insert into app.documents (id, bundle_id, kind, filename, sha256)"
+        " values (%s, (select bundle_id from app.cases where id = %s), 'records', 'f.pdf', %s)",
         (doc, case, "0" * 64),
     )
     path = f"cases/{case}/pages/{page}/image.jpg"
@@ -122,12 +123,15 @@ async def make_page(
     pdf = page_pdf_path(case, page)
     await storage.put(pdf, await crypto.encrypt(aconn, case, b"%PDF stand-in", purpose=pdf))
     await aconn.execute(
-        "insert into app.pages (id, case_id, document_id, bundle_page_no, image_path, handwriting, unreadable,"
-        " transcribed_by_expert_text) values (%s, %s, %s, 1, %s, true, true, %s)",
+        "insert into app.pages (id, bundle_id, document_id, bundle_page_no, image_path, handwriting, unreadable,"
+        " transcribed_by_expert_text)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, 1, %s, true, true, %s)",
         (page, case, doc, path, b"sealed" if typed else None),
     )
     await aconn.execute(
-        "insert into app.page_analysis (page_id, case_id, width, height) values (%s, %s, 4.0, 2.0)", (page, case)
+        "insert into app.page_analysis (page_id, bundle_id, width, height)"
+        " values (%s, (select bundle_id from app.cases where id = %s), 4.0, 2.0)",
+        (page, case),
     )
     x = 0.1
     for n, text in enumerate(texts, start=1):
@@ -135,8 +139,8 @@ async def make_page(
         polygon = list(box(x, text)) if source == "ocr" else [0.0] * 8
         sealed = await crypto.encrypt(aconn, case, text.encode(), purpose=word_purpose(page, wid))
         await aconn.execute(
-            "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-            " values (%s, %s, %s, %s, %s, %s::real[], %s, %s)",
+            "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+            " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s::real[], %s, %s)",
             (page, case, n, wid, sealed, polygon, confidence, source),
         )
         x += 0.12 * len(text) + 0.15

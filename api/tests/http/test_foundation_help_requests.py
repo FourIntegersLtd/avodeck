@@ -14,7 +14,7 @@ from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
 
-SUPPORT = "hello@fourintegers.com"
+SUPPORT = "hello@avodeck.com"
 TEXT = "Mrs Zed Quillfeather, DOB 01/02/1960, cannot open her pages"
 GOOD = {"topic": "case", "message": TEXT, "page": "/cases/abc/read"}
 

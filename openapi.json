@@ -1,6 +1,19 @@
 {
   "components": {
     "schemas": {
+      "AcceptResult": {
+        "properties": {
+          "recorded": {
+            "title": "Recorded",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "recorded"
+        ],
+        "title": "AcceptResult",
+        "type": "object"
+      },
       "AccountClosed": {
         "properties": {
           "closed_at": {
@@ -4877,6 +4890,36 @@
         "title": "Document",
         "type": "object"
       },
+      "DocumentStatus": {
+        "properties": {
+          "accepted_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted Version"
+          },
+          "current_version": {
+            "title": "Current Version",
+            "type": "string"
+          },
+          "document": {
+            "title": "Document",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document",
+          "current_version",
+          "accepted_version"
+        ],
+        "title": "DocumentStatus",
+        "type": "object"
+      },
       "Download": {
         "properties": {
           "case_id": {
@@ -8388,6 +8431,27 @@
           "pack"
         ],
         "title": "LatestOut",
+        "type": "object"
+      },
+      "LegalStatus": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentStatus"
+            },
+            "title": "Documents",
+            "type": "array"
+          }
+        },
+        "required": [
+          "accepted",
+          "documents"
+        ],
+        "title": "LegalStatus",
         "type": "object"
       },
       "LetterItem": {
@@ -38906,6 +38970,70 @@
         "summary": "Get Jurisdiction",
         "tags": [
           "packs"
+        ]
+      }
+    },
+    "/v1/legal-agreements/accept": {
+      "post": {
+        "description": "Record acceptance of every document whose current version the person has not yet accepted.",
+        "operationId": "accept_legal_v1_legal_agreements_accept_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Accept Legal",
+        "tags": [
+          "legal"
+        ]
+      }
+    },
+    "/v1/legal-agreements/status": {
+      "get": {
+        "description": "Which legal documents the signed-in person has accepted and which still need acceptance.",
+        "operationId": "legal_status_v1_legal_agreements_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Legal Status",
+        "tags": [
+          "legal"
         ]
       }
     },

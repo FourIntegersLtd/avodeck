@@ -118,7 +118,7 @@ async def h(
 def embeddings(h: Harness) -> list[dict[str, Any]]:
     cur = h.admin.cursor(row_factory=psycopg.rows.dict_row)
     return cur.execute(
-        "select page_id, case_id, model, embedding::text as vector from app.page_embeddings where case_id = %s",
+        "select page_id, bundle_id, model, embedding::text as vector from app.page_embeddings where bundle_id = (select bundle_id from app.cases where id = %s)",
         (h.case_id,),
     ).fetchall()
 

@@ -1,16 +1,27 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { LegalGate, type LegalStatusResponse } from "../capabilities/account/legal/LegalGate";
 import { t } from "../foundation/i18n";
 import { MessagesProvider } from "../foundation/lib/messages";
 import { claimResourceCache } from "../foundation/lib/resourceCache";
 import { SessionContext } from "../foundation/lib/session";
 import { useResource } from "../foundation/lib/useResource";
-import { api, onPasswordChangeRequired, unwrap } from "../foundation/platform-client";
+import { api, apiOrigin, onPasswordChangeRequired, unwrap } from "../foundation/platform-client";
 import { AppShell, LoadError, Loading } from "../foundation/ui";
 import { ChoosePassword } from "./auth/ChoosePassword";
 
 /** Expert-only places; support staff go to the console instead. A case they were granted stays open. */
 const EXPERT_ONLY = new Set(["/today", "/profile", "/cases", "/cases/new"]);
+
+async function fetchLegalStatus(): Promise<LegalStatusResponse | null> {
+  try {
+    const res = await fetch(`${apiOrigin()}/v1/legal-agreements/status`, { credentials: "include" });
+    if (!res.ok) return null;
+    return (await res.json()) as LegalStatusResponse;
+  } catch {
+    return null;
+  }
+}
 
 /** Signed-in screens: no session goes to sign in; a temporary password from support is changed first
  * (ADR 0024; the server refuses everything else). The password alone is enough (ADR 0025): the code
@@ -19,9 +30,11 @@ export function RequireSession() {
   const location = useLocation();
   const session = useResource(async () => {
     const status = await unwrap(api.GET("/v1/auth/session"));
-    return { status, me: await unwrap(api.GET("/v1/me")) };
+    const [me, legal] = await Promise.all([unwrap(api.GET("/v1/me")), fetchLegalStatus()]);
+    return { status, me, legal };
   }, []);
   const [blocked, setBlocked] = useState(false);
+  const [legalDone, setLegalDone] = useState(false);
   useEffect(() => onPasswordChangeRequired(() => setBlocked(true)), []);
 
   if (session.error?.status === 401) return <Navigate to="/sign-in" replace state={{ from: location.pathname }} />;
@@ -51,6 +64,9 @@ export function RequireSession() {
         <Loading />
       </main>
     );
+  }
+  if (session.data.legal && !session.data.legal.accepted && !legalDone && location.pathname !== "/agree") {
+    return <LegalGate from={location.pathname} onDone={() => { setLegalDone(true); session.reload(); }} />;
   }
   claimResourceCache(session.data.me.person.id); // a different person empties the screen cache
   const isSupport = session.data.me.is_support_staff === true;

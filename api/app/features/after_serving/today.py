@@ -68,7 +68,9 @@ async def new_pages(conn: AsyncConnection, cards: list[CaseCard]) -> list[NeedsY
             continue
         pages = await fetch_all(
             conn,
-            "select id from app.pages where case_id = %s and created_at > %s and bundle_page_no is not null",
+            "select id from app.pages"
+            " where bundle_id = (select bundle_id from app.cases where id = %s)"
+            " and created_at > %s and bundle_page_no is not null",
             (case_id, row[0]),
         )
         if not pages:

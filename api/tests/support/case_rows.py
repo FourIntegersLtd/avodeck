@@ -172,24 +172,28 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
     page = seed.page(w.case, doc, 101)
     new_page = seed.page(w.case, part, 102)
     admin.execute("insert into app.case_processing (case_id) values (%s)", (w.case,))
+    bundle = admin.execute("select bundle_id from app.cases where id = %s", (w.case,)).fetchone()
+    assert bundle is not None
+    bundle_id = bundle[0]
     admin.execute(
-        "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
+        "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
         " values (%s, %s, 1, 'w1', %s, array[0,0,1,0,1,1,0,1]::real[], 0.9, 'ocr')",
-        (page, w.case, b"sealed"),
+        (page, bundle_id, b"sealed"),
     )
-    admin.execute("insert into app.page_analysis (page_id, case_id) values (%s, %s)", (page, w.case))
+    admin.execute("insert into app.page_analysis (page_id, bundle_id) values (%s, %s)", (page, bundle_id))
     admin.execute(
-        "insert into app.page_embeddings (page_id, case_id, model, embedding)"
+        "insert into app.page_embeddings (page_id, bundle_id, model, embedding)"
         " values (%s, %s, 'zz-model', array_fill(0.0::real, array[384])::extensions.vector)",
-        (page, w.case),
+        (page, bundle_id),
     )
     admin.execute(
-        "insert into app.page_quarantines (case_id, page_id, reason) values (%s, %s, 'zz_reason')", (w.case, page)
+        "insert into app.page_quarantines (case_id, bundle_id, page_id, reason) values (%s, %s, %s, 'zz_reason')",
+        (w.case, bundle_id, page),
     )
     admin.execute(
-        "insert into app.page_replacements (case_id, page_id, document_id, requested_by, new_page_id)"
-        " values (%s, %s, %s, %s, %s)",
-        (w.case, page, part, w.expert, new_page),
+        "insert into app.page_replacements (case_id, bundle_id, page_id, document_id, requested_by, new_page_id)"
+        " values (%s, %s, %s, %s, %s, %s)",
+        (w.case, bundle_id, page, part, w.expert, new_page),
     )
     admin.execute(
         "insert into app.missing_items (case_id, citing_page_id, reference_key, word_ids, description)"
@@ -202,20 +206,22 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
         (w.case,),
     )
     admin.execute(
-        "insert into app.record_entries (case_id, page_id, kind, first_n, last_n, extraction_version)"
+        "insert into app.record_entries (bundle_id, page_id, kind, first_n, last_n, extraction_version)"
         " values (%s, %s, 'zz_kind', 1, 1, 'zz')",
-        (w.case, page),
+        (bundle_id, page),
     )
     admin.execute(
-        "insert into app.document_parts (case_id, parent_document_id, document_id, part_no, media_type)"
+        "insert into app.document_parts (bundle_id, parent_document_id, document_id, part_no, media_type)"
         " values (%s, %s, %s, 1, 'application/pdf')",
-        (w.case, doc, part),
+        (bundle_id, doc, part),
     )
-    admin.execute("insert into app.document_scans (document_id, case_id, clean) values (%s, %s, true)", (doc, w.case))
     admin.execute(
-        "insert into app.exhibits (case_id, document_id, media_type, size, sha256, storage_path)"
+        "insert into app.document_scans (document_id, bundle_id, clean) values (%s, %s, true)", (doc, bundle_id)
+    )
+    admin.execute(
+        "insert into app.exhibits (bundle_id, document_id, media_type, size, sha256, storage_path)"
         " values (%s, %s, 'image/heic', 1, %s, 'zz/path')",
-        (w.case, part, "0" * 64),
+        (bundle_id, part, "0" * 64),
     )
     admin.execute(
         "insert into app.instructing_party_requests (case_id, subject, body_text, sent_via, created_by)"

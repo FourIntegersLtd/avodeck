@@ -147,7 +147,11 @@ async def test_completing_with_the_right_file_hash_claims_the_upload_and_the_job
     resp = await complete(client, upload, file.sha256())
     assert (resp.status_code, resp.json()) == (202, {"status": "finalizing"}), resp.text
     assert row(admin, "select status, document_id from app.uploads where id = %s", upload) == ("finalizing", None)
-    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (0,)
+    assert row(
+        admin,
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        team["case"],
+    ) == (0,)
     await run_finalize(worker_dsn, admin, upload, storage, crypto)
     found = row(admin, "select status, document_id from app.uploads where id = %s", upload)
     assert found is not None and found[0] == "complete"
@@ -182,11 +186,19 @@ async def test_completing_with_a_wrong_file_hash_is_refused_at_once_and_the_uplo
         None,
     )
     assert len(await storage.list(upload_prefix(team["case"], uuid.UUID(upload)))) == file.count
-    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (0,)
+    assert row(
+        admin,
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        team["case"],
+    ) == (0,)
     again = await complete(client, upload, file.sha256())  # the sender's mistake was not held against the upload
     assert again.status_code == 202, again.text
     await run_finalize(worker_dsn, admin, upload, storage, crypto)
-    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (1,)
+    assert row(
+        admin,
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        team["case"],
+    ) == (1,)
 
 
 async def test_the_right_size_but_wrong_bytes_are_caught_by_the_whole_file_hash_in_the_job(
@@ -207,7 +219,11 @@ async def test_the_right_size_but_wrong_bytes_are_caught_by_the_whole_file_hash_
     resp = await complete(client, upload, file.sha256())
     assert resp.status_code == 202, resp.text
     await run_finalize(worker_dsn, admin, upload, storage, crypto)
-    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (0,)
+    assert row(
+        admin,
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        team["case"],
+    ) == (0,)
     assert row(admin, "select status, document_id, failure from app.uploads where id = %s", upload) == (
         "failed",
         None,
@@ -269,7 +285,11 @@ async def test_completing_twice_gives_one_job_then_the_same_document_without_a_s
     await run_finalize(worker_dsn, admin, upload, storage, crypto)
     done = await complete(client, upload, file.sha256())
     assert done.status_code == 200, done.text
-    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (1,)
+    assert row(
+        admin,
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        team["case"],
+    ) == (1,)
     assert row(admin, "select document_id from app.uploads where id = %s", upload) == (
         uuid.UUID(done.json()["document_id"]),
     )

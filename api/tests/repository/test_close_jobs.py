@@ -38,7 +38,7 @@ import psycopg
 import pytest
 from fastapi import FastAPI
 
-from app.core.contracts.case_tables import CASE_TABLES
+from app.core.contracts.case_tables import BUNDLE_SCOPED_TABLES, CASE_TABLES
 from app.core.crypto import CaseCrypto, CaseKeyDestroyed, LocalKeyProvider
 from app.core.db import Database
 from app.core.email import OutboxMailer
@@ -176,8 +176,15 @@ async def add_files(
 
 
 def rows_of(admin: psycopg.Connection, table: str, case: uuid.UUID) -> int:
-    column = "id" if table == "cases" else "case_id"
-    row = admin.execute(f"select count(*) from app.{table} where {column} = %s", (case,)).fetchone()  # noqa: S608
+    if table == "cases":
+        row = admin.execute(f"select count(*) from app.{table} where id = %s", (case,)).fetchone()  # noqa: S608
+    elif table in BUNDLE_SCOPED_TABLES:
+        row = admin.execute(
+            f"select count(*) from app.{table} where bundle_id = (select bundle_id from app.cases where id = %s)",  # noqa: S608
+            (case,),
+        ).fetchone()
+    else:
+        row = admin.execute(f"select count(*) from app.{table} where case_id = %s", (case,)).fetchone()  # noqa: S608
     assert row is not None
     return int(row[0])
 
@@ -231,7 +238,7 @@ async def test_deletion_removes_every_case_row_every_file_and_the_key_and_writes
 
     mailer = await run(close_jobs.delete_case, case, "delete_case")
 
-    for table in sorted((CASE_TABLES - {"cases", "case_keys"}) & existing_tables(admin)):
+    for table in sorted((CASE_TABLES - {"cases", "case_keys", "bundles"}) & existing_tables(admin)):
         assert rows_of(admin, table, case) == 0, table
     status, label = admin.execute("select status, label from app.cases where id = %s", (case,)).fetchone()  # type: ignore[misc]
     assert (status, label) == ("deleted", None)
@@ -271,7 +278,7 @@ async def test_deletion_removes_quarantined_and_superseded_pages_and_their_objec
     files = await add_files(admin, seed, storage, crypto, worker_db, case)
     p1, p2, _p3 = files["pages"]
     flagged = admin.execute(
-        "select count(*) from app.pages where case_id = %s and (quarantined or superseded_by_page_id is not null)",
+        "select count(*) from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and (quarantined or superseded_by_page_id is not null)",
         (case,),
     ).fetchone()
     assert flagged == (2,)
@@ -983,8 +990,9 @@ async def test_deletion_removes_the_page_embeddings(
     case = world["case"]
     page = seed.page(case, seed.document(case), 1)
     admin.execute(
-        "insert into app.page_embeddings (page_id, case_id, model, embedding)"
-        " values (%s, %s, 'zz-model', array_fill(0.0::real, array[384])::extensions.vector)",
+        "insert into app.page_embeddings (page_id, bundle_id, model, embedding)"
+        " values (%s, (select bundle_id from app.cases where id = %s), 'zz-model',"
+        " array_fill(0.0::real, array[384])::extensions.vector)",
         (page, case),
     )
     assert rows_of(admin, "page_embeddings", case) == 1

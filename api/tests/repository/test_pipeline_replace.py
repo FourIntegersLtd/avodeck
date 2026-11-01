@@ -145,8 +145,8 @@ async def test_a_page_is_replaced_once_and_a_copy_replaces_one_page(
     assert unknown.status_code == 404
     elsewhere = seed.case(seed.org(members={h.expert: "owner"}), h.expert)
     (foreign,) = h.admin.execute(
-        "insert into app.documents (case_id, kind, filename, sha256)"
-        " values (%s, 'records', 'other.pdf', repeat('0', 64)) returning id",
+        "insert into app.documents (bundle_id, kind, filename, sha256)"
+        " values ((select bundle_id from app.cases where id = %s), 'records', 'other.pdf', repeat('0', 64)) returning id",
         (elsewhere,),
     ).fetchone()  # type: ignore[misc]
     crossed = await h.client.post(replace_path(h, page(h, 1)["id"]), json={"document_id": str(foreign)})

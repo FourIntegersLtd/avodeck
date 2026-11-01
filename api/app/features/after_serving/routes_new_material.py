@@ -81,7 +81,9 @@ async def new_since_served(case_id: uuid.UUID, access: View, conn: DbConn, reads
         return NewSinceServed(served_at=None, pages=[])
     rows = await fetch_all(
         conn,
-        "select id, bundle_page_no from app.pages where case_id = %s and created_at > %s and bundle_page_no is not null"
+        "select id, bundle_page_no from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and created_at > %s and bundle_page_no is not null"
         " order by bundle_page_no",
         (case_id, served_at),
     )
@@ -193,7 +195,11 @@ async def register_opposing_report(
     case_id: uuid.UUID, body: NewOpposingReport, access: Upload, conn: DbConn
 ) -> OpposingQueued:
     if (
-        await fetch_one(conn, "select 1 from app.documents where id = %s and case_id = %s", (body.document_id, case_id))
+        await fetch_one(
+            conn,
+            "select 1 from app.documents where id = %s and bundle_id = (select bundle_id from app.cases where id = %s)",
+            (body.document_id, case_id),
+        )
         is None
     ):
         raise invalid("document_id")

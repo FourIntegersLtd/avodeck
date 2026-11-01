@@ -90,8 +90,8 @@ async def test_entries_not_read_yet_queue_the_job_once(
     doc = await add_document(aconn, world["case"])
     await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("x",))], analysed=False)
     admin.execute(
-        "insert into app.page_analysis (page_id, case_id, extracted_at) select id, case_id, now() from app.pages"
-        " where case_id = %s",
+        "insert into app.page_analysis (page_id, bundle_id, extracted_at) select id, bundle_id, now() from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s)",
         (world["case"],),
     )
     client = await client_for(world["expert"])
@@ -108,8 +108,8 @@ async def _failed_entries_job(admin: psycopg.Connection, aconn: psycopg.AsyncCon
     doc = await add_document(aconn, w["case"])
     await add_page(aconn, CRYPTO, w["case"], doc, 1, [Spec("zz_session", ("x",))], analysed=False)
     admin.execute(
-        "insert into app.page_analysis (page_id, case_id, extracted_at) select id, case_id, now() from app.pages"
-        " where case_id = %s",
+        "insert into app.page_analysis (page_id, bundle_id, extracted_at) select id, bundle_id, now() from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s)",
         (w["case"],),
     )
     job = admin.execute(
@@ -261,8 +261,8 @@ async def test_a_viewer_who_cannot_read_pages_does_not_queue_the_entries_job(
     doc = await add_document(aconn, world["case"])
     await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("x",))], analysed=False)
     admin.execute(
-        "insert into app.page_analysis (page_id, case_id, extracted_at) select id, case_id, now() from app.pages"
-        " where case_id = %s",
+        "insert into app.page_analysis (page_id, bundle_id, extracted_at) select id, bundle_id, now() from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s)",
         (world["case"],),
     )
     client = await client_for(viewer)
