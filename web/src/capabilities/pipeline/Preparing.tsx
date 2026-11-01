@@ -1,11 +1,12 @@
 // Screen 07, Preparing your bundle. It follows the case's latest processing job (GET /process) over
 // the job's event stream and opens screen 08 when the bundle is ready. The server decides everything;
 // this screen only shows the job's step, progress and time left.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
+import { useEventStream } from "../../foundation/lib/sse";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, ProgressBar, Spinner, TextLink } from "../../foundation/ui";
@@ -23,6 +24,7 @@ type Job = Schemas["ProcessingJob"];
 type Update = Partial<Pick<Job, "status" | "step" | "pct" | "eta_seconds" | "error_code">>;
 
 const finished = (status: string | undefined) => status === "done" || status === "failed" || status === "cancelled";
+const eventsUrl = (jobId: string) => `${apiOrigin()}/v1/jobs/${jobId}/events`;
 
 // A short, readable form of an id to read out on the phone: its first eight characters in two groups.
 const shortRef = (id: string) => id.replace(/-/g, "").slice(0, 8).toUpperCase().replace(/(.{4})(.{4})/, "$1 $2");
@@ -39,13 +41,7 @@ export function Preparing() {
   const [stopped, setStopped] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const following = useRef<{ close: () => void } | null>(null);
   const uploads = can(item, "case.upload");
-
-  const stopFollowing = () => {
-    following.current?.close();
-    following.current = null;
-  };
 
   const check = useCallback(async () => {
     const { job: latest } = await unwrap(api.GET("/v1/cases/{case_id}/process", casePath(caseId)));
@@ -53,36 +49,23 @@ export function Preparing() {
       navigate(`/cases/${caseId}/bundle`, { replace: true });
     } else if (!latest || latest.status === "done" || latest.status === "cancelled") {
       setJob(null);
-    } else if (latest.status === "failed") {
-      setJob(latest);
     } else {
-      follow(latest);
+      setJob(latest);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId, navigate]);
 
   const onUpdate = (update: Update) => {
     setJob((prev) => (prev ? { ...prev, ...update } : prev));
-    if (finished(update.status)) {
-      stopFollowing();
-      if (update.status === "done") void check().catch(() => setLoadFailed(true));
-    }
+    if (update.status === "done") void check().catch(() => setLoadFailed(true));
   };
 
-  function follow(next: Job) {
-    stopFollowing();
-    setJob(next);
-    if (typeof EventSource !== "undefined") {
-      const events = new EventSource(`${apiOrigin()}/v1/jobs/${next.id}/events`, { withCredentials: true });
-      events.onmessage = (e: MessageEvent<string>) => onUpdate(JSON.parse(e.data) as Update);
-      following.current = events;
-    } else {
-      const timer = window.setInterval(() => {
-        unwrap(api.GET("/v1/jobs/{job_id}", { params: { path: { job_id: next.id } } })).then(onUpdate, () => undefined);
-      }, POLL_MS);
-      following.current = { close: () => window.clearInterval(timer) };
-    }
-  }
+  const jobId = job?.id;
+  const pollFallback = useCallback(
+    (): Promise<Update> => unwrap(api.GET("/v1/jobs/{job_id}", { params: { path: { job_id: jobId! } } })),
+    [jobId],
+  );
+
+  useEventStream<Update>(job && !finished(job.status) ? eventsUrl(job.id) : null, onUpdate, pollFallback, POLL_MS);
 
   const load = useCallback(() => {
     setLoadFailed(false);
@@ -91,7 +74,6 @@ export function Preparing() {
 
   useEffect(() => {
     load();
-    return stopFollowing;
   }, [load]);
 
   async function start() {
@@ -100,7 +82,7 @@ export function Preparing() {
     try {
       const { job_id } = await unwrap(api.POST("/v1/cases/{case_id}/process", casePath(caseId)));
       setStopped(false);
-      follow({ id: job_id, kind: "process_bundle", status: "queued", step: null, pct: 0, eta_seconds: null, error_code: null });
+      setJob({ id: job_id, kind: "process_bundle", status: "queued", step: null, pct: 0, eta_seconds: null, error_code: null });
     } catch (error) {
       setActionError(errorMessage(error, OWN));
     } finally {
@@ -127,7 +109,6 @@ export function Preparing() {
     setActionError(null);
     try {
       await unwrap(api.POST("/v1/cases/{case_id}/process/cancel", casePath(caseId)));
-      stopFollowing();
       setStopped(true);
       setJob(null);
     } catch (error) {
