@@ -176,7 +176,9 @@ async def test_a_job_sees_only_its_own_case(api_db: Database, worker_dsn: str, w
     try:
         async with worker.job(world.case) as conn:
             cur = await conn.execute("select bundle_id from app.cases where id = %s", (world.case,))
-            (bundle_id,) = await cur.fetchone()
+            row = await cur.fetchone()
+            assert row is not None
+            (bundle_id,) = row
             cur = await conn.execute("select count(distinct bundle_id), min(bundle_id::text) from app.pages")
             assert await cur.fetchone() == (1, str(bundle_id))
             cur = await conn.execute("select count(*) from app.cases")

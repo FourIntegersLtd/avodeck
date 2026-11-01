@@ -9,11 +9,14 @@ import pytest
 
 from app.core.db import Database
 from tests.support.db import scope_for
+from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
 
 
-async def test_a_person_can_insert_their_own_acceptance(api_db: Database, seed, admin: psycopg.Connection) -> None:
+async def test_a_person_can_insert_their_own_acceptance(
+    api_db: Database, seed: Seed, admin: psycopg.Connection
+) -> None:
     me = seed.person()
     async with api_db.request(scope_for(me)) as conn:
         await conn.execute(
@@ -25,7 +28,7 @@ async def test_a_person_can_insert_their_own_acceptance(api_db: Database, seed, 
 
 
 async def test_a_person_cannot_insert_an_acceptance_for_someone_else(
-    api_db: Database, seed, admin: psycopg.Connection
+    api_db: Database, seed: Seed, admin: psycopg.Connection
 ) -> None:
     me, other = seed.person(), seed.person()
     async with api_db.request(scope_for(me)) as conn:
