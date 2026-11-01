@@ -8,7 +8,7 @@ import { t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, DictationBox, Dialog, LinkButton, LoadError, Loading, Notice, PageRef, QChip, SectionIcon, SegmentedControl, StatusBadge, Updating, useBusy } from "../../foundation/ui";
+import { BackLink, Button, DictationBox, Dialog, LinkButton, LoadError, Loading, Notice, PageRef, PageViewer, QChip, SectionIcon, SegmentedControl, StatusBadge, Updating, useBusy } from "../../foundation/ui";
 import { Comments } from "./Comments";
 import { GuidanceChanged, longDate, statusOf, TextArea, useCan, useKindWord } from "./shared";
 import { w } from "./words";
@@ -226,10 +226,18 @@ function PagePanel({ caseId, pageNo, marks }: { caseId: string; pageNo: number; 
         <p className="av-muted">{w("consultation.page_none")}</p>
       ) : shown.data ? (
         <div className={updating ? "av-understand-page__sheet av-busy-dim" : "av-understand-page__sheet"}>
-          <img src={shown.data} alt={w("consultation.page_alt", { page: pageNo })} />
-          {marks.map((m) => (
-            <span key={`${m.fact_id}-${m.role}`} className={`av-understand-mark av-understand-mark--${m.role}`} data-testid={`page-mark-${m.role}`} style={placed(m)} aria-hidden="true" />
-          ))}
+          <PageViewer
+            tools={{ clearer: false }}
+            pages={[
+              {
+                src: shown.data,
+                label: w("consultation.page_alt", { page: pageNo }),
+                children: marks.map((m) => (
+                  <span key={`${m.fact_id}-${m.role}`} className={`av-understand-mark av-understand-mark--${m.role}`} data-testid={`page-mark-${m.role}`} style={placed(m)} aria-hidden="true" />
+                )),
+              },
+            ]}
+          />
         </div>
       ) : (
         <p className="av-muted">{w("consultation.page_loading")}</p>

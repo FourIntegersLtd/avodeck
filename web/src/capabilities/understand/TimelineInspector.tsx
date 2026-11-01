@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { t } from "../../foundation/i18n";
 import type { Schemas } from "../../foundation/platform-client";
-import { LinkButton, Notice, PageRef, StatusMark } from "../../foundation/ui";
+import { LinkButton, Notice, PageRef, PageViewer, StatusMark } from "../../foundation/ui";
 import { useHighlight } from "./highlight";
 import { QuestionToggle } from "./QuestionChip";
 import { axisIso, entryHref, statusOf, useKindWord } from "./shared";
@@ -29,7 +29,7 @@ function PagePicture({ caseId, page }: { caseId: string; page: number }) {
     };
   }, [caseId, page]);
   if (!src) return null;
-  return <img className="av-story-panel__page" src={src} alt={w("consultation.page_alt", { page })} />;
+  return <PageViewer tools={{ clearer: false }} pages={[{ src, label: w("consultation.page_alt", { page }) }]} />;
 }
 
 /** Before an entry is chosen the panel is still there, so the page does not jump when one is. */
