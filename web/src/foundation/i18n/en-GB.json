@@ -723,5 +723,6 @@
   "viewer.reset": "Back to normal",
   "viewer.brightness": "Brightness",
   "viewer.contrast": "Contrast",
-  "viewer.page_alt": "Page {{page}}"
+  "viewer.page_alt": "Page {{page}}",
+  "viewer.loading": "Loading"
 }

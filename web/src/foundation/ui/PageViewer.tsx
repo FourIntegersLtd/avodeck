@@ -2,7 +2,7 @@
 // fetching and no storage links here). Turning, fitting and "clearer" only change how pages are shown.
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { t } from "../i18n";
-import { drawnSize, turnBy, usePageView, viewFilter, type Fit, type View } from "./pageView";
+import { clampZoom, drawnSize, turnBy, ZOOM_STEP, usePageView, viewFilter, type Fit, type View } from "./pageView";
 import { PageViewToolbar, type PageViewTools } from "./PageViewToolbar";
 
 export interface ViewerPage {
@@ -12,6 +12,8 @@ export interface ViewerPage {
   label: string;
   /** Drawn over the picture in page fractions; turned with it. */
   children?: ReactNode;
+  /** Put on this page's paper so the owner can scroll to or point at it. */
+  id?: string;
 }
 
 export interface PageViewerProps {
@@ -110,7 +112,7 @@ function Paper({ page, turn, fit, zoom, filter, onZoom, onScale, first }: { page
     ? { width: sideways ? drawn.height : drawn.width, height: sideways ? drawn.width : drawn.height, transform: `translate(-50%, -50%) rotate(${quarter}deg)` }
     : { transform: quarter ? `rotate(${quarter}deg)` : undefined };
   return (
-    <div className="av-pageview__paper" ref={ref} tabIndex={0} aria-label={page.label}>
+    <div className="av-pageview__paper" ref={ref} id={page.id} role="group" tabIndex={0} aria-label={page.label}>
       <div className={drawn ? "av-pageview__frame av-pageview__frame--sized" : "av-pageview__frame"} style={frame}>
         <div className={drawn ? "av-pageview__page av-pageview__page--sized" : "av-pageview__page"} data-testid="page-turn" data-turn={quarter} style={style}>
           {page.src ? (
@@ -125,7 +127,7 @@ function Paper({ page, turn, fit, zoom, filter, onZoom, onScale, first }: { page
               }}
             />
           ) : (
-            <div className="av-pageview__image av-pageview__image--empty" role="img" aria-label={page.label} />
+            <div className="av-pageview__image av-pageview__image--empty" role="status" aria-label={t("viewer.loading")} />
           )}
           {page.src && page.children}
         </div>
@@ -145,13 +147,12 @@ export function PageViewer({ pages, tools, initialView, initialTurn, view: viewP
   const step = (by: number) => (turnProp === undefined ? state.setTurn(turnBy(turn, by)) : onTurn?.(turnBy(turn, by)));
   const change = (next: Partial<View>) => {
     if (viewProp === undefined) {
-      if (next.fit) state.setFit(next.fit);
-      state.setClearer(next);
+      state.setView(next);
     } else onView?.({ ...viewProp, ...next });
   };
   const zoom = (points: number) => {
     if (viewProp === undefined) state.zoomBy(points, now);
-    else onView?.({ ...viewProp, fit: "zoom", zoom: Math.min(400, Math.max(50, Math.round((viewProp.fit === "zoom" ? viewProp.zoom : now) + points))) });
+    else onView?.({ ...viewProp, fit: "zoom", zoom: clampZoom((viewProp.fit === "zoom" ? viewProp.zoom : now) + points) });
   };
   return (
     <div className="av-pageview">
@@ -162,8 +163,8 @@ export function PageViewer({ pages, tools, initialView, initialTurn, view: viewP
           fit={view.fit}
           brightness={view.brightness}
           contrast={view.contrast}
-          onZoomIn={() => zoom(25)}
-          onZoomOut={() => zoom(-25)}
+          onZoomIn={() => zoom(ZOOM_STEP)}
+          onZoomOut={() => zoom(-ZOOM_STEP)}
           onTurnLeft={() => step(-90)}
           onTurnRight={() => step(90)}
           onFit={(fit) => change({ fit })}
