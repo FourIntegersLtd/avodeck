@@ -221,5 +221,32 @@
    }
   ],
   "relevant_new": false
+ },
+ {
+  "page": 915,
+  "doc_id": "app-mri-shoulder-2025",
+  "facts": [
+   {
+    "kind": "letter",
+    "value": "MRI right shoulder result",
+    "quote": "MRI right shoulder result",
+    "event_date": "2025-04-02",
+    "fields": {
+     "specialty": "Orthopaedics"
+    },
+    "planted": null
+   },
+   {
+    "kind": "result",
+    "value": "Full thickness supraspinatus tear with mild subacromial impingement.",
+    "quote": "full thickness supraspinatus tear with mild subacromial impingement",
+    "event_date": "2025-04-02",
+    "fields": {
+     "test": "MRI right shoulder"
+    },
+    "planted": null
+   }
+  ],
+  "relevant_new": false
  }
 ]
