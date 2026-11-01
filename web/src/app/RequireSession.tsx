@@ -8,7 +8,7 @@ import { ToastProvider } from "../foundation/lib/toasts";
 import { claimResourceCache } from "../foundation/lib/resourceCache";
 import { SessionContext } from "../foundation/lib/session";
 import { useResource } from "../foundation/lib/useResource";
-import { api, apiOrigin, onPasswordChangeRequired, unwrap } from "../foundation/platform-client";
+import { api, onPasswordChangeRequired, unwrap } from "../foundation/platform-client";
 import { AppShell, LoadError, Loading } from "../foundation/ui";
 import { ChoosePassword } from "./auth/ChoosePassword";
 
@@ -17,9 +17,7 @@ const EXPERT_ONLY = new Set(["/today", "/profile", "/cases", "/cases/new"]);
 
 async function fetchLegalStatus(): Promise<LegalStatusResponse | null> {
   try {
-    const res = await fetch(`${apiOrigin()}/v1/legal-agreements/status`, { credentials: "include" });
-    if (!res.ok) return null;
-    return (await res.json()) as LegalStatusResponse;
+    return await unwrap(api.GET("/v1/legal-agreements/status"));
   } catch {
     return null;
   }
