@@ -24,7 +24,7 @@ test("Stop this upload cancels the upload, clears the record and returns to the 
   );
   renderAt(`/cases/${CASE_ID}/papers/add`);
   const user = userEvent.setup();
-  await screen.findByRole("heading", { name: "Add more papers" });
+  await screen.findByRole("heading", { name: "Add the patient's records" });
   expect(screen.queryByRole("button", { name: "Stop this upload" })).toBeNull();
   await user.upload(document.querySelector<HTMLInputElement>("input[type=file]")!, new File([new Uint8Array(300)], "a.pdf", { type: "application/pdf" }));
   await user.click(screen.getByRole("button", { name: "Add these papers" }));

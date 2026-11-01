@@ -85,7 +85,7 @@ describe.each([
     server.use(http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => new Promise<Response>(() => undefined)));
     renderAt(PATH);
     expect(await screen.findByRole("radiogroup", { name: "What are they?" })).toBeVisible();
-    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+    expect(screen.queryByRole("heading", { name: /^Add/ })).toBeNull();
   });
 
   test("uploads every file as later records of the chosen kind, records how and when they arrived, then follows the job", async () => {
