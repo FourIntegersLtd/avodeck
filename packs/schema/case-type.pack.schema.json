@@ -75,6 +75,28 @@
       "minItems": 1,
       "uniqueItems": true,
       "description": "The states the subject of the case can be in (e.g. living). Labels and representative words come from the jurisdiction vocabulary (subject_statuses, subject_representatives)."
+    },
+    "blind_read_duties": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "default": ["named_expert"],
+      "description": "Case roles who must read a page before seeing its suggestions (rule 3). named_expert must always be in this list for any pack where the named expert gives evidence."
+    },
+    "verification_duties": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "default": ["named_expert"],
+      "description": "Case roles who may verify a fact. named_expert must always be in this list for any pack where the named expert signs the report."
     }
   },
   "additionalProperties": false,

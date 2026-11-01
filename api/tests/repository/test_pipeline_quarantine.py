@@ -254,7 +254,9 @@ async def test_quarantine_rows_follow_their_state_machine_under_row_level_securi
     seed.case_member(case_id, viewer, "viewer", added_by=expert)
     doc = seed.document(case_id)
     page = admin.execute(
-        "insert into app.pages (case_id, document_id, bundle_page_no) values (%s, %s, 1) returning id", (case_id, doc)
+        "insert into app.pages (bundle_id, document_id, bundle_page_no)"
+        " values ((select bundle_id from app.cases where id = %s), %s, 1) returning id",
+        (case_id, doc),
     ).fetchone()[0]  # type: ignore[index]
     insert = (
         "insert into app.page_quarantines (case_id, page_id, reason, status, suggested_by)"

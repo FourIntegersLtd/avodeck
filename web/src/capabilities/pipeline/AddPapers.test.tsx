@@ -14,14 +14,14 @@ const DOC_A = "d3000000-0000-4000-8000-000000000001";
 const DOC_B = "d3000000-0000-4000-8000-000000000002";
 const pdf = (name: string) => new File([new Uint8Array(300)], name, { type: "application/pdf" });
 
-function mock(pack: Schemas["CasePack"], opts: { actions?: string[]; failUpload?: boolean; jobs?: Array<Partial<Schemas["ProcessingJob"]>> } = {}) {
+function mock(pack: Schemas["CasePack"], opts: { empty?: boolean; actions?: string[]; failUpload?: boolean; jobs?: Array<Partial<Schemas["ProcessingJob"]>> } = {}) {
   signedIn({ pack });
   const seen = { starts: [] as Array<Record<string, unknown>>, chunks: 0, patches: [] as Array<{ id: string; body: Record<string, unknown> }>, appends: [] as unknown[] };
   const ids = [DOC_A, DOC_B];
   const jobs = [...(opts.jobs ?? [{ status: "done", step: "missing", pct: 100 }])];
   server.use(
     http.get(`/v1/cases/${CASE_ID}`, () => json(theCase(opts.actions ? { allowed_actions: opts.actions } : {}))),
-    http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => json(summary(pack, { documents: [] }))),
+    http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => json(summary(pack, opts.empty ? { documents: [], pages: 0 } : {}))),
     http.get(`/v1/cases/${CASE_ID}/progress`, () => json({ read: 0, total: 0, seconds_left: 0 })),
     http.get(`/v1/cases/${CASE_ID}/steps/progress`, () => json({ steps: [] })),
     http.get(`/v1/cases/${CASE_ID}/questions`, () => json({ questions: [], assumptions: [], locked: false, instruction_version_id: null })),
@@ -61,6 +61,31 @@ describe.each([
     expect(screen.getByLabelText("Date they arrived")).toBeVisible();
     expect(screen.getByRole("button", { name: "Add these papers" })).toBeDisabled();
     expect(await axeViolations(container)).toEqual([]);
+  });
+
+  test("first upload: the case has no documents, so the wording is about adding the patient's records", async () => {
+    mock(pack, { empty: true });
+    renderAt(PATH);
+    expect(await screen.findByRole("heading", { name: "Add the patient's records" })).toBeVisible();
+    expect(screen.queryByText(/already read/)).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Add more papers" })).toBeNull();
+  });
+
+  test("shows no heading until the summary has answered, and the neutral one if it fails", async () => {
+    mock(pack);
+    server.use(http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => json({ code: "internal", message: "no" }, 500)));
+    renderAt(PATH);
+    expect(await screen.findByRole("heading", { name: "Add papers" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Add more papers" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Add the patient's records" })).toBeNull();
+  });
+
+  test("while the summary is loading there is no heading that could be wrong", async () => {
+    mock(pack);
+    server.use(http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => new Promise<Response>(() => undefined)));
+    renderAt(PATH);
+    expect(await screen.findByRole("radiogroup", { name: "What are they?" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: /^Add/ })).toBeNull();
   });
 
   test("uploads every file as later records of the chosen kind, records how and when they arrived, then follows the job", async () => {

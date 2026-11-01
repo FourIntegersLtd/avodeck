@@ -162,7 +162,9 @@ async def _start(ctx: JobContext, storage: CaseFileStorage) -> bool:
             await _tell_paused(ctx, conn, case)
             return False
         docs = await _all(
-            conn, "select sha256 from app.documents where case_id = %s and sha256 is not null order by sha256",
+            conn,
+            "select sha256 from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)"
+            " and sha256 is not null order by sha256",
             (ctx.case_id,),
         )  # fmt: skip
         reports = await _all(
@@ -322,7 +324,8 @@ async def export_case(ctx: JobContext) -> None:
         )
         documents = await _all(
             conn,
-            "select id, storage_path, sha256 from app.documents where case_id = %s and storage_path is not null"
+            "select id, storage_path, sha256 from app.documents"
+            " where bundle_id = (select bundle_id from app.cases where id = %s) and storage_path is not null"
             " order by id",
             (ctx.case_id,),
         )

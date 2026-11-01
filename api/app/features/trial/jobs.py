@@ -100,7 +100,8 @@ async def our_pages(services: TrialServices, conn: AsyncConnection, case_id: uui
     cur = await conn.execute(
         "select p.id, p.bundle_page_no, w.word_id, w.text from app.pages p"
         " left join app.ocr_words w on w.page_id = p.id"
-        " where p.case_id = %s and p.bundle_page_no is not null order by p.bundle_page_no, w.n",
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and p.bundle_page_no is not null order by p.bundle_page_no, w.n",
         (case_id,),
     )
     texts: dict[uuid.UUID, tuple[int, dict[str, str]]] = {}

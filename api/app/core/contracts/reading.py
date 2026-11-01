@@ -123,6 +123,15 @@ class PageReadGate:
             raise ApiError("not_found", "We couldn't find that page.", 404)
         if self.step_up:
             check_step_up(current_session(request))
+        # The blind-read gate fires only for roles the pack names as carrying the duty (rule 3).
+        # named_expert is always in blind_read_duties (enforced by the pack loader), so the
+        # named expert's read is always required; this never turns blind read off entirely.
+        cur = await conn.execute("select jurisdiction, case_type, specialty from app.cases where id = %s", (case_id,))
+        row = await cur.fetchone()
+        if row is not None:
+            pack = request.app.state.packs.combine(str(row[0]), str(row[1]), str(row[2]))
+            if access.case_role not in pack.blind_read_duties():
+                return access
         reads: PageReadLog | None = getattr(request.app.state, "page_reads", None)
         person = request.state.scope.person_id
         if reads is None or not await reads.has_read(conn, case_id, int(page_no), person):

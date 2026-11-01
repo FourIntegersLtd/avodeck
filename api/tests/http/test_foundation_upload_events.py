@@ -80,9 +80,7 @@ def seen() -> Iterator[list[tuple[DocumentUploaded, int | None]]]:
         events.unsubscribe(DocumentUploaded, listener)
 
 
-async def upload(
-    client_for: ClientFor, team: dict[str, uuid.UUID], **extra: object
-) -> tuple[httpx.AsyncClient, str]:
+async def upload(client_for: ClientFor, team: dict[str, uuid.UUID], **extra: object) -> tuple[httpx.AsyncClient, str]:
     """Start an upload, send its one part, and claim it: the job is queued and the upload is finalizing."""
     file = SyntheticFile(1 * MB, seed=23)
     client = await client_for(team["expert"])
@@ -152,7 +150,11 @@ async def test_a_failing_subscriber_fails_the_job_and_nothing_is_registered(
             await run_finalize(worker_dsn, admin, upload_id, storage, crypto)
     finally:
         events.unsubscribe(DocumentUploaded, broken)
-    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (0,)
+    assert row(
+        admin,
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        team["case"],
+    ) == (0,)
     assert row(admin, "select status from app.uploads where id = %s", upload_id) == ("finalizing",)
     await run_finalize(worker_dsn, admin, upload_id, storage, crypto, attempt=2)
     document = row(admin, "select status, document_id from app.uploads where id = %s", upload_id)

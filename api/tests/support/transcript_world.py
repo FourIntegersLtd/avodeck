@@ -38,7 +38,8 @@ class Built:
 async def add_document(aconn: psycopg.AsyncConnection, case: uuid.UUID) -> uuid.UUID:
     doc = uuid.uuid4()
     await aconn.execute(
-        "insert into app.documents (id, case_id, kind, filename, sha256) values (%s, %s, 'records', 'f.pdf', %s)",
+        "insert into app.documents (id, bundle_id, kind, filename, sha256)"
+        " values (%s, (select bundle_id from app.cases where id = %s), 'records', 'f.pdf', %s)",
         (doc, case, "0" * 64),
     )
     return doc
@@ -61,15 +62,16 @@ async def add_page(
 ) -> Built:
     page = uuid.uuid4()
     await aconn.execute(
-        "insert into app.pages (id, case_id, document_id, bundle_page_no, unreadable, duplicate_of_page_id,"
-        " superseded_by_page_id, quarantined) values (%s, %s, %s, %s, %s, %s, %s, %s)",
+        "insert into app.pages (id, bundle_id, document_id, bundle_page_no, unreadable, duplicate_of_page_id,"
+        " superseded_by_page_id, quarantined)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s, %s, %s)",
         (page, case, document, number, unreadable, duplicate_of, superseded_by, quarantined),
     )
     if analysed:
         await aconn.execute(
-            "insert into app.page_analysis (page_id, case_id, extracted_at, entries_extracted_at, needs_human,"
-            " entries_failed_at) values (%s, %s, now(), case when %s then null else now() end, %s,"
-            " case when %s then now() end)",
+            "insert into app.page_analysis (page_id, bundle_id, extracted_at, entries_extracted_at, needs_human,"
+            " entries_failed_at) values (%s, (select bundle_id from app.cases where id = %s), now(),"
+            " case when %s then null else now() end, %s, case when %s then now() end)",
             (page, case, failed, failed, failed),
         )
     built = Built(page)
@@ -86,8 +88,8 @@ async def add_page(
                 y = 80.0 + row * LINE_HEIGHT
                 sealed = await crypto.encrypt(aconn, case, word.encode(), purpose=word_purpose(page, wid))
                 await aconn.execute(
-                    "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-                    " values (%s, %s, %s, %s, %s, %s::real[], 0.99, 'ocr')",
+                    "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+                    " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s::real[], 0.99, 'ocr')",
                     (page, case, n, wid, sealed, [x, y, x1, y, x1, y + 24.0, x, y + 24.0]),
                 )
                 built.word_ids.append(wid)
@@ -95,8 +97,9 @@ async def add_page(
             row += 1
         entry = uuid.uuid4()
         await aconn.execute(
-            "insert into app.record_entries (id, page_id, case_id, kind, first_n, last_n, author_role, specialty,"
-            " event_date, date_basis, extraction_version) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'v1')",
+            "insert into app.record_entries (id, page_id, bundle_id, kind, first_n, last_n, author_role, specialty,"
+            " event_date, date_basis, extraction_version)"
+            " values (%s, %s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s, %s, %s, %s, 'v1')",
             (
                 entry,
                 page,

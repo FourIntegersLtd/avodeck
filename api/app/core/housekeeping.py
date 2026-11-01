@@ -99,7 +99,8 @@ async def reconcile_upload_objects(
     rows = {upload_id: (status, document_id) for upload_id, status, document_id in await cur.fetchall()}
     # A completed document's bytes live at its upload prefix (documents.storage_path): never delete those.
     cur = await conn.execute(
-        "select storage_path from app.documents where case_id = %s and storage_path is not null", (case_id,)
+        "select storage_path from app.documents where bundle_id = (select bundle_id from app.cases where id = %s) and storage_path is not null",
+        (case_id,),
     )
     document_paths = [path for (path,) in await cur.fetchall()]
     cutoff = datetime.now(UTC) - ORPHAN_AGE

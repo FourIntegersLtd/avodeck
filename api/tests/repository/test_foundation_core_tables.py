@@ -30,6 +30,13 @@ CORE_TABLES = (
     "idempotency_keys",
 )
 CASE_TABLES = ("documents", "pages", "jobs", "case_members")
+BUNDLE_SCOPED_TABLES = ("documents", "pages")
+
+
+def _case_scoped_count_sql(table: str) -> str:
+    if table in BUNDLE_SCOPED_TABLES:
+        return f"select count(*) from app.{table} where bundle_id = (select bundle_id from app.cases where id = %s)"
+    return f"select count(*) from app.{table} where case_id = %s"
 
 
 @pytest.mark.parametrize("table", CORE_TABLES)
@@ -117,7 +124,7 @@ pytestmark_anyio = pytest.mark.anyio
 async def test_named_expert_sees_case_rows_and_an_outsider_sees_none(
     api_db: Database, world: Fixture, table: str
 ) -> None:
-    sql = f"select count(*) from app.{table} where case_id = %s"
+    sql = _case_scoped_count_sql(table)
     assert await _count(api_db, world.expert, sql, world.case) >= 1
     assert await _count(api_db, world.outsider, sql, world.case) == 0
 
@@ -126,7 +133,7 @@ async def test_named_expert_sees_case_rows_and_an_outsider_sees_none(
 async def test_org_admin_not_on_the_case_sees_metadata_but_no_pages(api_db: Database, world: Fixture) -> None:
     assert await _count(api_db, world.admin_person, "select count(*) from app.cases where id = %s", world.case) == 1
     for table in ("documents", "pages"):
-        sql = f"select count(*) from app.{table} where case_id = %s"
+        sql = _case_scoped_count_sql(table)
         assert await _count(api_db, world.admin_person, sql, world.case) == 0, table
 
 
@@ -168,8 +175,10 @@ async def test_a_job_sees_only_its_own_case(api_db: Database, worker_dsn: str, w
     await worker.open()
     try:
         async with worker.job(world.case) as conn:
-            cur = await conn.execute("select count(distinct case_id), min(case_id::text) from app.pages")
-            assert await cur.fetchone() == (1, str(world.case))
+            cur = await conn.execute("select bundle_id from app.cases where id = %s", (world.case,))
+            (bundle_id,) = await cur.fetchone()
+            cur = await conn.execute("select count(distinct bundle_id), min(bundle_id::text) from app.pages")
+            assert await cur.fetchone() == (1, str(bundle_id))
             cur = await conn.execute("select count(*) from app.cases")
             assert await cur.fetchone() == (1,)
     finally:
@@ -184,6 +193,7 @@ async def test_a_viewer_cannot_add_documents(api_db: Database, world: Fixture, s
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         async with api_db.request(scope_for(viewer)) as conn:
             await conn.execute(
-                "insert into app.documents (case_id, kind, filename, sha256) values (%s, 'records', 'x.pdf', %s)",
+                "insert into app.documents (bundle_id, kind, filename, sha256)"
+                " values ((select bundle_id from app.cases where id = %s), 'records', 'x.pdf', %s)",
                 (world.case, "1" * 64),
             )

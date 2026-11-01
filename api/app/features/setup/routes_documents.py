@@ -54,7 +54,7 @@ async def list_files(case_id: uuid.UUID, access: ViewContent, request: Request, 
         await cur.execute(
             "select d.id, d.filename, d.kind, d.sha256, d.pages, d.storage_path, u.size"
             " from app.documents d left join app.uploads u on u.document_id = d.id"
-            " where d.case_id = %s order by d.created_at, d.id",
+            " where d.bundle_id = (select bundle_id from app.cases where id = %s) order by d.created_at, d.id",
             (case_id,),
         )
         rows = await cur.fetchall()

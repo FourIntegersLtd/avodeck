@@ -92,7 +92,11 @@ async def test_a_missing_object_sends_the_upload_back_to_open_and_a_resend_compl
     assert (await complete(client, upload, file.sha256())).status_code == 202
     await run_finalize(worker_dsn, admin, upload, storage, crypto)
     assert row(admin, "select status from app.uploads where id = %s", upload) == ("complete",)
-    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (1,)
+    assert row(
+        admin,
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        team["case"],
+    ) == (1,)
 
 
 async def test_a_storage_error_is_raised_for_a_retry_and_changes_nothing(
@@ -120,7 +124,11 @@ async def test_a_storage_error_is_raised_for_a_retry_and_changes_nothing(
         row(admin, "select status, received, chunk_sha256, finalize_job_id from app.uploads where id = %s", upload)
         == before
     )
-    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (0,)
+    assert row(
+        admin,
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        team["case"],
+    ) == (0,)
     monkeypatch.setattr(storage, "get", real_get)
     await run_finalize(worker_dsn, admin, upload, storage, crypto, attempt=2)
     assert row(admin, "select status from app.uploads where id = %s", upload) == ("complete",)
@@ -154,7 +162,11 @@ async def test_a_crash_after_the_first_chunk_then_a_retry_makes_one_document(
     assert row(admin, "select status from app.uploads where id = %s", upload) == ("finalizing",)
     await run_finalize(worker_dsn, admin, upload, storage, crypto, attempt=2)
     assert row(admin, "select status from app.uploads where id = %s", upload) == ("complete",)
-    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (1,)
+    assert row(
+        admin,
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        team["case"],
+    ) == (1,)
 
 
 async def test_an_unreadable_object_fails_the_upload_audits_it_and_leaves_the_parts(
@@ -178,7 +190,11 @@ async def test_an_unreadable_object_fails_the_upload_audits_it_and_leaves_the_pa
         "select count(*) from app.audit_log where target = %s and action = 'upload.chunk_unreadable'",
         f"upload:{upload}",
     ) == (1,)
-    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (0,)
+    assert row(
+        admin,
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        team["case"],
+    ) == (0,)
     assert len(await storage.list(upload_prefix(team["case"], uuid.UUID(upload)))) == file.count
     assert "not what was stored" not in caplog.text
 
@@ -197,7 +213,11 @@ async def test_a_byte_count_that_differs_from_the_declared_size_fails_the_upload
     admin.execute("update app.uploads set size = size + 1 where id = %s", (upload,))  # still three parts
     await run_finalize(worker_dsn, admin, upload, storage, crypto)
     assert row(admin, "select status, failure from app.uploads where id = %s", upload) == ("failed", "size_mismatch")
-    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (0,)
+    assert row(
+        admin,
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        team["case"],
+    ) == (0,)
 
 
 async def test_the_uploaded_event_is_published_exactly_once(

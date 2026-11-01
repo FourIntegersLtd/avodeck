@@ -83,17 +83,23 @@ def expected_facts(pages: Iterable[int] | None = None) -> list[StubFact]:
 
 
 async def _page_id(conn: psycopg.AsyncConnection, case_id: uuid.UUID, number: int) -> uuid.UUID:
-    cur = await conn.execute("select id from app.pages where case_id = %s and bundle_page_no = %s", (case_id, number))
+    cur = await conn.execute(
+        "select id from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s) and bundle_page_no = %s",
+        (case_id, number),
+    )
     row = await cur.fetchone()
     if row is not None:
         return uuid.UUID(str(row[0]))
     doc, pid = uuid.uuid4(), uuid.uuid4()
     await conn.execute(
-        "insert into app.documents (id, case_id, kind, filename, sha256) values (%s, %s, 'records', 'f.pdf', %s)",
+        "insert into app.documents (id, bundle_id, kind, filename, sha256)"
+        " values (%s, (select bundle_id from app.cases where id = %s), 'records', 'f.pdf', %s)",
         (doc, case_id, "0" * 64),
     )
     await conn.execute(
-        "insert into app.pages (id, case_id, document_id, bundle_page_no) values (%s, %s, %s, %s)",
+        "insert into app.pages (id, bundle_id, document_id, bundle_page_no)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s)",
         (pid, case_id, doc, number),
     )
     return pid
@@ -133,8 +139,8 @@ async def load_stub_facts(
                     else data
                 )
                 await conn.execute(
-                    "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-                    " values (%s, %s, %s, %s, %s, %s::real[], 0.99, 'ocr')",
+                    "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+                    " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s::real[], 0.99, 'ocr')",
                     (page.page_id, case_id, n, wid, text, [x, y0, x1, y0, x1, y0 + WORD_HEIGHT, x, y0 + WORD_HEIGHT]),
                 )
                 word_ids.append(wid)

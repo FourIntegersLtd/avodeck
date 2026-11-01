@@ -181,7 +181,8 @@ async def test_the_list_filters_by_unread_period_and_source(
     ):
         admin.execute("update app.pages set source_type = %s where id = %s", (source, pages[n]))
         admin.execute(
-            "insert into app.page_analysis (page_id, case_id, printed_dates) values (%s, %s, %s)",
+            "insert into app.page_analysis (page_id, bundle_id, printed_dates)"
+            " values (%s, (select bundle_id from app.cases where id = %s), %s)",
             (pages[n], case, [printed] if printed else []),
         )
     client = await client_for(world["expert"])

@@ -132,8 +132,8 @@ async def statement(seed: Seed, world: World, app: FastAPI, admin_dsn: str) -> t
                 conn, world.case, word.encode(), purpose=word_purpose(page, f"w{n}")
             )
             await conn.execute(
-                "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-                " values (%s, %s, %s, %s, %s, array[0,0,1,0,1,1,0,1]::real[], 0.99, 'ocr')",
+                "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+                " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, array[0,0,1,0,1,1,0,1]::real[], 0.99, 'ocr')",
                 (page, world.case, n, f"w{n}", sealed),
             )
             refs.append(f"{page}/w{n}")

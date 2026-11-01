@@ -201,12 +201,18 @@ async def test_low_confidence_pages_go_to_the_unreadable_queue_and_handwriting_i
 async def test_running_again_sends_nothing_more_to_ocr_and_keeps_the_words(subset: Harness) -> None:
     assert subset.ocr is not None
     sent = list(subset.ocr.sent)
-    count = subset.admin.execute("select count(*) from app.ocr_words where case_id = %s", (subset.case_id,)).fetchone()
+    count = subset.admin.execute(
+        "select count(*) from app.ocr_words where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (subset.case_id,),
+    ).fetchone()
     job = await subset.enqueue("process_bundle")
     finished = await subset.drain(timeout=300)
     assert finished[job] == "done"
     assert subset.ocr.sent == sent
-    again = subset.admin.execute("select count(*) from app.ocr_words where case_id = %s", (subset.case_id,)).fetchone()
+    again = subset.admin.execute(
+        "select count(*) from app.ocr_words where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (subset.case_id,),
+    ).fetchone()
     assert again == count
 
 

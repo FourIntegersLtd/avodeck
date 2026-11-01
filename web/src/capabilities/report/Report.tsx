@@ -9,7 +9,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { errorAction, errorMessage, type ErrorAction } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, SegmentedControl, StaleChoice, Updating, useBusy } from "../../foundation/ui";
+import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, PageViewer, SegmentedControl, StaleChoice, Updating, useBusy } from "../../foundation/ui";
 import { downloadPath, useLocale, useSectionName, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
 
@@ -386,7 +386,7 @@ function Preview({ caseId, pages }: { caseId: string; pages: number }) {
     <details className="rp-wording rp-preview">
       <summary className="av-text-link">{w("report.preview_open")}</summary>
       <div className="av-stack">
-        <img className="av-report-preview" src={src ?? undefined} alt={w("report.preview_alt", { page })} />
+        <PageViewer pages={[{ src, label: w("report.preview_alt", { page }) }]} tools={{ clearer: false }} />
         <div className="av-row">
           <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>{w("report.preview_previous")}</Button>
           <span className="av-muted">{w("report.preview", { page, pages })}</span>

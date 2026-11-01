@@ -133,14 +133,15 @@ async def paint(storage: CaseFileStorage, admin: psycopg.Connection, aconn: psyc
         await storage.put(path, await CRYPTO.encrypt(aconn, w.case, out.getvalue(), purpose=path))
         admin.execute("update app.pages set image_path = %s where id = %s", (path, page))
         admin.execute(
-            "insert into app.page_analysis (page_id, case_id, width, height) values (%s, %s, %s, %s)",
+            "insert into app.page_analysis (page_id, bundle_id, width, height)"
+            " values (%s, (select bundle_id from app.cases where id = %s), %s, %s)",
             (page, w.case, WIDTH, HEIGHT),
         )
         for n, (wid, (text, (x0, y0, x1, y1))) in enumerate(WORDS.items(), start=1):
             sealed = await CRYPTO.encrypt(aconn, w.case, text.encode(), purpose=word_purpose(page, wid))
             await aconn.execute(
-                "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-                " values (%s, %s, %s, %s, %s, %s, 0.99, 'ocr')",
+                "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+                " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s, 0.99, 'ocr')",
                 (page, w.case, n, wid, sealed, [x0, y0, x1, y0, x1, y1, x0, y1]),
             )
     name = await CRYPTO.encrypt(aconn, w.case, b"Zz Qqname", purpose=PARTY_NAME_PURPOSE)

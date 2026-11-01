@@ -27,7 +27,7 @@ from tests.support.case_rows import CaseWorld, fill_every_case_table
 from tests.support.contracts import add_report_version
 from tests.support.seed import Seed
 
-KEPT_ROWS = ("cases", "case_keys")
+KEPT_ROWS = ("cases", "case_keys", "bundles")
 
 
 def existing_tables(admin: psycopg.Connection) -> set[str]:
@@ -58,10 +58,36 @@ def purge_as_worker(worker_dsn: str, job_case: uuid.UUID, case: uuid.UUID) -> di
     return dict(row[0])
 
 
+# Structurally part of the bundle (ADR 0034): these tables have no case_id, only bundle_id.
+BUNDLE_SCOPED_TABLES = frozenset(
+    {
+        "ocr_words",
+        "page_analysis",
+        "page_embeddings",
+        "record_entries",
+        "document_parts",
+        "document_scans",
+        "exhibits",
+        "pages",
+        "documents",
+    }
+)
+
+
 def rows_left(admin: psycopg.Connection, case: uuid.UUID) -> dict[str, int]:
     left: dict[str, int] = {}
     for table in sorted(set(PURGE_ORDER) & existing_tables(admin)):
-        query = f"select count(*) from app.{table} where {'id' if table == 'cases' else 'case_id'} = %s"  # noqa: S608
+        if table == "cases":
+            query = f"select count(*) from app.{table} where id = %s"  # noqa: S608
+        elif table == "bundles":
+            query = f"select count(*) from app.{table} where source_case_id = %s"  # noqa: S608
+        elif table in BUNDLE_SCOPED_TABLES:
+            query = (
+                f"select count(*) from app.{table}"  # noqa: S608
+                " where bundle_id = (select bundle_id from app.cases where id = %s)"
+            )
+        else:
+            query = f"select count(*) from app.{table} where case_id = %s"  # noqa: S608
         row = admin.execute(query, (case,)).fetchone()
         assert row is not None
         left[table] = row[0]
@@ -75,7 +101,7 @@ def test_purge_order_names_every_case_table_once() -> None:
     assert isinstance(PURGE_ORDER, tuple)
     assert len(PURGE_ORDER) == len(set(PURGE_ORDER))
     assert set(PURGE_ORDER) == CASE_TABLES
-    assert PURGE_ORDER[-1] == "cases"
+    assert PURGE_ORDER[-1] == "bundles"
 
 
 def test_purge_order_removes_children_before_their_parents(admin: psycopg.Connection) -> None:

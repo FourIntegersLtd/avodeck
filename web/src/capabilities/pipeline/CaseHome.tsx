@@ -90,7 +90,9 @@ export function CaseHome() {
             <h1>{w("home.title")}</h1>
             <p>{w("home.lead")}</p>
           </div>
-          {addPapers && <LinkButton to={addPapers} variant="secondary">{w("home.add")}</LinkButton>}
+          {addPapers && (groups.length === 0
+            ? <LinkButton to={addPapers}>{w("home.add_first")}</LinkButton>
+            : <LinkButton to={addPapers} variant="secondary">{w("home.add")}</LinkButton>)}
         </div>
 
         {groups.map((g, i) => {

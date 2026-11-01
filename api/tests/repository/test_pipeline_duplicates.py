@@ -207,9 +207,15 @@ async def test_the_review_columns_change_only_with_the_page_action_and_hashes_on
     seed.case_member(case_id, viewer, "viewer", added_by=expert)
     doc = seed.document(case_id)
     page_id = admin.execute(  # type: ignore[index]
-        "insert into app.pages (case_id, document_id, bundle_page_no) values (%s, %s, 1) returning id", (case_id, doc)
+        "insert into app.pages (bundle_id, document_id, bundle_page_no)"
+        " values ((select bundle_id from app.cases where id = %s), %s, 1) returning id",
+        (case_id, doc),
     ).fetchone()[0]
-    admin.execute("insert into app.page_analysis (page_id, case_id) values (%s, %s)", (page_id, case_id))
+    admin.execute(
+        "insert into app.page_analysis (page_id, bundle_id)"
+        " values (%s, (select bundle_id from app.cases where id = %s))",
+        (page_id, case_id),
+    )
     change = "update app.page_analysis set duplicate_status = 'kept', duplicate_version = 1 where page_id = %s"
     for person in (viewer, stranger):
         async with api_db.request(scope_for(person)) as conn:

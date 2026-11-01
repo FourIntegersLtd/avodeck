@@ -26,7 +26,7 @@ class Document:
 async def unscanned_documents(conn: AsyncConnection, case_id: uuid.UUID) -> list[Document]:
     cur = await conn.execute(
         "select d.id, d.storage_path from app.documents d"
-        " where d.case_id = %s and d.storage_path is not null"
+        " where d.bundle_id = (select bundle_id from app.cases where id = %s) and d.storage_path is not null"
         " and not exists (select 1 from app.document_scans s where s.document_id = d.id)"
         " order by d.created_at, d.id",
         (case_id,),
@@ -38,7 +38,8 @@ async def record_scan(
     conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID, clean: bool, signature: str | None
 ) -> bool:
     cur = await conn.execute(
-        "insert into app.document_scans (document_id, case_id, clean, signature) values (%s, %s, %s, %s)"
+        "insert into app.document_scans (document_id, bundle_id, clean, signature)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s)"
         " on conflict (document_id) do nothing returning document_id",
         (document_id, case_id, clean, signature),
     )
@@ -49,7 +50,7 @@ async def clean_unsplit(conn: AsyncConnection, case_id: uuid.UUID) -> list[Docum
     cur = await conn.execute(
         "select d.id, d.storage_path, d.filename from app.documents d"
         " join app.document_scans s on s.document_id = d.id"
-        " where d.case_id = %s and s.clean and s.split_at is null and d.kind = %s"
+        " where d.bundle_id = (select bundle_id from app.cases where id = %s) and s.clean and s.split_at is null and d.kind = %s"
         " order by d.created_at, d.id",
         (case_id, RECORDS_KIND),
     )
@@ -63,12 +64,16 @@ async def add_pages(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid
     )
     if await cur.fetchone() is None:
         return False
-    cur = await conn.execute("select coalesce(max(bundle_page_no), 0) from app.pages where case_id = %s", (case_id,))
+    cur = await conn.execute(
+        "select coalesce(max(bundle_page_no), 0) from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (case_id,),
+    )
     row = await cur.fetchone()
     start = int(row[0]) if row else 0
     await conn.execute(
-        "insert into app.pages (case_id, document_id, bundle_page_no)"
-        " select %s, %s, %s + g from generate_series(1, %s) g",
+        "insert into app.pages (bundle_id, document_id, bundle_page_no)"
+        " select (select bundle_id from app.cases where id = %s), %s, %s + g from generate_series(1, %s) g",
         (case_id, document_id, start, count),
     )
     await conn.execute("update app.documents set pages = %s where id = %s", (count, document_id))
@@ -85,7 +90,8 @@ async def mark_unopened(conn: AsyncConnection, case_id: uuid.UUID, document_id: 
 async def unopened_documents(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, str]]:
     """Files that could not be opened, as (id, filename), oldest first."""
     cur = await conn.execute(
-        "select id, filename from app.documents where case_id = %s and unreadable_reason is not null"
+        "select id, filename from app.documents"
+        " where bundle_id = (select bundle_id from app.cases where id = %s) and unreadable_reason is not null"
         " order by created_at, id",
         (case_id,),
     )
@@ -105,7 +111,8 @@ async def pages_without_image(conn: AsyncConnection, case_id: uuid.UUID) -> list
     cur = await conn.execute(
         "select p.id, p.document_id, p.bundle_page_no,"
         " (select min(q.bundle_page_no) from app.pages q where q.document_id = p.document_id), p.rotation"
-        " from app.pages p where p.case_id = %s and p.image_path is null order by p.bundle_page_no",
+        " from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and p.image_path is null order by p.bundle_page_no",
         (case_id,),
     )
     return [PageRow(r[0], r[1], r[2], r[3], r[4]) for r in await cur.fetchall()]
@@ -115,7 +122,7 @@ async def read_again(conn: AsyncConnection, case_id: uuid.UUID, page_ids: list[u
     """The named pages (not quarantined) get new pictures and their words read again on the next run."""
     await conn.execute(
         "update app.pages set image_path = null, text_source = null"
-        " where case_id = %s and id = any(%s) and not quarantined",
+        " where bundle_id = (select bundle_id from app.cases where id = %s) and id = any(%s) and not quarantined",
         (case_id, page_ids),
     )
 
@@ -123,7 +130,8 @@ async def read_again(conn: AsyncConnection, case_id: uuid.UUID, page_ids: list[u
 async def read_typed_again(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> bool:
     """The page's words are taken again from the expert's typed-out text on the next run."""
     cur = await conn.execute(
-        "update app.pages set text_source = null where case_id = %s and id = %s and not quarantined"
+        "update app.pages set text_source = null"
+        " where bundle_id = (select bundle_id from app.cases where id = %s) and id = %s and not quarantined"
         " and transcribed_by_expert_text is not null returning id",
         (case_id, page_id),
     )
@@ -159,7 +167,9 @@ async def set_straightened(conn: AsyncConnection, page_id: uuid.UUID, rotation: 
 
 async def straightened_count(conn: AsyncConnection, case_id: uuid.UUID) -> int:
     cur = await conn.execute(
-        "select count(*) from app.pages where case_id = %s and straightened and not quarantined", (case_id,)
+        "select count(*) from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s) and straightened and not quarantined",
+        (case_id,),
     )
     row = await cur.fetchone()
     assert row is not None
@@ -209,7 +219,9 @@ async def set_language(conn: AsyncConnection, page_id: uuid.UUID, code: str | No
 
 async def has_page_languages(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
     cur = await conn.execute(
-        "select exists (select 1 from app.pages where case_id = %s and language is not null)", (case_id,)
+        "select exists (select 1 from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s) and language is not null)",
+        (case_id,),
     )
     row = await cur.fetchone()
     return bool(row and row[0])
@@ -219,7 +231,8 @@ async def foreign_pages(conn: AsyncConnection, case_id: uuid.UUID, spoken: str) 
     """Pages whose language is known and is not the pack's, in page order."""
     cur = await conn.execute(
         "select id, bundle_page_no, language from app.pages"
-        " where case_id = %s and language is not null and language <> %s order by bundle_page_no",
+        " where bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and language is not null and language <> %s order by bundle_page_no",
         (case_id, spoken),
     )
     return [(r[0], r[1], r[2]) for r in await cur.fetchall()]
@@ -259,18 +272,20 @@ async def add_part(
     if await cur.fetchone() is not None:
         return False
     await conn.execute(
-        "insert into app.documents (id, case_id, kind, filename, storage_path, sha256, received_on, obtained_how,"
+        "insert into app.documents (id, bundle_id, kind, filename, storage_path, sha256, received_on, obtained_how,"
         " bundle_version, uploaded_by)"
-        " select %s, case_id, kind, %s, %s, %s, received_on, obtained_how, bundle_version, uploaded_by"
+        " select %s, bundle_id, kind, %s, %s, %s, received_on, obtained_how, bundle_version, uploaded_by"
         " from app.documents where id = %s",
         (document_id, filename[:255], storage_path, sha256, parent_id),
     )
     await conn.execute(
-        "insert into app.document_scans (document_id, case_id, clean) values (%s, %s, true)", (document_id, case_id)
+        "insert into app.document_scans (document_id, bundle_id, clean)"
+        " values (%s, (select bundle_id from app.cases where id = %s), true)",
+        (document_id, case_id),
     )
     await conn.execute(
-        "insert into app.document_parts (case_id, parent_document_id, document_id, part_no, media_type)"
-        " values (%s, %s, %s, %s, %s)",
+        "insert into app.document_parts (bundle_id, parent_document_id, document_id, part_no, media_type)"
+        " values ((select bundle_id from app.cases where id = %s), %s, %s, %s, %s)",
         (case_id, parent_id, document_id, part_no, media_type),
     )
     return True
@@ -293,8 +308,9 @@ async def add_exhibit(
     storage_path: str,
 ) -> None:
     await conn.execute(
-        "insert into app.exhibits (case_id, document_id, media_type, size, sha256, storage_path)"
-        " values (%s, %s, %s, %s, %s, %s) on conflict (document_id) do nothing",
+        "insert into app.exhibits (bundle_id, document_id, media_type, size, sha256, storage_path)"
+        " values ((select bundle_id from app.cases where id = %s), %s, %s, %s, %s, %s)"
+        " on conflict (document_id) do nothing",
         (case_id, document_id, media_type, size, sha256, storage_path),
     )
 
@@ -315,7 +331,8 @@ async def exhibits(conn: AsyncConnection, case_id: uuid.UUID) -> list[ExhibitRow
         "select e.id, e.document_id, d.filename, e.media_type, e.size, p.parent_document_id, e.created_at"
         " from app.exhibits e join app.documents d on d.id = e.document_id"
         " left join app.document_parts p on p.document_id = e.document_id"
-        " where e.case_id = %s order by e.created_at, d.filename",
+        " where e.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " order by e.created_at, d.filename",
         (case_id,),
     )
     return [ExhibitRow(*r) for r in await cur.fetchall()]
@@ -327,7 +344,9 @@ async def set_image(conn: AsyncConnection, page_id: uuid.UUID, image_path: str) 
 
 async def pages_without_words(conn: AsyncConnection, case_id: uuid.UUID) -> list[uuid.UUID]:
     cur = await conn.execute(
-        "select id from app.pages where case_id = %s and text_source is null and image_path is not null"
+        "select id from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and text_source is null and image_path is not null"
         " and not quarantined order by bundle_page_no",
         (case_id,),
     )
@@ -337,7 +356,9 @@ async def pages_without_words(conn: AsyncConnection, case_id: uuid.UUID) -> list
 async def pages_without_language(conn: AsyncConnection, case_id: uuid.UUID, min_words: int) -> list[uuid.UUID]:
     """Pages already read that have enough words to name a language but no language yet."""
     cur = await conn.execute(
-        "select p.id from app.pages p where p.case_id = %s and p.text_source is not null and p.language is null"
+        "select p.id from app.pages p"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and p.text_source is not null and p.language is null"
         " and not p.quarantined and (select count(*) from app.ocr_words w where w.page_id = p.id) >= %s"
         " order by p.bundle_page_no",
         (case_id, min_words),
@@ -366,12 +387,17 @@ async def store_words(
         "update app.word_corrections set superseded_at = now() where page_id = %s and superseded_at is null",
         (page_id,),
     )
+    # Position 2 of each row was case_id; replace with bundle_id resolved from the page.
+    cur0 = await conn.execute("select bundle_id from app.pages where id = %s", (page_id,))
+    brow = await cur0.fetchone()
+    bundle_id = brow[0] if brow else None
+    patched = [(r[0], bundle_id, *r[2:]) for r in rows]
     async with conn.cursor() as cur:
         await cur.executemany(
             "insert into app.ocr_words"
-            " (page_id, case_id, n, word_id, text, polygon, confidence, handwritten, struck, source)"
+            " (page_id, bundle_id, n, word_id, text, polygon, confidence, handwritten, struck, source)"
             " values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            rows,
+            patched,
         )
     await conn.execute(
         "update app.pages set text_source = %s, ocr_confidence = %s, handwriting = %s, unreadable = %s where id = %s",
@@ -379,8 +405,8 @@ async def store_words(
     )
     if size is not None:
         await conn.execute(
-            "insert into app.page_analysis (page_id, case_id, stage, word_count, width, height)"
-            " select id, case_id, 'ocr', %s, %s, %s from app.pages where id = %s"
+            "insert into app.page_analysis (page_id, bundle_id, stage, word_count, width, height)"
+            " select id, bundle_id, 'ocr', %s, %s, %s from app.pages where id = %s"
             " on conflict (page_id) do update set stage = excluded.stage, word_count = excluded.word_count,"
             " width = excluded.width, height = excluded.height, updated_at = now()",
             (len(rows), size[0], size[1], page_id),
@@ -400,7 +426,8 @@ async def pages_to_extract(conn: AsyncConnection, case_id: uuid.UUID) -> list[uu
     """Pages with their words read, not set aside as copies, and not yet extracted."""
     cur = await conn.execute(
         "select p.id from app.pages p left join app.page_analysis a on a.page_id = p.id"
-        " where p.case_id = %s and p.text_source is not null and p.duplicate_of_page_id is null"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and p.text_source is not null and p.duplicate_of_page_id is null"
         " and not p.quarantined and a.extracted_at is null order by p.bundle_page_no",
         (case_id,),
     )
@@ -485,12 +512,13 @@ async def _put_entries(
     await conn.execute("delete from app.record_entries where page_id = %s", (page_id,))
     async with conn.cursor() as cur:
         await cur.executemany(
-            "insert into app.record_entries (page_id, case_id, kind, first_n, last_n, author_role, specialty,"
-            " event_date, date_basis, extraction_version) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "insert into app.record_entries (page_id, bundle_id, kind, first_n, last_n, author_role, specialty,"
+            " event_date, date_basis, extraction_version) values"
+            " (%s, (select bundle_id from app.pages where id = %s), %s, %s, %s, %s, %s, %s, %s, %s)",
             [
                 (
                     page_id,
-                    case_id,
+                    page_id,
                     e.kind,
                     e.first_n,
                     e.last_n,
@@ -528,7 +556,8 @@ async def pages_to_read_entries(conn: AsyncConnection, case_id: uuid.UUID) -> li
     """Extracted pages whose entries have not been read (a case read before entries existed)."""
     cur = await conn.execute(
         "select p.id from app.pages p join app.page_analysis a on a.page_id = p.id"
-        " where p.case_id = %s and a.extracted_at is not null and a.entries_extracted_at is null"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and a.extracted_at is not null and a.entries_extracted_at is null"
         " and a.entries_failed_at is null and not p.quarantined order by p.bundle_page_no",
         (case_id,),
     )
@@ -545,7 +574,10 @@ async def leave_entries_for_person(conn: AsyncConnection, page_id: uuid.UUID) ->
 
 
 async def has_entries(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
-    cur = await conn.execute("select 1 from app.record_entries where case_id = %s limit 1", (case_id,))
+    cur = await conn.execute(
+        "select 1 from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s) limit 1",
+        (case_id,),
+    )
     return await cur.fetchone() is not None
 
 
@@ -592,16 +624,16 @@ async def store_extraction(
     if source_type is not None:
         await conn.execute("update app.pages set source_type = %s where id = %s", (source_type, page_id))
     await conn.execute(
-        "insert into app.page_analysis (page_id, case_id, stage, extraction, needs_human, reason, model_id,"
+        "insert into app.page_analysis (page_id, bundle_id, stage, extraction, needs_human, reason, model_id,"
         " printed_dates, availability_evidence, extracted_at)"
-        " values (%s, %s, 'extract', %s, %s, %s, %s, %s, %s, now())"
+        " values (%s, (select bundle_id from app.pages where id = %s), 'extract', %s, %s, %s, %s, %s, %s, now())"
         " on conflict (page_id) do update set stage = excluded.stage, extraction = excluded.extraction,"
         " needs_human = excluded.needs_human, reason = excluded.reason, model_id = excluded.model_id,"
         " printed_dates = excluded.printed_dates, availability_evidence = excluded.availability_evidence,"
         " extracted_at = excluded.extracted_at, updated_at = now()",
         (
             page_id,
-            case_id,
+            page_id,
             sealed,
             needs_human,
             reason,
@@ -623,7 +655,8 @@ async def pages_to_hash(conn: AsyncConnection, case_id: uuid.UUID) -> list[uuid.
     """Pages with their words read and no picture or word hash yet."""
     cur = await conn.execute(
         "select a.page_id from app.page_analysis a join app.pages p on p.id = a.page_id"
-        " where a.case_id = %s and a.word_count is not null and a.phash is null and not p.quarantined"
+        " where a.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and a.word_count is not null and a.phash is null and not p.quarantined"
         " order by p.bundle_page_no",
         (case_id,),
     )
@@ -657,7 +690,8 @@ async def copy_states(conn: AsyncConnection, case_id: uuid.UUID) -> list[CopySta
         "select p.id, p.bundle_page_no, a.phash, a.minhash, coalesce(a.typed_words, 0),"
         " a.duplicate_checked_at is not null, p.duplicate_of_page_id, a.duplicate_status"
         " from app.pages p join app.page_analysis a on a.page_id = p.id"
-        " where p.case_id = %s and not p.quarantined order by p.bundle_page_no",
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and not p.quarantined order by p.bundle_page_no",
         (case_id,),
     )
     return [
@@ -704,7 +738,9 @@ _COPY = (
 
 async def copies(conn: AsyncConnection, case_id: uuid.UUID) -> list[Copy]:
     cur = await conn.execute(
-        _COPY + " where p.case_id = %s and p.duplicate_of_page_id is not null order by p.bundle_page_no", (case_id,)
+        _COPY + " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and p.duplicate_of_page_id is not null order by p.bundle_page_no",
+        (case_id,),
     )
     return [Copy(*r) for r in await cur.fetchall()]
 
@@ -714,7 +750,8 @@ async def copy_review(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.U
     cur = await conn.execute(
         "select p.id, p.bundle_page_no, o.id, o.bundle_page_no, a.duplicate_status, coalesce(a.duplicate_version, 0)"
         " from app.pages p left join app.pages o on o.id = p.duplicate_of_page_id"
-        " left join app.page_analysis a on a.page_id = p.id where p.id = %s and p.case_id = %s",
+        " left join app.page_analysis a on a.page_id = p.id"
+        " where p.id = %s and p.bundle_id = (select bundle_id from app.cases where id = %s)",
         (page_id, case_id),
     )
     row = await cur.fetchone()
@@ -758,8 +795,9 @@ async def set_aside_as_copy(
 
 async def page_id_of(conn: AsyncConnection, case_id: uuid.UUID, page_no: int) -> uuid.UUID | None:
     cur = await conn.execute(
-        "select id from app.pages where case_id = %s and bundle_page_no = %s and image_path is not null"
-        " and not quarantined",
+        "select id from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and bundle_page_no = %s and image_path is not null and not quarantined",
         (case_id, page_no),
     )
     row = await cur.fetchone()
@@ -777,7 +815,8 @@ async def gap_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[gaps.Page
         " coalesce(array_agg(f.event_date) filter (where f.id is not null), '{}')"
         " from app.pages p left join app.page_analysis a on a.page_id = p.id"
         " left join app.facts f on f.page_id = p.id and f.status <> 'rejected'"
-        " where p.case_id = %s and p.duplicate_of_page_id is null and not p.quarantined"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and p.duplicate_of_page_id is null and not p.quarantined"
         " group by p.id, p.bundle_page_no, p.source_type, a.printed_dates order by p.bundle_page_no",
         (case_id,),
     )
@@ -816,7 +855,8 @@ async def pages_to_match(conn: AsyncConnection, case_id: uuid.UUID) -> list[tupl
     """Pages read by the model whose references are not matched yet, copies left out."""
     cur = await conn.execute(
         "select p.id, p.bundle_page_no from app.pages p join app.page_analysis a on a.page_id = p.id"
-        " where p.case_id = %s and a.extracted_at is not null and a.references_checked_at is null"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and a.extracted_at is not null and a.references_checked_at is null"
         " and p.duplicate_of_page_id is null and not p.quarantined order by p.bundle_page_no",
         (case_id,),
     )
@@ -830,7 +870,10 @@ async def sealed_extraction(conn: AsyncConnection, page_id: uuid.UUID) -> bytes 
 
 
 async def page_numbers(conn: AsyncConnection, case_id: uuid.UUID) -> set[int]:
-    cur = await conn.execute("select bundle_page_no from app.pages where case_id = %s", (case_id,))
+    cur = await conn.execute(
+        "select bundle_page_no from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (case_id,),
+    )
     return {int(r[0]) for r in await cur.fetchall()}
 
 
@@ -922,7 +965,9 @@ async def missing_item(conn: AsyncConnection, case_id: uuid.UUID, item_id: uuid.
 
 async def page_added_after(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, after: dt.datetime) -> bool:
     cur = await conn.execute(
-        "select 1 from app.pages where id = %s and case_id = %s and created_at > %s", (page_id, case_id, after)
+        "select 1 from app.pages where id = %s"
+        " and bundle_id = (select bundle_id from app.cases where id = %s) and created_at > %s",
+        (page_id, case_id, after),
     )
     return await cur.fetchone() is not None
 
@@ -954,7 +999,7 @@ async def split_in_job(conn: AsyncConnection, case_id: uuid.UUID, job_id: uuid.U
     """Whether a document of the case was cut into pages since this job was queued."""
     cur = await conn.execute(
         "select exists (select 1 from app.document_scans s join app.jobs j on j.id = %s"
-        " where s.case_id = %s and s.split_at >= j.created_at)",
+        " where s.bundle_id = (select bundle_id from app.cases where id = %s) and s.split_at >= j.created_at)",
         (job_id, case_id),
     )
     row = await cur.fetchone()
@@ -980,7 +1025,8 @@ async def pages_to_embed(conn: AsyncConnection, case_id: uuid.UUID, model: str) 
     """Pages with no embedding from the current model (none yet, or one from an older model)."""
     cur = await conn.execute(
         "select p.id from app.pages p left join app.page_embeddings e on e.page_id = p.id"
-        " where p.case_id = %s and not p.quarantined and (e.page_id is null or e.model <> %s)"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and not p.quarantined and (e.page_id is null or e.model <> %s)"
         " order by p.bundle_page_no",
         (case_id, model),
     )
@@ -992,8 +1038,8 @@ async def store_embedding(
 ) -> None:
     literal = "[" + ",".join(repr(float(v)) for v in vector) + "]"
     await conn.execute(
-        "insert into app.page_embeddings (page_id, case_id, model, embedding)"
-        " values (%s, %s, %s, %s::extensions.vector)"
+        "insert into app.page_embeddings (page_id, bundle_id, model, embedding)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s::extensions.vector)"
         " on conflict (page_id) do update set model = excluded.model, embedding = excluded.embedding,"
         " updated_at = now()",
         (page_id, case_id, model, literal),
@@ -1010,7 +1056,8 @@ async def sorted_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[
     cur = await conn.execute(
         "select p.id, p.bundle_page_no, p.source_type,"
         " (select min(d) from app.page_analysis a, unnest(a.printed_dates) d where a.page_id = p.id)"
-        " from app.pages p where p.case_id = %s and not p.quarantined",
+        " from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and not p.quarantined",
         (case_id,),
     )
     return [(r[0], int(r[1]), r[2], r[3]) for r in await cur.fetchall()]
@@ -1021,7 +1068,8 @@ async def sorted_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[
 
 async def source_counts(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[str | None, int]]:
     cur = await conn.execute(
-        "select source_type, count(*) from app.pages where case_id = %s and not quarantined"
+        "select source_type, count(*) from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s) and not quarantined"
         " group by source_type order by count(*) desc, source_type nulls last",
         (case_id,),
     )
@@ -1033,9 +1081,11 @@ async def summary_counts(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[int
     cur = await conn.execute(
         "select"
         " (select count(*) from app.pages p join app.page_analysis a on a.page_id = p.id"
-        "   where p.case_id = %(c)s and p.duplicate_of_page_id is not null and not p.quarantined"
+        "   where p.bundle_id = (select bundle_id from app.cases where id = %(c)s)"
+        "   and p.duplicate_of_page_id is not null and not p.quarantined"
         "   and a.duplicate_status in ('suggested', 'confirmed')),"
-        " (select count(*) from app.pages where case_id = %(c)s and unreadable and not quarantined),"
+        " (select count(*) from app.pages"
+        "   where bundle_id = (select bundle_id from app.cases where id = %(c)s) and unreadable and not quarantined),"
         " (select count(*) from app.record_gaps where case_id = %(c)s and confirmed is distinct from false),"
         " (select count(*) from app.missing_items where case_id = %(c)s and status = 'open')",
         {"c": case_id},
@@ -1075,7 +1125,10 @@ _GROUP = " group by d.id, s.media_type, dp.parent_document_id"
 
 async def documents(conn: AsyncConnection, case_id: uuid.UUID) -> list[DocumentRow]:
     cur = await conn.execute(
-        _DOCUMENT + " where d.case_id = %s" + _GROUP + " order by min(p.bundle_page_no) nulls last, d.created_at",
+        _DOCUMENT
+        + " where d.bundle_id = (select bundle_id from app.cases where id = %s)"
+        + _GROUP
+        + " order by min(p.bundle_page_no) nulls last, d.created_at",
         (case_id,),
     )
     return [DocumentRow(*r) for r in await cur.fetchall()]
@@ -1083,7 +1136,7 @@ async def documents(conn: AsyncConnection, case_id: uuid.UUID) -> list[DocumentR
 
 async def document(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> DocumentRow | None:
     cur = await conn.execute(
-        _DOCUMENT + " where d.case_id = %s and d.id = %s" + _GROUP,
+        _DOCUMENT + " where d.bundle_id = (select bundle_id from app.cases where id = %s) and d.id = %s" + _GROUP,
         (case_id, document_id),
     )
     row = await cur.fetchone()
@@ -1095,12 +1148,16 @@ async def document_storage_paths(
 ) -> tuple[str | None, list[uuid.UUID]]:
     """The document's storage_path and the page ids whose storage objects must be removed."""
     cur = await conn.execute(
-        "select storage_path from app.documents where id = %s and case_id = %s", (document_id, case_id)
+        "select storage_path from app.documents where id = %s"
+        " and bundle_id = (select bundle_id from app.cases where id = %s)",
+        (document_id, case_id),
     )
     row = await cur.fetchone()
     storage_path = row[0] if row else None
     cur = await conn.execute(
-        "select id from app.pages where document_id = %s and case_id = %s", (document_id, case_id)
+        "select id from app.pages where document_id = %s"
+        " and bundle_id = (select bundle_id from app.cases where id = %s)",
+        (document_id, case_id),
     )
     page_ids = [r[0] for r in await cur.fetchall()]
     return storage_path, page_ids
@@ -1108,7 +1165,9 @@ async def document_storage_paths(
 
 async def delete_document(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> bool:
     cur = await conn.execute(
-        "delete from app.documents where id = %s and case_id = %s returning id", (document_id, case_id)
+        "delete from app.documents where id = %s"
+        " and bundle_id = (select bundle_id from app.cases where id = %s) returning id",
+        (document_id, case_id),
     )
     return (await cur.fetchone()) is not None
 
@@ -1154,9 +1213,10 @@ async def join_next_version(conn: AsyncConnection, case_id: uuid.UUID, document_
     """The version after the newest one already cut into pages."""
     await conn.execute(
         "update app.documents set bundle_version = (select coalesce(max(d.bundle_version), 0) + 1"
-        " from app.documents d where d.case_id = %(c)s and d.id <> %(d)s"
+        " from app.documents d where d.bundle_id = (select bundle_id from app.cases where id = %(c)s)"
+        " and d.id <> %(d)s"
         " and exists (select 1 from app.pages p where p.document_id = d.id))"
-        " where id = %(d)s and case_id = %(c)s",
+        " where id = %(d)s and bundle_id = (select bundle_id from app.cases where id = %(c)s)",
         {"c": case_id, "d": document_id},
     )
 
@@ -1165,7 +1225,8 @@ async def appendable(conn: AsyncConnection, case_id: uuid.UUID, document_ids: li
     """How many of the documents are the case's, and how many of those are already cut into pages."""
     cur = await conn.execute(
         "select count(*), count(*) filter (where exists (select 1 from app.pages p where p.document_id = d.id))"
-        " from app.documents d where d.case_id = %s and d.id = any(%s)",
+        " from app.documents d"
+        " where d.bundle_id = (select bundle_id from app.cases where id = %s) and d.id = any(%s)",
         (case_id, document_ids),
     )
     row = await cur.fetchone()
@@ -1177,8 +1238,10 @@ async def group_version(conn: AsyncConnection, case_id: uuid.UUID, document_ids:
     """Put the documents in one new version, after every other document's; returns it."""
     cur = await conn.execute(
         "update app.documents set bundle_version = (select coalesce(max(bundle_version), 0) + 1"
-        " from app.documents where case_id = %(c)s and not (id = any(%(ids)s)))"
-        " where case_id = %(c)s and id = any(%(ids)s) returning bundle_version",
+        " from app.documents where bundle_id = (select bundle_id from app.cases where id = %(c)s)"
+        " and not (id = any(%(ids)s)))"
+        " where bundle_id = (select bundle_id from app.cases where id = %(c)s)"
+        " and id = any(%(ids)s) returning bundle_version",
         {"c": case_id, "ids": document_ids},
     )
     row = await cur.fetchone()
@@ -1199,7 +1262,8 @@ async def clearer_copy_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[
     as (id, page number)."""
     cur = await conn.execute(
         "select id, bundle_page_no from app.pages"
-        " where case_id = %s and (unreadable or needs_clearer_copy) and not quarantined"
+        " where bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and (unreadable or needs_clearer_copy) and not quarantined"
         " order by bundle_page_no",
         (case_id,),
     )
@@ -1226,7 +1290,11 @@ async def case_due_date(conn: AsyncConnection, case_id: uuid.UUID) -> dt.date | 
 
 async def count_known(conn: AsyncConnection, table: str, case_id: uuid.UUID, ids: list[uuid.UUID]) -> int:
     assert table in {"missing_items", "pages"}
-    cur = await conn.execute(f"select count(*) from app.{table} where case_id = %s and id = any(%s)", (case_id, ids))
+    if table == "pages":
+        col = "bundle_id = (select bundle_id from app.cases where id = %s)"
+    else:
+        col = "case_id = %s"
+    cur = await conn.execute(f"select count(*) from app.{table} where {col} and id = any(%s)", (case_id, ids))
     row = await cur.fetchone()
     return int(row[0]) if row else 0
 
@@ -1355,8 +1423,10 @@ async def reset_for_reprocess(conn: AsyncConnection, case_id: uuid.UUID) -> int:
     """Pages extracted before the expert opted in to reprocessing are extracted again: their unverified
     suggestions are superseded (rejected); verified and edited facts are left as they are."""
     cur = await conn.execute(
-        "select a.page_id from app.page_analysis a join app.case_processing c on c.case_id = a.case_id"
-        " where a.case_id = %s and a.extracted_at < c.reprocess_opted_at",
+        "select a.page_id from app.page_analysis a"
+        " join app.cases cs on cs.bundle_id = a.bundle_id"
+        " join app.case_processing c on c.case_id = cs.id"
+        " where cs.id = %s and a.extracted_at < c.reprocess_opted_at",
         (case_id,),
     )
     stale = [r[0] for r in await cur.fetchall()]
@@ -1374,7 +1444,9 @@ async def reset_for_reprocess(conn: AsyncConnection, case_id: uuid.UUID) -> int:
 async def pages_for_identity(conn: AsyncConnection, case_id: uuid.UUID) -> list[uuid.UUID]:
     """Pages with words, not copies and not quarantined: the pages whose identifiers are compared."""
     cur = await conn.execute(
-        "select p.id from app.pages p where p.case_id = %s and p.text_source is not null"
+        "select p.id from app.pages p"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and p.text_source is not null"
         " and p.duplicate_of_page_id is null and not p.quarantined order by p.bundle_page_no",
         (case_id,),
     )
@@ -1384,10 +1456,10 @@ async def pages_for_identity(conn: AsyncConnection, case_id: uuid.UUID) -> list[
 async def add_suggestions(conn: AsyncConnection, case_id: uuid.UUID, page_ids: list[uuid.UUID], reason: str) -> None:
     """The pipeline's suggestions; a page anyone has suggested, decided or dismissed before is left alone."""
     await conn.execute(
-        "insert into app.page_quarantines (case_id, page_id, reason)"
-        " select %s, p, %s from unnest(%s::uuid[]) as p"
+        "insert into app.page_quarantines (case_id, bundle_id, page_id, reason)"
+        " select %s, (select bundle_id from app.cases where id = %s), p, %s from unnest(%s::uuid[]) as p"
         " where not exists (select 1 from app.page_quarantines q where q.page_id = p)",
-        (case_id, reason, page_ids),
+        (case_id, case_id, reason, page_ids),
     )
 
 
@@ -1426,7 +1498,11 @@ async def live_quarantine(conn: AsyncConnection, case_id: uuid.UUID, page_id: uu
 
 
 async def page_no_of(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> int | None:
-    cur = await conn.execute("select bundle_page_no from app.pages where id = %s and case_id = %s", (page_id, case_id))
+    cur = await conn.execute(
+        "select bundle_page_no from app.pages where id = %s"
+        " and bundle_id = (select bundle_id from app.cases where id = %s)",
+        (page_id, case_id),
+    )
     row = await cur.fetchone()
     return int(row[0]) if row else None
 
@@ -1435,8 +1511,9 @@ async def suggest_quarantine(
     conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, reason: str, person_id: uuid.UUID
 ) -> Quarantine:
     await conn.execute(
-        "insert into app.page_quarantines (case_id, page_id, reason, suggested_by) values (%s, %s, %s, %s)",
-        (case_id, page_id, reason, person_id),
+        "insert into app.page_quarantines (case_id, bundle_id, page_id, reason, suggested_by)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s)",
+        (case_id, case_id, page_id, reason, person_id),
     )
     found = await live_quarantine(conn, case_id, page_id)
     assert found is not None
@@ -1497,7 +1574,9 @@ async def reset_undone(conn: AsyncConnection, case_id: uuid.UUID) -> None:
     """A page brought back from quarantine is extracted again."""
     await conn.execute(
         "update app.page_analysis a set extracted_at = null from app.page_quarantines q"
-        " where q.page_id = a.page_id and a.case_id = %s and q.status = 'undone' and q.closed_at > a.extracted_at",
+        " where q.page_id = a.page_id"
+        " and a.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and q.status = 'undone' and q.closed_at > a.extracted_at",
         (case_id,),
     )
 
@@ -1548,7 +1627,10 @@ async def purge_quarantined_page(conn: AsyncConnection, quarantine_id: uuid.UUID
 
 
 async def document_in_case(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> bool:
-    cur = await conn.execute("select 1 from app.documents where id = %s and case_id = %s", (document_id, case_id))
+    cur = await conn.execute(
+        "select 1 from app.documents where id = %s and bundle_id = (select bundle_id from app.cases where id = %s)",
+        (document_id, case_id),
+    )
     return await cur.fetchone() is not None
 
 
@@ -1566,8 +1648,9 @@ async def ask_replacement(
     conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, document_id: uuid.UUID, person_id: uuid.UUID
 ) -> None:
     await conn.execute(
-        "insert into app.page_replacements (case_id, page_id, document_id, requested_by) values (%s, %s, %s, %s)",
-        (case_id, page_id, document_id, person_id),
+        "insert into app.page_replacements (case_id, bundle_id, page_id, document_id, requested_by)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s)",
+        (case_id, case_id, page_id, document_id, person_id),
     )
 
 
@@ -1616,8 +1699,8 @@ async def add_split_document(
 ) -> int:
     """The halves of a page, as a generated document of their own; returns its bundle version."""
     await conn.execute(
-        "insert into app.documents (id, case_id, kind, filename, storage_path, sha256, split_of_page_id, uploaded_by)"
-        " values (%s, %s, %s, %s, %s, %s, %s, app.current_person_id())",
+        "insert into app.documents (id, bundle_id, kind, filename, storage_path, sha256, split_of_page_id, uploaded_by)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s, %s, app.current_person_id())",
         (document_id, case_id, RECORDS_KIND, filename, storage_path, sha256, page_id),
     )
     return await group_version(conn, case_id, [document_id])
@@ -1628,7 +1711,9 @@ async def link_splits(conn: AsyncConnection, case_id: uuid.UUID) -> int:
     suggestions are rejected (the halves read the same words). Checked facts are never touched."""
     cur = await conn.execute(
         "update app.pages p set split_of_page_id = d.split_of_page_id from app.documents d"
-        " where p.document_id = d.id and d.case_id = %s and d.split_of_page_id is not null"
+        " where p.document_id = d.id"
+        " and d.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and d.split_of_page_id is not null"
         " and p.split_of_page_id is null returning d.split_of_page_id",
         (case_id,),
     )
@@ -1642,7 +1727,9 @@ async def link_splits(conn: AsyncConnection, case_id: uuid.UUID) -> int:
 
 async def split_count(conn: AsyncConnection, case_id: uuid.UUID) -> int:
     cur = await conn.execute(
-        "select count(*) from app.documents where case_id = %s and split_of_page_id is not null", (case_id,)
+        "select count(*) from app.documents"
+        " where bundle_id = (select bundle_id from app.cases where id = %s) and split_of_page_id is not null",
+        (case_id,),
     )
     row = await cur.fetchone()
     return int(row[0]) if row else 0

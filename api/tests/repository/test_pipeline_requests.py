@@ -52,7 +52,8 @@ async def seal(h: Harness, data: str, purpose: str) -> bytes:
 
 def page(admin: psycopg.Connection, case_id: uuid.UUID, doc: uuid.UUID, n: int, *, unreadable: bool = False) -> Any:
     return admin.execute(
-        "insert into app.pages (case_id, document_id, bundle_page_no, unreadable) values (%s, %s, %s, %s) returning id",
+        "insert into app.pages (bundle_id, document_id, bundle_page_no, unreadable)"
+        " values ((select bundle_id from app.cases where id = %s), %s, %s, %s) returning id",
         (case_id, doc, n, unreadable),
     ).fetchone()[0]  # type: ignore[index]
 
@@ -147,9 +148,10 @@ async def test_the_draft_carries_the_packs_notes_for_set_aside_and_foreign_pages
     h: Harness = world["h"]
     pack = world["pack"]
     set_aside, foreign = (
-        admin.execute("select id from app.pages where case_id = %s and bundle_page_no = %s", (h.case_id, n)).fetchone()[
-            0
-        ]  # type: ignore[index]
+        admin.execute(
+            "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and bundle_page_no = %s",
+            (h.case_id, n),
+        ).fetchone()[0]  # type: ignore[index]
         for n in (1, 3)
     )
     admin.execute(

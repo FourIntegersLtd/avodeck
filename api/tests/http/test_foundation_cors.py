@@ -23,9 +23,7 @@ OTHER = "https://avodeck.com.attacker.test"
 
 
 def a_client() -> httpx.AsyncClient:
-    auth = SimpleNamespace(
-        settings=SimpleNamespace(app_origin=APP, app_origins=(APP,), cookie_domain="avodeck.com")
-    )
+    auth = SimpleNamespace(settings=SimpleNamespace(app_origin=APP, app_origins=(APP,), cookie_domain="avodeck.com"))
     app = create_app(database=SimpleNamespace(), region="zz", auth=auth)  # type: ignore[arg-type]
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://api.avodeck.com")
 

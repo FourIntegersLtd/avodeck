@@ -4,7 +4,7 @@ Date: 2026-10-25 · Status: accepted · Decided by: the founder
 
 **Problem.** Experts who are stuck want to write to us from the Help page. Email in Avodeck is "templates with checked parameters only" (`core/email.py`), so nothing the expert types could be sent.
 
-**Decision.** `POST /v1/help-requests` (`{topic, message, page}`) sends one `help.request` email to our support address, hello@fourintegers.com (fixed in `app.core.config.SUPPORT_EMAIL`, not a setting) carrying the full free text. This is the one exception to the checked-parameters rule: the `help.request` template is allowed a `message` of 1 to 4000 characters (no control characters other than newline and tab). Reply-to is the expert.
+**Decision.** `POST /v1/help-requests` (`{topic, message, page}`) sends one `help.request` email to our support address, hello@avodeck.com (fixed in `app.core.config.SUPPORT_EMAIL`, not a setting) carrying the full free text. This is the one exception to the checked-parameters rule: the `help.request` template is allowed a `message` of 1 to 4000 characters (no control characters other than newline and tab). Reply-to is the expert.
 
 **Risk.** The expert may type patient details despite the warning. The text then passes through the email provider and lands in our inbox.
 

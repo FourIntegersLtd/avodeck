@@ -7,7 +7,7 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, QChip, StaleChoice, TextLink, useBusy } from "../../foundation/ui";
+import { Button, Checkbox, LinkButton, PageViewer, LoadError, Loading, Notice, QChip, StaleChoice, TextLink, useBusy } from "../../foundation/ui";
 import { TextField } from "../../foundation/ui";
 import { NoteView, Select, TextArea, versionTag, type Option } from "./shared";
 
@@ -525,12 +525,14 @@ function LetterPane({ caseId, versionId }: { caseId: string; versionId: string |
   return (
     <section aria-label={t("setup.questions.letter_title")} data-letter-pane className="av-setup-letter av-stack">
       <span className="av-mono av-setup-letter__head">{t("setup.questions.letter_title")}</span>
-      {urls.map((url, i) => (
-        <div key={i} id={`letter-page-${i + 1}`} className="av-stack">
-          <strong>{t("setup.questions.letter_page", { page: i + 1 })}</strong>
-          {url && <img className="av-setup-letter__img" src={url} alt={t("setup.questions.letter_page", { page: i + 1 })} />}
-        </div>
-      ))}
+      <PageViewer
+        pages={urls.map((src, i) => ({
+          src,
+          id: `letter-page-${i + 1}`,
+          label: t("setup.questions.letter_page", { page: i + 1 }),
+          children: <span className="av-setup-letter__caption">{t("setup.questions.letter_page", { page: i + 1 })}</span>,
+        }))}
+      />
     </section>
   );
 }

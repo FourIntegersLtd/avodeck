@@ -38,7 +38,10 @@ async def test_a_locked_and_a_damaged_file_stop_alone_and_the_rest_is_numbered(h
     assert set(finished.values()) == {"done"}, finished
     assert [p["document_id"] for p in h.pages()] == [first] * 3 + [last] * 2
     reasons: dict[uuid.UUID, str | None] = dict(
-        h.admin.execute("select id, unreadable_reason from app.documents where case_id = %s", (h.case_id,)).fetchall()
+        h.admin.execute(
+            "select id, unreadable_reason from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+            (h.case_id,),
+        ).fetchall()
     )
     assert reasons == {first: None, lock: "locked", broken: "damaged", last: None}
     again = await h.enqueue("process_bundle")

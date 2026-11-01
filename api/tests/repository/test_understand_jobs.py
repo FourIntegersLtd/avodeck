@@ -86,8 +86,8 @@ class Bundle:
             for n, text in enumerate(words or ["x"] * 8, 1):
                 sealed = await self.crypto.encrypt(conn, self.case, text.encode(), purpose=word_purpose(page, f"w{n}"))
                 await conn.execute(
-                    "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-                    " values (%s, %s, %s, %s, %s, %s, 0.9, 'ocr')",
+                    "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+                    " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s, 0.9, 'ocr')",
                     (page, self.case, n, f"w{n}", sealed, [0, 0, 1, 0, 1, 1, 0, 1]),
                 )
         return page
@@ -95,7 +95,8 @@ class Bundle:
     def evidence(self, page: uuid.UUID, *items: tuple[str, str | None, str]) -> None:
         listed = [{"kind": k, "date": d, "date_text": None, "word_ids": [w]} for k, d, w in items]
         self.seed.admin.execute(
-            "insert into app.page_analysis (page_id, case_id, availability_evidence) values (%s, %s, %s)",
+            "insert into app.page_analysis (page_id, bundle_id, availability_evidence)"
+            " values (%s, (select bundle_id from app.cases where id = %s), %s)",
             (page, self.case, Jsonb(listed)),
         )
 

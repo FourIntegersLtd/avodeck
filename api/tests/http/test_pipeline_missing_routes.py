@@ -122,7 +122,8 @@ def later_page(h: Harness) -> uuid.UUID:
     return uuid.UUID(
         str(
             h.admin.execute(  # type: ignore[index]
-                "insert into app.pages (case_id, document_id, bundle_page_no) values (%s, %s, 2) returning id",
+                "insert into app.pages (bundle_id, document_id, bundle_page_no)"
+                " values ((select bundle_id from app.cases where id = %s), %s, 2) returning id",
                 (h.case_id, doc),
             ).fetchone()[0]
         )

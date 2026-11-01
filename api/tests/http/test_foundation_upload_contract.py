@@ -70,9 +70,7 @@ async def start(client: httpx.AsyncClient, case: uuid.UUID, file: SyntheticFile)
 # --- Upload response schema (new fields) ---
 
 
-async def test_upload_response_includes_new_fields(
-    client_for: ClientFor, team: dict[str, uuid.UUID]
-) -> None:
+async def test_upload_response_includes_new_fields(client_for: ClientFor, team: dict[str, uuid.UUID]) -> None:
     """The Upload schema exposes failure, expires_at, sha256, filename and kind."""
     file = SyntheticFile(1 * MB, seed=101)
     client = await client_for(team["expert"])
@@ -89,9 +87,7 @@ async def test_upload_response_includes_new_fields(
     assert data["expires_at"] is not None  # ISO timestamp
 
 
-async def test_get_upload_includes_new_fields(
-    client_for: ClientFor, team: dict[str, uuid.UUID]
-) -> None:
+async def test_get_upload_includes_new_fields(client_for: ClientFor, team: dict[str, uuid.UUID]) -> None:
     file = SyntheticFile(1 * MB, seed=102)
     client = await client_for(team["expert"])
     data = await start(client, team["case"], file)
@@ -107,9 +103,7 @@ async def test_get_upload_includes_new_fields(
 # --- Cancel ---
 
 
-async def test_cancel_open_upload(
-    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection
-) -> None:
+async def test_cancel_open_upload(client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection) -> None:
     """POST /v1/uploads/{id}/cancel on an open upload returns 200 with status cancelled."""
     file = SyntheticFile(1 * MB, seed=103)
     client = await client_for(team["expert"])
@@ -122,9 +116,7 @@ async def test_cancel_open_upload(
     assert row is not None and row[0] == "cancelled"
 
 
-async def test_cancel_completed_upload_returns_409(
-    client_for: ClientFor, team: dict[str, uuid.UUID]
-) -> None:
+async def test_cancel_completed_upload_returns_409(client_for: ClientFor, team: dict[str, uuid.UUID]) -> None:
     file = SyntheticFile(1 * MB, seed=104)
     client = await client_for(team["expert"])
     data = await start(client, team["case"], file)
@@ -142,9 +134,7 @@ async def test_cancel_completed_upload_returns_409(
     assert resp.json()["error"]["code"] == "upload_closed"
 
 
-async def test_cancel_prevents_further_chunks(
-    client_for: ClientFor, team: dict[str, uuid.UUID]
-) -> None:
+async def test_cancel_prevents_further_chunks(client_for: ClientFor, team: dict[str, uuid.UUID]) -> None:
     file = SyntheticFile(17 * MB, seed=105)
     client = await client_for(team["expert"])
     data = await start(client, team["case"], file)
@@ -163,16 +153,20 @@ async def test_cancel_prevents_further_chunks(
 async def test_db_allows_open_to_finalizing(admin: psycopg.Connection, team: dict[str, uuid.UUID]) -> None:
     """The guard allows open → finalizing when job id and time are set."""
     # Create a job row first
-    job_id = only(admin.execute(
-        "insert into app.jobs (case_id, kind) values (%s, 'finalize_upload') returning id",
-        (team["case"],),
-    ))
+    job_id = only(
+        admin.execute(
+            "insert into app.jobs (case_id, kind) values (%s, 'finalize_upload') returning id",
+            (team["case"],),
+        )
+    )
     # Create an upload
-    upload_id = only(admin.execute(
-        "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count)"
-        " values (%s, %s, 'records', 'test.pdf', 1000, %s, %s, 1) returning id",
-        (team["case"], team["expert"], "a" * 64, 8 * MB),
-    ))
+    upload_id = only(
+        admin.execute(
+            "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count)"
+            " values (%s, %s, 'records', 'test.pdf', 1000, %s, %s, 1) returning id",
+            (team["case"], team["expert"], "a" * 64, 8 * MB),
+        )
+    )
     admin.commit()
     admin.execute(
         "update app.uploads set status = 'finalizing', finalize_job_id = %s, finalizing_at = now() where id = %s",
@@ -183,15 +177,15 @@ async def test_db_allows_open_to_finalizing(admin: psycopg.Connection, team: dic
     assert row == ("finalizing",)
 
 
-async def test_db_refuses_open_to_finalizing_without_job(
-    admin: psycopg.Connection, team: dict[str, uuid.UUID]
-) -> None:
+async def test_db_refuses_open_to_finalizing_without_job(admin: psycopg.Connection, team: dict[str, uuid.UUID]) -> None:
     """The guard refuses open → finalizing if finalize_job_id is null."""
-    upload_id = only(admin.execute(
-        "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count)"
-        " values (%s, %s, 'records', 'test.pdf', 1000, %s, %s, 1) returning id",
-        (team["case"], team["expert"], "b" * 64, 8 * MB),
-    ))
+    upload_id = only(
+        admin.execute(
+            "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count)"
+            " values (%s, %s, 'records', 'test.pdf', 1000, %s, %s, 1) returning id",
+            (team["case"], team["expert"], "b" * 64, 8 * MB),
+        )
+    )
     admin.commit()
     with pytest.raises(psycopg.Error) as err:
         admin.execute("update app.uploads set status = 'finalizing' where id = %s", (upload_id,))
@@ -199,20 +193,22 @@ async def test_db_refuses_open_to_finalizing_without_job(
     assert "finalizing needs a job reference and time" in str(err.value)
 
 
-async def test_db_allows_finalizing_to_open_reopen(
-    admin: psycopg.Connection, team: dict[str, uuid.UUID]
-) -> None:
+async def test_db_allows_finalizing_to_open_reopen(admin: psycopg.Connection, team: dict[str, uuid.UUID]) -> None:
     """The guard allows finalizing → open (repair: a missing part is removed from received)."""
-    job_id = only(admin.execute(
-        "insert into app.jobs (case_id, kind) values (%s, 'finalize_upload') returning id",
-        (team["case"],),
-    ))
-    upload_id = only(admin.execute(
-        "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received,"
-        " chunk_sha256)"
-        " values (%s, %s, 'records', 'test.pdf', 16000000, %s, %s, 2, '{1,2}', %s) returning id",
-        (team["case"], team["expert"], "c" * 64, 8 * MB, json.dumps({"1": "1" * 64, "2": "2" * 64})),
-    ))
+    job_id = only(
+        admin.execute(
+            "insert into app.jobs (case_id, kind) values (%s, 'finalize_upload') returning id",
+            (team["case"],),
+        )
+    )
+    upload_id = only(
+        admin.execute(
+            "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received,"
+            " chunk_sha256)"
+            " values (%s, %s, 'records', 'test.pdf', 16000000, %s, %s, 2, '{1,2}', %s) returning id",
+            (team["case"], team["expert"], "c" * 64, 8 * MB, json.dumps({"1": "1" * 64, "2": "2" * 64})),
+        )
+    )
     admin.commit()
     admin.execute(
         "update app.uploads set status = 'finalizing', finalize_job_id = %s, finalizing_at = now() where id = %s",
@@ -225,18 +221,14 @@ async def test_db_allows_finalizing_to_open_reopen(
         (json.dumps({"1": "1" * 64}), upload_id),
     )
     admin.commit()
-    row = admin.execute(
-        "select status, received, chunk_sha256 from app.uploads where id = %s", (upload_id,)
-    ).fetchone()
+    row = admin.execute("select status, received, chunk_sha256 from app.uploads where id = %s", (upload_id,)).fetchone()
     assert row == ("open", [1], {"1": "1" * 64})
 
 
 # --- Filename and empty file validation ---
 
 
-async def test_empty_file_is_refused(
-    client_for: ClientFor, team: dict[str, uuid.UUID]
-) -> None:
+async def test_empty_file_is_refused(client_for: ClientFor, team: dict[str, uuid.UUID]) -> None:
     """size=0 is already covered by gt=0 in the schema; verify it returns 422."""
     client = await client_for(team["expert"])
     resp = await client.post(
@@ -251,12 +243,14 @@ async def test_empty_file_is_refused(
 
 async def test_expire_returns_status_column(admin: psycopg.Connection, team: dict[str, uuid.UUID]) -> None:
     """expire_uploads now returns (case_id, upload_id, status) not just two columns."""
-    upload_id = only(admin.execute(
-        "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count,"
-        " expires_at) values (%s, %s, 'records', 'test.pdf', 1000, %s, %s, 1, now() - interval '1 hour')"
-        " returning id",
-        (team["case"], team["expert"], "d" * 64, 8 * MB),
-    ))
+    upload_id = only(
+        admin.execute(
+            "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count,"
+            " expires_at) values (%s, %s, 'records', 'test.pdf', 1000, %s, %s, 1, now() - interval '1 hour')"
+            " returning id",
+            (team["case"], team["expert"], "d" * 64, 8 * MB),
+        )
+    )
     admin.commit()
     rows = admin.execute("select * from app.expire_uploads(current_date)").fetchall()
     found = [r for r in rows if r[1] == upload_id]
@@ -268,15 +262,15 @@ async def test_expire_returns_status_column(admin: psycopg.Connection, team: dic
 # --- mark_upload_cleaned ---
 
 
-async def test_mark_upload_cleaned_sets_timestamp(
-    admin: psycopg.Connection, team: dict[str, uuid.UUID]
-) -> None:
-    upload_id = only(admin.execute(
-        "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count,"
-        " expires_at) values (%s, %s, 'records', 'test.pdf', 1000, %s, %s, 1,"
-        " now() - interval '1 hour') returning id",
-        (team["case"], team["expert"], "e" * 64, 8 * MB),
-    ))
+async def test_mark_upload_cleaned_sets_timestamp(admin: psycopg.Connection, team: dict[str, uuid.UUID]) -> None:
+    upload_id = only(
+        admin.execute(
+            "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count,"
+            " expires_at) values (%s, %s, 'records', 'test.pdf', 1000, %s, %s, 1,"
+            " now() - interval '1 hour') returning id",
+            (team["case"], team["expert"], "e" * 64, 8 * MB),
+        )
+    )
     # Expire it via the function (guard forbids direct insert with status='expired')
     admin.execute("select app.expire_uploads(current_date)")
     assert only(admin.execute("select status from app.uploads where id = %s", (upload_id,))) == "expired"

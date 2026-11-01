@@ -24,7 +24,7 @@ METERS: dict[str, tuple[str, str]] = {
     "pages_read": (
         """(select count(distinct r.page_id) from app.page_reads r join app.pages p on p.id = r.page_id
             where r.case_id = %(case)s and not p.quarantined)""",
-        "(select count(*) from app.pages where case_id = %(case)s and not quarantined)",
+        "(select count(*) from app.pages where bundle_id = (select bundle_id from app.cases where id = %(case)s) and not quarantined)",
     ),
     "questions_confirmed": (
         f"(select count(*) from app.questions where case_id = %(case)s and status in {_ANSWERED})",

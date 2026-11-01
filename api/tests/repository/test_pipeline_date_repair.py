@@ -77,8 +77,8 @@ async def test_repair_job_sets_event_date_from_printed_words(
             for n, word_id, text in ((1, "w1", "03/04/2024"), (2, "w2", "review")):
                 sealed = await h.crypto.encrypt(conn, case_id, text.encode(), purpose=word_purpose(page_id, word_id))
                 admin.execute(
-                    "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-                    " values (%s, %s, %s, %s, %s, %s, 0.9, 'ocr')",
+                    "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+                    " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s, 0.9, 'ocr')",
                     (page_id, case_id, n, word_id, sealed, [0, 0, 1, 0, 1, 1, 0, 1]),
                 )
         resp = await h.client.post(f"/v1/cases/{case_id}/repair-fact-dates")
@@ -239,8 +239,8 @@ async def _store_words(h, admin, api_db, expert, case_id, page_id, rows) -> None
         for n, (word_id, text, y) in enumerate(rows, start=1):
             sealed = await h.crypto.encrypt(conn, case_id, text.encode(), purpose=word_purpose(page_id, word_id))
             admin.execute(
-                "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-                " values (%s, %s, %s, %s, %s, %s, 0.9, 'ocr')",
+                "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+                " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s, 0.9, 'ocr')",
                 (page_id, case_id, n, word_id, sealed, [0, y, 1, y, 1, y + 10, 0, y + 10]),
             )
 

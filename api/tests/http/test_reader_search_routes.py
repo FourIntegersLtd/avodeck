@@ -55,7 +55,8 @@ async def add_page(
     """A page whose words read `words`, one line, each word 100 wide and 20 high from the top left."""
     page = seed.page(case, document, number)
     await aconn.execute(
-        "insert into app.page_analysis (page_id, case_id, width, height) values (%s, %s, %s, %s)",
+        "insert into app.page_analysis (page_id, bundle_id, width, height)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s)",
         (page, case, WIDTH, HEIGHT),
     )
     for n, text in enumerate(words, start=1):
@@ -63,8 +64,8 @@ async def add_page(
         x0, x1 = 100.0 * (n - 1), 100.0 * n
         sealed = await CRYPTO.encrypt(aconn, case, text.encode(), purpose=word_purpose(page, wid))
         await aconn.execute(
-            "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-            " values (%s, %s, %s, %s, %s, %s::real[], 0.99, 'ocr')",
+            "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+            " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s::real[], 0.99, 'ocr')",
             (page, case, n, wid, sealed, [x0, 0.0, x1, 0.0, x1, 20.0, x0, 20.0]),
         )
     return page

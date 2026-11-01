@@ -160,7 +160,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - `GET /health`
 
 ## Tables owned
-`experts` (with `profession`, `specialties[]`, `registration_body`, `home_region`, `locale`, `timezone`, `currency`), `cases` (with `jurisdiction`, `party_role`, `instructing_party_type`, `court_track`), `documents`, `pages` (columns used by all, including `text_source`; slice A fills OCR and source fields), `jobs`, `job_steps`, `scheduled_runs`, `uploads`, `audit_log`, `idempotency_keys`, `ai_calls`, `transcripts`, `feature_flags`. Contract tables created empty for slices to fill: `facts`, `questions`, `report_versions`.
+`experts` (with `profession`, `specialties[]`, `registration_body`, `home_region`, `locale`, `timezone`, `currency`), `cases` (with `jurisdiction`, `party_role`, `instructing_party_type`, `court_track`, `bundle_id`, `verification_duty_roles`), `bundles` (the shared structural parent of `documents`/`pages`; a case points at one via `bundle_id`, ADR 0034), `documents`, `pages` (columns used by all, including `text_source`; slice A fills OCR and source fields), `jobs`, `job_steps`, `scheduled_runs`, `uploads`, `audit_log`, `idempotency_keys`, `ai_calls`, `transcripts`, `feature_flags`. Contract tables created empty for slices to fill: `facts`, `questions`, `report_versions`.
 
 ## Shared code
 - `core/auth/`: cookie session, Supabase Auth calls, JWKS verification, `require_case_access(action)`, `require_step_up`, `require_csrf`, inactivity timeout

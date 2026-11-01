@@ -131,7 +131,10 @@ async def test_a_300_mb_pdf_uploads_in_8_mb_chunks_resumes_after_a_dropped_chunk
     resp = await finish(client, upload_id, file)
     assert resp.status_code == 202, resp.text
     assert resp.json() == {"status": "finalizing"}
-    assert admin.execute("select count(*) from app.documents where case_id = %s", (team["case"],)).fetchone() == (0,)
+    assert admin.execute(
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (team["case"],),
+    ).fetchone() == (0,)
     await run_finalize(worker_dsn, admin, upload_id, storage, crypto)
 
     resp = await finish(client, upload_id, file)
@@ -143,7 +146,8 @@ async def test_a_300_mb_pdf_uploads_in_8_mb_chunks_resumes_after_a_dropped_chunk
     document = uuid.UUID(done["document_id"])
 
     row = admin.execute(
-        "select case_id, kind, filename, sha256, storage_path, uploaded_by from app.documents where id = %s",
+        "select c.id, d.kind, d.filename, d.sha256, d.storage_path, d.uploaded_by"
+        " from app.documents d join app.cases c on c.bundle_id = d.bundle_id where d.id = %s",
         (document,),
     ).fetchone()
     assert row is not None
@@ -196,7 +200,10 @@ async def test_completing_records_an_audit_row_and_a_second_complete_returns_the
     again = await finish(client, upload_id, file)
     assert again.status_code == 200, again.text
     assert again.json()["document_id"] == first.json()["document_id"]
-    count = admin.execute("select count(*) from app.documents where case_id = %s", (team["case"],)).fetchone()
+    count = admin.execute(
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (team["case"],),
+    ).fetchone()
     assert count == (1,)
     audit = admin.execute(
         "select action, target, person_id from app.audit_log where case_id = %s order by seq desc limit 1",
@@ -222,7 +229,10 @@ async def test_a_file_whose_sha256_does_not_match_is_refused_and_not_registered(
     # Refused in the request: no job was queued, the upload is still open and no document exists.
     state = admin.execute("select status, finalize_job_id from app.uploads where id = %s", (upload_id,)).fetchone()
     assert state == ("open", None)
-    assert admin.execute("select count(*) from app.documents where case_id = %s", (team["case"],)).fetchone() == (0,)
+    assert admin.execute(
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (team["case"],),
+    ).fetchone() == (0,)
 
 
 async def test_a_chunk_that_does_not_match_its_own_checksum_is_refused(

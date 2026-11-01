@@ -179,7 +179,11 @@ async def open_round(
     case_id: uuid.UUID, body: NewRound, access: Upload, conn: DbConn, pack: Pack, response: Response
 ) -> RoundOut:
     if (
-        await fetch_one(conn, "select 1 from app.documents where id = %s and case_id = %s", (body.document_id, case_id))
+        await fetch_one(
+            conn,
+            "select 1 from app.documents where id = %s and bundle_id = (select bundle_id from app.cases where id = %s)",
+            (body.document_id, case_id),
+        )
         is None
     ):
         raise invalid("document_id")
@@ -396,7 +400,10 @@ async def tell_instructing_party(case_id: uuid.UUID, question_id: uuid.UUID, acc
 
 async def _pages(conn: Any, case_id: uuid.UUID, page_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
     rows = await fetch_all(
-        conn, "select id, bundle_page_no from app.pages where case_id = %s and id = any(%s)", (case_id, page_ids)
+        conn,
+        "select id, bundle_page_no from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s) and id = any(%s)",
+        (case_id, page_ids),
     )
     return {r["id"]: int(r["bundle_page_no"]) for r in rows}
 

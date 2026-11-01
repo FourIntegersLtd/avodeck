@@ -210,9 +210,9 @@ async def _read_one(
     await _unchanged(conn, case_id, page_id, asked)
     cur = await conn.execute(
         "select p.image_path, p.rotation, a.width, a.height, c.jurisdiction, c.case_type, c.specialty"
-        " from app.pages p join app.cases c on c.id = p.case_id"
+        " from app.pages p join app.cases c on c.id = %s and c.bundle_id = p.bundle_id"
         " left join app.page_analysis a on a.page_id = p.id where p.id = %s",
-        (page_id,),
+        (case_id, page_id),
     )
     row = await cur.fetchone()
     if row is None or row[0] is None:

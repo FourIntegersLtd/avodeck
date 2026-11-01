@@ -68,7 +68,11 @@ def team(seed: Seed) -> dict[str, uuid.UUID]:
 
 
 def parts(admin: psycopg.Connection, case: uuid.UUID) -> int:
-    found = row(admin, "select count(*) from app.documents where case_id = %s", case)
+    found = row(
+        admin,
+        "select count(*) from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        case,
+    )
     assert found is not None
     count = found[0]
     assert isinstance(count, int)

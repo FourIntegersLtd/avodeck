@@ -37,7 +37,10 @@ def facts_of(h: Harness, n: int) -> list[tuple[object, object, str]]:
 
 
 def source_path(h: Harness) -> str | None:
-    row = h.admin.execute("select storage_path from app.documents where case_id = %s", (h.case_id,)).fetchone()
+    row = h.admin.execute(
+        "select storage_path from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (h.case_id,),
+    ).fetchone()
     assert row is not None
     return row[0]  # type: ignore[no-any-return]
 
