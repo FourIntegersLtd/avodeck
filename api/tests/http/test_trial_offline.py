@@ -181,7 +181,8 @@ async def test_the_copy_carries_the_case_label_and_each_facts_source_type_with_i
     pdf, _ = trial_bundle()
     await upload_bundle(await client_for(world.expert), worker_db, world, pdf)
     admin.execute(
-        "update app.pages set source_type = 'primary_care_record' where bundle_id = (select bundle_id from app.cases where id = %s)",
+        "update app.pages set source_type = 'primary_care_record' where bundle_id = (select bundle_id from app.cases "
+        "where id = %s)",
         (world.case,),
     )
     made = await create(client_for, world)

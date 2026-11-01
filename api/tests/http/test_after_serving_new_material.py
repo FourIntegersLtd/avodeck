@@ -383,7 +383,8 @@ async def test_a_claims_check_stays_hidden_until_the_viewer_has_read_its_page(
 ) -> None:
     """Blind read (rule 3): what our page says, and the check's result, wait until this viewer has read it."""
     page = admin.execute(
-        "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and bundle_page_no = 2",
+        "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and bundle_page_no "
+        "= 2",
         (served.case,),
     ).fetchone()
     assert page is not None
