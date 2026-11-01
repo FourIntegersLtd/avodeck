@@ -51,9 +51,10 @@ the `SameSite=Strict` session cookie is neither stored nor sent, and adding a pr
 `APP_ORIGIN` stops the API booting (`COOKIE_DOMAIN` must cover every allowed origin). Test against
 production or locally.
 
-One Vercel project (`avodeck-site`, root directory `web`) serves `avodeck.com`: `web/scripts/add-landing.sh`
-puts the landing page (`site/`) at `/` and `/privacy`, and the app's `index.html` becomes `app.html`, the
-fallback for every other path. `web/vercel.json` holds no rewrite to the API.
+One Vercel project (`avodeck-site`, root directory `web`) serves `avodeck.com`: the landing page and legal
+pages live in `web/public/` and Vite copies them into `dist/`; `web/scripts/add-landing.sh` renames the
+app's `index.html` to `app.html` (the fallback for every other path) and puts the landing page in its place.
+`web/vercel.json` rewrites `/privacy`, `/terms` and `/dpa` to their HTML files and holds no rewrite to the API.
 
 The api service's public name is `api.avodeck.com` (Railway custom domain, target port 8000). In Cloudflare
 it is a CNAME `api` to the value Railway shows, **DNS only (grey cloud)** — proxying it would put a 125 s
