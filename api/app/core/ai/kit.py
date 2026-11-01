@@ -32,6 +32,7 @@ from app.core.ai.bedrock import BedrockClient, ModelRequest, ModelResponse, Mode
 from app.core.ai.cell import check_endpoint, model_for
 from app.core.ai.mask import MaskedImage, is_genuine
 from app.core.config import AiSettings
+from app.core.db import Database
 from app.core.errors import ProcessingPaused
 from app.core.packs import MergedPack
 
@@ -133,6 +134,143 @@ class AiKit:
             await self._cost_guard(conn, case_id)
         stripped = pii.strip(text, pack=pack, names=names, dates_of_birth=dates_of_birth)
         return await self._ask(conn, task, model_id, case_id, pack, stripped.text, subject, masked, job_id)
+
+    async def run_detached(
+        self,
+        database: Database,
+        case_id: uuid.UUID,
+        task: AiTask,
+        *,
+        pack: MergedPack,
+        text: str,
+        names: Sequence[str] = (),
+        dates_of_birth: Sequence[date] = (),
+        subject: str | None = None,
+        job_id: uuid.UUID,
+    ) -> dict[str, Any]:
+        """Like ``run``, but for worker jobs: opens short-lived transactions for each DB
+        operation so no pool connection is held during slot waits or Bedrock calls."""
+        check_endpoint(self.settings, self.bedrock.endpoint)
+        model_id = model_for(self.settings, task.model)
+        if case_id is not None:
+            async with database.job(case_id) as conn:
+                await self._cost_guard(conn, case_id)
+        stripped = pii.strip(text, pack=pack, names=names, dates_of_birth=dates_of_birth)
+        return await self._ask_detached(database, case_id, task, model_id, pack, stripped.text, subject, job_id)
+
+    async def _ask_detached(
+        self,
+        database: Database,
+        case_id: uuid.UUID,
+        task: AiTask,
+        model_id: str,
+        pack: MergedPack,
+        text: str,
+        subject: str | None,
+        job_id: uuid.UUID,
+    ) -> dict[str, Any]:
+        request = ModelRequest(
+            model_id=model_id,
+            system=task.system,
+            context=pack.prompt_context(task.task_id),
+            text=text,
+            schema=task.schema,
+            max_tokens=task.max_tokens,
+            task_id=task.task_id,
+            subject=subject,
+            image_sha256=None,
+            image=None,
+        )
+        validator = jsonschema_rs.validator_for(dict(task.schema))
+        for _ in range(2):
+            response = await self._invoke_detached(request, database, case_id, job_id)
+            valid = validator.is_valid(response.output)
+            async with database.job(case_id) as conn:
+                await self._log(conn, task, model_id, case_id, response, "ok" if valid else "invalid_output")
+            if valid:
+                return response.output
+        logger.warning("task %s output did not match its schema twice", task.task_id)
+        raise InvalidOutput(task.task_id)
+
+    async def _invoke_detached(
+        self,
+        request: ModelRequest,
+        database: Database,
+        case_id: uuid.UUID,
+        job_id: uuid.UUID,
+    ) -> ModelResponse:
+        delays = backoff_delays(self.retries, self.base_delay)
+        for attempt in range(len(delays) + 1):
+            try:
+                await self._wait_for_slot_detached(database, case_id, job_id)
+                return await self.bedrock.invoke(request)
+            except ServiceBusy as busy:
+                if attempt == len(delays):
+                    logger.error("model service still busy after %d attempts; processing paused", attempt + 1)
+                    raise ProcessingPaused("service_busy") from None
+                wait = max(delays[attempt], busy.retry_after or 0.0)
+                logger.warning("model service busy; waiting %.0f s (attempt %d)", wait, attempt + 1)
+                await self.sleep(wait)
+            except ModelUnavailable:
+                logger.error("in-region model unavailable; processing paused, no fallback")
+                raise ProcessingPaused("model_unavailable") from None
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    async def _wait_for_slot_detached(
+        self, database: Database, case_id: uuid.UUID, job_id: uuid.UUID
+    ) -> None:
+        """Like ``_wait_for_slot``, but opens a short-lived transaction for each poll so no
+        connection is held during the sleep between iterations."""
+        while True:
+            async with database.job(case_id) as conn:
+                await conn.execute("select pg_advisory_lock(hashtextextended('app.ai_request_slots', 0))")
+                try:
+                    cur = await conn.execute(
+                        "select id from app.ai_request_slots where job_id = %s and granted_at is null"
+                        " order by requested_at limit 1",
+                        (job_id,),
+                    )
+                    row = await cur.fetchone()
+                    if row is None:
+                        cur = await conn.execute(
+                            "insert into app.ai_request_slots (job_id, case_id, requested_at)"
+                            " select %s, case_id, now() from app.jobs where id = %s returning id",
+                            (job_id, job_id),
+                        )
+                        row = await cur.fetchone()
+                    assert row is not None
+                    slot_id = row[0]
+
+                    cur = await conn.execute(
+                        "select count(*) from app.ai_request_slots where granted_at > now() - interval '60 seconds'"
+                    )
+                    count_row = await cur.fetchone()
+                    assert count_row is not None
+                    (granted_count,) = count_row
+                    if granted_count < self.settings.bedrock_rpm_limit:
+                        cur = await conn.execute(
+                            "select s.job_id from app.ai_request_slots s join app.jobs j on j.id = s.job_id"
+                            " where s.granted_at is null"
+                            " order by j.last_granted_at is not null, j.last_granted_at, s.requested_at limit 1"
+                        )
+                        next_up = await cur.fetchone()
+                        if next_up is not None and next_up[0] == job_id:
+                            await conn.execute(
+                                "update app.ai_request_slots set granted_at = now() where id = %s", (slot_id,)
+                            )
+                            await conn.execute(
+                                "update app.jobs set last_granted_at = now() where id = %s", (job_id,)
+                            )
+                            return
+                    await conn.execute(
+                        "update app.jobs set step = 'waiting_for_capacity' where id = %s", (job_id,)
+                    )
+                finally:
+                    await conn.execute(
+                        "select pg_advisory_unlock(hashtextextended('app.ai_request_slots', 0))"
+                    )
+            # Connection is back in the pool here. Sleep holds nothing.
+            await self.sleep(self.slot_poll_seconds)
 
     async def _ask(
         self,

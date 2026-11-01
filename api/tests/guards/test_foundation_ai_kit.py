@@ -9,6 +9,7 @@ metadata only, never content (rule 6, architecture 9 "AI").
 from __future__ import annotations
 
 import uuid
+from collections.abc import AsyncIterator
 
 import psycopg
 import pytest
@@ -53,6 +54,16 @@ def case(seed: Seed) -> tuple[uuid.UUID, uuid.UUID]:
     return expert, seed.case(org, expert, packs=LAUNCH.case_row())
 
 
+@pytest.fixture
+async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
+    database = Database(worker_dsn, max_size=6)
+    await database.open()
+    try:
+        yield database
+    finally:
+        await database.close()
+
+
 async def test_a_call_strips_identifiers_and_records_only_metadata(
     api_db: Database, admin: psycopg.Connection, pack: MergedPack, case: tuple[uuid.UUID, uuid.UUID]
 ) -> None:
@@ -78,6 +89,28 @@ async def test_a_call_strips_identifiers_and_records_only_metadata(
         (case_id,),
     ).fetchall()
     assert rows == [("T-test", sent.model_id, "eu-west-2", "2026-10-16.1", 120, 8, "ok", expert)]
+
+
+async def test_run_detached_strips_identifiers_and_records_metadata(
+    worker_db: Database, admin: psycopg.Connection, seed: Seed, pack: MergedPack, case: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    expert, case_id = case
+    job_id = seed.job(case_id)
+    model = ScriptedBedrock([response({"labels": ["a"]}, 120, 8)])
+    out = await AiKit(cell(), model).run_detached(
+        worker_db, case_id, TASK, pack=pack, text=TEXT, names=[NAME], subject="test", job_id=job_id
+    )
+    assert out == {"labels": ["a"]}
+
+    [sent] = model.requests
+    for leaked in (NAME, "Pemberton", NUMBER, spaced(NUMBER)):
+        assert leaked not in sent.text
+    assert "14/03/2020" in sent.text
+
+    rows = admin.execute(
+        "select task_id, model_id, prompt_version, outcome from app.ai_calls where case_id = %s", (case_id,)
+    ).fetchall()
+    assert rows == [("T-test", sent.model_id, "2026-10-16.1", "ok")]
 
 
 def test_ai_calls_has_no_column_that_could_hold_content(admin: psycopg.Connection) -> None:

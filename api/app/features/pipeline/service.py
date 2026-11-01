@@ -433,25 +433,23 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
 async def _ask(
     ctx: JobContext, services: PipelineServices, task: Any, pack: Any, who: Any, text: str, subject: str
 ) -> dict[str, Any] | None:
-    """One model call (a page or a batch of pages) in its own transaction, so its `ai_calls` row
-    stays even if the page fails. `job_id` makes the call wait its turn under the cell's Bedrock
-    on-demand throughput ceiling, fairly across every job wanting one (`AiKit._wait_for_slot`)."""
+    """One model call (a page or a batch of pages). Uses ``run_detached`` so no pool connection
+    is held during slot waits or the Bedrock call itself."""
     assert services.kit is not None
-    async with ctx.transaction() as conn:
-        try:
-            return await services.kit.run(
-                conn,
-                task,
-                pack=pack,
-                text=text,
-                case_id=ctx.case_id,
-                names=who.names,
-                dates_of_birth=who.dates_of_birth,
-                subject=subject,
-                job_id=ctx.job_id,
-            )
-        except InvalidOutput:
-            return None
+    try:
+        return await services.kit.run_detached(
+            ctx.database,
+            ctx.case_id,
+            task,
+            pack=pack,
+            text=text,
+            names=who.names,
+            dates_of_birth=who.dates_of_birth,
+            subject=subject,
+            job_id=ctx.job_id,
+        )
+    except InvalidOutput:
+        return None
 
 
 @dataclass(frozen=True)
