@@ -76,6 +76,9 @@ def main(argv: Sequence[str] | None = None, env: Mapping[str, str] | None = None
         )
         return NEEDS_CLOUD
     print("make eval needs cloud accounts: the live model and reading clients are not configured yet.", file=sys.stderr)
+    # Once the real per-page extraction run lands here, it must also fail when
+    # app.evals.silent_empty.find_silent_empty_pages(rows).count is above 0 and print only the
+    # page numbers (never page text, rule 6).
     return NEEDS_CLOUD
 
 
