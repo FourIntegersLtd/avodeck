@@ -240,6 +240,16 @@ describe("the preview", () => {
     expect(revoke).toHaveBeenCalledWith("blob:preview-2");
     expect(V1).toBeTruthy();
   });
+
+  test("shows the shared page tools (zoom, turn, fit) but not the clearer sliders", async () => {
+    serve("launch");
+    server.use(http.get("/v1/cases/:caseId/report/preview/:page", () => new Response(new Blob(["x"], { type: "image/png" }), { headers: { "content-type": "image/png" } })));
+    renderAt(url);
+    await screen.findByRole("img", { name: "Page 1 of your report" });
+    for (const name of ["Zoom in", "Zoom out", "Turn left", "Turn right", "Fit to width", "Whole page"]) expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Brightness")).toBeNull();
+    expect(screen.queryByLabelText("Contrast")).toBeNull();
+  });
 });
 
 test("lists the sections as numbered contents with a tick for each one that is done", async () => {
