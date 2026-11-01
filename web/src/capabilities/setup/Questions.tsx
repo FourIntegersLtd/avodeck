@@ -521,20 +521,18 @@ function LetterPane({ caseId, versionId }: { caseId: string; versionId: string |
       made.current = [];
     };
   }, [caseId, versionId]);
-  // The shared viewer draws the pages; each paper gets the id goToPage scrolls to.
-  const pane = useRef<HTMLElement>(null);
-  // Shown once every picture has arrived, so no empty placeholder is swapped out under the reader.
-  const ready = urls.every(Boolean);
-  useEffect(() => {
-    pane.current?.querySelectorAll<HTMLElement>(".av-pageview__paper").forEach((el, i) => {
-      el.id = `letter-page-${i + 1}`;
-    });
-  }, [urls.length, ready]);
   if (urls.length === 0) return null;
   return (
-    <section ref={pane} aria-label={t("setup.questions.letter_title")} data-letter-pane className="av-setup-letter av-stack">
+    <section aria-label={t("setup.questions.letter_title")} data-letter-pane className="av-setup-letter av-stack">
       <span className="av-mono av-setup-letter__head">{t("setup.questions.letter_title")}</span>
-      {ready && <PageViewer pages={urls.map((src, i) => ({ src, label: t("setup.questions.letter_page", { page: i + 1 }) }))} />}
+      <PageViewer
+        pages={urls.map((src, i) => ({
+          src,
+          id: `letter-page-${i + 1}`,
+          label: t("setup.questions.letter_page", { page: i + 1 }),
+          children: <span className="av-setup-letter__caption">{t("setup.questions.letter_page", { page: i + 1 })}</span>,
+        }))}
+      />
     </section>
   );
 }
