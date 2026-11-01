@@ -75,7 +75,7 @@ test("choosing a fit reports one view change, once, even in strict mode", async 
   );
   await user.click(screen.getByRole("button", { name: "Whole page" }));
   expect(onView).toHaveBeenCalledTimes(1);
-  expect(onView.mock.calls[0][0].fit).toBe("page");
+  expect(onView.mock.calls[0]?.[0].fit).toBe("page");
 });
 
 test("the paper is a named group, and a loading page is not a picture", () => {

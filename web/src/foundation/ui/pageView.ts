@@ -1,6 +1,6 @@
 // The shared page viewer's arithmetic and state. Display only: turning, fitting and "clearer" change how a
 // page is shown on this screen, never the page, its words or their boxes (the server keeps those).
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 export type Fit = "width" | "page" | "zoom";
 export interface View {
@@ -57,13 +57,14 @@ export function usePageView(options: PageViewOptions = {}) {
   const [view, setViewState] = useState<View>(options.view ?? VIEW_DEFAULTS);
   const [turn, setTurnState] = useState(options.turn ?? 0);
 
+  // The latest view lives in a ref so the owner is told outside the state updater (which may run twice).
+  const viewRef = useRef(view);
   const change = useCallback(
     (fn: (v: View) => View) => {
-      setViewState((v) => {
-        const next = fn(v);
-        onView?.(next);
-        return next;
-      });
+      const next = fn(viewRef.current);
+      viewRef.current = next;
+      setViewState(next);
+      onView?.(next);
     },
     [onView],
   );
@@ -86,6 +87,8 @@ export function usePageView(options: PageViewOptions = {}) {
     zoomOut: useCallback((from?: number) => zoomBy(-ZOOM_STEP, from), [zoomBy]),
     setFit: useCallback((fit: Fit) => change((v) => ({ ...v, fit })), [change]),
     setClearer: useCallback((c: Partial<Pick<View, "brightness" | "contrast">>) => change((v) => ({ ...v, ...c })), [change]),
+    /** Change any part of the view in one update. */
+    setView: useCallback((next: Partial<View>) => change((v) => ({ ...v, ...next })), [change]),
     turnLeft: useCallback(() => setTurn(turnBy(turn, -90)), [setTurn, turn]),
     turnRight: useCallback(() => setTurn(turnBy(turn, 90)), [setTurn, turn]),
     setTurn,
