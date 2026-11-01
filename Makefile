@@ -16,7 +16,7 @@ install:        ## Poetry env for api/ (and pnpm for web/ once it exists)
 dev:            ## local Supabase, API, worker, and the landing page with the app on http://localhost:5173; secrets in api/.env
 	supabase start
 	$(MAKE) -C api start & \
-	if [ -f api/app/worker/handlers.py ]; then $(MAKE) -C api worker & fi; \
+	if [ -f api/app/worker/main.py ]; then $(MAKE) -C api worker & fi; \
 	if [ -f web/package.json ]; then cd web && pnpm dev; else wait; fi
 
 test: test-api test-web
