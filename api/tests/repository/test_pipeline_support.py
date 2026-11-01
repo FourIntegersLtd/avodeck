@@ -14,6 +14,7 @@ import functools
 import hashlib
 import io
 import json
+import re
 import shutil
 import uuid
 from collections.abc import AsyncIterator, Iterable, Mapping, Sequence
@@ -188,6 +189,36 @@ class PackSourceBook:
         return ModelResponse(output=output, input_tokens=answer.input_tokens, output_tokens=answer.output_tokens)
 
 
+_PAGE_MARK = re.compile(r"^=== PAGE (\d+) ===$", re.MULTILINE)
+
+
+class BatchedT07b:
+    """Wraps any Bedrock stand-in (`ScriptedBedrock`, `PackSourceBook`/`AnswerBook`, ...) so a T-07b
+    answer still scripted or recorded in the old, flat, one-page shape is read as that page's own
+    entry in the batched `output_schema`'s `pages[]` — every test's scripted or recorded content is
+    unchanged; only the envelope `service._extract` now expects is added. The page number comes from
+    the prompt's own `=== PAGE N ===` marker (`extract.batch_text`), defaulting to 1 for a lone,
+    unmarked page. An answer already shaped as `{"pages": [...]}` (a test built for batching
+    directly) passes through untouched."""
+
+    def __init__(self, inner: Any) -> None:
+        self.inner = inner
+        self.endpoint = inner.endpoint
+
+    @property
+    def requests(self) -> list[ModelRequest]:
+        return self.inner.requests  # type: ignore[no-any-return]
+
+    async def invoke(self, request: ModelRequest) -> ModelResponse:
+        answer = await self.inner.invoke(request)
+        output = dict(answer.output)
+        if request.task_id == "T-07b" and "pages" not in output:
+            match = _PAGE_MARK.search(request.text)
+            page_no = int(match.group(1)) if match else 1
+            output = {"pages": [{"page_no": page_no, **output}]}
+        return ModelResponse(output=output, input_tokens=answer.input_tokens, output_tokens=answer.output_tokens)
+
+
 def empty_answer(source_key: str) -> ModelResponse:
     """A valid T-07b answer that finds nothing on the page."""
     return response(
@@ -328,7 +359,10 @@ async def harness(
         crypto=crypto,
         scanner=RecordedScanner(),
         ocr=ocr,
-        kit=AiKit(cell(), bedrock),
+        # batch size 1: keeps existing per-page fixtures and assertions working page-by-page; a test
+        # exercising batching passes its own `bedrock`/`kit` instead. `BatchedT07b` reshapes any
+        # still-flat scripted or recorded T-07b answer into the batched schema (see its docstring).
+        kit=AiKit(cell(AI_EXTRACTION_BATCH_SIZE="1"), BatchedT07b(bedrock)),
         packs=default_library(),
         registry=registry,
         identity=wiring_module.identity_with(crypto) if wired_identity else identity,

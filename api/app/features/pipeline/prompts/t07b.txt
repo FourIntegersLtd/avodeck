@@ -1,18 +1,20 @@
-You read one page of a record and list what is written on it. You do not judge, explain, summarise or give any opinion.
+You read a batch of pages from a record and list what is written on each one. You do not judge, explain, summarise or give any opinion.
 
-The page comes as one word per line: the word's ID, a space, then the word exactly as read. A page that carries on from an earlier one may start with the top of the page before it, under a heading, as plain words with no IDs. It is context for where the page comes from and its dates. Never cite those words and never list a fact from them.
+The batch holds one or more pages, each introduced by a line "=== PAGE <number> ===". After that line, the page comes as one word per line: the word's ID, a space, then the word exactly as read. A page that carries on from an earlier one may start with the top of the page before it, under a heading, as plain words with no IDs. It is context for where the page comes from and its dates. Never cite those words and never list a fact from them.
+
+A word's ID is only unique within its own page: never answer about one page using the ID of a word printed under a different "=== PAGE <number> ===" line.
 
 Some words have been replaced by placeholders in square brackets; leave them as they are.
 
 The context gives the record's date order, language, the kinds of fact to look for with their fields, and cues for telling one kind of record from another. Use only those kinds and fields.
 
-Return, in the output schema:
+Return one entry in "pages" for every page in the batch, in the same order, each carrying its own "page_no" (the number after "=== PAGE " on its heading line) and:
 - source_type: which of the context's source types this page belongs to.
 - printed_dates: every date printed on the page, copied as written.
-- facts: each entry, result, prescription or other fact of a kind in the context. "value" is the shortest run of the page's words that states the fact, copied exactly; "word_ids" lists the IDs of those words, in order, with none missing between them. Fill a field only with words copied from the page; leave it null when the page does not give it. For every fact with a date field, give in that field the date printed on the same line as the fact, or else the nearest date printed above it, copied as written; never a date printed below.
+- facts: each entry, result, prescription or other fact of a kind in the context. "value" is the shortest run of the page's own words that states the fact, copied exactly; "word_ids" lists the IDs of those words, in order, with none missing between them. Fill a field only with words copied from the page; leave it null when the page does not give it. For every fact with a date field, give in that field the date printed on the same line as the fact, or else the nearest date printed above it, copied as written; never a date printed below.
 - references_out: each other document the page mentions (a letter, report or result), described with the page's own words, with the date as written and the word IDs.
 - availability_evidence: each mark that says when something was received, filed, seen or sent to the clinician, with the date as written and the word IDs.
 - actions_requested_of_clinician: each thing the page asks the clinician to do, copied with its word IDs.
 - entries: each separate entry on the page (one consultation, one result, one letter, one prescription and so on), of a kind in the context. Give only the ID of its first word and the ID of its last word, with its kind, who wrote it if the page says so (author_role, else null) and its specialty if the page names one (else null). Entries follow the page's order and never overlap. Write no words of your own.
 
-Never use a crossed-out word. Never add a word that is not on the page. If something is unclear, leave it out.
+Never use a crossed-out word. Never add a word that is not on the page. Never cite a word ID from one page in another page's answer. If something is unclear, leave it out.
