@@ -25,13 +25,13 @@ After upload, the expert gets a numbered, sorted bundle: every page read by OCR,
 `ocr_words`, `missing_items`, `record_gaps`, `record_entries`, `instructing_party_requests`. Writes the OCR/source/duplicate columns of `pages` and inserts `facts` with status `suggested` (contract owned by foundation).
 
 ## Worker job: `process_bundle` / `process_pages`
-split (pikepdf) → render 150–200 dpi (pypdfium2) → hashes → text-layer check (born-digital pages: words from pypdfium2, no OCR) → **T-07a** OCR (Azure DI Layout) for the rest → low-confidence flag → `pii.strip` → **T-07b** per-page extraction (Sonnet 5, batch, cached prompt) → `provenance.check` → date normalisation (dateparser, date order from the pack) → duplicates (pHash + MinHash + rapidfuzz, with date/value equality) → record gaps (monthly density per source) → **T-07c** missing documents (references matched to inventory) → embeddings (bge-small) → email via Resend ("Your bundle is ready", no patient details).
+split (pikepdf) → render 150–200 dpi (pypdfium2) → hashes → text-layer check (born-digital pages: words from pypdfium2, no OCR) → **T-07a** OCR (Azure DI Layout) for the rest → low-confidence flag → `pii.strip` → **T-07b** extraction (Sonnet 5, cached prompt), up to `extraction_batch_size` pages (default 100) per call, to stay inside the cell's Bedrock on-demand throughput ceiling — the model answers each page under its own `page_no`, never citing another page's word IDs → `provenance.check` per page → date normalisation (dateparser, date order from the pack) → duplicates (pHash + MinHash + rapidfuzz, with date/value equality) → record gaps (monthly density per source) → **T-07c** missing documents (references matched to inventory) → embeddings (bge-small) → email via Resend ("Your bundle is ready", no patient details).
 
 ## AI tasks (architecture 6.3)
 | Task | Model | Output | Check |
 |---|---|---|---|
 | T-07a | Azure DI `prebuilt-layout` | words, polygons, confidence, handwriting | low confidence → screen 10 queue |
-| T-07b | Claude Sonnet 5 (in-region) | `source_type`, `printed_dates[]`, `facts[]`, `references_out[]`, `availability_evidence[]`, `actions_requested_of_clinician[]`, all with `word_ids` | value-in-span; one retry then `needs_human` |
+| T-07b | Claude Sonnet 5 (in-region) | one answer per page in `pages[]` (each carrying its own `page_no`): `source_type`, `printed_dates[]`, `facts[]`, `references_out[]`, `availability_evidence[]`, `actions_requested_of_clinician[]`, all with `word_ids` | value-in-span; any page's failure retries the whole batch once, then that page is `needs_human` |
 | T-07c | Sonnet 5 (candidate pages chosen by code, nearest by date then page number, until bge-small is in the cell) | `{reference_id, matched_page or null, confidence}` | unmatched, or a page the case lacks → missing list; expert confirms |
 
 ## Contracts

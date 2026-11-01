@@ -36,7 +36,7 @@ def entry(pack: MergedPack, first: str, last: str, **over: Any) -> dict[str, Any
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
 def test_the_schema_has_entries_built_from_the_pack_and_no_free_text(combo: Combo) -> None:
     pack = pack_of(combo)
-    schema = extract.output_schema(pack)
+    schema = extract.page_schema(pack)
     assert "entries" in schema["required"]
     item = schema["properties"]["entries"]["items"]
     assert set(item["properties"]) == {"kind", "first_word_id", "last_word_id", "author_role", "specialty"}
@@ -52,7 +52,7 @@ def test_the_schema_has_entries_built_from_the_pack_and_no_free_text(combo: Comb
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
 def test_the_validator_refuses_free_text_in_an_entry(combo: Combo) -> None:
     pack = pack_of(combo)
-    validator = jsonschema_rs.validator_for(extract.output_schema(pack))
+    validator = jsonschema_rs.validator_for(extract.page_schema(pack))
     page: dict[str, Any] = {
         "source_type": None,
         "printed_dates": [],

@@ -148,6 +148,27 @@ async def test_the_kit_refuses_a_role_without_an_in_region_model(
     assert model.requests == []
 
 
+async def test_a_task_without_a_max_tokens_override_gets_the_default(
+    api_db: Database, pack: MergedPack, case: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    expert, case_id = case
+    model = ScriptedBedrock([response({"labels": []})])
+    async with api_db.request(scope_for(expert)) as conn:
+        await AiKit(cell(), model).run(conn, TASK, pack=pack, case_id=case_id, text="x")
+    assert model.requests[0].max_tokens == 4096
+
+
+async def test_a_task_with_a_max_tokens_override_sends_it(
+    api_db: Database, pack: MergedPack, case: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    expert, case_id = case
+    model = ScriptedBedrock([response({"labels": []})])
+    task = AiTask(TASK.task_id, TASK.prompt_version, TASK.model, TASK.system, TASK.schema, max_tokens=8192)
+    async with api_db.request(scope_for(expert)) as conn:
+        await AiKit(cell(), model).run(conn, task, pack=pack, case_id=case_id, text="x")
+    assert model.requests[0].max_tokens == 8192
+
+
 async def test_the_kit_refuses_a_client_pointed_outside_the_cell(
     api_db: Database, pack: MergedPack, case: tuple[uuid.UUID, uuid.UUID]
 ) -> None:
