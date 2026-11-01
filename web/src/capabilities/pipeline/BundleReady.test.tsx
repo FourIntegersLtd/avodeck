@@ -136,6 +136,20 @@ describe.each([
       expect(screen.queryByRole("heading", { name: "Your bundle is ready" })).toBeNull();
     });
 
+    test("one file we couldn't open and another still being prepared: still preparing, with the preparing link and the unopened card", async () => {
+      const [first, second] = documents() as unknown as Array<Schemas["BundleSummary"]["documents"][number]>;
+      const mixed = [
+        { ...first!, pages: 0, first_page_no: null, last_page_no: null, unreadable_reason: null },
+        { ...second!, pages: 0, first_page_no: null, last_page_no: null, unreadable_reason: "locked" },
+      ] as unknown as Schemas["BundleSummary"]["documents"];
+      mock(pack, { summary: idle(mixed) });
+      renderAt(PATH);
+      expect(await screen.findByRole("heading", { level: 1, name: "Preparing your patient records" })).toBeVisible();
+      expect(screen.getByRole("link", { name: "See how preparing is going" })).toHaveAttribute("href", `/cases/${CASE_ID}/preparing`);
+      expect(screen.getByText("1 file we couldn't open.")).toBeVisible();
+      expect(screen.queryByRole("heading", { name: "We couldn't read your patient records" })).toBeNull();
+    });
+
     test("uploaded but nothing readable: couldn't-read heading, the unopened card and an add action", async () => {
       mock(pack, { summary: idle(unreadable("damaged")), item: theCase({ allowed_actions: [...VIEWER_ACTIONS, "case.upload"] }) });
       renderAt(PATH);
