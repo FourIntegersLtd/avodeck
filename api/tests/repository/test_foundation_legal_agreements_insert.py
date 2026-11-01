@@ -29,7 +29,7 @@ async def test_a_person_cannot_insert_an_acceptance_for_someone_else(
 ) -> None:
     me, other = seed.person(), seed.person()
     async with api_db.request(scope_for(me)) as conn:
-        with pytest.raises(Exception):
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
             await conn.execute(
                 "insert into app.legal_agreements (person_id, document, version) values (%s, %s, %s)",
                 (other, "terms", "2026-11-01.1"),

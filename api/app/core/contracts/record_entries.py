@@ -52,7 +52,8 @@ async def entries_for_case(
         "select e.id, e.page_id, p.bundle_page_no, e.kind, e.first_n, e.last_n, e.author_role, e.specialty,"
         " e.event_date, e.date_basis"
         " from app.record_entries e join app.pages p on p.id = e.page_id"
-        " where e.bundle_id = (select bundle_id from app.cases where id = %s) and (%s::uuid[] is null or e.page_id = any(%s::uuid[]))"
+        " where e.bundle_id = (select bundle_id from app.cases where id = %s) and (%s::uuid[] is null or e.page_id = "
+        "any(%s::uuid[]))"
         " order by e.event_date nulls last, p.bundle_page_no, e.first_n",
         (case_id, list(page_ids) if page_ids is not None else None, list(page_ids) if page_ids is not None else None),
     )
@@ -64,7 +65,8 @@ async def entries_ready(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
     and has had its entries read or failed (a person reads those). No such pages at all is ready."""
     cur = await conn.execute(
         "select count(*) from app.pages p left join app.page_analysis a on a.page_id = p.id"
-        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined and (a.extracted_at is null or"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined and "
+        "(a.extracted_at is null or"
         " (a.entries_extracted_at is null and a.entries_failed_at is null))",
         (case_id,),
     )
@@ -77,7 +79,8 @@ async def entries_unread_pages(conn: AsyncConnection, case_id: uuid.UUID) -> lis
     """Page numbers whose entries could not be read (the model failed); a person reads them, they are not empty."""
     cur = await conn.execute(
         "select p.bundle_page_no from app.page_analysis a join app.pages p on p.id = a.page_id"
-        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and a.extracted_at is not null and not p.quarantined"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and a.extracted_at is not null and not "
+        "p.quarantined"
         " and a.entries_extracted_at is null and a.entries_failed_at is not null order by p.bundle_page_no",
         (case_id,),
     )

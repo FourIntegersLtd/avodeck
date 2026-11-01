@@ -60,7 +60,8 @@ def built_from_row(row: Mapping[str, Any]) -> BuiltFrom:
 
 async def _now(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[int | None, uuid.UUID | None]:
     cur = await conn.execute(
-        "select (select max(bundle_page_no) from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)),"
+        "select (select max(bundle_page_no) from app.pages where bundle_id = (select bundle_id from app.cases where id "
+        "= %s)),"
         " (select id from app.report_versions where case_id = %s and status = 'served'"
         " order by version_no desc limit 1)",
         (case_id, case_id),
