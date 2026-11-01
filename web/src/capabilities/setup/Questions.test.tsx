@@ -179,6 +179,23 @@ test("the letter pages show in the pane", async () => {
   expect(await screen.findByRole("img", { name: "Page 2" })).toBeInTheDocument();
 });
 
+test("the letter pane has the shared page tools, zoom changes size and turn rotates every page", async () => {
+  asked("launch");
+  server.use(
+    http.get("/v1/cases/:caseId/instructions/:versionId/pages", () => json({ page_count: 2 })),
+    http.get("/v1/cases/:caseId/instructions/:versionId/pages/:n", () => new HttpResponse(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } })),
+  );
+  const { user } = renderAt(`/cases/${CASE_A}/questions`);
+  await screen.findByRole("img", { name: "Page 2" });
+  expect(screen.getByRole("toolbar", { name: "Page view" })).toBeInTheDocument();
+  expect(screen.getByRole("slider", { name: "Brightness" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Zoom in" }));
+  expect(screen.getByText("125%")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Turn right" }));
+  expect(screen.getAllByTestId("page-turn").map((e) => e.getAttribute("data-turn"))).toEqual(["90", "90"]);
+  expect(document.getElementById("letter-page-2")).not.toBeNull();
+});
+
 test("the add-question form adds a card", async () => {
   asked("launch", { questions: [], assumptions: [] });
   let sent: unknown;
