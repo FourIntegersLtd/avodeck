@@ -53,6 +53,7 @@ from app.core.pdf import split_pages
 from app.core.scan import ScanUnavailable
 from app.features.pipeline import (
     convert,
+    coverage,
     date_repair,
     dates,
     duplicates,
@@ -571,6 +572,8 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         entries, entries_rejected = _entries_of(output, ordered, struck, pack)
         if stored and output is None:
             entries = None  # no usable answer: not "no entries"; the page is left for a person
+        if reason is None and stored and output is not None:
+            reason = coverage.reason_for(ordered=ordered, struck=struck, kept=kept, entries=entries)
         facts = []
         lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
         anchor = dates.bundle_anchor(

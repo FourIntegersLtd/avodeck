@@ -62,15 +62,14 @@ def test_enough_coverage_is_fine() -> None:
 def test_punctuation_only_words_are_never_counted() -> None:
     ordered = [*words(35), ("p0", "-"), ("p1", "."), ("p2", ","), ("p3", ":"), ("p4", ";"), ("p5", "--"), ("p6", "("), ("p7", ")"), ("p8", "..."), ("p9", "/")]
     assert len(ordered) == 45
-    # 35 countable words, all covered by one entry: enough coverage, so None (not too short either).
-    covering = entry(1, 35)
-    assert coverage.reason_for(ordered=ordered, struck=set(), kept=[], entries=[covering]) == "no_facts"
-    fact = {"word_ids": [w for w, _ in ordered[:35]]}
+    # Only 35 real (countable) words: too short to judge, however the punctuation words are covered.
+    fact = {"word_ids": [w for w, _ in ordered]}  # covers everything, punctuation included
     assert coverage.reason_for(ordered=ordered, struck=set(), kept=[fact], entries=[]) is None
+    assert coverage.reason_for(ordered=ordered, struck=set(), kept=[], entries=[]) is None
 
 
 def test_a_fact_citing_an_unknown_word_id_is_ignored_not_a_crash() -> None:
     ordered = words(40)
-    fact = {"word_ids": ["not-on-page", *[f"w{i}" for i in range(25)]]}
-    # 25 known words covered out of 40 is below MIN_COVERAGE, and the unknown id must not crash it.
+    fact = {"word_ids": ["not-on-page", *[f"w{i}" for i in range(15)]]}
+    # 15 known words covered out of 40 is below MIN_COVERAGE, and the unknown id must not crash it.
     assert coverage.reason_for(ordered=ordered, struck=set(), kept=[fact], entries=[]) == "low_coverage"
