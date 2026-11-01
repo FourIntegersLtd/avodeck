@@ -47,7 +47,11 @@ begin
     if new.status <> 'suggested' then
       perform app.refuse('a new claim starts suggested');
     end if;
-    if not exists (select 1 from app.documents d where d.id = new.document_id and d.case_id = new.case_id) then
+    if not exists (
+      select 1 from app.documents d
+        join app.cases c on c.bundle_id = d.bundle_id
+      where d.id = new.document_id and c.id = new.case_id
+    ) then
       perform app.refuse('a claim comes from a document of its own case');
     end if;
     new.version := 1;

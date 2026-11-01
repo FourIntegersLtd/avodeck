@@ -14,7 +14,9 @@ set role app_migrator;
 grant update (superseded_at) on app.word_corrections to app_worker;
 create policy word_corrections_words_replaced on app.word_corrections for update to app_worker
   using (superseded_at is null
-    and exists (select 1 from app.pages p where p.id = page_id and p.case_id = app.current_job_case_id()))
+    and exists (select 1 from app.pages p
+                where p.id = page_id
+                  and p.bundle_id = (select c.bundle_id from app.cases c where c.id = app.current_job_case_id())))
   with check (superseded_at is not null);
 
 create or replace function app.purge_quarantined_page(p_quarantine_id uuid) returns text

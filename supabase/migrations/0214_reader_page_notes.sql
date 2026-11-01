@@ -30,8 +30,8 @@ grant update (bookmarked, note, updated_at) on app.page_notes to app_api;
 
 create policy page_notes_own on app.page_notes for all to app_api
   using (person_id = app.current_person_id()
-    and exists (select 1 from app.pages p where p.id = page_id and app.can_access_case(p.case_id, 'page.read')))
+    and exists (select 1 from app.pages p where p.id = page_id and app.can_access_bundle(p.bundle_id, 'page.read')))
   with check (person_id = app.current_person_id()
-    and exists (select 1 from app.pages p where p.id = page_id and app.can_access_case(p.case_id, 'page.read')));
+    and exists (select 1 from app.pages p where p.id = page_id and app.can_access_bundle(p.bundle_id, 'page.read')));
 
 reset role;

@@ -26,7 +26,11 @@ create function app.witness_comparisons_guard() returns trigger
 as $$
 begin
   if tg_op = 'INSERT' then
-    if not exists (select 1 from app.documents d where d.id = new.document_id and d.case_id = new.case_id) then
+    if not exists (
+      select 1 from app.documents d
+        join app.cases c on c.bundle_id = d.bundle_id
+      where d.id = new.document_id and c.id = new.case_id
+    ) then
       perform app.refuse('a comparison is of a document of its own case');
     end if;
     if new.status <> 'queued' then
