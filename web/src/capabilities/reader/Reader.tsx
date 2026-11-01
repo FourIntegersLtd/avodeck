@@ -8,7 +8,7 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorAction, errorMessage, type ErrorAction } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LinkButton, LoadError, Loading, Notice, PageRef, ProgressBar } from "../../foundation/ui";
+import { Button, LinkButton, LoadError, Loading, Notice, PageRef, ProgressBar, turnBy, usePageView, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "../../foundation/ui";
 import { casePath, count, periodRange, sourceLabel } from "./data";
 import { dateFieldKey, suggestTimelineDate } from "./timelineDate";
 import { allowed, editableFields, FactCard, fieldTypes } from "./FactCard";
@@ -22,7 +22,7 @@ import { PageImage } from "./PageImage";
 import { PageStrip } from "./PageStrip";
 import { noteRead, useBundlePages } from "./bundlePages";
 import { loadSearch, loadTools, saveSearch, saveTools, type SearchResult, type Tools } from "./search";
-import { clampZoom, loadStripHidden, loadView, saveStripHidden, saveView, turnBy, ZOOM_MAX, ZOOM_MIN, type View } from "./viewer";
+import { loadStripHidden, loadView, saveStripHidden, saveView } from "./viewer";
 import { inPageOrder, TypedWordToggles, WordToggles, type PageWord } from "./WordPicker";
 import { w } from "./words";
 import { ChevronIcon, EyeIcon, SidebarIcon, FindIcon, FullScreenIcon, SlidersIcon, TickIcon, TurnIcon, ViewIcon } from "./icons";
@@ -171,7 +171,8 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   const [splitPct, setSplitPct] = useState(loadSplitPct);
   const [info, setInfo] = useState<string | null>(null);
   // How the page is shown (held for the visit): fit, zoom and "Make it clearer" stay as the expert left them.
-  const [view, setView] = useState<View>(loadView);
+  const [startView] = useState(loadView);
+  const { view, filter, zoomBy: zoomFrom, setFit, setClearer: setLook } = usePageView({ view: startView, onView: saveView });
   const [scale, setScale] = useState<number | null>(null);
   const scaleRef = useRef<number | null>(null);
   scaleRef.current = scale;
@@ -453,7 +454,6 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
     }
   }
 
-  useEffect(() => saveView(view), [view]);
   useEffect(() => saveTools(tools), [tools]);
 
   /** Full screen: the browser's own where it has one, and the page view filling the window either way. */
@@ -491,12 +491,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   }
 
   /** Ctrl and the wheel, a pinch, or the zoom buttons: zoom from what is on screen now. */
-  function zoomBy(points: number) {
-    setView((v) => {
-      const from = v.fit === "zoom" ? v.zoom : (scaleRef.current ?? v.zoom);
-      return { ...v, fit: "zoom", zoom: clampZoom(from + points) };
-    });
-  }
+  const zoomBy = (points: number) => zoomFrom(points, scaleRef.current ?? undefined);
 
   function showTurn(next: number, undoing: boolean) {
     if (!canTurn) return;
@@ -677,7 +672,6 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   const hard = queue.data ? queue.data.total - queue.data.done : 0;
   const focusedFact = facts?.find((f) => f.id === focus) ?? facts?.[0] ?? null;
   const besideNo = beside ?? page.superseded_by_page_no ?? nextPage ?? (pageNo > 1 ? pageNo - 1 : null);
-  const filter = view.brightness === 100 && view.contrast === 100 ? undefined : `brightness(${view.brightness / 100}) contrast(${view.contrast / 100})`;
 
   const renderCard = (f: Fact) => (
     <FactCard
@@ -814,13 +808,13 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
             </Button>
           )}
           <span className="rd-cap rd-view__group">
-            <Button variant="secondary" className="rd-tool" aria-label={w("read.zoom_out")} disabled={view.fit === "zoom" && view.zoom <= ZOOM_MIN} onClick={() => zoomBy(-25)}>
+            <Button variant="secondary" className="rd-tool" aria-label={w("read.zoom_out")} disabled={view.fit === "zoom" && view.zoom <= ZOOM_MIN} onClick={() => zoomBy(-ZOOM_STEP)}>
               −
             </Button>
             <span className="rd-ref rd-view__level" aria-live="polite">
               {w("read.zoom_level", { percent: view.fit === "zoom" ? view.zoom : (scale ?? 100) })}
             </span>
-            <Button variant="secondary" className="rd-tool" aria-label={w("read.zoom_in")} disabled={view.fit === "zoom" && view.zoom >= ZOOM_MAX} onClick={() => zoomBy(25)}>
+            <Button variant="secondary" className="rd-tool" aria-label={w("read.zoom_in")} disabled={view.fit === "zoom" && view.zoom >= ZOOM_MAX} onClick={() => zoomBy(ZOOM_STEP)}>
               +
             </Button>
           </span>
@@ -911,11 +905,11 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
                 {(["brightness", "contrast"] as const).map((k) => (
                   <label key={k} className="rd-clearer__row">
                     <span className="rd-label">{w(k === "brightness" ? "read.brightness" : "read.contrast")}</span>
-                    <input type="range" min={50} max={200} step={5} value={view[k]} onChange={(e) => setView((v) => ({ ...v, [k]: Number(e.target.value) }))} />
+                    <input type="range" min={50} max={200} step={5} value={view[k]} onChange={(e) => setLook({ [k]: Number(e.target.value) })} />
                   </label>
                 ))}
                 <div className="rd-clearer__buttons">
-                  <Button variant="secondary" onClick={() => setView((v) => ({ ...v, brightness: 100, contrast: 100 }))}>
+                  <Button variant="secondary" onClick={() => setLook({ brightness: 100, contrast: 100 })}>
                     {w("read.back_to_normal")}
                   </Button>
                   <Button variant="secondary" onClick={closeClearer}>{w("read.done")}</Button>
@@ -1003,8 +997,8 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
             )}
             <div className="rd-menu__group" role="group" aria-labelledby="rd-more-size">
               <p id="rd-more-size" className="rd-more__head">{w("read.more.size")}</p>
-              <MenuItem icon={<ViewIcon />} on={view.fit === "width"} onClick={pick(() => setView((v) => ({ ...v, fit: "width" })))}>{w("read.fit_width")}</MenuItem>
-              <MenuItem icon={<ViewIcon />} on={view.fit === "page"} onClick={pick(() => setView((v) => ({ ...v, fit: "page" })))}>{w("read.whole_page")}</MenuItem>
+              <MenuItem icon={<ViewIcon />} on={view.fit === "width"} onClick={pick(() => setFit("width"))}>{w("read.fit_width")}</MenuItem>
+              <MenuItem icon={<ViewIcon />} on={view.fit === "page"} onClick={pick(() => setFit("page"))}>{w("read.whole_page")}</MenuItem>
             </div>
             <div className="rd-menu__group" role="group" aria-labelledby="rd-more-view">
               <p id="rd-more-view" className="rd-more__head">{w("read.more.view")}</p>

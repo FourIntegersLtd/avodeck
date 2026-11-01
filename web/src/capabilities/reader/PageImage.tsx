@@ -3,7 +3,7 @@
 // that is turned as a whole, so highlights and the word picker stay over the same words (rule 2).
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { pageImage, peekPage } from "./pageImageCache";
-import { drawnSize, type Fit } from "./viewer";
+import { drawnSize, type Fit } from "../../foundation/ui";
 import { w } from "./words";
 
 interface Props {

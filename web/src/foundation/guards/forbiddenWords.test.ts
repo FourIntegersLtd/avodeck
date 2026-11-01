@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
 import { expect, test } from "vitest";
-import { files, REPO, WEB } from "./walk";
+import { files, LEGAL_AGREEMENT_FILES, REPO, WEB } from "./walk";
 
 interface LintWords {
   slice_code_forbidden: string[];
@@ -39,7 +39,7 @@ test("the scan finds planted words and ignores lookalikes", () => {
 });
 
 test("no web capability, app code, design-system component or copy contains a forbidden word", () => {
-  const scanned = files(join(WEB, "src"), (rel) => SCANNED.test(rel) && /\.(ts|tsx|json|css)$/.test(rel));
+  const scanned = files(join(WEB, "src"), (rel) => SCANNED.test(rel) && !LEGAL_AGREEMENT_FILES.has(rel) && /\.(ts|tsx|json|css)$/.test(rel));
   expect(scanned.some((p) => p.endsWith("en-GB.json"))).toBe(true);
   const findings = scanned.flatMap((p) => forbiddenIn(readFileSync(p, "utf8")).map((w) => `${p.slice(WEB.length + 1)}: ${w}`));
   expect(findings).toEqual([]);

@@ -7,7 +7,7 @@ import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, json, server, signedIn } from "../../test/api";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { CASE_ID, missingItem, packWords, summary, theCase, VIEWER_ACTIONS, missingList } from "./testData";
+import { CASE_ID, missingItem, packWords, summary, theCase, VIEWER_ACTIONS, missingList, documents } from "./testData";
 
 const PATH = `/cases/${CASE_ID}/bundle`;
 
@@ -104,6 +104,59 @@ describe.each([
     expect(files).toHaveTextContent("scan.pdf looks damaged.");
     expect(files).toHaveTextContent("The other files are not affected.");
     expect(within(files).getByRole("link", { name: words.askLabel })).toHaveAttribute("href", `/cases/${CASE_ID}/bundle/ask`);
+  });
+
+  describe("when there are no pages yet", () => {
+    const unreadable = (reason: string) =>
+      documents().map((d) => ({ ...d, pages: 0, first_page_no: null, last_page_no: null, unreadable_reason: reason })) as unknown as Schemas["BundleSummary"]["documents"];
+    const idle = (documents: Schemas["BundleSummary"]["documents"]) => ({ pages: 0, documents, by_source: [], versions: [], duplicates: 0, quarantine_suggestions: [], exhibits: [], foreign_language: [] });
+
+    test("nothing uploaded: says so, offers to add the records, and never says ready", async () => {
+      mock(pack, { summary: idle([]), item: theCase({ allowed_actions: [...VIEWER_ACTIONS, "case.upload"] }) });
+      renderAt(PATH);
+      expect(await screen.findByRole("heading", { level: 1, name: "Your patient records" })).toBeVisible();
+      expect(screen.getByText("You haven't added the patient's records yet.")).toBeVisible();
+      expect(screen.getByRole("link", { name: "Add the patient's records" })).toHaveAttribute("href", `/cases/${CASE_ID}/papers/add`);
+      expect(screen.queryByText(/ready/i)).toBeNull();
+      expect(screen.queryByRole("link", { name: "See how preparing is going" })).toBeNull();
+    });
+
+    test("nothing uploaded and no right to upload: a calm waiting notice, no button", async () => {
+      mock(pack, { summary: idle([]), item: theCase({ allowed_actions: VIEWER_ACTIONS }) });
+      renderAt(PATH);
+      expect(await screen.findByText("Waiting for the records to be added")).toBeVisible();
+      expect(screen.queryByRole("link", { name: "Add the patient's records" })).toBeNull();
+    });
+
+    test("uploaded but not finished: preparing heading and the preparing link", async () => {
+      mock(pack, { summary: idle(documents().map((d) => ({ ...d, pages: 0, first_page_no: null, last_page_no: null })) as unknown as Schemas["BundleSummary"]["documents"]) });
+      renderAt(PATH);
+      expect(await screen.findByRole("heading", { level: 1, name: "Preparing your patient records" })).toBeVisible();
+      expect(screen.getByRole("link", { name: "See how preparing is going" })).toHaveAttribute("href", `/cases/${CASE_ID}/preparing`);
+      expect(screen.queryByRole("heading", { name: "Your bundle is ready" })).toBeNull();
+    });
+
+    test("one file we couldn't open and another still being prepared: still preparing, with the preparing link and the unopened card", async () => {
+      const [first, second] = documents() as unknown as Array<Schemas["BundleSummary"]["documents"][number]>;
+      const mixed = [
+        { ...first!, pages: 0, first_page_no: null, last_page_no: null, unreadable_reason: null },
+        { ...second!, pages: 0, first_page_no: null, last_page_no: null, unreadable_reason: "locked" },
+      ] as unknown as Schemas["BundleSummary"]["documents"];
+      mock(pack, { summary: idle(mixed) });
+      renderAt(PATH);
+      expect(await screen.findByRole("heading", { level: 1, name: "Preparing your patient records" })).toBeVisible();
+      expect(screen.getByRole("link", { name: "See how preparing is going" })).toHaveAttribute("href", `/cases/${CASE_ID}/preparing`);
+      expect(screen.getByText("1 file we couldn't open.")).toBeVisible();
+      expect(screen.queryByRole("heading", { name: "We couldn't read your patient records" })).toBeNull();
+    });
+
+    test("uploaded but nothing readable: couldn't-read heading, the unopened card and an add action", async () => {
+      mock(pack, { summary: idle(unreadable("damaged")), item: theCase({ allowed_actions: [...VIEWER_ACTIONS, "case.upload"] }) });
+      renderAt(PATH);
+      expect(await screen.findByRole("heading", { level: 1, name: "We couldn't read your patient records" })).toBeVisible();
+      expect(screen.getByText("2 files we couldn't open.")).toBeVisible();
+      expect(screen.getByRole("link", { name: "Add the patient's records" })).toBeVisible();
+    });
   });
 
   test("the files table shows each file, its pages, how it was obtained and when it arrived", async () => {

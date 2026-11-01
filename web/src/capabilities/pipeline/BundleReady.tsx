@@ -54,12 +54,33 @@ export function BundleReady() {
   );
 
   if (s.pages === 0) {
+    const nothingAdded = s.documents.length === 0;
+    const nothingReadable = !nothingAdded && unopened.length === s.documents.length;
+    const addPapers = can(item, "case.upload") ? screenPath("add_papers", { caseId }) : null;
+    const addButton = addPapers && <LinkButton to={addPapers}>{w("bundle.add_records")}</LinkButton>;
+    if (nothingAdded) {
+      return (
+        <div className="av-page av-stack">
+          <h1>{w("bundle.records_title")}</h1>
+          <Notice><p>{w("bundle.none_yet")}</p></Notice>
+          {addButton ?? <Notice><p>{w("bundle.waiting_for_records")}</p></Notice>}
+        </div>
+      );
+    }
+    if (nothingReadable) {
+      return (
+        <div className="av-page av-stack">
+          <h1>{w("bundle.unreadable_title")}</h1>
+          {unopenedCard}
+          {addButton}
+        </div>
+      );
+    }
     return (
       <div className="av-page av-stack">
-        <h1>{w("bundle.title")}</h1>
-        <Notice><p>{w("bundle.empty")}</p></Notice>
+        <h1>{w("bundle.preparing_title")}</h1>
+        <LinkButton to={`/cases/${caseId}/preparing`}>{w("bundle.to_preparing")}</LinkButton>
         {unopenedCard}
-        <LinkButton to={`/cases/${caseId}/preparing`} variant="secondary">{w("bundle.to_preparing")}</LinkButton>
       </div>
     );
   }

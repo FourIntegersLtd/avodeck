@@ -2,6 +2,8 @@
   "app.name": "Avodeck",
   "app.logo_home": "Avodeck home page",
   "app.skip_to_content": "Skip to main content",
+  "app.toast.region": "Notifications",
+  "app.toast.close": "Close",
   "app.nav.label": "Main",
   "app.nav.today": "Today",
   "app.nav.cases": "Cases",
@@ -709,5 +711,18 @@
   "reader.today.pages_to_read_action": "Carry on reading",
   "reader.today.pages_to_type_one": "{{count}} page to type out",
   "reader.today.pages_to_type_other": "{{count}} pages to type out",
-  "reader.today.pages_to_type_action": "Type them out"
+  "reader.today.pages_to_type_action": "Type them out",
+  "viewer.bar": "Page view",
+  "viewer.zoom_in": "Zoom in",
+  "viewer.zoom_out": "Zoom out",
+  "viewer.zoom_level": "{{percent}}%",
+  "viewer.turn_left": "Turn left",
+  "viewer.turn_right": "Turn right",
+  "viewer.fit_width": "Fit to width",
+  "viewer.whole_page": "Whole page",
+  "viewer.reset": "Back to normal",
+  "viewer.brightness": "Brightness",
+  "viewer.contrast": "Contrast",
+  "viewer.page_alt": "Page {{page}}",
+  "viewer.loading": "Loading"
 }
