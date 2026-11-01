@@ -74,6 +74,8 @@ export interface ReaderOpts {
   notes?: Array<{ page_no: number; bookmarked: boolean; note: string }>;
   /** The page's source type (default: the test page's own; null = never sorted). */
   sourceType?: string | null;
+  /** Whether the server thinks a person must check this page by hand (default false). */
+  needsCheck?: boolean;
   /** What another reading answers once asked for (default: queued). */
   secondReading?: Schemas["SecondReadingOut"];
 }
@@ -175,6 +177,7 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
         done: opts.counts?.done ?? api.facts.filter(dealt).length,
         highlights: api.facts.filter((f) => f.status !== "rejected").map((f) => ({ id: f.id, word_ids: f.word_ids, bbox: f.bbox })),
         reassigned: opts.reassigned ?? false,
+        needs_check: opts.needsCheck ?? false,
       });
     }),
     http.get(`${c}/pages/:n/words`, ({ params }) => {

@@ -112,6 +112,20 @@ describe("the right side", () => {
     expect(await screen.findByText("We found nothing to check on this page.")).toBeVisible();
     expect(screen.queryByText(/still reading this page/)).not.toBeInTheDocument();
   });
+
+  test("a page flagged for checking with no suggestions says we couldn't pick anything out", async () => {
+    mockReader(launchPack, { alreadyRead: true, facts: [], needsCheck: true });
+    renderAt(PATH);
+    expect(await screen.findByText("We couldn't pick anything out of this page. Please read it carefully yourself.")).toBeVisible();
+    expect(screen.queryByText("We found nothing to check on this page.")).not.toBeInTheDocument();
+  });
+
+  test("a page flagged for checking with suggestions shows a notice above the facts", async () => {
+    mockReader(launchPack, { alreadyRead: true, needsCheck: true });
+    renderAt(PATH);
+    expect(await screen.findByText("We may have missed something on this page. Please read it carefully.")).toBeVisible();
+    await side();
+  });
 });
 
 describe("a fact card", () => {
