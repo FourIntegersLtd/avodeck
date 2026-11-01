@@ -232,6 +232,7 @@ const WORDS = {
   "home.see_questions": "See the questions",
 
   "add.title": "Add more papers",
+  "add.title_neutral": "Add papers",
   "add.title_first": "Add the patient's records",
   "add.lead_first": "Choose the patient's records and tell us a little about them. We will number every page and start reading them.",
   "add.lead": "Choose the new papers and tell us a little about them. They join your bundle and keep their own page numbers; the pages you have already read stay as they are.",

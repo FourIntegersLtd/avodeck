@@ -11,7 +11,7 @@ import { ResumeUpload } from "../../foundation/lib/ResumeUpload";
 import { UploadStatus } from "../../foundation/lib/UploadControls";
 import { useJobWatch } from "../../foundation/lib/jobWatch";
 import { useUpload } from "../../foundation/lib/useUpload";
-import { api, unwrap, type Schemas } from "../../foundation/platform-client";
+import { api, apiOrigin, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, ChoicePills, DropZone, LinkButton, Notice, ProgressBar, Spinner, TextField } from "../../foundation/ui";
 import { can, casePath, kindWord } from "./data";
 import { w, wordFor } from "./words";
@@ -42,12 +42,20 @@ export function AddPapers() {
 
   const jobId = job?.id;
   const status = job?.latest.status;
+  // Follows the job the same way screen 07 does (one event stream, not a poll per open tab): a fresh
+  // connection per screen view, not a request every two seconds for as long as the person watches.
   useEffect(() => {
     if (!jobId || status === "done" || status === "failed" || status === "cancelled") return;
+    const onUpdate = (latest: Partial<Job>) => setJob({ id: jobId, latest });
+    if (typeof EventSource !== "undefined") {
+      const events = new EventSource(`${apiOrigin()}/v1/jobs/${jobId}/events`, { withCredentials: true });
+      events.onmessage = (e: MessageEvent<string>) => onUpdate(JSON.parse(e.data) as Partial<Job>);
+      return () => events.close();
+    }
     let live = true;
     const look = () =>
       unwrap(api.GET("/v1/jobs/{job_id}", { params: { path: { job_id: jobId } } })).then(
-        (latest) => live && setJob({ id: jobId, latest }),
+        (latest) => live && onUpdate(latest),
         () => undefined,
       );
     void look();
@@ -134,7 +142,7 @@ export function AddPapers() {
   return (
     <div className="av-page pl-add">
       <header>
-        <h1>{w(first ? "add.title_first" : "add.title")}</h1>
+        {(existing.data || existing.error) && <h1>{w(existing.error ? "add.title_neutral" : first ? "add.title_first" : "add.title")}</h1>}
         <p className="pl-lead">{w(first ? "add.lead_first" : "add.lead")}</p>
       </header>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
