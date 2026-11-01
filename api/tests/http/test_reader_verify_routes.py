@@ -452,7 +452,8 @@ async def pack_world(
     sealed = await CRYPTO.encrypt(aconn, case, b"Alpha", purpose=word_purpose(page, "w1"))
     admin.execute(
         "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
-        " values (%s, (select bundle_id from app.cases where id = %s), 1, 'w1', %s, '{10,10,60,10,60,30,10,30}', 0.99, 'ocr')",
+        " values (%s, (select bundle_id from app.cases where id = %s), 1, 'w1', %s, '{10,10,60,10,60,30,10,30}', 0.99, "
+        "'ocr')",
         (page, case, sealed),
     )
     kind, fields = next((k, f) for k, f in kind_fields(combo).items() if f)
@@ -531,7 +532,8 @@ async def test_a_wrong_date_or_yes_no_is_refused_under_the_launch_packs(
     sealed = await CRYPTO.encrypt(aconn, case, b"Alpha", purpose=word_purpose(page, "w1"))
     admin.execute(
         "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
-        " values (%s, (select bundle_id from app.cases where id = %s), 1, 'w1', %s, '{10,10,60,10,60,30,10,30}', 0.99, 'ocr')",
+        " values (%s, (select bundle_id from app.cases where id = %s), 1, 'w1', %s, '{10,10,60,10,60,30,10,30}', 0.99, "
+        "'ocr')",
         (page, case, sealed),
     )
     fact_id = insert_fact(admin, case, page, kind, value="Alpha", word_ids=["w1"], status="suggested")

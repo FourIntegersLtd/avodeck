@@ -1,13 +1,15 @@
-export function PrivacyContent() {
+import type { LegalVocabulary } from "./useLegalVocabulary";
+
+export function PrivacyContent({ vocabulary = {} }: { vocabulary?: LegalVocabulary }) {
   return (
     <>
       <p><em>Effective date: 18 October 2026</em></p>
       <p>Avodeck helps expert witnesses review medical records. This policy explains what personal data we hold, why, where it is kept, and the choices you have.</p>
 
       <h2>1. Who we are</h2>
-      <p>Avodeck is made by Four Integers Ltd, a company registered in England and Wales. Dr Aishat Abubakar is the director.</p>
+      <p>Avodeck is made by Four Integers Ltd, a company registered in {vocabulary.company_registration_place}. Dr Aishat Abubakar is the director.</p>
       <ul>
-        <li><strong>Address:</strong> 82a James Carter Road, Mildenhall, IP28 7DE, England, UK</li>
+        <li><strong>Address:</strong> {vocabulary.company_registered_office}</li>
         <li><strong>Email:</strong> hello@avodeck.com</li>
         <li><strong>Data protection contact:</strong> Dr Aishat Abubakar (hello@avodeck.com)</li>
       </ul>
@@ -110,7 +112,7 @@ export function PrivacyContent() {
       <p>We may update this policy from time to time. If we make an important change, we will tell you by email or in Avodeck before it takes effect.</p>
 
       <h2>14. Contact us</h2>
-      <p>For any question about privacy, email hello@avodeck.com or write to Four Integers Ltd, 82a James Carter Road, Mildenhall, IP28 7DE, England, UK.</p>
+      <p>For any question about privacy, email hello@avodeck.com or write to Four Integers Ltd, {vocabulary.company_registered_office}.</p>
     </>
   );
 }

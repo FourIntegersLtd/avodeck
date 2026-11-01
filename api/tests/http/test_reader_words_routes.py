@@ -99,7 +99,8 @@ async def test_a_typed_out_word_has_no_box(
     sealed = await CRYPTO.encrypt(aconn, world["case"], b"Typed", purpose=word_purpose(page_id, "t1"))
     admin.execute(
         "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
-        " values (%s, (select bundle_id from app.cases where id = %s), 9000, 't1', %s, '{0,0,0,0,0,0,0,0}', 1, 'expert')",
+        " values (%s, (select bundle_id from app.cases where id = %s), 9000, 't1', %s, '{0,0,0,0,0,0,0,0}', 1, "
+        "'expert')",
         (page_id, world["case"], sealed),
     )
     client = await client_for(world["expert"])

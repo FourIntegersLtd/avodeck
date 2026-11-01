@@ -100,7 +100,8 @@ def arrange(h: Harness) -> None:
 async def test_pages_are_grouped_by_source_then_date_and_keep_their_numbers(h: Harness) -> None:
     arrange(h)
     before = h.admin.execute(
-        "select id, bundle_page_no from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) order by 1",
+        "select id, bundle_page_no from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) "
+        "order by 1",
         (h.case_id,),
     ).fetchall()
     got = await h.client.get(f"/v1/cases/{h.case_id}/bundle/sorted")
@@ -115,7 +116,8 @@ async def test_pages_are_grouped_by_source_then_date_and_keep_their_numbers(h: H
         (4, None, None),
     ]
     after = h.admin.execute(
-        "select id, bundle_page_no from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) order by 1",
+        "select id, bundle_page_no from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) "
+        "order by 1",
         (h.case_id,),
     ).fetchall()
     assert after == before, "sorting changed a page number"

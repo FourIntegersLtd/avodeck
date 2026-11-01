@@ -126,7 +126,7 @@ async def complete_and_finalize(client: httpx.AsyncClient, upload: str, digest: 
     assert done.status_code == 202, done.text
     app = client._transport.app  # type: ignore[attr-defined]  # the test app behind httpx's ASGI transport
     dsns = _dsns()
-    with psycopg.connect(dsns["TEST_DATABASE_ADMIN_URL"], autocommit=True, connect_timeout=5) as admin:
+    with psycopg.connect(dsns["TEST_DATABASE_ADMIN_URL"], autocommit=True, connect_timeout=20) as admin:
         await run_finalize(
             dsns["TEST_DATABASE_URL_DIRECT"], admin, upload, app.state.storage, app.state.crypto, finish=True
         )
