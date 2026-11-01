@@ -4092,6 +4092,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/legal-agreements/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Legal
+         * @description Record acceptance of every document whose current version the person has not yet accepted.
+         */
+        post: operations["accept_legal_v1_legal_agreements_accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/legal-agreements/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Legal Status
+         * @description Which legal documents the signed-in person has accepted and which still need acceptance.
+         */
+        get: operations["legal_status_v1_legal_agreements_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -5175,6 +5215,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AcceptResult */
+        AcceptResult: {
+            /** Recorded */
+            recorded: number;
+        };
         /** AccountClosed */
         AccountClosed: {
             /**
@@ -6967,6 +7012,15 @@ export interface components {
             /** Unreadable Reason */
             unreadable_reason?: string;
         };
+        /** DocumentStatus */
+        DocumentStatus: {
+            /** Accepted Version */
+            accepted_version: string | null;
+            /** Current Version */
+            current_version: string;
+            /** Document */
+            document: string;
+        };
         /** Download */
         Download: {
             /**
@@ -8239,6 +8293,13 @@ export interface components {
         LatestOut: {
             pack: components["schemas"]["PackOut"] | null;
             settings: components["schemas"]["TrialPackSettingsOut"];
+        };
+        /** LegalStatus */
+        LegalStatus: {
+            /** Accepted */
+            accepted: boolean;
+            /** Documents */
+            documents: components["schemas"]["DocumentStatus"][];
         };
         /**
          * LetterItem
@@ -24412,6 +24473,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    accept_legal_v1_legal_agreements_accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptResult"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    legal_status_v1_legal_agreements_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalStatus"];
                 };
             };
             /** @description Error: the `code` says which (architecture 5.1) */

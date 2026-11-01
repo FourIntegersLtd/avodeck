@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiOrigin } from "../../../foundation/platform-client";
-import { Button, Checkbox } from "../../../foundation/ui";
+import { t } from "../../../foundation/i18n";
+import { errorMessage } from "../../../foundation/lib/errors";
+import { api, unwrap } from "../../../foundation/platform-client";
+import { Button, Checkbox, Logo, Notice } from "../../../foundation/ui";
 import { DpaContent } from "./DpaContent";
 import { PrivacyContent } from "./PrivacyContent";
 import { TermsContent } from "./TermsContent";
@@ -19,9 +21,9 @@ export interface LegalStatusResponse {
 }
 
 const PANELS = [
-  { key: "terms", title: "Terms of service", summary: "The agreement between you and Four Integers Ltd when you use Avodeck", content: TermsContent },
-  { key: "privacy", title: "Privacy policy", summary: "What personal data we hold, why, and the choices you have", content: PrivacyContent },
-  { key: "dpa", title: "Data processing agreement", summary: "How we handle the medical records you upload, under Article 28 UK GDPR", content: DpaContent },
+  { key: "terms", title: "account.legal.panels.terms.title", summary: "account.legal.panels.terms.summary", content: TermsContent },
+  { key: "privacy", title: "account.legal.panels.privacy.title", summary: "account.legal.panels.privacy.summary", content: PrivacyContent },
+  { key: "dpa", title: "account.legal.panels.dpa.title", summary: "account.legal.panels.dpa.summary", content: DpaContent },
 ] as const;
 
 function Chevron() {
@@ -32,72 +34,80 @@ function Chevron() {
   );
 }
 
+/** "Before you start" (S28 gate): the signed-in person must agree to the terms, privacy policy and
+ * data processing agreement before anything else (RequireSession shows this in place of the app
+ * until `GET /v1/legal-agreements/status` says `accepted`). A light brand header (just the mark, no
+ * nav: nothing here makes sense to click before the person has agreed) sits above the panels. */
 export function LegalGate({ from, onDone }: { from?: string; onDone?: () => void }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [agreed, setAgreed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function toggle(key: string) {
     setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
   async function accept() {
-    const m = document.cookie.match(/(?:^|;\s*)av_csrf=([^;]+)/);
-    const res = await fetch(`${apiOrigin()}/v1/legal-agreements/accept`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json", "X-CSRF-Token": m?.[1] ?? "" },
-    });
-    if (!res.ok) throw new Error(`Failed: ${res.status}`);
-    if (onDone) onDone();
-    else navigate(from || "/today", { replace: true });
+    setError(null);
+    try {
+      await unwrap(api.POST("/v1/legal-agreements/accept"));
+      if (onDone) onDone();
+      else navigate(from || "/today", { replace: true });
+    } catch (err) {
+      setError(errorMessage(err));
+    }
   }
 
   return (
-    <div className="av-legal-gate">
-      <h1>Before you start</h1>
-      <p>
-        Please read and agree to our terms, privacy policy and data processing
-        agreement. You can open each one below.
-      </p>
-
-      <div className="av-legal-panels">
-        {PANELS.map(({ key, title, summary, content: Content }) => (
-          <div key={key} className="av-legal-panel" data-open={open[key] ? "true" : "false"}>
-            <button
-              type="button"
-              className="av-legal-panel__header"
-              aria-expanded={open[key] ? "true" : "false"}
-              aria-controls={`legal-${key}`}
-              onClick={() => toggle(key)}
-            >
-              <div className="av-legal-panel__title">
-                <strong>{title}</strong>
-                <span>{summary}</span>
-              </div>
-              <Chevron />
-            </button>
-            {open[key] && (
-              <div id={`legal-${key}`} className="av-legal-panel__body" role="region" aria-label={title}>
-                <Content />
-              </div>
-            )}
-          </div>
-        ))}
+    <div className="av-legal-page">
+      <div className="av-legal-page__brand">
+        <Logo />
       </div>
+      <div className="av-legal-gate">
+        <h1>{t("account.legal.title")}</h1>
+        <p>{t("account.legal.intro")}</p>
 
-      <div className="av-legal-agree">
-        <Checkbox
-          label="I have read and agree to the Terms of service, Privacy policy and Data processing agreement"
-          checked={agreed}
-          onChange={(e) => setAgreed(e.target.checked)}
-        />
-      </div>
+        {error && (
+          <Notice tone="error">
+            <p>{error}</p>
+          </Notice>
+        )}
 
-      <div className="av-legal-actions">
-        <Button disabled={!agreed} onClick={accept} arrow>
-          Continue
-        </Button>
+        <div className="av-legal-panels">
+          {PANELS.map(({ key, title, summary, content: Content }) => (
+            <div key={key} className="av-legal-panel" data-open={open[key] ? "true" : "false"}>
+              <button
+                type="button"
+                className="av-legal-panel__header"
+                aria-expanded={open[key] ? "true" : "false"}
+                aria-controls={`legal-${key}`}
+                onClick={() => toggle(key)}
+              >
+                <div className="av-legal-panel__title">
+                  <strong>{t(title)}</strong>
+                  <span>{t(summary)}</span>
+                </div>
+                <Chevron />
+              </button>
+              {open[key] && (
+                <div id={`legal-${key}`} className="av-legal-panel__body" role="region" aria-label={t(title)}>
+                  <Content />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="av-legal-agree">
+          <Checkbox label={t("account.legal.agree")} checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+        </div>
+
+        <div className="av-legal-actions">
+          <Button disabled={!agreed} onClick={accept} arrow>
+            {t("account.legal.continue")}
+          </Button>
+        </div>
       </div>
     </div>
   );
