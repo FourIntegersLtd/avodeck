@@ -14,7 +14,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 from collections import Counter
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -505,7 +505,7 @@ async def test_a_full_batch_is_not_asked_again_for_an_empty_page(
     pages = [embedded_words(p).words for p in split_pages(document)]
     assert all(len(ws) >= 40 for ws in pages)
 
-    def covering(words: list[Any]) -> dict[str, Any]:
+    def covering(words: Sequence[Any]) -> dict[str, Any]:
         return {
             "source_type": source,
             "printed_dates": [],
