@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { LegalGate, type LegalStatusResponse } from "../capabilities/account/legal/LegalGate";
 import { t } from "../foundation/i18n";
+import { JobWatchProvider } from "../foundation/lib/jobWatch";
 import { MessagesProvider } from "../foundation/lib/messages";
+import { ToastProvider } from "../foundation/lib/toasts";
 import { claimResourceCache } from "../foundation/lib/resourceCache";
 import { SessionContext } from "../foundation/lib/session";
 import { useResource } from "../foundation/lib/useResource";
@@ -74,9 +76,13 @@ export function RequireSession() {
   return (
     <SessionContext.Provider value={{ me: session.data.me, status: session.data.status, isSupport }}>
       <MessagesProvider>
-        <AppShell name={session.data.me.person.full_name || session.data.me.person.email} support={isSupport}>
-          <Outlet />
-        </AppShell>
+        <ToastProvider>
+          <JobWatchProvider>
+            <AppShell name={session.data.me.person.full_name || session.data.me.person.email} support={isSupport}>
+              <Outlet />
+            </AppShell>
+          </JobWatchProvider>
+        </ToastProvider>
       </MessagesProvider>
     </SessionContext.Provider>
   );
