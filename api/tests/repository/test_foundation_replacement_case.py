@@ -99,7 +99,13 @@ async def test_nothing_from_the_bundle_is_copied_and_the_creator_does_not_join(
     api_db: Database, admin: psycopg.Connection, agency: Agency
 ) -> None:
     made = await replace(api_db, agency.owner, agency.served, agency.dr_m)
-    for table in ("documents", "pages", "facts", "case_members"):
+    for table in ("documents", "pages"):
+        count = admin.execute(
+            f"select count(*) from app.{table} where bundle_id = (select bundle_id from app.cases where id = %s)",  # noqa: S608
+            (made.case_id,),
+        ).fetchone()
+        assert count == (0,), table
+    for table in ("facts", "case_members"):
         count = admin.execute(f"select count(*) from app.{table} where case_id = %s", (made.case_id,)).fetchone()  # noqa: S608
         assert count == (0,), table
 

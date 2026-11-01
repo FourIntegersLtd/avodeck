@@ -259,14 +259,14 @@ async def test_quarantine_rows_follow_their_state_machine_under_row_level_securi
         (case_id, doc),
     ).fetchone()[0]  # type: ignore[index]
     insert = (
-        "insert into app.page_quarantines (case_id, page_id, reason, status, suggested_by)"
-        " values (%s, %s, 'not_this_person', %s, %s) returning id"
+        "insert into app.page_quarantines (case_id, bundle_id, page_id, reason, status, suggested_by)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, 'not_this_person', %s, %s) returning id"
     )
     async with api_db.request(scope_for(assistant)) as conn:
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             async with conn.transaction():
-                await conn.execute(insert, (case_id, page, "confirmed", assistant))
-        row = await (await conn.execute(insert, (case_id, page, "suggested", assistant))).fetchone()
+                await conn.execute(insert, (case_id, case_id, page, "confirmed", assistant))
+        row = await (await conn.execute(insert, (case_id, case_id, page, "suggested", assistant))).fetchone()
         assert row is not None
         cur = await conn.execute("update app.page_quarantines set status = 'confirmed' where id = %s", (row[0],))
         assert cur.rowcount == 0, "an assistant confirmed a quarantine"
@@ -274,7 +274,7 @@ async def test_quarantine_rows_follow_their_state_machine_under_row_level_securi
         async with api_db.request(scope_for(person)) as conn:
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 async with conn.transaction():
-                    await conn.execute(insert, (case_id, page, "suggested", person))
+                    await conn.execute(insert, (case_id, case_id, page, "suggested", person))
     async with api_db.request(scope_for(expert)) as conn:
         await conn.execute("update app.page_quarantines set status = 'confirmed' where id = %s", (row[0],))
         with pytest.raises(psycopg.Error) as refused:
@@ -286,7 +286,7 @@ async def test_quarantine_rows_follow_their_state_machine_under_row_level_securi
                 await conn.execute("delete from app.page_quarantines where id = %s", (row[0],))
         with pytest.raises(psycopg.errors.UniqueViolation):
             async with conn.transaction():
-                await conn.execute(insert, (case_id, page, "suggested", expert))
+                await conn.execute(insert, (case_id, case_id, page, "suggested", expert))
     async with api_db.request(scope_for(viewer)) as conn:
         cur = await conn.execute("select count(*) from app.page_quarantines where case_id = %s", (case_id,))
         assert await cur.fetchone() == (1,)

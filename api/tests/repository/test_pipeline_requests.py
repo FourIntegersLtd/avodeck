@@ -156,9 +156,9 @@ async def test_the_draft_carries_the_packs_notes_for_set_aside_and_foreign_pages
         for n in (1, 3)
     )
     admin.execute(
-        "insert into app.page_quarantines (case_id, page_id, reason, status) values (%s, %s, 'identifiers_differ',"
-        " 'confirmed')",
-        (h.case_id, set_aside),
+        "insert into app.page_quarantines (case_id, bundle_id, page_id, reason, status)"
+        " values (%s, (select bundle_id from app.cases where id = %s), %s, 'identifiers_differ', 'confirmed')",
+        (h.case_id, h.case_id, set_aside),
     )
     admin.execute("update app.pages set quarantined = true where id = %s", (set_aside,))
     admin.execute("update app.pages set language = 'qq' where id = %s", (foreign,))
