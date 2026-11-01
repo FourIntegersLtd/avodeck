@@ -28,17 +28,15 @@ grant select on app.page_turns to app_worker;
 
 create policy page_turns_view on app.page_turns for select to app_api
   using (exists (select 1 from app.pages p
-                 where p.id = page_id and app.can_access_bundle(p.bundle_id, 'case.view_content')));
+                 where p.id = page_id and app.can_access_case(p.case_id, 'case.view_content')));
 create policy page_turns_add on app.page_turns for insert to app_api
   with check (person_id = app.current_person_id()
-    and exists (select 1 from app.pages p where p.id = page_id and app.can_access_bundle(p.bundle_id, 'page.rotate')));
+    and exists (select 1 from app.pages p where p.id = page_id and app.can_access_case(p.case_id, 'page.rotate')));
 create policy page_turns_change on app.page_turns for update to app_api
-  using (exists (select 1 from app.pages p where p.id = page_id and app.can_access_bundle(p.bundle_id, 'page.rotate')))
+  using (exists (select 1 from app.pages p where p.id = page_id and app.can_access_case(p.case_id, 'page.rotate')))
   with check (person_id = app.current_person_id()
-    and exists (select 1 from app.pages p where p.id = page_id and app.can_access_bundle(p.bundle_id, 'page.rotate')));
+    and exists (select 1 from app.pages p where p.id = page_id and app.can_access_case(p.case_id, 'page.rotate')));
 create policy page_turns_job on app.page_turns for select to app_worker
-  using (exists (select 1 from app.pages p
-                 where p.id = page_id
-                   and p.bundle_id = (select c.bundle_id from app.cases c where c.id = app.current_job_case_id())));
+  using (exists (select 1 from app.pages p where p.id = page_id and p.case_id = app.current_job_case_id()));
 
 reset role;

@@ -10,12 +10,15 @@
 --   facts, page_reads, fact_verifications, fact_flags, citations, missing_items, record_gaps,
 --   second_readings, transcript_views, concordance, page_quarantines (case-scoped analysis),
 --   page_replacements (case-scoped request)
+--
+-- `pages.case_id` itself drops later (0222_reader_bundle_pages_case_id.sql): reader's
+-- word_corrections, page_turns and page_notes policies (0209, 0213, 0214) still read it directly
+-- and aren't converted to bundle_id until 0221, which runs after this migration's number.
 
 set role app_migrator;
 
 drop index if exists app.documents_case;
 
-alter table app.pages drop column case_id;
 alter table app.documents drop column case_id;
 
 reset role;
