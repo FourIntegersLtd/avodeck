@@ -1,15 +1,16 @@
 // Add more papers: choose new files, say what they are and how and when they arrived, upload them
 // as one new delivery (POST /documents/append), then follow the processing job. The server numbers
 // the new pages after the existing ones; this screen only sends files and shows progress.
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
+import { useEventStream } from "../../foundation/lib/sse";
 import { uploadInParts } from "../../foundation/lib/upload";
 import { ResumeUpload } from "../../foundation/lib/ResumeUpload";
 import { UploadStatus } from "../../foundation/lib/UploadControls";
 import { useUpload } from "../../foundation/lib/useUpload";
-import { api, unwrap, type Schemas } from "../../foundation/platform-client";
+import { api, apiOrigin, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, ChoicePills, DropZone, LinkButton, Notice, ProgressBar, Spinner, TextField } from "../../foundation/ui";
 import { can, casePath, kindWord } from "./data";
 import { w, wordFor } from "./words";
@@ -37,21 +38,18 @@ export function AddPapers() {
 
   const jobId = job?.id;
   const status = job?.latest.status;
-  useEffect(() => {
-    if (!jobId || status === "done" || status === "failed" || status === "cancelled") return;
-    let live = true;
-    const look = () =>
-      unwrap(api.GET("/v1/jobs/{job_id}", { params: { path: { job_id: jobId } } })).then(
-        (latest) => live && setJob({ id: jobId, latest }),
-        () => undefined,
-      );
-    void look();
-    const timer = window.setInterval(look, POLL_MS);
-    return () => {
-      live = false;
-      window.clearInterval(timer);
-    };
-  }, [jobId, status]);
+  const finished = status === "done" || status === "failed" || status === "cancelled";
+
+  const onUpdate = (latest: Partial<Job>) => {
+    if (jobId) setJob({ id: jobId, latest });
+  };
+
+  const pollFallback = useCallback(
+    (): Promise<Partial<Job>> => unwrap(api.GET("/v1/jobs/{job_id}", { params: { path: { job_id: jobId! } } })),
+    [jobId],
+  );
+
+  useEventStream<Partial<Job>>(jobId && !finished ? `${apiOrigin()}/v1/jobs/${jobId}/events` : null, onUpdate, pollFallback, POLL_MS);
 
   const extra = Object.keys(((pack.vocabulary as Record<string, unknown>).document_kinds as Record<string, string> | undefined) ?? {});
   const kinds = [...BASE_KINDS, ...extra.filter((k) => !BASE_KINDS.includes(k))].map((k) => ({ value: k, label: kindWord(pack, k) }));
