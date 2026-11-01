@@ -83,23 +83,27 @@ describe("without EventSource", () => {
     globalThis.EventSource = real as typeof EventSource;
   });
 
-  test("polls on an interval instead", async () => {
+  test("polls immediately, then on an interval", async () => {
     const onUpdate = vi.fn();
     const pollFallback = vi.fn(() => Promise.resolve({ status: "running" }));
     renderHook(() => useEventStream("/v1/jobs/1/events", onUpdate, pollFallback, 1000));
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(0);
     expect(pollFallback).toHaveBeenCalledTimes(1);
     expect(onUpdate).toHaveBeenCalledWith({ status: "running" });
     await vi.advanceTimersByTimeAsync(1000);
     expect(pollFallback).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(pollFallback).toHaveBeenCalledTimes(3);
   });
 
   test("stops polling on unmount", async () => {
     const pollFallback = vi.fn(() => Promise.resolve({}));
     const { unmount } = renderHook(() => useEventStream("/v1/jobs/1/events", vi.fn(), pollFallback, 1000));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(pollFallback).toHaveBeenCalledTimes(1);
     unmount();
     await vi.advanceTimersByTimeAsync(5000);
-    expect(pollFallback).not.toHaveBeenCalled();
+    expect(pollFallback).toHaveBeenCalledTimes(1);
   });
 
   test("does not poll when the url is null", async () => {

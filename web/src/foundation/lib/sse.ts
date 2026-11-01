@@ -19,6 +19,7 @@ export function useEventStream<T>(
     }
     let live = true;
     const look = () => pollFallback().then((data) => live && onUpdate(data), () => undefined);
+    void look();
     const timer = window.setInterval(look, pollMs);
     return () => {
       live = false;
