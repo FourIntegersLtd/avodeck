@@ -71,6 +71,23 @@ describe.each([
     expect(screen.queryByRole("heading", { name: "Add more papers" })).toBeNull();
   });
 
+  test("shows no heading until the summary has answered, and the neutral one if it fails", async () => {
+    mock(pack);
+    server.use(http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => json({ code: "internal", message: "no" }, 500)));
+    renderAt(PATH);
+    expect(await screen.findByRole("heading", { name: "Add papers" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Add more papers" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Add the patient's records" })).toBeNull();
+  });
+
+  test("while the summary is loading there is no heading that could be wrong", async () => {
+    mock(pack);
+    server.use(http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => new Promise<Response>(() => undefined)));
+    renderAt(PATH);
+    expect(await screen.findByRole("radiogroup", { name: "What are they?" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+  });
+
   test("uploads every file as later records of the chosen kind, records how and when they arrived, then follows the job", async () => {
     const seen = mock(pack, { jobs: [{ status: "running", step: "ocr", pct: 40 }, { status: "done", step: "missing", pct: 100 }] });
     const { user } = renderAt(PATH);
