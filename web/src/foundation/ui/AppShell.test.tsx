@@ -1,5 +1,6 @@
 // The signed-in frame (S03 header): the bell with the unread count, the person's initials for their
-// account, and the banner when we couldn't email them (F33).
+// account, the banner when we couldn't email them (F33), and the header nav that collapses into a
+// hamburger + drawer below the mobile breakpoint.
 import { screen, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -79,4 +80,67 @@ test("the logo is a 40px mark with the name drawn as SVG text", async () => {
   const logo = within(header).getByRole("link", { name: "Avodeck home page" });
   expect(logo.querySelector("svg")!.getAttribute("height")).toBe("40");
   expect(logo.querySelector("svg text")).not.toBeNull();
+});
+
+test("the header's nav collapses into a hamburger below 768px, and shows as links above it", () => {
+  const css = readFileSync(join(__dirname, "styles.css"), "utf8");
+  // Base state: the header's own nav is visible, the hamburger is hidden.
+  expect(css.match(/\.av-shell__hamburger\s*\{([^}]*)\}/)?.[1]).toMatch(/display:\s*none/);
+  // Below the breakpoint: the header's nav hides and the hamburger (and its drawer) take over.
+  const narrow = css.match(/@media \(max-width:\s*768px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+  expect(narrow).toMatch(/\.av-shell__header \.av-shell__nav\s*\{\s*display:\s*none/);
+  expect(narrow).toMatch(/\.av-shell__hamburger\s*\{\s*display:\s*inline-flex/);
+});
+
+test("the hamburger and the drawer's close button meet the 52px tap target", () => {
+  const css = readFileSync(join(__dirname, "styles.css"), "utf8");
+  expect(css.match(/\.av-shell__hamburger\s*\{([^}]*)\}/)?.[1]).toMatch(/min-height:\s*var\(--button-min-height\)/);
+  expect(css.match(/\.av-shell__drawer-close\s*\{([^}]*)\}/)?.[1]).toMatch(/min-height:\s*var\(--button-min-height\)/);
+});
+
+test("the hamburger opens the drawer with the same places as the header nav, and closes on Escape", async () => {
+  registerScreen("cases", () => "/today#your-cases");
+  signedIn();
+  const { user } = renderAt("/today");
+  const hamburger = await screen.findByRole("button", { name: "Open menu" });
+  expect(hamburger).toHaveAttribute("aria-expanded", "false");
+  await user.click(hamburger);
+  const dialog = await screen.findByRole("dialog", { name: "Menu" });
+  expect(hamburger).toHaveAttribute("aria-expanded", "true");
+  expect(await within(dialog).findByRole("link", { name: "Today" })).toHaveAttribute("aria-current", "page");
+  expect(within(dialog).getByRole("link", { name: "Cases" })).toHaveAttribute("href", "/today#your-cases");
+  // Focus moved into the drawer.
+  expect(dialog.contains(document.activeElement)).toBe(true);
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog", { name: "Menu" })).toBeNull();
+  // Focus came back to the hamburger.
+  expect(document.activeElement).toBe(hamburger);
+  expect(hamburger).toHaveAttribute("aria-expanded", "false");
+});
+
+test("clicking the drawer's backdrop or its close button closes it, without going anywhere", async () => {
+  signedIn();
+  const { user } = renderAt("/today");
+  const hamburger = await screen.findByRole("button", { name: "Open menu" });
+  await user.click(hamburger);
+  const dialog = await screen.findByRole("dialog", { name: "Menu" });
+  await user.click(within(dialog).getByRole("button", { name: "Close menu" }));
+  expect(screen.queryByRole("dialog", { name: "Menu" })).toBeNull();
+  await user.click(hamburger);
+  await screen.findByRole("dialog", { name: "Menu" });
+  const scrim = document.querySelector(".av-shell__drawer-scrim")!;
+  await user.click(scrim);
+  expect(screen.queryByRole("dialog", { name: "Menu" })).toBeNull();
+  // Still on /today: the page heading is there, closing the drawer didn't navigate away.
+  expect(await screen.findByRole("heading", { level: 1 })).toBeInTheDocument();
+});
+
+test("following a place in the drawer closes it", async () => {
+  signedIn();
+  const { user } = renderAt("/today");
+  const hamburger = await screen.findByRole("button", { name: "Open menu" });
+  await user.click(hamburger);
+  const dialog = await screen.findByRole("dialog", { name: "Menu" });
+  await user.click(within(dialog).getByRole("link", { name: "Today" }));
+  expect(screen.queryByRole("dialog", { name: "Menu" })).toBeNull();
 });

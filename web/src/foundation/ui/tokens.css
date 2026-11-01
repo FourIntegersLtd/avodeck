@@ -80,6 +80,10 @@
 }
 @media (max-width: 1024px) { :root { --gutter: 24px; --page-top: 32px; --page-bottom: 48px; } }
 @media (max-width: 700px) { :root { --gutter: 16px; --page-top: 24px; --page-bottom: 40px; } }
+/* The signed-in header's mobile breakpoint (nav links vs. hamburger + drawer): 768px.
+   A custom property can't appear inside an @media condition, so this number is repeated
+   literally in styles.css (`.av-shell__nav`/`.av-shell__hamburger`/`.av-shell__drawer-backdrop`);
+   keep both in sync if it ever changes. */
 
 /* Dark theme: every colour token again. Follows the device unless the person chose light. */
 @media (prefers-color-scheme: dark) {
