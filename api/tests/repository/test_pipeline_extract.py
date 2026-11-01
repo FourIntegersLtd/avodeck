@@ -14,7 +14,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 from collections import Counter
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +22,7 @@ import psycopg
 import pytest
 
 from app.core.ai import provenance
-from app.core.ai.answers import page_subject
+from app.core.ai.answers import AnswerBook, page_subject
 from app.core.ai.cell import model_for
 from app.core.ai.recordings import FixtureStore
 from app.core.db import Database
@@ -176,10 +176,21 @@ async def test_each_page_is_asked_once_and_a_wrong_value_once_more(subset: Harne
     pages = by_number(subset)
     asked = Counter(r.subject for r in t07b_requests(subset))
     wanted: Counter[str] = Counter()  # copies are set aside after extraction: every page is asked
+    # Each page's subject is computed once (decrypting its words is the costly part) and reused for
+    # both the expected count and the lookup below, rather than decrypting the same page twice.
+    subjects: dict[int, str] = {}
     for n, page in pages.items():
-        wanted[subject_of(await page_words(subset, page["id"]))] += 2 if n in (RETRIED, WRONG_TWICE) else 1
-    for n, page in pages.items():
-        subject = subject_of(await page_words(subset, page["id"]))
+        subjects[n] = subject_of(await page_words(subset, page["id"]))
+        # RETRIED/WRONG_TWICE are asked a second time because their first value fails the words
+        # check. Separately, a page coverage.py still flags as `no_facts`/`low_coverage` after that
+        # (RETRIED's own fixture answer is deliberately narrow, planted item 15) is asked once more
+        # again, on its own (service.py's `_extract`'s empty-page re-ask): with only one recorded
+        # answer for that call, the extra ask repeats the same answer and never clears the flag.
+        base = 2 if n in (RETRIED, WRONG_TWICE) else 1
+        extra = 1 if analysis(subset, page["id"])["reason"] in ("no_facts", "low_coverage") else 0
+        wanted[subjects[n]] += base + extra
+    for n, _page in pages.items():
+        subject = subjects[n]
         assert asked[subject] == wanted[subject], f"page {n} was asked {asked[subject]} times"
     assert sum(asked.values()) == sum(wanted.values())
 
@@ -404,3 +415,153 @@ async def test_instructions_printed_on_a_page_cannot_add_fields_or_values(
             assert stored == [], "an answer with a field outside the schema was kept"
         else:
             assert [(f["kind"], f["word_ids"]) for f in stored] == [(kind, [words[0].id])]
+
+
+def _wordy_lines(count: int) -> list[str]:
+    """`count` lines of plain words, enough to pass `coverage.MIN_WORDS` on their own."""
+    return [f"Line {i} has several clinical words written here today" for i in range(count)]
+
+
+async def test_an_empty_page_is_asked_once_more_on_its_own(
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> None:
+    """A page with enough words but no kept facts (coverage.py's `no_facts`) is asked once more on
+    its own; a second answer that covers more of the page replaces the first."""
+    pack = default_library().combine(*LAUNCH.codes)
+    source = pack.source_types()[-1]["key"]
+    kind = pack.fact_kinds()[-1]["key"]
+    document = text_pdf([_wordy_lines(8)])
+    words = embedded_words(split_pages(document)[0]).words
+    assert len(words) >= 40, "fixture page needs enough words to be judged"
+    empty = response(
+        {
+            "source_type": source,
+            "printed_dates": [],
+            "facts": [],
+            "references_out": [],
+            "availability_evidence": [],
+            "actions_requested_of_clinician": [],
+            "entries": [],
+        }
+    )
+    found = response(
+        {
+            "source_type": source,
+            "printed_dates": [],
+            "facts": [
+                {
+                    "kind": kind,
+                    "clinician_role": None,
+                    "fields": {},
+                    "value": " ".join(w.text for w in words),
+                    "word_ids": [w.id for w in words],
+                }
+            ],
+            "references_out": [],
+            "availability_evidence": [],
+            "actions_requested_of_clinician": [],
+            "entries": [],
+        }
+    )
+    opened = await _open(
+        LAUNCH,
+        FixtureStore(tmp_path / "nothing-recorded"),
+        ScriptedBedrock([empty, found]),
+        admin=admin,
+        api_db=api_db,
+        worker_dsn=worker_dsn,
+        auth_env=auth_env,
+        seed=seed,
+        storage=storage,
+    )
+    async with opened as h:
+        await h.upload(document)
+        finished = await h.drain()
+        assert set(finished.values()) == {"done"}
+        sent = t07b_requests(h)
+        assert len(sent) == 2, "an empty page should be asked exactly once more"
+        (page,) = h.pages()
+        stored = facts_of(h)
+        assert [(f["kind"], f["word_ids"]) for f in stored] == [(kind, [w.id for w in words])]
+        assert analysis(h, page["id"])["needs_human"] is False
+
+
+async def test_a_full_batch_is_not_asked_again_for_an_empty_page(
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> None:
+    """Re-asking an empty page costs one extra call, not a whole extra pass over every page."""
+    pack = default_library().combine(*LAUNCH.codes)
+    source = pack.source_types()[-1]["key"]
+    kind = pack.fact_kinds()[-1]["key"]
+    document = text_pdf([_wordy_lines(8), _wordy_lines(8)])
+    pages = [embedded_words(p).words for p in split_pages(document)]
+    assert all(len(ws) >= 40 for ws in pages)
+
+    def covering(words: Sequence[Any]) -> dict[str, Any]:
+        return {
+            "source_type": source,
+            "printed_dates": [],
+            "facts": [
+                {
+                    "kind": kind,
+                    "clinician_role": None,
+                    "fields": {},
+                    "value": " ".join(w.text for w in words),
+                    "word_ids": [w.id for w in words],
+                }
+            ],
+            "references_out": [],
+            "availability_evidence": [],
+            "actions_requested_of_clinician": [],
+            "entries": [],
+        }
+
+    def empty() -> dict[str, Any]:
+        return {
+            "source_type": source,
+            "printed_dates": [],
+            "facts": [],
+            "references_out": [],
+            "availability_evidence": [],
+            "actions_requested_of_clinician": [],
+            "entries": [],
+        }
+
+    book = AnswerBook(cell(), FixtureStore(tmp_path / "book"))
+    book.record("T-07b", page_subject((w.id, w.text) for w in pages[0]), [response(covering(pages[0]))])
+    book.record(
+        "T-07b",
+        page_subject((w.id, w.text) for w in pages[1]),
+        [response(empty()), response(covering(pages[1]))],
+    )
+    opened = await _open(
+        LAUNCH,
+        FixtureStore(tmp_path / "nothing-recorded"),
+        book,
+        admin=admin,
+        api_db=api_db,
+        worker_dsn=worker_dsn,
+        auth_env=auth_env,
+        seed=seed,
+        storage=storage,
+    )
+    async with opened as h:
+        await h.upload(document)
+        finished = await h.drain()
+        assert set(finished.values()) == {"done"}
+        rows = h.admin.execute(
+            "select id from app.ai_calls where case_id = %s and task_id = 'T-07b'", (h.case_id,)
+        ).fetchall()
+        assert len(rows) == 3, "only the empty page should be asked once more, not every page again"

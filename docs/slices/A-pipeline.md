@@ -31,7 +31,7 @@ split (pikepdf) → render 150–200 dpi (pypdfium2) → hashes → text-layer c
 | Task | Model | Output | Check |
 |---|---|---|---|
 | T-07a | Azure DI `prebuilt-layout` | words, polygons, confidence, handwriting | low confidence → screen 10 queue |
-| T-07b | Claude Sonnet 5 (in-region) | `source_type`, `printed_dates[]`, `facts[]`, `references_out[]`, `availability_evidence[]`, `actions_requested_of_clinician[]`, all with `word_ids` | value-in-span; one retry then `needs_human` |
+| T-07b | Claude Sonnet 5 (in-region) | `source_type`, `printed_dates[]`, `facts[]`, `references_out[]`, `availability_evidence[]`, `actions_requested_of_clinician[]`, all with `word_ids` | value-in-span; one retry then `needs_human`; a page with enough words but little or nothing kept (`no_facts`/`low_coverage`) is asked once more on its own, keeping the second answer only if it keeps strictly more |
 | T-07c | Sonnet 5 (candidate pages chosen by code, nearest by date then page number, until bge-small is in the cell) | `{reference_id, matched_page or null, confidence}` | unmatched, or a page the case lacks → missing list; expert confirms |
 
 ## Contracts
@@ -44,6 +44,7 @@ Using `evals/gb-eaw/clin-neg-breach/general-practice/bundles/synthetic-mrs-a/` (
 - [x] Each page's `source_type` matches `evals/gb-eaw/clin-neg-breach/general-practice/expected/sources.json` (≥ 98% on the synthetic bundle)
 - [x] Extracted facts match `evals/gb-eaw/clin-neg-breach/general-practice/expected/facts.json`: precision ≥ 0.95, every fact has `word_ids` and a `bbox` inside the page
 - [x] A recorded response containing a value not in its cited words is rejected and retried once, then marked `needs_human`
+- [x] A page with enough words but no kept facts, or too little coverage, is asked once more on its own; the second answer replaces the first only when it keeps strictly more facts
 - [x] No identifier from the case name list, and no identifier matched by the pack's recognisers (NHS number and postcode under gb-eaw), appears in any recorded Claude request
 - [x] Under `gb-eaw` (DMY), dates printed as `03/04/2024` are read as 3 April 2024; under the `zz-test` fixture pack (MDY) the same text is read as 4 March
 - [x] The 82 planted duplicates are set aside (not deleted), still numbered, and listed for review; no false duplicates among pages with different dates or values
