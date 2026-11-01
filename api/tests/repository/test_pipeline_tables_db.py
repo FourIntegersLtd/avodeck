@@ -73,8 +73,7 @@ async def test_document_scans_are_seen_with_case_access_or_in_the_cases_own_job(
                 )
     async with worker_db.job(theirs) as conn:
         cur = await conn.execute(
-            "select count(*) from app.document_scans"
-            " where bundle_id = (select bundle_id from app.cases where id = %s)",
+            "select count(*) from app.document_scans where bundle_id = (select bundle_id from app.cases where id = %s)",
             (mine,),
         )
         assert await cur.fetchone() == (0,)
@@ -87,8 +86,7 @@ async def test_document_scans_are_seen_with_case_access_or_in_the_cases_own_job(
         assert await cur.fetchall() == [(doc,)]
     async with api_db.request(scope_for(stranger)) as conn:
         cur = await conn.execute(
-            "select count(*) from app.document_scans"
-            " where bundle_id = (select bundle_id from app.cases where id = %s)",
+            "select count(*) from app.document_scans where bundle_id = (select bundle_id from app.cases where id = %s)",
             (mine,),
         )
         assert await cur.fetchone() == (0,)

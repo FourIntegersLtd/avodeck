@@ -75,7 +75,10 @@ async def test_each_line_has_the_colour_of_its_main_source(client_for: ClientFor
     lanes = _plain_lanes(case.pack)
     case.fact(lanes[0]["kinds"][0], date(2024, 1, 10))
     source = case.pack.source_types()[0]
-    case.admin.execute("update app.pages set source_type = %s where bundle_id = (select bundle_id from app.cases where id = %s)", (source["key"], case.id))
+    case.admin.execute(
+        "update app.pages set source_type = %s where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (source["key"], case.id),
+    )
     body = (await (await client_for(case.expert)).get(f"/v1/cases/{case.id}/timeline")).json()
     colours = {lane["key"]: lane["colour"] for lane in body["lanes"]}
     assert colours[lanes[0]["key"]] == source["colour"]

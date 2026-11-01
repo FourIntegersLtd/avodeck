@@ -475,7 +475,8 @@ async def set_flag(
 
 async def page_id_by_no(conn: AsyncConnection, case_id: uuid.UUID, page_no: int) -> uuid.UUID | None:
     cur = await conn.execute(
-        "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and bundle_page_no = %s and not quarantined", (case_id, page_no)
+        "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and bundle_page_no = %s and not quarantined",
+        (case_id, page_no),
     )
     row = await cur.fetchone()
     return row[0] if row else None

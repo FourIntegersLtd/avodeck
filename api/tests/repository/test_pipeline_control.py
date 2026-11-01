@@ -112,7 +112,8 @@ def extracted(h: Harness) -> set[uuid.UUID]:
     return {
         r[0]
         for r in h.admin.execute(
-            "select page_id from app.page_analysis where bundle_id = (select bundle_id from app.cases where id = %s) and extracted_at is not null", (h.case_id,)
+            "select page_id from app.page_analysis where bundle_id = (select bundle_id from app.cases where id = %s) and extracted_at is not null",
+            (h.case_id,),
         )
     }
 

@@ -485,7 +485,10 @@ async def test_passed_checks_say_how_much_they_looked_at_and_pack_checks_explain
     assert (by_key["quotes_verbatim"]["checked"], by_key["quotes_verbatim"]["unit"]) == (cited[0], "quote")
     unchanged = by_key["facts_unchanged_since_cited"]
     assert (unchanged["checked"], unchanged["total"], unchanged["unit"]) == (cited[0], cited[0], "fact")
-    pages = admin.execute("select count(*) from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)", (world.case,)).fetchone()
+    pages = admin.execute(
+        "select count(*) from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (world.case,),
+    ).fetchone()
     assert pages is not None
     read = by_key["all_pages_read"]
     assert (read["checked"], read["total"], read["unit"]) == (pages[0], pages[0], "page")

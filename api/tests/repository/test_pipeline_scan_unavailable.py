@@ -65,7 +65,10 @@ async def h(
 
 
 def _scans(h: Harness) -> list[tuple[bool]]:
-    return h.admin.execute("select clean from app.document_scans where bundle_id = (select bundle_id from app.cases where id = %s)", (h.case_id,)).fetchall()
+    return h.admin.execute(
+        "select clean from app.document_scans where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (h.case_id,),
+    ).fetchall()
 
 
 async def test_an_unreachable_scanner_never_accepts_the_document(h: Harness) -> None:

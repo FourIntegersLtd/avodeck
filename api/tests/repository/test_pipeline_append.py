@@ -86,7 +86,10 @@ async def h(
 
 def versions(h: Harness) -> dict[uuid.UUID, int]:
     return dict(
-        h.admin.execute("select id, bundle_version from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)", (h.case_id,)).fetchall()
+        h.admin.execute(
+            "select id, bundle_version from app.documents where bundle_id = (select bundle_id from app.cases where id = %s)",
+            (h.case_id,),
+        ).fetchall()
     )
 
 

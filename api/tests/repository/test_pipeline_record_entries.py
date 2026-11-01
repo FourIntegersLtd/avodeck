@@ -121,10 +121,16 @@ def test_people_without_access_see_no_entries(api_dsn: str, admin: psycopg.Conne
     for person, seen in ((expert, 1), (stranger, 0)):
         with psycopg.connect(api_dsn) as conn:
             conn.execute("select set_config('app.person_id', %s, false)", (str(person),))
-            row = conn.execute("select count(*) from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)", (case,)).fetchone()
+            row = conn.execute(
+                "select count(*) from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)",
+                (case,),
+            ).fetchone()
             assert row == (seen,)
             with pytest.raises(psycopg.Error):
-                conn.execute("delete from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)", (case,))
+                conn.execute(
+                    "delete from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)",
+                    (case,),
+                )
 
 
 async def test_entries_come_back_in_date_order_with_undated_last_and_no_text(
@@ -198,7 +204,10 @@ def test_deleting_the_case_leaves_no_entries(admin: psycopg.Connection, worker_d
     with psycopg.connect(worker_dsn) as conn:
         conn.execute("select set_config('app.job_case_id', %s, false)", (str(case),))
         conn.execute("select app.purge_case(%s)", (case,))
-    assert admin.execute("select count(*) from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)", (case,)).fetchone() == (0,)
+    assert admin.execute(
+        "select count(*) from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (case,),
+    ).fetchone() == (0,)
 
 
 # Extraction ------------------------------------------------------------------------------------
@@ -319,7 +328,10 @@ async def test_the_entries_job_reads_entries_only_for_a_case_with_none_and_only_
         monkeypatch.setattr(record_entries, "registry", h.registry)  # the harness runs its own queue
         facts_before = admin.execute("select count(*) from app.facts where case_id = %s", (h.case_id,)).fetchone()
         # A case extracted before entries existed: no entries, nothing marked.
-        admin.execute("delete from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)", (h.case_id,))
+        admin.execute(
+            "delete from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)",
+            (h.case_id,),
+        )
         admin.execute(
             "update app.page_analysis set entries_extracted_at = null"
             " where bundle_id = (select bundle_id from app.cases where id = %s)",
@@ -330,7 +342,10 @@ async def test_the_entries_job_reads_entries_only_for_a_case_with_none_and_only_
             await record_entries.request_entries(conn, h.case_id)
             assert await record_entries.entries_status(conn, h.case_id) == "preparing"
         assert set((await h.drain()).values()) == {"done"}
-        count = admin.execute("select count(*) from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)", (h.case_id,)).fetchone()
+        count = admin.execute(
+            "select count(*) from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)",
+            (h.case_id,),
+        ).fetchone()
         assert count == (2,)
         assert (
             admin.execute("select count(*) from app.facts where case_id = %s", (h.case_id,)).fetchone() == facts_before
@@ -342,9 +357,10 @@ async def test_the_entries_job_reads_entries_only_for_a_case_with_none_and_only_
         await h.enqueue("extract_entries")
         await h.drain()
         assert len(bedrock.requests) == asked, "a case that has its entries is not asked again"
-        assert admin.execute("select count(*) from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)", (h.case_id,)).fetchone() == (
-            2,
-        )
+        assert admin.execute(
+            "select count(*) from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)",
+            (h.case_id,),
+        ).fetchone() == (2,)
 
 
 def test_the_entries_job_needs_the_read_action(admin: psycopg.Connection) -> None:
@@ -433,9 +449,10 @@ async def test_a_failed_answer_leaves_the_page_unread_and_for_a_person(
             (page["id"],),
         ).fetchone()
         assert row == (True, True, "invalid_output")
-        assert admin.execute("select count(*) from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)", (h.case_id,)).fetchone() == (
-            0,
-        )
+        assert admin.execute(
+            "select count(*) from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s)",
+            (h.case_id,),
+        ).fetchone() == (0,)
         async with api_db.request(scope_for(h.expert)) as conn:
             assert await record_entries.entries_unread_pages(conn, h.case_id) == [page["bundle_page_no"]]
             assert await record_entries.entries_ready(conn, h.case_id) is True

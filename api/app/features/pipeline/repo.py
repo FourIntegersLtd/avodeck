@@ -575,8 +575,7 @@ async def leave_entries_for_person(conn: AsyncConnection, page_id: uuid.UUID) ->
 
 async def has_entries(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
     cur = await conn.execute(
-        "select 1 from app.record_entries"
-        " where bundle_id = (select bundle_id from app.cases where id = %s) limit 1",
+        "select 1 from app.record_entries where bundle_id = (select bundle_id from app.cases where id = %s) limit 1",
         (case_id,),
     )
     return await cur.fetchone() is not None
@@ -872,8 +871,7 @@ async def sealed_extraction(conn: AsyncConnection, page_id: uuid.UUID) -> bytes 
 
 async def page_numbers(conn: AsyncConnection, case_id: uuid.UUID) -> set[int]:
     cur = await conn.execute(
-        "select bundle_page_no from app.pages"
-        " where bundle_id = (select bundle_id from app.cases where id = %s)",
+        "select bundle_page_no from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)",
         (case_id,),
     )
     return {int(r[0]) for r in await cur.fetchall()}
@@ -1127,8 +1125,10 @@ _GROUP = " group by d.id, s.media_type, dp.parent_document_id"
 
 async def documents(conn: AsyncConnection, case_id: uuid.UUID) -> list[DocumentRow]:
     cur = await conn.execute(
-        _DOCUMENT + " where d.bundle_id = (select bundle_id from app.cases where id = %s)"
-        + _GROUP + " order by min(p.bundle_page_no) nulls last, d.created_at",
+        _DOCUMENT
+        + " where d.bundle_id = (select bundle_id from app.cases where id = %s)"
+        + _GROUP
+        + " order by min(p.bundle_page_no) nulls last, d.created_at",
         (case_id,),
     )
     return [DocumentRow(*r) for r in await cur.fetchall()]
@@ -1628,8 +1628,7 @@ async def purge_quarantined_page(conn: AsyncConnection, quarantine_id: uuid.UUID
 
 async def document_in_case(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> bool:
     cur = await conn.execute(
-        "select 1 from app.documents where id = %s"
-        " and bundle_id = (select bundle_id from app.cases where id = %s)",
+        "select 1 from app.documents where id = %s and bundle_id = (select bundle_id from app.cases where id = %s)",
         (document_id, case_id),
     )
     return await cur.fetchone() is not None

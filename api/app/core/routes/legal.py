@@ -78,11 +78,7 @@ async def accept_legal(request: Request, session: CurrentSession, conn: DbConn) 
         if doc not in latest:
             latest[doc] = ver
 
-    to_accept = [
-        (doc, ver)
-        for doc, ver in CURRENT_VERSIONS.items()
-        if latest.get(doc) != ver
-    ]
+    to_accept = [(doc, ver) for doc, ver in CURRENT_VERSIONS.items() if latest.get(doc) != ver]
     if not to_accept:
         return AcceptResult(recorded=0)
 

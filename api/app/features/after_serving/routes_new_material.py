@@ -197,8 +197,7 @@ async def register_opposing_report(
     if (
         await fetch_one(
             conn,
-            "select 1 from app.documents where id = %s"
-            " and bundle_id = (select bundle_id from app.cases where id = %s)",
+            "select 1 from app.documents where id = %s and bundle_id = (select bundle_id from app.cases where id = %s)",
             (body.document_id, case_id),
         )
         is None

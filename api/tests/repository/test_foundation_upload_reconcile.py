@@ -62,7 +62,10 @@ def add_upload(
         (uid, case, person[0], "0" * 64),
     )
     if status != "open":
-        doc = admin.execute("select id from app.documents where bundle_id = (select bundle_id from app.cases where id = %s) limit 1", (case,)).fetchone()
+        doc = admin.execute(
+            "select id from app.documents where bundle_id = (select bundle_id from app.cases where id = %s) limit 1",
+            (case,),
+        ).fetchone()
         admin.execute(
             "update app.uploads set status = %s, document_id = %s where id = %s",
             (status, doc[0] if document and doc else None, uid),

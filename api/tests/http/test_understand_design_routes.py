@@ -37,7 +37,10 @@ async def test_the_timeline_lists_the_pack_s_sources_and_the_numbers_for_its_chi
     question = case.question()
     case.link(own, question)
     source = case.pack.source_types()[0]["key"]
-    case.admin.execute("update app.pages set source_type = %s where bundle_id = (select bundle_id from app.cases where id = %s)", (source, case.id))
+    case.admin.execute(
+        "update app.pages set source_type = %s where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (source, case.id),
+    )
     resp = await (await client_for(case.expert)).get(f"/v1/cases/{case.id}/timeline")
     body = resp.json()
     assert [s["key"] for s in body["sources"]] == [s["key"] for s in case.pack.source_types()]

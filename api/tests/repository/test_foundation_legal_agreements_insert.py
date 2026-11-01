@@ -20,9 +20,7 @@ async def test_a_person_can_insert_their_own_acceptance(api_db: Database, seed, 
             "insert into app.legal_agreements (person_id, document, version) values (%s, %s, %s)",
             (me, "terms", "2026-11-01.1"),
         )
-    row = admin.execute(
-        "select person_id, document from app.legal_agreements where person_id = %s", (me,)
-    ).fetchone()
+    row = admin.execute("select person_id, document from app.legal_agreements where person_id = %s", (me,)).fetchone()
     assert row == (me, "terms")
 
 
@@ -36,7 +34,5 @@ async def test_a_person_cannot_insert_an_acceptance_for_someone_else(
                 "insert into app.legal_agreements (person_id, document, version) values (%s, %s, %s)",
                 (other, "terms", "2026-11-01.1"),
             )
-    row = admin.execute(
-        "select 1 from app.legal_agreements where person_id = %s", (other,)
-    ).fetchone()
+    row = admin.execute("select 1 from app.legal_agreements where person_id = %s", (other,)).fetchone()
     assert row is None

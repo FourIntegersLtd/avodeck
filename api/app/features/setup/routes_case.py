@@ -570,8 +570,7 @@ async def list_instructions(
 async def add_instruction(case_id: uuid.UUID, body: InstructionIn, access: Upload, conn: DbConn) -> InstructionCreated:
     if body.document_id is not None:
         cur = await conn.execute(
-            "select 1 from app.documents where id = %s"
-            " and bundle_id = (select bundle_id from app.cases where id = %s)",
+            "select 1 from app.documents where id = %s and bundle_id = (select bundle_id from app.cases where id = %s)",
             (body.document_id, case_id),
         )
         if await cur.fetchone() is None:
