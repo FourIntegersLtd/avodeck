@@ -3,11 +3,13 @@
 // the new pages after the existing ones; this screen only sends files and shows progress.
 import { useEffect, useRef, useState } from "react";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
+import { useResource } from "../../foundation/lib/useResource";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { uploadInParts } from "../../foundation/lib/upload";
 import { ResumeUpload } from "../../foundation/lib/ResumeUpload";
 import { UploadStatus } from "../../foundation/lib/UploadControls";
+import { useJobWatch } from "../../foundation/lib/jobWatch";
 import { useUpload } from "../../foundation/lib/useUpload";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, ChoicePills, DropZone, LinkButton, Notice, ProgressBar, Spinner, TextField } from "../../foundation/ui";
@@ -34,6 +36,9 @@ export function AddPapers() {
   const saved = useRef(new Map<File, string>());
   const [recovered, setRecovered] = useState<string[]>([]);
   const upload = useUpload();
+  const existing = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/bundle/summary", casePath(caseId))), [caseId]);
+  const first = !!existing.data && existing.data.documents.length === 0;
+  const { watch } = useJobWatch();
 
   const jobId = job?.id;
   const status = job?.latest.status;
@@ -98,6 +103,7 @@ export function AddPapers() {
       }
       const { job_id } = await unwrap(api.POST("/v1/cases/{case_id}/documents/append", { ...casePath(caseId), body: { document_ids: ids } }));
       setJob({ id: job_id, latest: { status: "queued", pct: 0 } });
+      watch(job_id, { done: w("add.done"), failed: w("add.toast_failed"), open: w("add.toast_open"), to: `/cases/${caseId}/bundle` });
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -128,8 +134,8 @@ export function AddPapers() {
   return (
     <div className="av-page pl-add">
       <header>
-        <h1>{w("add.title")}</h1>
-        <p className="pl-lead">{w("add.lead")}</p>
+        <h1>{w(first ? "add.title_first" : "add.title")}</h1>
+        <p className="pl-lead">{w(first ? "add.lead_first" : "add.lead")}</p>
       </header>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       <ResumeUpload caseId={caseId} append onDocument={(id) => setRecovered((prev) => (prev.includes(id) ? prev : [...prev, id]))} />
