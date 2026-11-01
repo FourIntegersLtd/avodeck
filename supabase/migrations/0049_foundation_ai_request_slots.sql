@@ -15,6 +15,7 @@ create table app.ai_request_slots (
   id uuid primary key default gen_random_uuid(),
   job_id uuid not null references app.jobs (id) on delete cascade,
   case_id uuid not null references app.cases (id) on delete cascade,
+  created_at timestamptz not null default now(),
   requested_at timestamptz not null default now(),
   granted_at timestamptz
 );
