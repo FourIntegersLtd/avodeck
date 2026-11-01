@@ -166,6 +166,13 @@ async def page_reassigned(conn: AsyncConnection, case_id: uuid.UUID, page_id: uu
     return bool(row and row[0])
 
 
+async def page_needs_check(conn: AsyncConnection, page_id: uuid.UUID) -> bool:
+    """True when the pipeline flagged this page as one a person must check by hand (false if no row)."""
+    cur = await conn.execute("select needs_human from app.page_analysis where page_id = %s", (page_id,))
+    row = await cur.fetchone()
+    return bool(row and row[0])
+
+
 async def progress(conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UUID) -> tuple[int, int, int]:
     """(pages read, pages, seconds left). Each unread page takes the person's median dwell for its kind of
     source, else their median over every page, else `DEFAULT_SECONDS_PER_PAGE`."""

@@ -160,6 +160,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   const [facts, setFacts] = useState<Fact[] | null>(null);
   const [counts, setCounts] = useState<{ done: number; total: number; highlights: Schemas["Highlight"][] }>({ done: 0, total: 0, highlights: [] });
   const [reassigned, setReassigned] = useState(false);
+  const [needsCheck, setNeedsCheck] = useState(false);
   const [focus, setFocus] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditDraft | null>(null);
   const [pageWords, setPageWords] = useState<PageWord[] | null>(null);
@@ -203,19 +204,20 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
 
   const loadFacts = useCallback(async () => {
     try {
-      const { facts: list, reassigned: again, done, total, highlights } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/facts", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
+      const { facts: list, reassigned: again, done, total, highlights, needs_check: flagged } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/facts", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
       // The server answers only once the page was read, so the page counts as read from here.
       setRead(true);
       setFacts(list);
       setCounts({ done: done ?? 0, total: total ?? 0, highlights: highlights ?? [] });
       setReassigned(again ?? false);
+      setNeedsCheck(flagged ?? false);
       setFocus((f) => {
         if (f) return f;
         if (factFromUrl && list.some((x) => x.id === factFromUrl)) return factFromUrl;
         return list.find((x) => x.status === "suggested")?.id ?? list[0]?.id ?? null;
       });
     } catch (error) {
-      if (error instanceof ApiError && error.status === 423) { setFacts(null); setCounts({ done: 0, total: 0, highlights: [] }); setReassigned(false); }
+      if (error instanceof ApiError && error.status === 423) { setFacts(null); setCounts({ done: 0, total: 0, highlights: [] }); setReassigned(false); setNeedsCheck(false); }
       else setNotice(errorMessage(error));
     }
   }, [caseId, pageNo, factFromUrl]);
@@ -971,7 +973,8 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
                 <h2>{w("read.found")}</h2>
                 <PageRef page={pageNo} />
               </div>
-              {facts?.length === 0 && <p className="rd-note">{w(page.source_type ? "read.none_found" : "read.still_reading")}</p>}
+              {facts?.length === 0 && <p className="rd-note">{w(needsCheck ? "read.needs_check" : page.source_type ? "read.none_found" : "read.still_reading")}</p>}
+              {facts && facts.length > 0 && needsCheck && <Notice tone="info">{w("read.may_have_missed")}</Notice>}
               {facts && facts.length > 0 && (
                 <FactList pack={pack} facts={facts} done={counts.done} total={counts.total} focus={focusedFact?.id ?? null} onFocus={setFocus}>
                   {renderCard}

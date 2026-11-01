@@ -143,6 +143,57 @@ async def test_a_page_set_aside_is_not_shown(
     assert [p["page_no"] for p in (await client.get(f"{base(world)}/pages")).json()["pages"]] == [1]
 
 
+async def test_facts_say_when_a_page_needs_checking_by_hand(
+    seed: Seed, client_for: Any, admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    case = world["case"]
+    doc = seed.document(case)
+    flagged = seed.page(case, doc, 1)
+    clear = seed.page(case, doc, 2)
+    seed.page(case, doc, 3)
+    bundle = admin.execute("select bundle_id from app.cases where id = %s", (case,)).fetchone()
+    assert bundle is not None
+    bundle_id = bundle[0]
+    admin.execute(
+        "insert into app.page_analysis (page_id, bundle_id, needs_human, reason) values (%s, %s, true, 'no_facts')",
+        (flagged, bundle_id),
+    )
+    admin.execute(
+        "insert into app.page_analysis (page_id, bundle_id, needs_human) values (%s, %s, false)",
+        (clear, bundle_id),
+    )
+    # `blank` has no page_analysis row at all.
+
+    client = await client_for(world["expert"])
+    for n in (1, 2, 3):
+        assert (await mark_read(client, world, n)).status_code == 200
+
+    flagged_facts = await client.get(f"{base(world)}/pages/1/facts")
+    assert flagged_facts.status_code == 200 and flagged_facts.json()["needs_check"] is True
+
+    clear_facts = await client.get(f"{base(world)}/pages/2/facts")
+    assert clear_facts.status_code == 200 and clear_facts.json()["needs_check"] is False
+
+    blank_facts = await client.get(f"{base(world)}/pages/3/facts")
+    assert blank_facts.status_code == 200 and blank_facts.json()["needs_check"] is False
+
+
+async def test_needs_check_stays_behind_the_blind_read_gate(
+    seed: Seed, client_for: Any, admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    case = world["case"]
+    page = seed.page(case, seed.document(case), 1)
+    bundle = admin.execute("select bundle_id from app.cases where id = %s", (case,)).fetchone()
+    assert bundle is not None
+    admin.execute(
+        "insert into app.page_analysis (page_id, bundle_id, needs_human, reason) values (%s, %s, true, 'no_facts')",
+        (page, bundle[0]),
+    )
+    client = await client_for(world["expert"])
+    unread = await client.get(f"{base(world)}/pages/1/facts")
+    assert unread.status_code == 423 and unread.json()["error"]["code"] == "blind_read"
+
+
 async def test_the_page_picture_is_streamed_and_never_cached(
     seed: Seed,
     client_for: Any,
