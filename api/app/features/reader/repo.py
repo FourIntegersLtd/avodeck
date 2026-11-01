@@ -103,8 +103,8 @@ async def list_pages(
 ) -> list[dict[str, Any]]:
     """The case's pages after `cursor` in page order (at most `limit`), as the person sees them."""
     cur = await conn.execute(
-        f"""select {_PAGE_COLUMNS} from app.pages p join app.cases c on c.id = p.case_id
-            where p.case_id = %(case)s and not p.quarantined and p.bundle_page_no > %(cursor)s {_FILTERS[filter]}
+        f"""select {_PAGE_COLUMNS} from app.pages p join app.cases c on c.id = %(case)s
+            where p.bundle_id = c.bundle_id and not p.quarantined and p.bundle_page_no > %(cursor)s {_FILTERS[filter]}
             order by p.bundle_page_no limit %(limit)s""",  # noqa: S608 (fixed fragments only)
         {"case": case_id, "person": person_id, "source": source, "cursor": cursor, "limit": limit},
     )
@@ -115,8 +115,8 @@ async def page(conn: AsyncConnection, case_id: uuid.UUID, page_no: int, person_i
     """One page the person may see (not set aside), with its details; None when there is none."""
     cur = await conn.execute(
         f"""select {_PAGE_COLUMNS} {_DETAIL_COLUMNS}, p.image_path, p.duplicate_of_page_id
-            from app.pages p join app.cases c on c.id = p.case_id
-            where p.case_id = %(case)s and p.bundle_page_no = %(page_no)s and not p.quarantined""",  # noqa: S608
+            from app.pages p join app.cases c on c.id = %(case)s
+            where p.bundle_id = c.bundle_id and p.bundle_page_no = %(page_no)s and not p.quarantined""",  # noqa: S608
         {"case": case_id, "page_no": page_no, "person": person_id},
     )
     row = await cur.fetchone()
@@ -170,7 +170,7 @@ async def progress(conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UU
     """(pages read, pages, seconds left). Each unread page takes the person's median dwell for its kind of
     source, else their median over every page, else `DEFAULT_SECONDS_PER_PAGE`."""
     cur = await conn.execute(
-        """with shown as (select p.id, p.source_type from app.pages p where p.case_id = %(case)s and not p.quarantined),
+        """with shown as (select p.id, p.source_type from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %(case)s) and not p.quarantined),
                 mine as (select s.source_type, r.page_id, r.dwell_seconds from app.page_reads r
                          join shown s on s.id = r.page_id where r.person_id = %(person)s),
                 pace as (select source_type, percentile_cont(0.5) within group (order by dwell_seconds) as m
@@ -475,7 +475,7 @@ async def set_flag(
 
 async def page_id_by_no(conn: AsyncConnection, case_id: uuid.UUID, page_no: int) -> uuid.UUID | None:
     cur = await conn.execute(
-        "select id from app.pages where case_id = %s and bundle_page_no = %s and not quarantined", (case_id, page_no)
+        "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and bundle_page_no = %s and not quarantined", (case_id, page_no)
     )
     row = await cur.fetchone()
     return row[0] if row else None
@@ -488,7 +488,7 @@ async def unreadable_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[di
                   p.transcribed_by_expert_text is not null as has_transcription, p.needs_clearer_copy,
                   p.duplicate_of_page_id is not null as is_copy,
                   exists (select 1 from app.page_replacements r where r.page_id = p.id) as has_clearer_copy
-           from app.pages p where p.case_id = %s and p.unreadable and not p.quarantined
+           from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %s) and p.unreadable and not p.quarantined
            order by p.bundle_page_no""",
         (case_id,),
     )
@@ -521,7 +521,7 @@ async def rotate(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, 
     """Turns the page clockwise; its new rotation, or None when the case has no such page."""
     cur = await conn.execute(
         "update app.pages set rotation = (rotation + %s) %% 360"
-        " where id = %s and case_id = %s and not quarantined returning rotation",
+        " where id = %s and bundle_id = (select bundle_id from app.cases where id = %s) and not quarantined returning rotation",
         (degrees, page_id, case_id),
     )
     row = await cur.fetchone()
@@ -541,12 +541,13 @@ async def set_turn(conn: AsyncConnection, page_id: uuid.UUID, degrees: int, pers
 async def pages_to_type(conn: AsyncConnection, case_ids: list[uuid.UUID]) -> list[tuple[uuid.UUID, int]]:
     """(case, unreadable pages not yet typed out or sent for a clearer copy) where there are any."""
     cur = await conn.execute(
-        """select p.case_id, count(*)::int from app.pages p
-           where p.case_id = any(%s) and p.unreadable and not p.quarantined
+        """select c.id, count(*)::int from app.pages p
+           join app.cases c on c.bundle_id = p.bundle_id
+           where c.id = any(%s) and p.unreadable and not p.quarantined
              and p.transcribed_by_expert_text is null and not p.needs_clearer_copy
              and p.relevance is distinct from 'nothing' and p.duplicate_of_page_id is null
              and not exists (select 1 from app.page_replacements r where r.page_id = p.id)
-           group by p.case_id""",
+           group by c.id""",
         (case_ids,),
     )
     return [(r[0], r[1]) for r in await cur.fetchall()]
@@ -558,7 +559,7 @@ async def pages_to_type(conn: AsyncConnection, case_ids: list[uuid.UUID]) -> lis
 async def searchable_pages(conn: AsyncConnection, case_id: uuid.UUID) -> dict[uuid.UUID, tuple[int, uuid.UUID]]:
     """Each page that is not set aside: page id -> (page number, document id)."""
     cur = await conn.execute(
-        "select id, bundle_page_no, document_id from app.pages where case_id = %s and not quarantined",
+        "select id, bundle_page_no, document_id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) and not quarantined",
         (case_id,),
     )
     return {p: (int(n), d) for p, n, d in await cur.fetchall()}
@@ -570,7 +571,7 @@ async def word_places(
     """Every word's polygon by page (pages not set aside), and each page's size from its analysis."""
     cur = await conn.execute(
         "select w.page_id, w.word_id, w.polygon from app.ocr_words w join app.pages p on p.id = w.page_id"
-        " where p.case_id = %s and not p.quarantined",
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined",
         (case_id,),
     )
     polygons: dict[uuid.UUID, dict[str, list[float]]] = {}
@@ -578,7 +579,7 @@ async def word_places(
         polygons.setdefault(page, {})[word] = [float(v) for v in polygon or []]
     cur = await conn.execute(
         "select a.page_id, a.width, a.height from app.page_analysis a join app.pages p on p.id = a.page_id"
-        " where p.case_id = %s and a.width > 0 and a.height > 0",
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and a.width > 0 and a.height > 0",
         (case_id,),
     )
     sizes = {page: (float(wd), float(ht)) for page, wd, ht in await cur.fetchall()}
@@ -627,7 +628,7 @@ async def my_notes(
     """The person's own bookmarks and notes on the case, in page order, unsealed (never logged)."""
     cur = await conn.execute(
         "select n.page_id, p.bundle_page_no, n.bookmarked, n.note, n.updated_at from app.page_notes n"
-        " join app.pages p on p.id = n.page_id where p.case_id = %s and n.person_id = %s"
+        " join app.pages p on p.id = n.page_id where p.bundle_id = (select bundle_id from app.cases where id = %s) and n.person_id = %s"
         " order by p.bundle_page_no",
         (case_id, person_id),
     )

@@ -40,7 +40,7 @@ async def evidence_for_case(conn: AsyncConnection, case_id: uuid.UUID) -> list[A
           from app.page_analysis a
           join app.pages p on p.id = a.page_id
           cross join lateral jsonb_array_elements(a.availability_evidence) with ordinality as e(item, ordinality)
-         where a.case_id = %s
+         where p.bundle_id = (select bundle_id from app.cases where id = %s)
          order by p.bundle_page_no, (e.item ->> 'date')::date nulls last, 6, e.ordinality
         """,
         (case_id,),

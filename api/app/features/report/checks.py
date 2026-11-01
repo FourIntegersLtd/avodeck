@@ -316,7 +316,9 @@ async def _quotes_verbatim(i: Inputs, r: Result) -> Result:
 
 async def _all_pages_read(i: Inputs, r: Result) -> Result:
     cur = await i.conn.execute(
-        "select id, bundle_page_no from app.pages where case_id = %s order by bundle_page_no", (i.case_id,)
+        "select id, bundle_page_no from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s) order by bundle_page_no",
+        (i.case_id,),
     )
     pages = await cur.fetchall()
     read = await i.reads.read_page_ids(i.conn, i.case_id, i.named_expert) if i.reads is not None else set()

@@ -318,6 +318,13 @@ def _validate(pack: Pack, schema_dir: Path) -> None:
         except (ZoneInfoNotFoundError, ValueError) as exc:
             raise PackError(f"{pack.rel('pack.yaml')}: timezone '{tz}' is not a known timezone") from exc
         _identifier_finder(pack.files["identifiers.py"], pack.rel("identifiers.py"))
+    if pack.layer == "case_type":
+        blind_read_duties = pack.meta.get("blind_read_duties", ["named_expert"])
+        if "named_expert" not in blind_read_duties:
+            raise PackError(f"{pack.rel('pack.yaml')}: blind_read_duties must include named_expert")
+        verification_duties = pack.meta.get("verification_duties", ["named_expert"])
+        if "named_expert" not in verification_duties:
+            raise PackError(f"{pack.rel('pack.yaml')}: verification_duties must include named_expert")
 
 
 @cache
@@ -581,6 +588,14 @@ class MergedPack:
 
     def expert_roles(self) -> list[str]:
         return list(self._ct["expert_roles"])
+
+    def blind_read_duties(self) -> list[str]:
+        """Case roles who must read a page before seeing its suggestions (rule 3)."""
+        return list(self._ct.get("blind_read_duties", ["named_expert"]))
+
+    def verification_duties(self) -> list[str]:
+        """Case roles who may verify a fact."""
+        return list(self._ct.get("verification_duties", ["named_expert"]))
 
     def written_question_classifications(self) -> list[str]:
         """How the jurisdiction sorts written questions from the other side (first: within the rules)."""

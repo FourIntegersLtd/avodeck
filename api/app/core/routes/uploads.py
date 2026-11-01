@@ -418,7 +418,7 @@ async def download_document(
     crypto: Crypto,
 ) -> StreamingResponse:
     cur = await conn.execute(
-        "select storage_path, sha256 from app.documents where id = %s and case_id = %s", (document_id, case_id)
+        "select storage_path, sha256 from app.documents where id = %s and bundle_id = (select bundle_id from app.cases where id = %s)", (document_id, case_id)
     )
     row = await cur.fetchone()
     if row is None or not row[0]:

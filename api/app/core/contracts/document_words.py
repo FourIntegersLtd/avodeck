@@ -116,7 +116,8 @@ async def document_words(
     """(`<page_id>/<word_id>`, text) of each of the document's words, in page then reading order."""
     cur = await conn.execute(
         "select w.page_id, w.word_id, w.text from app.ocr_words w join app.pages p on p.id = w.page_id"
-        " where p.case_id = %s and p.document_id = %s order by p.bundle_page_no, w.n",
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and p.document_id = %s"
+        " order by p.bundle_page_no, w.n",
         (case_id, document_id),
     )
     by_page: dict[uuid.UUID, list[tuple[str, str]]] = {}

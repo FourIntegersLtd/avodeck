@@ -191,7 +191,9 @@ async def paragraphs(conn: Any, crypto: CaseCrypto, case_id: uuid.UUID, version_
 async def page_words(conn: Any, crypto: CaseCrypto, case_id: uuid.UUID, page_id: uuid.UUID) -> list[tuple[str, str]]:
     """(word id, word) of a numbered page, in reading order."""
     cur = await conn.execute(
-        "select word_id, text from app.ocr_words where page_id = %s and case_id = %s order by n", (page_id, case_id)
+        "select word_id, text from app.ocr_words where page_id = %s"
+        " and bundle_id = (select bundle_id from app.cases where id = %s) order by n",
+        (page_id, case_id),
     )
     words = []
     for wid, sealed in await cur.fetchall():

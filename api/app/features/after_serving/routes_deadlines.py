@@ -370,7 +370,10 @@ async def add_direction(
 ) -> DirectionOut:
     if body.document_id is not None:
         found = await fetch_one(
-            conn, "select 1 from app.documents where id = %s and case_id = %s", (body.document_id, case_id)
+            conn,
+            "select 1 from app.documents where id = %s"
+            " and bundle_id = (select bundle_id from app.cases where id = %s)",
+            (body.document_id, case_id),
         )
         if found is None:
             raise invalid("document_id")

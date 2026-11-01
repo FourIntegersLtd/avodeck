@@ -106,6 +106,24 @@ CASE_TABLES: frozenset[str] = frozenset(
         "offline_packages",
         "readiness_replies",
         "trial_notes",
+        "bundles",
+    }
+)
+
+# Moved from `case_id` to `bundle_id` when the bundle became a shared, first-class entity
+# (0040-0045, pipeline 0127-0130, ADR 0034): a bundle can be referenced by more than one case, so
+# these are case tables for purge purposes but no longer carry a `case_id` column.
+BUNDLE_SCOPED_TABLES: frozenset[str] = frozenset(
+    {
+        "pages",
+        "documents",
+        "ocr_words",
+        "page_analysis",
+        "page_embeddings",
+        "record_entries",
+        "document_parts",
+        "document_scans",
+        "exhibits",
     }
 )
 
@@ -131,7 +149,9 @@ KEPT_AFTER_CASE_DELETION: frozenset[str] = frozenset(
 AWAITING_SLICE_MIGRATION: dict[str, str] = {}
 
 # The order `app.purge_case()` removes a case's rows in: each child table before the tables it
-# references, `cases` (left as a tombstone) last. The database keeps the same list in
+# references, `cases` (left as a tombstone) second-to-last, `bundles` last (it outlives the case
+# and is never actually deleted here — ADR 0034 — but sits after `cases` because the FK runs
+# cases -> bundles, not the other way). The database keeps the same list in
 # `app.case_purge_order()`; a slice adding a case table adds it to both.
 PURGE_ORDER: tuple[str, ...] = (
     "job_steps",
@@ -232,4 +252,5 @@ PURGE_ORDER: tuple[str, ...] = (
     "legal_holds",
     "case_keys",
     "cases",
+    "bundles",
 )
