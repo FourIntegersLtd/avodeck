@@ -171,7 +171,8 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   const [splitPct, setSplitPct] = useState(loadSplitPct);
   const [info, setInfo] = useState<string | null>(null);
   // How the page is shown (held for the visit): fit, zoom and "Make it clearer" stay as the expert left them.
-  const { view, filter, zoomBy: zoomFrom, setFit, setClearer: setLook } = usePageView({ view: loadView(), onView: saveView });
+  const [startView] = useState(loadView);
+  const { view, filter, zoomBy: zoomFrom, setFit, setClearer: setLook } = usePageView({ view: startView, onView: saveView });
   const [scale, setScale] = useState<number | null>(null);
   const scaleRef = useRef<number | null>(null);
   scaleRef.current = scale;
