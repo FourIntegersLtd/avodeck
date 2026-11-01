@@ -1,13 +1,15 @@
-export function TermsContent() {
+import type { LegalVocabulary } from "./useLegalVocabulary";
+
+export function TermsContent({ vocabulary = {} }: { vocabulary?: LegalVocabulary }) {
   return (
     <>
       <p><em>Effective date: 1 November 2026</em></p>
       <p>These terms are the agreement between you and Four Integers Ltd when you use Avodeck. We have tried to keep them in plain English.</p>
 
       <h2>1. About us</h2>
-      <p>Avodeck is made by Four Integers Ltd, a company registered in England and Wales. Dr Aishat Abubakar is the director.</p>
+      <p>Avodeck is made by Four Integers Ltd, a company registered in {vocabulary.company_registration_place}. Dr Aishat Abubakar is the director.</p>
       <ul>
-        <li><strong>Address:</strong> 82a James Carter Road, Mildenhall, IP28 7DE, England, UK</li>
+        <li><strong>Address:</strong> {vocabulary.company_registered_office}</li>
         <li><strong>Email:</strong> hello@avodeck.com</li>
       </ul>
 
@@ -78,7 +80,7 @@ export function TermsContent() {
       <p>We may update these terms from time to time. If we make an important change, we will tell you by email or in Avodeck at least 30 days before it takes effect.</p>
 
       <h2>11. Law and disputes</h2>
-      <p>These terms are governed by the laws of England and Wales. Any dispute will be resolved in the courts of England and Wales.</p>
+      <p>These terms are governed by the laws of {vocabulary.company_registration_place}. Any dispute will be resolved in the courts of {vocabulary.company_registration_place}.</p>
 
       <h2>12. Your statutory rights</h2>
       <p>Nothing in these terms affects your statutory rights under the Consumer Rights Act 2015 or any other law that cannot be excluded by agreement.</p>
@@ -87,7 +89,7 @@ export function TermsContent() {
       <p>If something is not right, email hello@avodeck.com. We aim to acknowledge your complaint within 2 working days and resolve it within 14 days.</p>
 
       <h2>14. Contact us</h2>
-      <p>For any question about these terms, email hello@avodeck.com or write to Four Integers Ltd, 82a James Carter Road, Mildenhall, IP28 7DE, England, UK.</p>
+      <p>For any question about these terms, email hello@avodeck.com or write to Four Integers Ltd, {vocabulary.company_registered_office}.</p>
     </>
   );
 }

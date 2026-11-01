@@ -1,3 +1,5 @@
+company_registration_place: Zedland
+company_registered_office: 1 Fixture Way, Zed City, ZZ1 1ZZ, Zedland
 party_roles: {instructing_side: petitioner, other_side: respondent, joint: neutral}
 instructing_party_types: {lawyer: counsel, insurer: carrier}
 subject: petitioner
