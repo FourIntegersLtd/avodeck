@@ -328,6 +328,8 @@
         "as_seen_title": "What the therapist had in hand",
         "clinician": "therapist",
         "clinicians": "therapists",
+        "company_registered_office": "1 Fixture Way, Zed City, ZZ1 1ZZ, Zedland",
+        "company_registration_place": "Zedland",
         "court_bundle": "hearing binder",
         "coverage_question": "zz coverage question?",
         "coverage_roles": {
@@ -508,6 +510,8 @@
       "timezone": "America/Halifax",
       "version": "0.0.6",
       "vocabulary": {
+        "company_registered_office": "1 Fixture Way, Zed City, ZZ1 1ZZ, Zedland",
+        "company_registration_place": "Zedland",
         "court_bundle": "hearing binder",
         "declaration_name": "affirmation",
         "expert_meeting": "expert conference",
@@ -1325,6 +1329,8 @@
         "as_seen_title": "As the GP saw it",
         "clinician": "GP",
         "clinicians": "GPs",
+        "company_registered_office": "82a James Carter Road, Mildenhall, IP28 7DE, England, UK",
+        "company_registration_place": "England and Wales",
         "court_bundle": "trial bundle",
         "court_tracks": {
           "fast": "fast track",
@@ -1631,6 +1637,8 @@
       "timezone": "Europe/London",
       "version": "2026.10.6",
       "vocabulary": {
+        "company_registered_office": "82a James Carter Road, Mildenhall, IP28 7DE, England, UK",
+        "company_registration_place": "England and Wales",
         "court_bundle": "trial bundle",
         "court_tracks": {
           "fast": "fast track",

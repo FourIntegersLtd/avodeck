@@ -13,6 +13,8 @@ export const CASE_B = "55555555-5555-4555-8555-555555555555";
 
 export const launchPack = packFixtures.launch.case_pack as unknown as Schemas["CasePack"];
 export const fixturePack = packFixtures.fixture.case_pack as unknown as Schemas["CasePack"];
+export const launchJurisdiction = packFixtures.launch.jurisdiction as unknown as Schemas["JurisdictionSummary"];
+export const fixtureJurisdiction = packFixtures.fixture.jurisdiction as unknown as Schemas["JurisdictionSummary"];
 
 export function me(over: Partial<Schemas["Person"]> = {}): Schemas["Me"] {
   return {
