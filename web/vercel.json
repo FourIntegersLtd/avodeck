@@ -32,6 +32,14 @@
       "destination": "/privacy.html"
     },
     {
+      "source": "/terms",
+      "destination": "/terms.html"
+    },
+    {
+      "source": "/dpa",
+      "destination": "/dpa.html"
+    },
+    {
       "source": "/((?!assets/).*)",
       "destination": "/app.html"
     }
