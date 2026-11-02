@@ -138,6 +138,7 @@
   "ui.status_row.ok": "Done",
   "ui.status_row.warn": "Needs a look",
   "ui.status_row.stop": "Problem",
+  "ui.split.value": "{{percent}}% of the width",
   "ui.dropzone.choose": "Choose files",
   "ui.dropzone.added": "Added",
   "ui.dictation.own_words": "Your words only",

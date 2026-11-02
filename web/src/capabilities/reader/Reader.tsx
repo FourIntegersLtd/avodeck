@@ -8,13 +8,12 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorAction, errorMessage, type ErrorAction } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LoadError, Loading, Menu, MenuItem as MenuRow, MenuLink, MenuSection, Notice, PageRef, ProgressBar, turnBy, usePageView, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "../../foundation/ui";
+import { Button, LoadError, Loading, Menu, MenuItem as MenuRow, MenuLink, MenuSection, Notice, PageRef, ProgressBar, SplitDivider, turnBy, usePageView, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "../../foundation/ui";
 import { casePath, count, periodRange, sourceLabel } from "./data";
 import { dateFieldKey, suggestTimelineDate } from "./timelineDate";
 import { allowed, editableFields, FactCard, fieldTypes } from "./FactCard";
 import { FactList } from "./FactList";
-import { loadSplitPct, saveSplitPct } from "./splitPane";
-import { SplitDivider } from "./SplitDivider";
+import { loadSplitPct, MAX_SPLIT_PCT, MIN_SPLIT_PCT, saveSplitPct } from "./splitPane";
 import { BundleSearch, SearchMarks } from "./BundleSearch";
 import { Highlights } from "./Highlights";
 import { MyNotes } from "./MyNotes";
@@ -911,7 +910,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
           </div>
         </section>
 
-        <SplitDivider workRef={workRef} value={splitPct} onChange={setSplitPct} onCommit={saveSplitPct} />
+        <SplitDivider areaRef={workRef} value={splitPct} min={MIN_SPLIT_PCT} max={MAX_SPLIT_PCT} label={w("read.resize_split")} className="rd-split" onChange={setSplitPct} onCommit={saveSplitPct} />
 
         <aside className="rd-side" aria-label={w("read.found")}>
           {notice && <Notice tone="error">{notice}</Notice>}

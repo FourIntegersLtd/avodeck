@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef, useState } from "react";
 import { describe, expect, test, vi } from "vitest";
@@ -45,10 +45,10 @@ describe("SplitDivider", () => {
     fireEvent.keyDown(grip(), { key: "ArrowRight" });
     expect(onCommit).toHaveBeenLastCalledWith(52);
     fireEvent(grip(), pointer("pointerdown", 500));
-    document.dispatchEvent(pointer("pointermove", 600));
+    act(() => void document.dispatchEvent(pointer("pointermove", 600)));
     expect(grip()).toHaveAttribute("aria-valuenow", "62");
     expect(onCommit).toHaveBeenCalledTimes(1);
-    document.dispatchEvent(pointer("pointerup", 600));
+    act(() => void document.dispatchEvent(pointer("pointerup", 600)));
     expect(onCommit).toHaveBeenCalledTimes(2);
     expect(onCommit).toHaveBeenLastCalledWith(62);
   });
@@ -57,10 +57,10 @@ describe("SplitDivider", () => {
     const onCommit = vi.fn();
     render(<Harness onCommit={onCommit} />);
     fireEvent(grip(), pointer("pointerdown", 500));
-    document.dispatchEvent(pointer("pointermove", 550));
-    document.dispatchEvent(pointer("pointercancel", 550));
+    act(() => void document.dispatchEvent(pointer("pointermove", 550)));
+    act(() => void document.dispatchEvent(pointer("pointercancel", 550)));
     expect(onCommit).toHaveBeenLastCalledWith(55);
-    document.dispatchEvent(pointer("pointermove", 900));
+    act(() => void document.dispatchEvent(pointer("pointermove", 900)));
     expect(grip()).toHaveAttribute("aria-valuenow", "55");
   });
 
@@ -71,7 +71,7 @@ describe("SplitDivider", () => {
     const { unmount } = render(<SplitDivider areaRef={area} value={50} min={20} max={80} label="Resize" onChange={onChange} />);
     fireEvent(grip(), pointer("pointerdown", 500));
     unmount();
-    document.dispatchEvent(pointer("pointermove", 700));
+    act(() => void document.dispatchEvent(pointer("pointermove", 700)));
     expect(onChange).not.toHaveBeenCalled();
   });
 
