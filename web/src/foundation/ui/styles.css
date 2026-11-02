@@ -408,14 +408,14 @@ a.av-page-ref { color: var(--green); }
 
 .av-menu__trigger { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--button-min-height); padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
 .av-menu__trigger:hover, .av-menu__trigger[aria-expanded=true] { background: var(--green-tint); }
-.av-menu { margin: 0; width: 320px; max-width: calc(100vw - 16px); max-height: min(var(--radix-dropdown-menu-content-available-height, 80vh), 720px); overflow-y: auto; padding: var(--space-2); display: flex; flex-direction: column; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-menu); z-index: 20; }
+.av-menu { margin: 0; width: 320px; max-width: calc(100vw - 16px); max-height: min(var(--radix-dropdown-menu-content-available-height, 80vh), 720px); overflow-y: auto; padding: var(--space-2); display: flex; flex-direction: column; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-menu); z-index: 60; }
 .av-menu__item:focus-visible, .av-menu__item[data-highlighted] { outline: 2px solid var(--green); outline-offset: -2px; background: var(--green-tint); }
 .av-menu__icon { display: inline-flex; width: 20px; flex: none; }
 .av-menu__icon ~ .av-menu__tick { order: 3; }
 .av-menu__section { display: flex; flex-direction: column; padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid var(--hairline); }
 .av-menu__section:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
 .av-menu__label { padding: var(--space-2) var(--space-3) var(--space-1); font-size: var(--text-small); font-weight: 700; letter-spacing: 0.03em; color: var(--ink-muted); }
-.av-menu__item { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; padding: 0 var(--space-3); border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.av-menu__item { display: flex; align-items: center; gap: var(--space-3); min-height: 52px; padding: 0 var(--space-3); border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .av-menu__item:hover { background: var(--green-tint); }
 .av-menu__item[data-disabled] { opacity: 0.6; cursor: not-allowed; }
 .av-menu__tick { display: inline-flex; width: 20px; flex: none; color: var(--green); }
