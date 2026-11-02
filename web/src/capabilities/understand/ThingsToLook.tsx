@@ -1,6 +1,7 @@
 // S13 Things to look at. Code found these (the API's checks over checked facts); the expert decides each one.
 // A reason is required for "not relevant" and "explained elsewhere". Nothing closes on its own: a decided finding
 // a later check no longer finds stays listed and says so. Buttons follow what the person may do on the case.
+import * as Collapsible from "@radix-ui/react-collapsible";
 import { useEffect, useState } from "react";
 import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
@@ -126,14 +127,16 @@ function FoldedFinding({ caseId, finding, canDecide, onDecided }: { caseId: stri
   const day = finding.evidence.find((e) => e.event_date)?.event_date;
   const label = finding.status === "gone" ? w("things.gone_short") : t(`understand.things.decision.${finding.decision}`);
   return (
-    <details className="av-card av-understand-folded" aria-label={findingTitle(finding)} open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary>
+    <Collapsible.Root className="av-card av-understand-folded" role="group" aria-label={findingTitle(finding)} open={open} onOpenChange={setOpen}>
+      <Collapsible.Trigger className="av-understand-folded__head">
         <span className="av-understand-key av-understand-key--checked av-understand-folded__tick" aria-hidden="true" />
         <span className="av-understand-folded__title">{day ? w("things.folded", { title: findingTitle(finding), date: shortDay(day) }) : findingTitle(finding)}</span>
         <span className="av-understand-count">{label}</span>
-      </summary>
-      {open && <FindingCard caseId={caseId} finding={finding} canDecide={canDecide} onDecided={onDecided} />}
-    </details>
+      </Collapsible.Trigger>
+      <Collapsible.Content>
+        <FindingCard caseId={caseId} finding={finding} canDecide={canDecide} onDecided={onDecided} />
+      </Collapsible.Content>
+    </Collapsible.Root>
   );
 }
 
