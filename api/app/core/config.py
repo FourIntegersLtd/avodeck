@@ -216,7 +216,7 @@ class AiSettings:
     min_expected_pages: int = 100
     cost_guard_multiple: int = 3
     bedrock_rpm_limit: int = 5
-    extraction_batch_size: int = 100
+    extraction_batch_size: int = 10
 
 
 def in_region_model_id(model_id: str) -> bool:
@@ -265,7 +265,7 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
         min_expected_pages=number("AI_MIN_EXPECTED_PAGES", 100),
         cost_guard_multiple=number("AI_COST_GUARD_MULTIPLE", 3),
         bedrock_rpm_limit=number("BEDROCK_RPM_LIMIT", 5),
-        extraction_batch_size=number("AI_EXTRACTION_BATCH_SIZE", 100),
+        extraction_batch_size=number("AI_EXTRACTION_BATCH_SIZE", 10),
     )
 
 

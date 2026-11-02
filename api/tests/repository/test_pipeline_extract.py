@@ -12,6 +12,7 @@ no content. Runs on the committed 18-page subset; messages name pages only (rule
 from __future__ import annotations
 
 import datetime as dt
+import re
 import uuid
 from collections import Counter
 from collections.abc import AsyncIterator, Sequence
@@ -87,6 +88,7 @@ async def _open(
     storage: CaseFileStorage,
     names: list[str] | None = None,
     dates_of_birth: list[dt.date] | None = None,
+    batch_size: str = "1",
 ) -> Any:
     expert = seed.person()
     case_id = seed.case(seed.org(members={expert: "owner"}), expert, packs=combo.case_row())
@@ -103,6 +105,7 @@ async def _open(
         bedrock=bedrock,
         names=names or [],
         dates_of_birth=dates_of_birth or [],
+        batch_size=batch_size,
     )
 
 
@@ -587,3 +590,74 @@ async def test_a_full_batch_is_not_asked_again_for_an_empty_page(
             "select id from app.ai_calls where case_id = %s and task_id = 'T-07b'", (h.case_id,)
         ).fetchall()
         assert len(rows) == 3, "only the empty page should be asked once more, not every page again"
+
+
+class _CutOffWhenBatched:
+    """A model that cannot finish a multi-page answer (cut off: unusable output) but answers any one page."""
+
+    def __init__(self, answers: dict[int, dict[str, Any]], endpoint: str) -> None:
+        self.answers = answers
+        self.endpoint = endpoint
+        self.requests: list[Any] = []
+
+    async def invoke(self, request: Any) -> Any:
+        self.requests.append(request)
+        marks = [int(n) for n in re.findall(r"=== PAGE (\d+) ===", request.text)]
+        if len(marks) > 1:
+            return response({})
+        return response(self.answers[marks[0]])
+
+
+async def test_a_batch_answer_cut_off_is_split_and_the_pages_are_still_extracted(
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> None:
+    pack = default_library().combine(*LAUNCH.codes)
+    source = pack.source_types()[-1]["key"]
+    kind = pack.fact_kinds()[-1]["key"]
+    document = text_pdf([_wordy_lines(8), _wordy_lines(8)])
+    pages = [embedded_words(p).words for p in split_pages(document)]
+
+    def covering(words: Sequence[Any]) -> dict[str, Any]:
+        fact = {
+            "kind": kind,
+            "clinician_role": None,
+            "fields": {},
+            "value": " ".join(w.text for w in words),
+            "word_ids": [w.id for w in words],
+        }
+        return {
+            "source_type": source,
+            "printed_dates": [],
+            "facts": [fact],
+            "references_out": [],
+            "availability_evidence": [],
+            "actions_requested_of_clinician": [],
+            "entries": [],
+        }
+
+    model = _CutOffWhenBatched({1: covering(pages[0]), 2: covering(pages[1])}, cell().bedrock_endpoint)
+    opened = await _open(
+        LAUNCH,
+        FixtureStore(tmp_path / "nothing-recorded"),
+        model,
+        admin=admin,
+        api_db=api_db,
+        worker_dsn=worker_dsn,
+        auth_env=auth_env,
+        seed=seed,
+        storage=storage,
+        batch_size="2",
+    )
+    async with opened as h:
+        await h.upload(document)
+        finished = await h.drain()
+        assert set(finished.values()) == {"done"}
+        for page in h.pages():
+            assert analysis(h, page["id"])["needs_human"] is False
+        assert len(facts_of(h)) == 2

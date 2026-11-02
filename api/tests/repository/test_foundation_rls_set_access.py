@@ -46,8 +46,16 @@ def world(seed: Seed, admin: psycopg.Connection) -> World:
 
     team = seed.org(
         kind="team",
-        members={expert: "expert", owner: "owner", admin_: "admin", assistant: "assistant", viewer: "viewer",
-                 org_expert: "expert", ended_owner: "owner", closed_owner: "owner"},
+        members={
+            expert: "expert",
+            owner: "owner",
+            admin_: "admin",
+            assistant: "assistant",
+            viewer: "viewer",
+            org_expert: "expert",
+            ended_owner: "owner",
+            closed_owner: "owner",
+        },
     )
     seed.end_membership(team, ended_owner)
     personal_org = seed.org(kind="personal", members={personal: "owner"})
@@ -57,8 +65,14 @@ def world(seed: Seed, admin: psycopg.Connection) -> World:
     )
     closing = seed.org(kind="team", members={closed_expert: "expert", closed_owner: "owner"})
 
-    members = {co: "co_expert", sup: "supervisor", case_assistant: "assistant", case_viewer: "viewer",
-               removed: "viewer", closed_member: "co_expert"}
+    members = {
+        co: "co_expert",
+        sup: "supervisor",
+        case_assistant: "assistant",
+        case_viewer: "viewer",
+        removed: "viewer",
+        closed_member: "co_expert",
+    }
     active = seed.case(team, expert, status="active", members=members)
     served = seed.case(team, expert, status="served", members=members)
     deleted = seed.case(team, expert, status="served", members=members)
@@ -94,19 +108,46 @@ def world(seed: Seed, admin: psycopg.Connection) -> World:
     seed.custody_transfer(theirs, custody_staff, to_organisation=elsewhere)
 
     w.people = {
-        "expert": expert, "owner": owner, "admin": admin_, "assistant": assistant, "viewer": viewer,
-        "ended_owner": ended_owner, "org_expert": org_expert, "co": co, "sup": sup,
-        "case_assistant": case_assistant, "case_viewer": case_viewer, "removed": removed,
-        "outsider": outsider, "personal": personal, "other_expert": other_expert,
-        "staff_any": staff_any, "staff_named": staff_named, "staff_expired": staff_expired,
-        "staff_none": staff_none, "staff_revoked": staff_revoked, "staff_removed": staff_removed,
-        "closed_expert": closed_expert, "closed_member": closed_member, "closed_owner": closed_owner,
-        "custodian": custodian, "org_custodian": org_custodian, "revoked_custodian": revoked_custodian,
-        "ex_custodian_owner": ex_custodian_owner, "custody_staff": custody_staff, "nobody": None,
+        "expert": expert,
+        "owner": owner,
+        "admin": admin_,
+        "assistant": assistant,
+        "viewer": viewer,
+        "ended_owner": ended_owner,
+        "org_expert": org_expert,
+        "co": co,
+        "sup": sup,
+        "case_assistant": case_assistant,
+        "case_viewer": case_viewer,
+        "removed": removed,
+        "outsider": outsider,
+        "personal": personal,
+        "other_expert": other_expert,
+        "staff_any": staff_any,
+        "staff_named": staff_named,
+        "staff_expired": staff_expired,
+        "staff_none": staff_none,
+        "staff_revoked": staff_revoked,
+        "staff_removed": staff_removed,
+        "closed_expert": closed_expert,
+        "closed_member": closed_member,
+        "closed_owner": closed_owner,
+        "custodian": custodian,
+        "org_custodian": org_custodian,
+        "revoked_custodian": revoked_custodian,
+        "ex_custodian_owner": ex_custodian_owner,
+        "custody_staff": custody_staff,
+        "nobody": None,
     }
     w.cases = {
-        "active": active, "served": served, "deleted": deleted, "draft": draft, "mine": mine,
-        "theirs": theirs, "closed_served": closed_served, "closed_active": closed_active,
+        "active": active,
+        "served": served,
+        "deleted": deleted,
+        "draft": draft,
+        "mine": mine,
+        "theirs": theirs,
+        "closed_served": closed_served,
+        "closed_active": closed_active,
     }
     return w
 
@@ -128,11 +169,13 @@ def test_the_sets_answer_exactly_as_the_per_row_functions_do(
                 with admin.transaction():
                     as_person(admin, person)
                     expected = {
-                        c for c in seeded
+                        c
+                        for c in seeded
                         if admin.execute("select app.can_access_case(%s, %s)", (c, action)).fetchone()[0]  # type: ignore[index]
                     }
                     expected_bundles = {
-                        bundles[c] for c in seeded
+                        bundles[c]
+                        for c in seeded
                         if admin.execute("select app.can_access_bundle(%s, %s)", (bundles[c], action)).fetchone()[0]  # type: ignore[index]
                     }
                     got = {r[0] for r in admin.execute("select app.accessible_case_ids(%s)", (action,))} & set(seeded)
