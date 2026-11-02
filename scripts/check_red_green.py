@@ -34,6 +34,7 @@ DB_ROLES = {
 WEB_TEST_RE = re.compile(r"\.(test|spec)\.tsx?$")
 # Feat commits already on main whose check fails for a reason fixed later; pushed history is not rewritten.
 EXCUSED = {
+    "53fe8ae096566634d71a6fc362bad7f213a763fb": "slice/b-transcript-files: built in parallel with the layout and the Word and PDF builders; its Word-section and PDF-picture tests needed those merged, and pass on the branch head (#211), history kept (no force push)",
     "eb0607eb043e2752791913f0c64df5f2a9550973": "design/d-understand: migration 0402 lacked `reset role` until 90e38b0, so the database at this commit cannot be built; the branch head was tested as a whole (3470 passed), history kept (no force push)",
     "fc6c91f0bcc31bd15e37aaa4988d4a53ff656398": "design/d-understand: migration 0402 lacked `reset role` until 90e38b0, so the database at this commit cannot be built; the branch head was tested as a whole (3470 passed), history kept (no force push)",
     "d5d03f6aac9221d13537591e79dfa0172b17549a": "design/d-understand: migration 0402 lacked `reset role` until 90e38b0, so the database at this commit cannot be built; the branch head was tested as a whole (3470 passed), history kept (no force push)",
