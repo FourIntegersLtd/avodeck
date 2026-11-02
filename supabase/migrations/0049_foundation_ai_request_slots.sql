@@ -27,3 +27,26 @@ revoke all on app.ai_request_slots from app_api;
 
 create policy ai_request_slots_job on app.ai_request_slots to app_worker
   using (case_id = app.current_job_case_id()) with check (case_id = app.current_job_case_id());
+
+-- Purged immediately before `jobs` (app.case_purge_order(), migration 0017), like `job_steps`: its
+-- `job_id` references `jobs` on delete cascade, so it must be removed first.
+set role app_migrator;
+
+do $do$
+declare
+  current_order text[] := app.case_purge_order();
+  mine text := 'ai_request_slots';
+  at integer;
+  spliced text[];
+begin
+  at := array_position(current_order, 'jobs');
+  spliced := current_order[1:at - 1] || array[mine] || current_order[at:];
+  execute format(
+    'create or replace function app.case_purge_order() returns text[] language sql immutable parallel safe'
+    ' set search_path = '''' as $f$ select %L::text[] $f$',
+    spliced
+  );
+end
+$do$;
+
+reset role;

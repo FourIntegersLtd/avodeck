@@ -582,7 +582,11 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                     task,
                     pack,
                     who,
-                    extract.batch_text([(page_no, loaded[page_id].text) for page_id, page_no in askable]),
+                    (
+                        loaded[askable[0][0]].text
+                        if len(askable) == 1
+                        else extract.batch_text([(page_no, loaded[page_id].text) for page_id, page_no in askable])
+                    ),
                     subject,
                 )
                 answers = extract.pages_of(raw) if raw is not None else {}

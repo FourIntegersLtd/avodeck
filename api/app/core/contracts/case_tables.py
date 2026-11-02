@@ -107,6 +107,7 @@ CASE_TABLES: frozenset[str] = frozenset(
         "readiness_replies",
         "trial_notes",
         "bundles",
+        "ai_request_slots",
     }
 )
 
@@ -155,6 +156,7 @@ AWAITING_SLICE_MIGRATION: dict[str, str] = {}
 # `app.case_purge_order()`; a slice adding a case table adds it to both.
 PURGE_ORDER: tuple[str, ...] = (
     "job_steps",
+    "ai_request_slots",
     "instruction_extractions",
     "prefill_runs",
     "prefill_suggestions",
