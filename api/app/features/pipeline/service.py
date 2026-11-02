@@ -689,7 +689,9 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 )
             done += 1
             if done % 25 == 0:
-                await ctx.progress(min(55, 40 + 15 * done // len(waiting)), step="sort")
+                await ctx.progress(
+                    min(55, 40 + 15 * done // len(waiting)), step="sort", step_done=done, step_total=len(waiting)
+                )
 
     await bounded(batches, one_batch, stop=_stop(ctx))
     return len(waiting)

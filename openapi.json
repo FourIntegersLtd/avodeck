@@ -13926,6 +13926,18 @@
               }
             ],
             "title": "Step Total"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "required": [
@@ -13942,6 +13954,17 @@
       },
       "ProcessingRetried": {
         "properties": {
+          "blocked": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked"
+          },
           "requeued": {
             "title": "Requeued",
             "type": "integer"

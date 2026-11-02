@@ -1344,20 +1344,35 @@ async def mark_requested(
     return [r[0] for r in await cur.fetchall()]
 
 
+LIVE_MINUTES = 30  # a running job unchanged for this long is taken for an orphan
 BUNDLE_JOBS = ("process_bundle", "process_pages", "reprocess_case")
 
 
 async def latest_processing(
     conn: AsyncConnection, case_id: uuid.UUID, kinds: tuple[str, ...]
 ) -> dict[str, object] | None:
-    """The case's newest job of these kinds: its progress only, never page text."""
+    """The job the screen follows: the one running now, else the newest. A job waiting behind a running one
+    (they share the case's lock) is never shown in its place. Progress only, never page text."""
     cur = await conn.execute(
-        "select id, kind, status, step, pct, eta_seconds, step_done, step_total, error_code from app.jobs"
-        " where case_id = %s and kind = any(%s) order by created_at desc, id desc limit 1",
+        "select id, kind, status, step, pct, eta_seconds, step_done, step_total, error_code, updated_at"
+        " from app.jobs where case_id = %s and kind = any(%s)"
+        f" order by (status = 'running' and updated_at > now() - interval '{LIVE_MINUTES} minutes') desc,"
+        " created_at desc, id desc limit 1",
         (case_id, list(kinds)),
     )
     row = await cur.fetchone()
-    names = ("id", "kind", "status", "step", "pct", "eta_seconds", "step_done", "step_total", "error_code")
+    names = (
+        "id",
+        "kind",
+        "status",
+        "step",
+        "pct",
+        "eta_seconds",
+        "step_done",
+        "step_total",
+        "error_code",
+        "updated_at",
+    )
     return None if row is None else dict(zip(names, row, strict=True))
 
 
@@ -1390,6 +1405,18 @@ async def failed_job_ids(
         (case_id, list(kinds)),
     )
     return [(r[0], r[1]) for r in await cur.fetchall()]
+
+
+async def has_live_bundle_job(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
+    """A bundle job is running now: it holds the case's lock, so a job queued behind it only waits. A
+    'running' row untouched for `LIVE_MINUTES` is an orphan (its worker died) and does not count."""
+    cur = await conn.execute(
+        "select exists (select 1 from app.jobs where case_id = %s and kind = any(%s) and status = 'running'"
+        f" and updated_at > now() - interval '{LIVE_MINUTES} minutes')",
+        (case_id, list(BUNDLE_JOBS)),
+    )
+    row = await cur.fetchone()
+    return bool(row and row[0])
 
 
 async def requeue_failed(

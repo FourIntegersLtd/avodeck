@@ -133,3 +133,67 @@ async def test_a_viewer_gets_403_and_anyone_else_404(h: Harness) -> None:
     got = await h.client.post(f"/v1/cases/{h.case_id}/process/retry", headers=other)
     assert got.status_code == 404, got.status_code
     assert row(h, job)[0] == "failed"
+
+
+async def test_retry_does_not_queue_a_job_that_waits_behind_a_running_one(h: Harness) -> None:
+    """A running bundle job holds the case's lock; a re-queued failed job could never be claimed (stuck screen)."""
+    failed = await failed_job(h, "process_pages")
+    running = await h.enqueue("process_bundle")
+    h.admin.execute("update app.jobs set status = 'running' where id = %s", (running,))
+    got = await h.client.post(f"/v1/cases/{h.case_id}/process/retry")
+    assert got.json()["requeued"] == 0
+    assert row(h, failed)[0] == "failed"
+    assert row(h, running)[0] == "running"
+
+
+async def test_the_screen_follows_the_running_job_not_a_newer_queued_one(h: Harness) -> None:
+    running = await h.enqueue("process_bundle")
+    h.admin.execute("update app.jobs set status = 'running', step = 'sort' where id = %s", (running,))
+    await h.enqueue("process_pages")
+    got = await h.client.get(f"/v1/cases/{h.case_id}/process")
+    job = got.json()["job"]
+    assert job["id"] == str(running)
+    assert job["updated_at"] is not None
+
+
+def make_stale(h: Harness, job: uuid.UUID) -> None:
+    h.admin.execute("alter table app.jobs disable trigger jobs_guard")  # the guard stamps updated_at on every change
+    h.admin.execute("update app.jobs set updated_at = now() - interval '2 hours' where id = %s", (job,))
+    h.admin.execute("alter table app.jobs enable trigger jobs_guard")
+
+
+async def test_a_stale_running_row_does_not_block_retry(h: Harness) -> None:
+    """A 'running' row nobody has touched for ages is an orphan: it holds no lock worth waiting for."""
+    failed = await failed_job(h, "process_pages")
+    orphan = await h.enqueue("process_bundle")
+    h.admin.execute("update app.jobs set status = 'running' where id = %s", (orphan,))
+    make_stale(h, orphan)
+    got = await h.client.post(f"/v1/cases/{h.case_id}/process/retry")
+    assert got.json()["requeued"] == 1
+    assert row(h, failed)[0] == "queued"
+
+
+async def test_retry_says_when_it_waited_for_a_running_job(h: Harness) -> None:
+    await failed_job(h, "process_pages")
+    running = await h.enqueue("process_bundle")
+    h.admin.execute("update app.jobs set status = 'running' where id = %s", (running,))
+    got = await h.client.post(f"/v1/cases/{h.case_id}/process/retry")
+    assert got.json() == {"requeued": 0, "blocked": True}
+
+
+async def test_the_screen_follows_the_newest_job_when_the_running_row_is_stale(h: Harness) -> None:
+    orphan = await h.enqueue("process_bundle")
+    h.admin.execute("update app.jobs set status = 'running' where id = %s", (orphan,))
+    make_stale(h, orphan)
+    newer = await failed_job(h, "process_pages")
+    job = (await h.client.get(f"/v1/cases/{h.case_id}/process")).json()["job"]
+    assert job["id"] == str(newer)
+
+
+async def test_the_screen_follows_the_newest_job_when_nothing_is_running(h: Harness) -> None:
+    older = await h.enqueue("process_bundle")
+    h.admin.execute("update app.jobs set status = 'running' where id = %s", (older,))
+    h.admin.execute("update app.jobs set status = 'done', pct = 100 where id = %s", (older,))
+    newer = await h.enqueue("process_pages")
+    job = (await h.client.get(f"/v1/cases/{h.case_id}/process")).json()["job"]
+    assert job["id"] == str(newer)

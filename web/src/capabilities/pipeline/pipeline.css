@@ -178,3 +178,5 @@
 
 .pl-details { padding: var(--space-3) 0; }
 .pl-table td .av-btn { margin-left: var(--space-3); min-height: 52px; }
+.pl-waiting { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pl-waiting p { margin: 0; flex: 1 1 220px; }
