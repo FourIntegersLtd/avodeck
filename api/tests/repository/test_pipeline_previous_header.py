@@ -19,11 +19,14 @@ MARK = "Previous page header"
 
 
 async def test_a_page_carries_the_top_of_the_page_before_it(h: Harness) -> None:
+    # The scripted answer only matches page 1's own words, so every other page is refused and its
+    # whole one-page batch is asked again (the "accepted tradeoff" in `_extract`'s docstring) — the
+    # retry carries the exact same text, so more than one match here is expected; any of them does.
     requests = t07b_requests(h)
-    (page_1,) = [r for r in requests if "p1w2 alpha" in r.text]
-    (page_2,) = [
+    page_1 = next(r for r in requests if "p1w2 alpha" in r.text)
+    page_2 = next(
         r for r in requests if "p1w2 annwyl" in r.text and "\np1w2 annwyl" in r.text and "p1w1 Synthetic" in r.text
-    ]
+    )
     assert MARK not in page_1.text, "the first page was given a header"
     assert MARK in page_2.text
     header = page_2.text.split(MARK, 1)[1].split("\n", 1)[1].split("\n\n")[0]

@@ -362,7 +362,10 @@ async def harness(
         # batch size 1: keeps existing per-page fixtures and assertions working page-by-page; a test
         # exercising batching passes its own `bedrock`/`kit` instead. `BatchedT07b` reshapes any
         # still-flat scripted or recorded T-07b answer into the batched schema (see its docstring).
-        kit=AiKit(cell(AI_EXTRACTION_BATCH_SIZE="1"), BatchedT07b(bedrock)),
+        # The production rpm ceiling (its own pacing is covered by test_foundation_ai_kit_slots.py)
+        # is raised here so a page's extra "ask once more" call for a near-empty answer never makes
+        # one of these tests wait out real throttling.
+        kit=AiKit(cell(AI_EXTRACTION_BATCH_SIZE="1", BEDROCK_RPM_LIMIT="1000"), BatchedT07b(bedrock)),
         packs=default_library(),
         registry=registry,
         identity=wiring_module.identity_with(crypto) if wired_identity else identity,
