@@ -286,6 +286,7 @@ class TranscriptEntryOut(BaseModel):
     lines: list[str]
     results: list[str]  # result groups of checked facts only
     result_labels: list[str]  # the pack's i18n keys, same order
+    section: str | None = None  # key of the pack section the entry is in
 
 
 class TranscriptList(BaseModel):
@@ -294,6 +295,33 @@ class TranscriptList(BaseModel):
     entries: list[TranscriptEntryOut]
     picture_pages: list[int] = []  # pages with no entries: read by opening the picture
     unread_pages: list[int] = []  # pages the computer could not read: read by opening the picture
+
+
+class TranscriptFileIn(BaseModel):
+    format: Literal["docx", "pdf"] = "docx"
+
+
+class OutlineSection(BaseModel):
+    key: str
+    label: str  # the pack's i18n key
+    count: int
+    offset: int  # position of the section's first entry in the paged list
+
+
+class OutlineCoverage(BaseModel):
+    total_pages: int
+    with_entries: int
+    no_entries: int
+    unreadable: int
+    set_aside: int
+
+
+class TranscriptOutline(BaseModel):
+    """The shape of the transcript: sections and the page coverage. Counts, labels and positions only (rule 3)."""
+
+    status: Literal["idle", "preparing", "ready", "failed"]
+    coverage: OutlineCoverage | None = None
+    sections: list[OutlineSection] = []
 
 
 class RetryOut(BaseModel):

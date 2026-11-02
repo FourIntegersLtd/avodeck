@@ -84,6 +84,9 @@ class TranscriptEntry:
     lines: list[str] = field(repr=False)
     results: list[str]
     result_labels: list[str]
+    source_type: str | None = None  # the page's source type (pack key), for the file's sections
+    specialty_label: str | None = None  # the pack's i18n key for the specialty
+    section: str | None = None  # key of the pack section the entry is in (set by `entries`)
 
 
 @dataclass(frozen=True)
@@ -167,8 +170,10 @@ async def entries(
     offset: int,
     limit: int,
     only_read_by: uuid.UUID | None = None,
+    full: bool = False,
 ) -> Listing:
-    """The entries to read, in order. With `only_read_by`, only pages that person's reading counts for."""
+    """The entries to read, in order. With `only_read_by`, only pages that person's reading counts for. With
+    `full`, an administrative entry keeps all its lines (the files print it in full); it stays `folded`."""
     codes = await repo.case_codes(conn, case_id)
     if codes is None:
         return Listing([], 0)

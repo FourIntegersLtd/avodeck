@@ -13,6 +13,24 @@ _WORDS: dict[str, dict[str, str]] = {
         "page": "Page {number}",
         "undated": "No date",
         "unread": "This page couldn't be read by the computer; look at the picture.",
+        "not_checked": (
+            "This file has not been checked by the expert. It sets out the words printed on each page, in date "
+            "order. It is not a summary and holds no opinion."
+        ),
+        "contents": "Contents",
+        "other_entries": "Other entries",
+        "no_entry_pages": "Pages with no entries",
+        "no_entry_lead": "These pages have no entries to set out. See the picture of each page.",
+        "unread_pages": "Pages the computer couldn't read",
+        "coverage": "Every page accounted for",
+        "coverage_line": (
+            "{total} pages: {with_entries} with entries, {no_entries} with no entries, {unreadable} the computer "
+            "couldn't read. {set_aside} pages set aside as copies are not included."
+        ),
+        "received": "Received {date}",
+        "pictures": "Pictures of the pages",
+        "see_picture": "See page {number}",
+        "picture_missing": "Picture not available",
     },
 }
 

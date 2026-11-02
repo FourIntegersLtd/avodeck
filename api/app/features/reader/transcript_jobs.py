@@ -24,6 +24,7 @@ from app.features.reader import repo, transcript
 from app.features.reader.transcript_words import label_text, show_date, word
 
 KIND = "export_transcript"
+KIND_PDF = "export_transcript_pdf"
 PAGE = 200
 DOWNLOADED = "case.transcript_downloaded"
 
@@ -55,8 +56,8 @@ class _Services:
 services = _Services()
 
 
-def transcript_path(case_id: uuid.UUID, job_id: uuid.UUID) -> str:
-    return f"{case_prefix(case_id)}/exports/{job_id}/transcript.docx"
+def transcript_path(case_id: uuid.UUID, job_id: uuid.UUID, fmt: str = "docx") -> str:
+    return f"{case_prefix(case_id)}/exports/{job_id}/transcript.{fmt}"
 
 
 def build(
@@ -118,11 +119,16 @@ def _missing(error: StorageError) -> bool:
 
 
 async def take(
-    conn: AsyncConnection, storage: CaseFileStorage, crypto: CaseCrypto, case_id: uuid.UUID, job_id: uuid.UUID
+    conn: AsyncConnection,
+    storage: CaseFileStorage,
+    crypto: CaseCrypto,
+    case_id: uuid.UUID,
+    job_id: uuid.UUID,
+    fmt: str = "docx",
 ) -> bytes:
     """The Word file, once. That it was taken is the audit row, so a copy that could not be removed is never
     handed over twice; the caller removes the stored copy after the transaction commits (`remove`)."""
-    path = transcript_path(case_id, job_id)
+    path = transcript_path(case_id, job_id, fmt)
     await conn.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (path,))
     cur = await conn.execute(
         "select 1 from app.audit_log where case_id = %s and action = %s and target = %s",
@@ -141,10 +147,10 @@ async def take(
     return data
 
 
-async def remove(storage: CaseFileStorage, case_id: uuid.UUID, job_id: uuid.UUID) -> None:
+async def remove(storage: CaseFileStorage, case_id: uuid.UUID, job_id: uuid.UUID, fmt: str = "docx") -> None:
     """Removes the stored copy once the download is recorded. A failure leaves it for the daily sweep."""
     try:
-        await storage.delete([transcript_path(case_id, job_id)])
+        await storage.delete([transcript_path(case_id, job_id, fmt)])
     except StorageError:
         pass
 

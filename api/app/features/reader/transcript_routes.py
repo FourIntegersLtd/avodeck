@@ -26,7 +26,16 @@ from app.core.packs import PackLibrary
 from app.core.storage import CaseFileStorage
 from app.features.reader import transcript, transcript_jobs
 from app.features.reader.router import router
-from app.features.reader.schemas import JobOut, RetryOut, SeenIn, SeenOut, TranscriptEntryOut, TranscriptList
+from app.features.reader.schemas import (
+    JobOut,
+    RetryOut,
+    SeenIn,
+    SeenOut,
+    TranscriptEntryOut,
+    TranscriptFileIn,
+    TranscriptList,
+    TranscriptOutline,
+)
 
 View = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
 Read = Annotated[CaseAccess, Depends(require_case_access("page.read"))]
@@ -70,6 +79,12 @@ async def transcript_entries(
     )
 
 
+@router.get("/transcript/outline", response_model=TranscriptOutline)
+async def transcript_outline(case_id: uuid.UUID, request: Request, access: View, conn: DbConn) -> TranscriptOutline:
+    """The sections and page coverage of the transcript. Interface only: always "preparing" until slice B fills it in."""
+    return TranscriptOutline(status="preparing")
+
+
 @router.post("/transcript/retry", status_code=202, response_model=RetryOut)
 async def transcript_retry(case_id: uuid.UUID, access: Read, conn: DbConn) -> RetryOut:
     """The reader asks again after the entries job failed; queues once, nothing while one is waiting."""
@@ -97,7 +112,9 @@ async def transcript_seen(case_id: uuid.UUID, body: SeenIn, access: Read, conn: 
 
 
 @router.post("/transcript/download", status_code=202, response_model=JobOut)
-async def transcript_download_request(case_id: uuid.UUID, access: Export, view: View, conn: DbConn) -> JobOut:
+async def transcript_download_request(
+    case_id: uuid.UUID, access: Export, view: View, conn: DbConn, body: TranscriptFileIn | None = None
+) -> JobOut:
     cur = await conn.execute("select named_expert_id from app.cases where id = %s", (case_id,))
     named = (await cur.fetchone() or (None,))[0]
     if named is None or not await PageReads().read_page_ids(conn, case_id, named):
