@@ -529,7 +529,7 @@ def _entries_of(
 
 
 async def _extract(ctx: JobContext, services: PipelineServices) -> int:
-    """Extracts every page waiting for it, in batches of up to `extraction_batch_size` pages sent to
+    """Extracts every page waiting for it, in batches of up to `extraction_batch_size` pages (never more than `extract.MAX_PAGES_PER_CALL`) sent to
     the model in one call (one call per batch, not per page, to stay inside the account-wide Bedrock
     on-demand throughput ceiling). Returns how many pages were extracted.
 
@@ -554,7 +554,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         raise ProcessingPaused("model_unavailable")
     task = extract.task_for(pack)
     model_id = model_for(services.kit.settings, task.model)
-    size = max(1, services.kit.settings.extraction_batch_size)
+    size = extract.pages_per_call(services.kit.settings.extraction_batch_size)
     batches = [waiting[i : i + size] for i in range(0, len(waiting), size)]
     done = 0
 

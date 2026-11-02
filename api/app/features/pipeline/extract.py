@@ -43,7 +43,17 @@ AVAILABILITY = ("received", "filed", "seen", "sent_to_clinician")
 _FIELD_TYPES = {"date": ["string", "null"], "string": ["string", "null"], "boolean": ["boolean", "null"]}
 _SHORT = 120
 _SPAN = 4000
-BATCH_MAX_TOKENS = 16000  # enough structured output for a batch of ~100 pages, well under the model's limit
+BATCH_MAX_TOKENS = 16000
+# A page's structured answer averages ~1,000 output tokens (production, case of 900 pages). A batch
+# whose answer hits BATCH_MAX_TOKENS is cut off, is invalid JSON and is asked again, so the whole
+# batch fails. 10 pages leaves ~1.5x headroom; the configured size can only lower it.
+MAX_PAGES_PER_CALL = 10
+
+
+def pages_per_call(configured: int) -> int:
+    return max(1, min(configured, MAX_PAGES_PER_CALL))
+
+
 PAGE_MARK = "=== PAGE {0} ==="
 
 
