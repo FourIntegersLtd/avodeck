@@ -210,6 +210,8 @@ function Editor({
     }
   };
 
+  const retry = useRef<number | undefined>(undefined);
+
   const save = useCallback(async (): Promise<void> => {
     if (
       busy.current ||
@@ -250,7 +252,8 @@ function Editor({
       } else {
         setMessage(errorMessage(err, { invalid: "write.opinion.cite_failed" }));
         setStatus("failed");
-        setTimeout(() => setTick((n) => n + 1), AUTOSAVE_MS);
+        window.clearTimeout(retry.current);
+        retry.current = window.setTimeout(() => setTick((n) => n + 1), AUTOSAVE_MS);
       }
     } finally {
       busy.current = false;
@@ -258,6 +261,9 @@ function Editor({
     if (changed.current !== saved.current && !stale) setTick((n) => n + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId, questionId]);
+
+  // The retry after a failed save must not outlive the screen or the question it was for.
+  useEffect(() => () => window.clearTimeout(retry.current), [caseId, questionId]);
 
   // Save five seconds after the last change (and again after a failure).
   useEffect(() => {
