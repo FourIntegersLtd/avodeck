@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { humanise, t } from "../../foundation/i18n";
+import { formatDay } from "../../foundation/i18n/dates";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, ProgressBar, Spinner } from "../../foundation/ui";
@@ -139,7 +140,7 @@ function EntryCard({ entry, caseId, onSeen }: { entry: Entry; caseId: string; on
       observer.disconnect();
     };
   }, [entry.id, onSeen, open]);
-  const day = entry.event_date ? new Date(`${entry.event_date}T00:00:00`).toLocaleDateString(undefined, { dateStyle: "long" }) : w("transcript.undated");
+  const day = entry.event_date ? formatDay(entry.event_date, undefined, "long") : w("transcript.undated");
   return (
     <article ref={ref} id={`entry-${entry.id}`} tabIndex={-1} className={`rd-entry${entry.folded ? " rd-entry--folded" : ""}`} aria-label={w("transcript.entry_label", { page: entry.page_no })}>
       <h3 className="rd-entry__head">

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { addDays, addMonths, addYears, daysBetween, formatDay, formatList, formatNumber, parseDay } from "./dates";
+import { setSessionLocale, addDays, addMonths, addYears, daysBetween, formatDay, formatList, formatNumber, parseDay } from "./dates";
 
 describe("parseDay", () => {
   test("a calendar day is a fixed UTC moment, a moment is itself", () => {
@@ -76,5 +76,15 @@ describe("bad input", () => {
     expect(addDays("nonsense", 1)).toBe("nonsense");
     expect(addMonths("", 1)).toBe("");
     expect(addYears("2024-13-45x", 1)).toBe("2024-13-45x");
+  });
+});
+
+describe("the signed-in person's locale", () => {
+  test("is used when a screen passes none, and cleared on sign-out", () => {
+    setSessionLocale("en-US");
+    expect(formatDay("2024-03-05", undefined, "long")).toBe("March 5, 2024");
+    expect(formatDay("2024-03-05", "en-GB", "long")).toBe("5 March 2024");
+    setSessionLocale(null);
+    expect(formatDay("2024-03-05", undefined, "long")).toBe("5 March 2024");
   });
 });
