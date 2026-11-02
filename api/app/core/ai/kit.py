@@ -250,6 +250,7 @@ class AiKit:
                         cur = await conn.execute(
                             "select s.job_id from app.ai_request_slots s join app.jobs j on j.id = s.job_id"
                             " where s.granted_at is null"
+                            " and j.status in ('queued', 'running')"
                             " order by j.last_granted_at is not null, j.last_granted_at, s.requested_at limit 1"
                         )
                         next_up = await cur.fetchone()
@@ -372,6 +373,7 @@ class AiKit:
                     cur = await conn.execute(
                         "select s.job_id from app.ai_request_slots s join app.jobs j on j.id = s.job_id"
                         " where s.granted_at is null"
+                        " and j.status in ('queued', 'running')"
                         " order by j.last_granted_at is not null, j.last_granted_at, s.requested_at limit 1"
                     )
                     next_up = await cur.fetchone()
