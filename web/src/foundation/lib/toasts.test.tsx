@@ -54,11 +54,11 @@ describe("toasts", () => {
 
   test("closing clears the timer, and the live region is always there", async () => {
     const { user } = setup();
-    const region = screen.getByRole("status");
+    const region = screen.getByRole("region", { name: "Notifications" });
     await user.click(screen.getByRole("button", { name: "fire" }));
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(vi.getTimerCount()).toBe(0);
-    expect(screen.getByRole("status")).toBe(region);
+    expect(screen.getByRole("region", { name: "Notifications" })).toBe(region);
   });
 
   test("unmounting clears the timers", async () => {

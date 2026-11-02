@@ -56,7 +56,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {/* The live region is always in the page, so a message added to it is announced. */}
-      <div className="av-toasts" role="status" aria-live="polite" aria-label={t("app.toast.region")}>
+      <div className="av-toasts" role="region" aria-live="polite" aria-label={t("app.toast.region")}>
         {toasts.map((x) => (
           <ToastItem key={x.id} toast={x} onClose={close} />
         ))}
