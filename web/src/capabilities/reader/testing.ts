@@ -274,10 +274,10 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
 
 /** The "More tools" panel of the page toolbar, opened if it is closed (it closes once a tool is picked). */
 export async function moreTools(user: UserEvent): Promise<HTMLElement> {
-  const open = screen.queryByRole("group", { name: "View" });
+  const open = screen.queryByRole("menu", { name: "View" });
   if (open) return open;
   await user.click(await screen.findByRole("button", { name: "View" }));
-  return screen.getByRole("group", { name: "View" });
+  return screen.getByRole("menu", { name: "View" });
 }
 
 /** Opens "Find" on the page toolbar, if it is not open already. */

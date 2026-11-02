@@ -45,7 +45,7 @@ export { initials } from "./initials";
 export { SegmentedControl } from "./SegmentedControl";
 export type { SegmentedControlProps, SegmentedOption } from "./SegmentedControl";
 export { StepperCapsule } from "./StepperCapsule";
-export { Menu, MenuItem, MenuSection, placeMenu } from "./Menu";
+export { Menu, MenuItem, MenuLink, MenuSection } from "./Menu";
 export type { MenuItemProps, MenuProps } from "./Menu";
 export { ListRow } from "./ListRow";
 export type { ListRowProps } from "./ListRow";

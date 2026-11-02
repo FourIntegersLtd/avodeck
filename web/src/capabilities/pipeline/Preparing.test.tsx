@@ -162,7 +162,7 @@ describe.each([
     );
     const { user } = renderAt(PATH);
     await user.click(await screen.findByRole("button", { name: "More" }));
-    await user.click(await screen.findByRole("button", { name: "Stop preparing" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Stop preparing" }));
     expect(await screen.findByText("Preparing has stopped. Your files are kept.")).toBeVisible();
     expect(cancelled).toBe(1);
     expect(screen.getByRole("button", { name: "Start preparing" })).toBeVisible();
@@ -173,7 +173,7 @@ describe.each([
     mockCase(pack, { item: theCase({ allowed_actions: VIEWER_ACTIONS }) });
     renderAt(PATH);
     await screen.findByText("Splitting into pages");
-    expect(screen.queryByRole("button", { name: "Stop preparing" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Stop preparing" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Start preparing" })).toBeNull();
   });
 
@@ -235,7 +235,7 @@ describe.each([
     expect(await screen.findByText("840 of 1,268")).toBeVisible();
     expect(screen.getByText(/1 voice recording was kept as it is/)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "More" }));
-    expect(screen.getByRole("button", { name: "Stop preparing" })).toBeVisible();
+    expect(screen.getByRole("menuitem", { name: "Stop preparing" })).toBeVisible();
   });
 
   test("shows the picture, a count beside each finished step, and a lock on the note about original files", async () => {

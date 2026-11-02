@@ -91,7 +91,7 @@ test("removing a point is busy in the dialog and sends once", async () => {
   server.use(http.patch("/v1/cases/:caseId/points/:id", h.handler));
   const { user } = renderAt(points);
   await user.click(await screen.findByRole("button", { name: M["write.points.more"]! }));
-  await user.click(await screen.findByRole("button", { name: M["write.points.remove"]! }));
+  await user.click(await screen.findByRole("menuitem", { name: M["write.points.remove"]! }));
   const dialog = await screen.findByRole("dialog", { name: M["write.points.remove_title"] });
   await user.type(within(dialog).getByLabelText(M["write.points.remove_reason"]!), "Not relevant");
   await expectBusyOnce(user, within(dialog).getByRole("button", { name: M["write.points.remove_confirm"]! }), h.hits);
@@ -133,11 +133,11 @@ test("moving a point to the other side says so, and a second move sends nothing"
   server.use(http.patch("/v1/cases/:caseId/points/:id", h.handler));
   const { user } = renderAt(points);
   await user.click(await screen.findByRole("button", { name: M["write.points.more"]! }));
-  await user.click(await screen.findByRole("button", { name: `Move to ${sides("launch")[1]!.label}` }));
+  await user.click(await screen.findByRole("menuitem", { name: `Move to ${sides("launch")[1]!.label}` }));
   expect(await screen.findByText("Moving the point…")).toBeInTheDocument();
   expect(document.querySelector("#point-b1111111-1111-4111-8111-111111111111")).toHaveAttribute("aria-busy", "true");
   await user.click(screen.getByRole("button", { name: M["write.points.more"]! }));
-  const again = screen.queryByRole("button", { name: `Move to ${sides("launch")[1]!.label}` });
+  const again = screen.queryByRole("menuitem", { name: `Move to ${sides("launch")[1]!.label}` });
   if (again) await user.click(again);
   expect(h.hits.n).toBe(1);
   h.release();

@@ -1,24 +1,6 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-
-/** The browser has the Popover API (the menu then sits in the top layer, above the bar and the page). */
-const POPOVER = typeof HTMLElement !== "undefined" && "showPopover" in HTMLElement.prototype;
-
-/** Right-aligned under the trigger, up when there is no room below; full width at the bottom on narrow screens. */
-export function placeMenu(el: HTMLElement, button: HTMLElement | null) {
-  if (!button || window.innerWidth <= 900) {
-    el.style.top = el.style.left = el.style.maxHeight = "";
-    return;
-  }
-  const r = button.getBoundingClientRect();
-  const gap = 8;
-  const below = window.innerHeight - r.bottom - gap * 2;
-  const above = r.top - gap * 2;
-  const down = below >= Math.min(el.scrollHeight, 480) || below >= above;
-  el.style.maxHeight = `${Math.max(160, down ? below : above)}px`;
-  const height = Math.min(el.scrollHeight, el.offsetHeight || el.scrollHeight);
-  el.style.top = `${down ? r.bottom + gap : Math.max(gap, r.top - gap - height)}px`;
-  el.style.left = `${Math.min(Math.max(gap, r.right - el.offsetWidth), window.innerWidth - el.offsetWidth - gap)}px`;
-}
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 const TICK = (
   <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
@@ -39,99 +21,127 @@ export interface MenuProps {
   children: ReactNode;
   /** Hide the little chevron on the trigger. */
   noChevron?: boolean;
+  /** Let the caller hold the open state (for a keyboard shortcut that opens it). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** An id and classes for the trigger button, for a bar that styles it as one of its own tools. */
+  triggerId?: string;
+  triggerClassName?: string;
+  /** Called as the menu closes and focus is about to go back to the trigger; `preventDefault()` keeps focus where the caller put it. */
+  onCloseFocus?: (e: Event) => void;
 }
 
-/** A quiet trigger and a popover of sections and rows. Closes on Escape or a click outside; focus goes back to the trigger. */
-export function Menu({ label, trigger, children, noChevron }: MenuProps) {
-  const [open, setOpen] = useState(false);
-  const button = useRef<HTMLButtonElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
-  const id = useId();
-
-  function close() {
-    setOpen(false);
-    button.current?.focus();
-  }
-
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (!panel.current?.contains(target) && !button.current?.contains(target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
-  }, [open]);
-
-  useLayoutEffect(() => {
-    const el = panel.current;
-    if (!el) return;
-    if (POPOVER) {
-      try {
-        if (!el.matches(":popover-open")) el.showPopover();
-      } catch {
-        /* already shown */
-      }
-    }
-    placeMenu(el, button.current);
-    el.querySelector<HTMLElement>("button:not(:disabled), a")?.focus();
-  }, [open]);
-
-  function onKey(e: KeyboardEvent<HTMLDivElement>) {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      close();
-      return;
-    }
-    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>("button:not(:disabled), a"));
-    const at = items.indexOf(document.activeElement as HTMLElement);
-    items[e.key === "ArrowDown" ? (at + 1) % items.length : at <= 0 ? items.length - 1 : at - 1]?.focus();
+/**
+ * A quiet trigger and a menu of sections and rows, on the Radix dropdown primitive: `role="menu"`,
+ * arrow keys, Home/End, type-ahead, Tab or Escape closes it, and focus goes back to the trigger.
+ * Full width at the bottom on narrow screens (CSS).
+ */
+// Focus the first row, whether it was opened by pointer or key. (The prop reaches the menu content at runtime but is not in the package types.)
+const openFocus = {
+  onOpenAutoFocus: (e: Event) => {
     e.preventDefault();
-  }
+    (e.currentTarget as HTMLElement).querySelector<HTMLElement>("[role^=menuitem]:not([data-disabled])")?.focus();
+  },
+} as Record<string, unknown>;
 
+export function Menu({ label, trigger, children, noChevron, open, onOpenChange, triggerId, triggerClassName, onCloseFocus }: MenuProps) {
+  const [inner, setInner] = useState(false);
+  const isOpen = open ?? inner;
+  const change = (next: boolean) => {
+    setInner(next);
+    onOpenChange?.(next);
+  };
   return (
-    <>
-      <button ref={button} type="button" className="av-menu__trigger" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen((o) => !o)}>
+    <DropdownMenu.Root modal={false} open={isOpen} onOpenChange={change}>
+      <DropdownMenu.Trigger id={triggerId} className={triggerClassName ?? "av-menu__trigger"}>
         {trigger}
         {!noChevron && CHEVRON}
-      </button>
-      {open && (
-        <div id={id} ref={panel} className="av-menu" role="group" aria-label={label} onKeyDown={onKey} {...(POPOVER ? ({ popover: "manual" } as object) : {})}>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          className="av-menu"
+          aria-label={label}
+          aria-labelledby={undefined}
+          align="end"
+          sideOffset={8}
+          collisionPadding={8}
+          onCloseAutoFocus={onCloseFocus}
+          {...openFocus}
+          onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+            // Tab leaves the menu rather than being trapped in it.
+            if (e.key === "Tab") change(false);
+          }}
+        >
           {children}
-        </div>
-      )}
-    </>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }
 
 /** A labelled run of rows; a hairline separates it from the next. */
 export function MenuSection({ label, children }: { label?: string; children: ReactNode }) {
   return (
-    <div className="av-menu__section">
-      {label && <span className="av-menu__label">{label}</span>}
+    <DropdownMenu.Group className="av-menu__section" aria-label={label}>
+      {label && <DropdownMenu.Label className="av-menu__label">{label}</DropdownMenu.Label>}
       {children}
-    </div>
+    </DropdownMenu.Group>
   );
 }
 
 export interface MenuItemProps {
   children: ReactNode;
-  /** Shows a tick and `aria-pressed` (a choice that is on). */
+  /** A choice that is on or off: shows a tick and `aria-checked` (a checkbox row). */
   pressed?: boolean;
   /** Text on the right: a key or a count. */
   shortcut?: string;
+  /** An icon before the words. */
+  icon?: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
+  /** Keep the menu open after the row is chosen. */
+  keepOpen?: boolean;
+  "aria-expanded"?: boolean;
+  "aria-controls"?: string;
 }
 
 /** One row, 48-52px tall. Rows with no `pressed` keep the tick's space so the words line up. */
-export function MenuItem({ children, pressed, shortcut, onClick, disabled }: MenuItemProps) {
-  return (
-    <button type="button" className="av-menu__item" {...(pressed === undefined ? {} : { "aria-pressed": pressed })} disabled={disabled} onClick={onClick}>
+export function MenuItem({ children, pressed, shortcut, icon, onClick, disabled, keepOpen, ...aria }: MenuItemProps) {
+  const onSelect = (e: Event) => {
+    if (keepOpen) e.preventDefault();
+    onClick?.();
+  };
+  const body = (
+    <>
+      {icon && <span className="av-menu__icon">{icon}</span>}
       <span className="av-menu__tick">{pressed ? TICK : null}</span>
       <span className="av-menu__text">{children}</span>
       {shortcut && <span className="av-menu__shortcut">{shortcut}</span>}
-    </button>
+    </>
+  );
+  if (pressed === undefined) {
+    return (
+      <DropdownMenu.Item className="av-menu__item" disabled={disabled} onSelect={onSelect} {...aria}>
+        {body}
+      </DropdownMenu.Item>
+    );
+  }
+  return (
+    <DropdownMenu.CheckboxItem className="av-menu__item" checked={pressed} disabled={disabled} onSelect={onSelect} {...aria}>
+      {body}
+    </DropdownMenu.CheckboxItem>
+  );
+}
+
+/** A row that goes to another screen. */
+export function MenuLink({ to, icon, children }: { to: string; icon?: ReactNode; children: ReactNode }) {
+  return (
+    <DropdownMenu.Item asChild>
+      <Link to={to} className="av-menu__item">
+        {icon && <span className="av-menu__icon">{icon}</span>}
+        <span className="av-menu__tick" />
+        <span className="av-menu__text">{children}</span>
+      </Link>
+    </DropdownMenu.Item>
   );
 }

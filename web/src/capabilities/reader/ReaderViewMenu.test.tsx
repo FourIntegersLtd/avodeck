@@ -36,12 +36,12 @@ describe("The View menu", () => {
     expect(document.querySelector(".rd-bar")).not.toContainElement(menu);
     expect(view).toHaveAttribute("aria-haspopup", "menu");
     expect(within(menu).getAllByRole("menuitem").length).toBeGreaterThan(0);
-    expect(within(menu).getAllByRole(/^menuitem/)[0]).toHaveFocus();
+    expect(menu.querySelector("[role^=menuitem]")).toHaveFocus();
   });
 
   test("the arrow keys move between the items", async () => {
     const { user, menu } = await open();
-    const items = within(menu).getAllByRole(/^menuitem/).filter((b) => b.getAttribute("aria-disabled") !== "true");
+    const items = [...menu.querySelectorAll<HTMLElement>("[role^=menuitem]")].filter((b) => b.getAttribute("aria-disabled") !== "true");
     await user.keyboard("{ArrowDown}");
     expect(items[1]).toHaveFocus();
     await user.keyboard("{ArrowUp}");
@@ -64,7 +64,7 @@ describe("The View menu", () => {
     expect(screen.queryByRole("menu", { name: "View" })).not.toBeInTheDocument();
     expect(view).toHaveFocus();
     await user.click(view);
-    expect(within(await screen.findByRole("menu", { name: "View" })).getByRole("menuitemcheckbox", { name: "Two pages side by side" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(await screen.findByRole("menu", { name: "View" })).getByRole("menuitemcheckbox", { name: "Two pages side by side" })).toHaveAttribute("aria-checked", "true");
   });
 
   test("Escape closes it and returns focus to View", async () => {

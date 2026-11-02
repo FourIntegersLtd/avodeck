@@ -23,7 +23,7 @@ test("screen 14 keeps moving and removing a point in a menu", async () => {
   const column = await screen.findByRole("region", { name: sides("launch")[0]!.label });
   expect(within(column).queryByRole("button", { name: M["write.points.remove"]! })).toBeNull();
   await user.click(within(column).getByRole("button", { name: M["write.points.more"]! }));
-  expect(await screen.findByRole("button", { name: M["write.points.remove"]! })).toBeInTheDocument();
+  expect(await screen.findByRole("menuitem", { name: M["write.points.remove"]! })).toBeInTheDocument();
 });
 
 test("screen 15 shows exactly one primary button and the views as a segmented control", async () => {

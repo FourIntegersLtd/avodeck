@@ -36,9 +36,9 @@ describe.each([
 
       await user.click(within(bar).getByRole("button", { name: "Turn page" }));
       expect(turned()).toHaveAttribute("data-turn", "90");
-      await user.click(within(await moreTools(user)).getByRole("button", { name: "Upside down" }));
+      await user.click(within(await moreTools(user)).getByRole("menuitem", { name: "Upside down" }));
       expect(turned()).toHaveAttribute("data-turn", "270");
-      await user.click(within(await moreTools(user)).getByRole("button", { name: "Turn left" }));
+      await user.click(within(await moreTools(user)).getByRole("menuitem", { name: "Turn left" }));
       expect(turned()).toHaveAttribute("data-turn", "180");
 
       await waitFor(() => expect(api.turns.map((t) => t.body)).toEqual([{ degrees: 90 }, { degrees: 270 }, { degrees: 180 }]));
@@ -52,8 +52,8 @@ describe.each([
       const api = mockReader(pack);
       const { user } = renderAt(PATH);
       const bar = await screen.findByRole("toolbar", { name: "Page view" });
-      const undo = async () => within(await moreTools(user)).getByRole("button", { name: "Undo turn" });
-      expect(await undo()).toBeDisabled();
+      const undo = async () => within(await moreTools(user)).getByRole("menuitem", { name: "Undo turn" });
+      expect(await undo()).toHaveAttribute("aria-disabled", "true");
       await user.keyboard("{Escape}");
       await user.click(within(bar).getByRole("button", { name: "Turn page" }));
       await user.click(within(bar).getByRole("button", { name: "Turn page" }));
@@ -61,7 +61,7 @@ describe.each([
       expect(turned()).toHaveAttribute("data-turn", "90");
       await user.click(await undo());
       expect(turned()).toHaveAttribute("data-turn", "0");
-      expect(await undo()).toBeDisabled();
+      expect(await undo()).toHaveAttribute("aria-disabled", "true");
       await waitFor(() => expect(api.turns.map((t) => t.body.degrees)).toEqual([90, 180, 90, 0]));
     });
 
@@ -108,7 +108,7 @@ describe.each([
       const { user } = renderAt(PATH);
       const bar = await screen.findByRole("toolbar", { name: "Page view" });
       expect(within(bar).queryByRole("button", { name: "Turn page" })).not.toBeInTheDocument();
-      expect(within(await moreTools(user)).getByRole("button", { name: "Fit to width" })).toBeVisible();
+      expect(within(await moreTools(user)).getByRole("menuitemcheckbox", { name: "Fit to width" })).toBeVisible();
     });
   });
 
@@ -117,15 +117,15 @@ describe.each([
       mockReader(pack);
       const { user } = renderAt(PATH);
       const bar = await screen.findByRole("toolbar", { name: "Page view" });
-      const width = async () => within(await moreTools(user)).getByRole("button", { name: "Fit to width" });
-      const whole = async () => within(await moreTools(user)).getByRole("button", { name: "Whole page" });
-      expect(await width()).toHaveAttribute("aria-pressed", "true");
+      const width = async () => within(await moreTools(user)).getByRole("menuitemcheckbox", { name: "Fit to width" });
+      const whole = async () => within(await moreTools(user)).getByRole("menuitemcheckbox", { name: "Whole page" });
+      expect(await width()).toHaveAttribute("aria-checked", "true");
       await user.click(await whole());
-      expect(await whole()).toHaveAttribute("aria-pressed", "true");
-      expect(await width()).toHaveAttribute("aria-pressed", "false");
+      expect(await whole()).toHaveAttribute("aria-checked", "true");
+      expect(await width()).toHaveAttribute("aria-checked", "false");
       await user.click(within(bar).getByRole("button", { name: "Zoom in" }));
       expect(within(bar).getByText("125%")).toBeVisible();
-      expect(await whole()).toHaveAttribute("aria-pressed", "false");
+      expect(await whole()).toHaveAttribute("aria-checked", "false");
     });
 
     test("Ctrl and the mouse wheel zoom the page", async () => {
@@ -240,7 +240,7 @@ describe.each([
       const { user } = renderAt(PATH);
       await screen.findByRole("toolbar", { name: "Page view" });
       const img = await screen.findByRole("img", { name: "Page 118" });
-      await user.click(within(await moreTools(user)).getByRole("button", { name: "Make it clearer…" }));
+      await user.click(within(await moreTools(user)).getByRole("menuitem", { name: "Make it clearer…" }));
       fireEvent.change(screen.getByRole("slider", { name: "Brightness" }), { target: { value: "130" } });
       fireEvent.change(screen.getByRole("slider", { name: "Contrast" }), { target: { value: "160" } });
       expect(img.style.filter).toBe("brightness(1.3) contrast(1.6)");
@@ -257,7 +257,7 @@ describe.each([
       const { user, container } = renderAt(PATH);
       await screen.findByRole("toolbar", { name: "Page view" });
       await within(await screen.findByRole("listbox", { name: "Pages" })).findByRole("option", { name: "Page 118, not read yet" });
-      await user.click(within(await moreTools(user)).getByRole("button", { name: "Make it clearer…" }));
+      await user.click(within(await moreTools(user)).getByRole("menuitem", { name: "Make it clearer…" }));
       expect(await axeViolations(container)).toEqual([]);
     });
   });

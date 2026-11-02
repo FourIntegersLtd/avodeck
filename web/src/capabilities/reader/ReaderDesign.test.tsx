@@ -42,7 +42,7 @@ describe.each([
   test("Clearer copy puts the page on the list for a clearer copy", async () => {
     const api = mockReader(pack);
     const { user } = renderAt(PATH);
-    await user.click(within(await moreTools(user)).getByRole("button", { name: "Clearer copy" }));
+    await user.click(within(await moreTools(user)).getByRole("menuitem", { name: "Clearer copy" }));
     await waitFor(() => expect(api.patches).toEqual([{ page: 118, body: { needs_clearer_copy: true } }]));
     expect(await screen.findByText(/a clearer copy is on your list/)).toBeVisible();
   });
@@ -50,7 +50,7 @@ describe.each([
   test("Not this patient opens the not-this-patient screen for this page", async () => {
     mockReader(pack);
     const { user } = renderAt(PATH);
-    expect(within(await moreTools(user)).getByRole("link", { name: "Not this patient's page…" })).toHaveAttribute("href", `/cases/${CASE_ID}/bundle/not-this-patient?page=118`);
+    expect(within(await moreTools(user)).getByRole("menuitem", { name: "Not this patient's page…" })).toHaveAttribute("href", `/cases/${CASE_ID}/bundle/not-this-patient?page=118`);
   });
 
   test("Why we do this explains reading first", async () => {
