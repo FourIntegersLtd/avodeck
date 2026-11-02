@@ -40,7 +40,9 @@ def test_the_options_install_a_recursive_scrubber() -> None:
 
 def test_values_under_sensitive_keys_never_leave(sentry: list[bytes]) -> None:
     sentry_sdk.set_tag("password", "hunter2-synthetic")
-    sentry_sdk.set_context("login", {"nested": {"authorization": "Bearer synthetic-token"}, "session": "sess-synthetic"})
+    sentry_sdk.set_context(
+        "login", {"nested": {"authorization": "Bearer synthetic-token"}, "session": "sess-synthetic"}
+    )
     sentry_sdk.capture_message("something failed")
     sentry_sdk.flush()
     assert sentry, "no event was sent"

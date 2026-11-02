@@ -10,7 +10,7 @@ from datetime import date
 import pytest
 
 from app.core.ai import pii
-from app.core.packs import MergedPack, PackLibrary, default_library
+from app.core.packs import MergedPack, default_library
 from tests.support.packs import LAUNCH
 
 MARCH_3 = date(1950, 3, 3)
