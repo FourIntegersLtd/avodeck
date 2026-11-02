@@ -71,6 +71,8 @@ def expected_params(req: ModelRequest) -> dict[str, Any]:
             "toolChoice": {"tool": {"name": "record_output"}},
         },
         "inferenceConfig": {"maxTokens": req.max_tokens, "temperature": req.temperature},
+        # Sonnet 5 thinks by default, and thinking is billed as output (10x against the token quota).
+        "additionalModelRequestFields": {"thinking": {"type": "disabled"}},
     }
 
 
