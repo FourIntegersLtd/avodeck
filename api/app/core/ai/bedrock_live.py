@@ -107,7 +107,15 @@ class LiveBedrock:
         except ClientError as exc:
             code = str(exc.response.get("Error", {}).get("Code", "unknown"))
             status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-            logger.warning("model call refused: %s (status %s, task %s)", code, status, request.task_id)
+            logger.warning(
+                "model call refused: %s (status %s, task %s, limit=%s, max_tokens=%d, chars=%d)",
+                code,
+                status,
+                request.task_id,
+                _limit_kind(exc.response.get("Error", {}).get("Message")),
+                request.max_tokens,
+                len(request.text),
+            )
             if code in _BUSY:
                 raise ServiceBusy(_retry_after(exc.response)) from None
             if code in _GONE:
@@ -141,6 +149,16 @@ class LiveBedrock:
             input_tokens=int(usage.get("inputTokens", 0)),
             output_tokens=int(usage.get("outputTokens", 0)),
         )
+
+
+def _limit_kind(message: object) -> str:
+    """Which limit a throttle names, from AWS's wording. The message itself is never logged."""
+    text = str(message or "").lower()
+    if "token" in text:
+        return "tokens"
+    if "request" in text:
+        return "requests"
+    return "other"
 
 
 def _params(request: ModelRequest) -> dict[str, Any]:
