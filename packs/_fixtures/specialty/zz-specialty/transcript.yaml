@@ -1,0 +1,3 @@
+sections:
+  - {key: zz_notes, label: zz.section.notes, sources: [clinic_notes], administrative: false}
+  - {key: zz_rest, label: zz.section.rest}

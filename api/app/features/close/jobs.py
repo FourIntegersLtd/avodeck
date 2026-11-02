@@ -478,6 +478,7 @@ async def close_daily(reg: JobRegistry, conn: AsyncConnection, run_date: date) -
         try:
             doomed = [export_path(row["case_id"], row["job_id"], v) for v in VARIANTS]
             doomed.append(f"{case_prefix(row['case_id'])}/exports/{row['job_id']}/transcript.docx")  # slice B's copy
+            doomed.append(f"{case_prefix(row['case_id'])}/exports/{row['job_id']}/transcript.pdf")  # slice B's PDF copy
             await services.get_storage().delete(doomed)
         except Exception as exc:  # noqa: BLE001 - as above
             logger.error("close daily: removing an old export failed: %s", type(exc).__name__)

@@ -25,6 +25,7 @@ The expert reads every page of the bundle themselves. AI suggestions for a page 
 - `PUT /v1/cases/{id}/pages/{page_no}/transcription` `{text, relevance?}` → 202 job (re-extraction through `core/contracts/pipeline.py` `extract_page_text`, which A implements)
 - `GET /v1/cases/{id}/pages/{page_no}/second-reading`
 - Reading by transcript (S09b, ADR 0028, migration 0215): `GET /v1/cases/{id}/transcript/entries?offset&limit` (`{status, total, entries, picture_pages, unread_pages}`, no facts; `unread_pages` are pages the computer could not read, read by opening the picture; a failed entries job is not re-queued by polling), `POST …/transcript/retry` (202 `{status}`, `page.read`; the reader's own "Try again"), `POST …/transcript/seen` (`{entry_id, dwell_ms}` or `{page_no, picture_opened}` returns `{pages_read}`; the server decides when a page is read, 1.5 s per entry, and logs it in `page_reads` with `via = 'transcript'`), `POST …/transcript/download` (202 `{job_id}`, step-up, job `export_transcript`) and `GET …/transcript/download/{job_id}` (the Word file once)
+- Word and PDF copies (ADR 0035, migration 0223, job `export_transcript_pdf`): downloadable before reading; a copy never records a read; sections come from the pack's `transcript.yaml`; a coverage line says what the copy covers
 - `PATCH /v1/cases/{id}/pages/{page_no}` `{relevance? (relevant | background | nothing), needs_clearer_copy?}` (setting a page aside as a copy is A's `PATCH …/pages/{page_id}/duplicate`)
 
 ## Tables owned

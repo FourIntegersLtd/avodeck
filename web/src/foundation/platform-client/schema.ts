@@ -3541,6 +3541,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/transcript/outline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Transcript Outline
+         * @description The sections (with where each starts in the paged list) and the page coverage; counts and labels only.
+         */
+        get: operations["transcript_outline_v1_cases__case_id__transcript_outline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/transcript/retry": {
         parameters: {
             query?: never;
@@ -9598,6 +9618,30 @@ export interface components {
              */
             organisations: string[];
         };
+        /** OutlineCoverage */
+        OutlineCoverage: {
+            /** No Entries */
+            no_entries: number;
+            /** Set Aside */
+            set_aside: number;
+            /** Total Pages */
+            total_pages: number;
+            /** Unreadable */
+            unreadable: number;
+            /** With Entries */
+            with_entries: number;
+        };
+        /** OutlineSection */
+        OutlineSection: {
+            /** Count */
+            count: number;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Offset */
+            offset: number;
+        };
         /** OverEstimate */
         OverEstimate: {
             /** Instructing Party */
@@ -12777,8 +12821,19 @@ export interface components {
             result_labels: string[];
             /** Results */
             results: string[];
+            /** Section */
+            section?: string | null;
             /** Specialty */
             specialty: string | null;
+        };
+        /** TranscriptFileIn */
+        TranscriptFileIn: {
+            /**
+             * Format
+             * @default docx
+             * @enum {string}
+             */
+            format: "docx" | "pdf";
         };
         /** TranscriptIn */
         TranscriptIn: {
@@ -12813,6 +12868,23 @@ export interface components {
              * @default []
              */
             unread_pages: number[];
+        };
+        /**
+         * TranscriptOutline
+         * @description The shape of the transcript: sections and the page coverage. Counts, labels and positions only (rule 3).
+         */
+        TranscriptOutline: {
+            coverage?: components["schemas"]["OutlineCoverage"] | null;
+            /**
+             * Sections
+             * @default []
+             */
+            sections: components["schemas"]["OutlineSection"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "idle" | "preparing" | "ready" | "failed";
         };
         /** TranscriptSaved */
         TranscriptSaved: {
@@ -23026,7 +23098,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TranscriptFileIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {
@@ -23075,6 +23151,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/pdf": unknown;
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
                 };
             };
@@ -23119,6 +23196,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TranscriptList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    transcript_outline_v1_cases__case_id__transcript_outline_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptOutline"];
                 };
             };
             /** @description Validation Error */

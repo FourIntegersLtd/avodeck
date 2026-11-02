@@ -934,6 +934,25 @@ async def test_the_daily_run_removes_exports_not_downloaded_in_time(
     assert len(await storage.list_recursive(f"{case_prefix(case)}/exports/{recent}")) == len(close_jobs.VARIANTS)
 
 
+async def test_the_daily_run_removes_transcript_pdfs_not_downloaded_in_time(
+    worker_db: Database, admin: psycopg.Connection, seed: Seed, storage: CaseFileStorage, world: dict[str, Any]
+) -> None:
+    registry = isolated_registry()
+    name = daily(registry)
+    case = world["case"]
+    old = seed.job(case, kind="export_transcript_pdf")
+    finish(admin, old)
+    with admin.transaction():
+        admin.execute("set local session_replication_role = replica")
+        admin.execute(
+            "update app.jobs set finished_at = now() - make_interval(days => %s) where id = %s",
+            (close_jobs.EXPORT_KEEP_DAYS + 1, old),
+        )
+    await storage.put(f"{case_prefix(case)}/exports/{old}/transcript.pdf", b"%PDF-1.4")
+    await run_daily(worker_db, registry, name, date.today())
+    assert await storage.list_recursive(f"{case_prefix(case)}/exports/{old}") == []
+
+
 async def test_the_daily_run_archives_and_dates_a_case_withdrawn_long_ago(
     worker_db: Database, admin: psycopg.Connection, seed: Seed, world: dict[str, Any]
 ) -> None:

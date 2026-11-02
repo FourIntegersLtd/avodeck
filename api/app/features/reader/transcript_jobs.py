@@ -1,6 +1,6 @@
-"""Slice B job: `export_transcript` builds the Word copy of the records transcript (ADR 0028).
+"""Slice B job: `export_transcript` builds the Word and PDF copies of the records transcript (ADR 0028).
 
-The file holds the entries as the screen does, in the same order, with names and dates of birth
+The files hold every entry, in the pack's sections and date order, with names and dates of birth
 stripped (rule 7). It is stored sealed under the case key and handed over once, to the person who asked
 (the route in `transcript_routes`); slice H's daily run removes a copy nobody took (`EXPORT_KEEP_DAYS`).
 Logs carry exception types only and never a word of the record (rule 6).
@@ -8,22 +8,26 @@ Logs carry exception types only and never a word of the record (rule 6).
 
 from __future__ import annotations
 
-import io
+import logging
 import uuid
+from datetime import date
+from typing import Any
 
-import docx
 from psycopg import AsyncConnection
 
 from app.core import audit
+from app.core.contracts.availability import evidence_for_case
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ApiError
 from app.core.jobs import JobContext, JobRegistry, registry
 from app.core.packs import PackLibrary, default_library
 from app.core.storage import CaseFileStorage, StorageError, case_prefix, storage_settings
-from app.features.reader import repo, transcript
-from app.features.reader.transcript_words import label_text, show_date, word
+from app.features.reader import repo, transcript, transcript_docx, transcript_layout, transcript_pdf
+
+log = logging.getLogger(__name__)
 
 KIND = "export_transcript"
+KIND_PDF = "export_transcript_pdf"
 PAGE = 200
 DOWNLOADED = "case.transcript_downloaded"
 
@@ -55,60 +59,105 @@ class _Services:
 services = _Services()
 
 
-def transcript_path(case_id: uuid.UUID, job_id: uuid.UUID) -> str:
-    return f"{case_prefix(case_id)}/exports/{job_id}/transcript.docx"
+def transcript_path(case_id: uuid.UUID, job_id: uuid.UUID, fmt: str = "docx") -> str:
+    return f"{case_prefix(case_id)}/exports/{job_id}/transcript.{fmt}"
 
 
-def build(
-    entries: list[transcript.TranscriptEntry], *, date_order: str, language: str, unread_pages: list[int] | None = None
-) -> bytes:
-    document = docx.Document()
-    document.add_heading(word(language, "title"), level=0)
-    for e in entries:
-        parts = [word(language, "page", number=e.page_no), show_date(e.event_date, date_order, language)]
-        parts.append(label_text(e.kind_label))
-        if e.author_label:
-            parts.append(label_text(e.author_label))
-        document.add_heading(", ".join(parts), level=2)
-        for line in e.lines:
-            document.add_paragraph(line)
-    for number in unread_pages or []:
-        document.add_heading(word(language, "page", number=number), level=2)
-        document.add_paragraph(word(language, "unread"))
-    out = io.BytesIO()
-    document.save(out)
-    return out.getvalue()
+async def _layout(
+    ctx: JobContext, conn: AsyncConnection
+) -> tuple[transcript_layout.Layout, Any, dict[int, date], transcript_layout.Coverage] | None:
+    """The file's layout for the requester's job, or None for a job nobody asked for or a case gone."""
+    cur = await conn.execute(
+        "select 1 from app.jobs where id = %s and requested_by is not null and exists"
+        " (select 1 from app.cases where id = %s and status <> 'deleted')",
+        (ctx.job_id, ctx.case_id),
+    )
+    if await cur.fetchone() is None:
+        return None
+    cur = await conn.execute("select named_expert_id from app.cases where id = %s", (ctx.case_id,))
+    named = (await cur.fetchone() or (None,))[0]
+    codes = await repo.case_codes(conn, ctx.case_id)
+    if named is None or codes is None:
+        return None
+    crypto, library = services.get_crypto(), services.get_packs()
+    pack = library.for_case(codes)
+    everything: list[transcript.TranscriptEntry] = []
+    pictures: list[int] = []
+    unread: list[int] = []
+    while True:
+        got = await transcript.entries(
+            conn, crypto, library, ctx.case_id, offset=len(everything), limit=PAGE, full=True
+        )
+        everything += got.entries
+        pictures, unread = got.picture_pages, got.unread_pages
+        if not got.entries or len(everything) >= got.total:
+            break
+    total, set_aside = await repo.page_counts(conn, ctx.case_id)
+    coverage = transcript_layout.Coverage(
+        total_pages=total,
+        with_entries=len({e.page_no for e in everything}),
+        no_entries=len(pictures),
+        unreadable=len(unread),
+        set_aside=set_aside,
+    )
+    layout = transcript_layout.arrange(
+        everything, pack, no_entry_pages=pictures, unread_pages=unread, coverage=coverage
+    )
+    letter = pack.letter_entry_kind()
+    received: dict[int, date] = {}
+    if letter is not None and any(e.kind == letter for e in everything):
+        for ev in await evidence_for_case(conn, ctx.case_id):
+            if ev.kind in ("received", "filed") and ev.date is not None:
+                received[ev.page_no] = min(ev.date, received.get(ev.page_no, ev.date))
+        letters = {e.page_no for e in everything if e.kind == letter}
+        received = {n: d for n, d in received.items() if n in letters}
+    return layout, pack, received, coverage
 
 
 async def export_transcript(ctx: JobContext) -> None:
-    """Builds the requester's copy. A job nobody asked for (`requested_by` empty) builds nothing."""
-    storage, crypto, library = services.get_storage(), services.get_crypto(), services.get_packs()
+    """Builds the requester's Word copy. A job nobody asked for (`requested_by` empty) builds nothing."""
+    storage, crypto = services.get_storage(), services.get_crypto()
     async with ctx.transaction() as conn:
-        cur = await conn.execute(
-            "select 1 from app.jobs where id = %s and requested_by is not null and exists"
-            " (select 1 from app.cases where id = %s and status <> 'deleted')",
-            (ctx.job_id, ctx.case_id),
-        )
-        if await cur.fetchone() is None:
+        made = await _layout(ctx, conn)
+        if made is None:
             return
-        cur = await conn.execute("select named_expert_id from app.cases where id = %s", (ctx.case_id,))
-        named = (await cur.fetchone() or (None,))[0]
-        codes = await repo.case_codes(conn, ctx.case_id)
-        if named is None or codes is None:
-            return
-        pack = library.for_case(codes)
-        everything: list[transcript.TranscriptEntry] = []
-        unread: list[int] = []
-        while True:
-            got = await transcript.entries(
-                conn, crypto, library, ctx.case_id, offset=len(everything), limit=PAGE, only_read_by=named
-            )
-            everything += got.entries
-            unread = got.unread_pages
-            if not got.entries or len(everything) >= got.total:
-                break
+        layout, pack, received, _ = made
+        document = transcript_docx.build(layout, date_order=pack.date_order, language=pack.language, received=received)
         path = transcript_path(ctx.case_id, ctx.job_id)
-        document = build(everything, date_order=pack.date_order, language=pack.language, unread_pages=unread)
+        await storage.put(path, await crypto.encrypt(conn, ctx.case_id, document, purpose=path))
+
+
+async def _picture(
+    conn: AsyncConnection, storage: CaseFileStorage, crypto: CaseCrypto, case_id: uuid.UUID, path: str
+) -> bytes | None:
+    """One page picture, opened in memory only; None when it cannot be fetched (the file goes on without it)."""
+    try:
+        # shrunk at once, so a long bundle never holds every full-size picture at the same time
+        return transcript_pdf.prepare_picture(
+            await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path)
+        )
+    except Exception as error:  # noqa: BLE001 - one missing picture must not stop the file; only the type is logged
+        log.warning("transcript picture unavailable (%s)", type(error).__name__)
+        return None
+
+
+async def export_transcript_pdf(ctx: JobContext) -> None:
+    """Builds the requester's PDF: the same layout as the Word copy, then a picture of every page."""
+    storage, crypto = services.get_storage(), services.get_crypto()
+    async with ctx.transaction() as conn:
+        made = await _layout(ctx, conn)
+        if made is None:
+            return
+        layout, pack, received, _ = made
+        pictures: list[tuple[int, bytes | None]] = []
+        for number, image_path in await repo.page_pictures(conn, ctx.case_id):
+            pictures.append(
+                (number, await _picture(conn, storage, crypto, ctx.case_id, image_path) if image_path else None)
+            )
+        document = transcript_pdf.build_pdf(
+            layout, pictures, date_order=pack.date_order, language=pack.language, received=received
+        )
+        path = transcript_path(ctx.case_id, ctx.job_id, "pdf")
         await storage.put(path, await crypto.encrypt(conn, ctx.case_id, document, purpose=path))
 
 
@@ -118,11 +167,16 @@ def _missing(error: StorageError) -> bool:
 
 
 async def take(
-    conn: AsyncConnection, storage: CaseFileStorage, crypto: CaseCrypto, case_id: uuid.UUID, job_id: uuid.UUID
+    conn: AsyncConnection,
+    storage: CaseFileStorage,
+    crypto: CaseCrypto,
+    case_id: uuid.UUID,
+    job_id: uuid.UUID,
+    fmt: str = "docx",
 ) -> bytes:
     """The Word file, once. That it was taken is the audit row, so a copy that could not be removed is never
     handed over twice; the caller removes the stored copy after the transaction commits (`remove`)."""
-    path = transcript_path(case_id, job_id)
+    path = transcript_path(case_id, job_id, fmt)
     await conn.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (path,))
     cur = await conn.execute(
         "select 1 from app.audit_log where case_id = %s and action = %s and target = %s",
@@ -141,16 +195,17 @@ async def take(
     return data
 
 
-async def remove(storage: CaseFileStorage, case_id: uuid.UUID, job_id: uuid.UUID) -> None:
+async def remove(storage: CaseFileStorage, case_id: uuid.UUID, job_id: uuid.UUID, fmt: str = "docx") -> None:
     """Removes the stored copy once the download is recorded. A failure leaves it for the daily sweep."""
     try:
-        await storage.delete([transcript_path(case_id, job_id)])
+        await storage.delete([transcript_path(case_id, job_id, fmt)])
     except StorageError:
         pass
 
 
 def register(reg: JobRegistry) -> None:
     reg.kind(KIND, changes_case=False, runs_on_hold=True)(export_transcript)
+    reg.kind(KIND_PDF, changes_case=False, runs_on_hold=True)(export_transcript_pdf)
 
 
 register(registry)

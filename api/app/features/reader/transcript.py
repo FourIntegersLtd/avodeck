@@ -28,7 +28,7 @@ from app.core.contracts.facts import citable_facts
 from app.core.contracts.reading import PageReads
 from app.core.contracts.record_entries import RecordEntry, entries_for_case, entries_ready, entries_unread_pages
 from app.core.crypto import CaseCrypto
-from app.core.packs import PackLibrary
+from app.core.packs import MergedPack, PackLibrary
 from app.features.reader import repo
 
 # How long an entry must be on the reader's screen, in all, for it to count as seen.
@@ -84,6 +84,9 @@ class TranscriptEntry:
     lines: list[str] = field(repr=False)
     results: list[str]
     result_labels: list[str]
+    source_type: str | None = None  # the page's source type (pack key), for the file's sections
+    specialty_label: str | None = None  # the pack's i18n key for the specialty
+    section: str | None = None  # key of the pack section the entry is in (set by `entries`)
 
 
 @dataclass(frozen=True)
@@ -94,15 +97,18 @@ class Listing:
     unread_pages: list[int] = field(default_factory=list)  # the computer could not read these: look at the picture
 
 
-async def _pages_to_read(conn: AsyncConnection, case_id: uuid.UUID) -> dict[uuid.UUID, int]:
-    """Page id -> number for the pages a reader is to read: not a copy, not replaced, not set aside."""
+Pages = dict[uuid.UUID, tuple[int, str | None]]
+
+
+async def _pages_to_read(conn: AsyncConnection, case_id: uuid.UUID) -> Pages:
+    """Page id -> (number, source type) of the pages to read: not a copy, not replaced, not set aside."""
     cur = await conn.execute(
-        "select id, bundle_page_no from app.pages where bundle_id = (select bundle_id from app.cases where id = %s) "
-        "and not quarantined"
+        "select id, bundle_page_no, source_type from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s) and not quarantined"
         " and duplicate_of_page_id is null and superseded_by_page_id is null",
         (case_id,),
     )
-    return {row[0]: int(row[1]) for row in await cur.fetchall()}
+    return {row[0]: (int(row[1]), row[2]) for row in await cur.fetchall()}
 
 
 async def _page_lines(
@@ -158,6 +164,91 @@ async def _checked_values(
     return out
 
 
+@dataclass
+class _Survey:
+    pack: MergedPack
+    wanted: list[RecordEntry]  # in section order, then date order
+    sections: list[tuple[str, str]]  # key, label of the section of each wanted entry
+    sources: dict[uuid.UUID, str | None]  # page id -> source type
+    set_aside: int
+    listing_pages: Pages
+    picture: list[int]
+    unread: list[int]
+
+
+async def _survey(
+    conn: AsyncConnection, library: PackLibrary, case_id: uuid.UUID, only_read_by: uuid.UUID | None
+) -> _Survey | None:
+    """Which entries there are and where each belongs; no text is opened (rule 6)."""
+    from app.features.reader.transcript_layout import place
+
+    codes = await repo.case_codes(conn, case_id)
+    if codes is None:
+        return None
+    pack = library.for_case(codes)
+    pages = await _pages_to_read(conn, case_id)
+    cur = await conn.execute(
+        "select count(*) from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)", (case_id,)
+    )
+    set_aside = int((await cur.fetchone() or (0,))[0]) - len(pages)
+    if only_read_by is not None:
+        allowed = await PageReads().read_page_ids(conn, case_id, only_read_by)
+        pages = {p: v for p, v in pages.items() if p in allowed}
+    everything = await entries_for_case(conn, case_id)
+    included = pack.transcript_entry_kinds()
+    known = {k["key"] for k in pack.entry_kinds()}
+    placed = [
+        (
+            place(
+                pack, source_type=pages[e.page_id][1], kind=e.kind, folded=e.kind in known and e.kind not in included
+            ),
+            e,
+        )
+        for e in everything
+        if e.page_id in pages
+    ]
+    placed.sort(key=lambda pe: pe[0][0])  # stable: the date order stays inside a section
+    with_entries = {e.page_id for e in everything}
+    failed = set(await entries_unread_pages(conn, case_id))
+    unread = sorted(n for p, (n, _) in pages.items() if n in failed and p not in with_entries)
+    picture = (
+        sorted(n for p, (n, _) in pages.items() if p not in with_entries and n not in failed)
+        if only_read_by is None
+        else []
+    )
+    return _Survey(
+        pack, [e for _, e in placed], [(k, lb) for (_, k, lb), _ in placed], {p: v[1] for p, v in pages.items()},
+        set_aside, pages, picture, unread,
+    )  # fmt: skip
+
+
+@dataclass(frozen=True)
+class Outline:
+    sections: list[tuple[str, str, int, int]]  # key, label, count, offset
+    total_pages: int
+    with_entries: int
+    no_entries: int
+    unreadable: int
+    set_aside: int
+
+
+async def outline(conn: AsyncConnection, library: PackLibrary, case_id: uuid.UUID) -> Outline:
+    """The sections (with where each starts in the paged list) and the page coverage. Counts only."""
+    got = await _survey(conn, library, case_id, None)
+    if got is None:
+        return Outline([], 0, 0, 0, 0, 0)
+    sections: list[tuple[str, str, int, int]] = []
+    for position, (key, label) in enumerate(got.sections):
+        if sections and sections[-1][0] == key:
+            sections[-1] = (key, label, sections[-1][2] + 1, sections[-1][3])
+        else:
+            sections.append((key, label, 1, position))
+    return Outline(
+        sections, len(got.listing_pages), len({e.page_id for e in got.wanted}), len(got.picture), len(got.unread),
+        got.set_aside,
+    )  # fmt: skip
+
+
 async def entries(
     conn: AsyncConnection,
     crypto: CaseCrypto,
@@ -167,36 +258,29 @@ async def entries(
     offset: int,
     limit: int,
     only_read_by: uuid.UUID | None = None,
+    full: bool = False,
 ) -> Listing:
-    """The entries to read, in order. With `only_read_by`, only pages that person's reading counts for."""
-    codes = await repo.case_codes(conn, case_id)
-    if codes is None:
+    """The entries to read, in section order and then date order. With `only_read_by`, only pages that person's
+    reading counts for. With `full`, an administrative entry keeps all its lines (the files print it in full); it
+    stays `folded`."""
+    got = await _survey(conn, library, case_id, only_read_by)
+    if got is None:
         return Listing([], 0)
-    pack = library.for_case(codes)
-    pages = await _pages_to_read(conn, case_id)
-    if only_read_by is not None:
-        allowed = await PageReads().read_page_ids(conn, case_id, only_read_by)
-        pages = {p: n for p, n in pages.items() if p in allowed}
-    everything = await entries_for_case(conn, case_id)
-    wanted: list[RecordEntry] = [e for e in everything if e.page_id in pages]
-    with_entries = {e.page_id for e in everything}
-    failed = set(await entries_unread_pages(conn, case_id))
-    unread = sorted(n for p, n in pages.items() if n in failed and p not in with_entries)
-    picture = (
-        sorted(n for p, n in pages.items() if p not in with_entries and n not in failed) if only_read_by is None else []
-    )
+    pack, wanted = got.pack, got.wanted
     chosen = wanted[offset : offset + limit]
     if not chosen:
-        return Listing([], len(wanted), picture, unread)
+        return Listing([], len(wanted), got.picture, got.unread)
+    section_keys = got.sections[offset : offset + limit]
     included = pack.transcript_entry_kinds()
     kind_labels = {k["key"]: str(k.get("label", k["key"])) for k in pack.entry_kinds()}
     role_labels = {r["key"]: str(r.get("label", r["key"])) for r in pack.author_roles()}
+    specialty_labels = {s["key"]: str(s.get("label", s["key"])) for s in pack.entry_specialties()}
     groups = pack.result_groups()
     identity = await identity_for(conn, crypto, case_id)
     placed = await _page_lines(conn, crypto, case_id, list(dict.fromkeys(e.page_id for e in chosen)))
     checked = await _checked_values(conn, case_id, chosen)
     out: list[TranscriptEntry] = []
-    for e in chosen:
+    for e, (section_key, _) in zip(chosen, section_keys, strict=True):
         words = placed[e.page_id]
         by_line: dict[int, list[str]] = {}
         for n in range(e.first_n, e.last_n + 1):
@@ -206,7 +290,7 @@ async def entries(
         text = pii.strip(text, pack=pack, names=identity.names, dates_of_birth=identity.dates_of_birth).text
         lines = text.split("\n") if text else []
         folded = e.kind in kind_labels and e.kind not in included
-        if folded:
+        if folded and not full:
             lines = [" ".join(" ".join(lines).split()[:FOLD_WORDS])]
         named = _results(checked.get(e.id, []), groups)
         out.append(
@@ -214,9 +298,10 @@ async def entries(
                 e.id, e.page_no, e.kind, kind_labels.get(e.kind, e.kind), folded, e.author_role,
                 role_labels.get(e.author_role) if e.author_role else None, e.specialty, e.event_date, e.date_basis,
                 lines, [str(g["key"]) for g in named], [str(g.get("label", g["key"])) for g in named],
+                got.sources.get(e.page_id), specialty_labels.get(e.specialty) if e.specialty else None, section_key,
             )
         )  # fmt: skip
-    return Listing(out, len(wanted), picture, unread)
+    return Listing(out, len(wanted), got.picture, got.unread)
 
 
 async def record_seen(

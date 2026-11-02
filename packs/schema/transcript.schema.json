@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Transcript sections",
+  "type": "object",
+  "properties": {
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+          "enabled": {"type": "boolean"},
+          "label": {"type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$", "description": "An i18n key, never display text."},
+          "sources": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}, "description": "Source types this section takes; omitted means any."},
+          "letters": {"type": "boolean", "description": "Omitted means either."},
+          "administrative": {"type": "boolean", "description": "Omitted means either."}
+        },
+        "additionalProperties": false,
+        "required": ["key", "label"]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": ["sections"]
+}

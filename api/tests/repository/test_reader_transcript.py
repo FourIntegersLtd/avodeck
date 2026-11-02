@@ -23,6 +23,7 @@ import pytest
 from app.core.contracts.reading import page_read_log
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
+from app.core.packs import MergedPack as Pack
 from app.core.packs import default_library
 from app.features.reader import repo, transcript
 from tests.support.contracts import add_fact
@@ -362,3 +363,59 @@ async def test_views_cannot_be_changed_or_removed(
         admin.execute("update app.transcript_views set dwell_ms = 0")
     with pytest.raises(psycopg.Error):
         admin.execute("delete from app.transcript_views")
+
+
+# --- the file layout: sections and full administrative entries --------------------------------------------
+
+PACK_SECTIONS: list[dict[str, Any]] = [
+    {"key": "clinic", "label": "t.clinic", "sources": ["clinic_notes"]},
+    {"key": "rest", "label": "t.rest"},
+]
+
+
+async def set_source(aconn: psycopg.AsyncConnection, page_id: uuid.UUID, source: str) -> None:
+    await aconn.execute("update app.pages set source_type = %s where id = %s", (source, page_id))
+
+
+async def sectioned_world(aconn: psycopg.AsyncConnection, w: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Pack, "transcript_sections", lambda self: PACK_SECTIONS, raising=False)
+    doc = await add_document(aconn, w["case"])
+    plan = [(1, "other_src", date(2020, 1, 1)), (2, "clinic_notes", date(2020, 2, 1)),
+            (3, "clinic_notes", date(2020, 3, 1)), (4, "other_src", date(2019, 1, 1))]  # fmt: skip
+    for n, source, day in plan:
+        built = await add_page(aconn, CRYPTO, w["case"], doc, n, [Spec("zz_session", (f"note {n}",), day=day)])
+        await set_source(aconn, built.page_id, source)
+
+
+async def test_entries_are_ordered_by_section_then_date(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await sectioned_world(aconn, world, monkeypatch)
+    got = await listed(api_db, world)
+    assert [e.page_no for e in got.entries] == [2, 3, 4, 1]
+    assert [e.section for e in got.entries] == ["clinic", "clinic", "rest", "rest"]
+    assert [e.source_type for e in got.entries] == ["clinic_notes", "clinic_notes", "other_src", "other_src"]
+
+
+async def test_paging_follows_section_order(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await sectioned_world(aconn, world, monkeypatch)
+    pages: list[int] = []
+    async with api_db.request(scope_for(world["expert"])) as conn:
+        for offset in (0, 2):
+            got = await transcript.entries(conn, CRYPTO, LIBRARY, world["case"], offset=offset, limit=2)
+            pages += [e.page_no for e in got.entries]
+    assert pages == [e.page_no for e in (await listed(api_db, world)).entries] == [2, 3, 4, 1]
+
+
+async def test_full_keeps_every_line_of_an_administrative_entry(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    long_text = "one two three four five six seven eight nine ten eleven twelve"
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_booking", (long_text, "next line"))])
+    async with api_db.request(scope_for(world["expert"])) as conn:
+        got = (await transcript.entries(conn, CRYPTO, LIBRARY, world["case"], offset=0, limit=10, full=True)).entries[0]
+    assert got.folded is True
+    assert got.lines == [long_text, "next line"]

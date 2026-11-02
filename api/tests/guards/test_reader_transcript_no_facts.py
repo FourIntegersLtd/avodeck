@@ -7,7 +7,7 @@ from app.features.reader.schemas import TranscriptEntryOut, TranscriptList
 
 ALLOWED = {
     "id", "page_no", "kind", "kind_label", "folded", "author_role", "author_label", "specialty", "event_date",
-    "date_basis", "lines", "results", "result_labels",
+    "date_basis", "lines", "results", "result_labels", "section",
 }  # fmt: skip
 FORBIDDEN = ("fact", "value", "suggest", "status_of", "word_ids", "verified", "flag")
 

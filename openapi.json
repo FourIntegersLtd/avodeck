@@ -11822,6 +11822,67 @@
         "title": "OtherCases",
         "type": "object"
       },
+      "OutlineCoverage": {
+        "properties": {
+          "no_entries": {
+            "title": "No Entries",
+            "type": "integer"
+          },
+          "set_aside": {
+            "title": "Set Aside",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          },
+          "unreadable": {
+            "title": "Unreadable",
+            "type": "integer"
+          },
+          "with_entries": {
+            "title": "With Entries",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_pages",
+          "with_entries",
+          "no_entries",
+          "unreadable",
+          "set_aside"
+        ],
+        "title": "OutlineCoverage",
+        "type": "object"
+      },
+      "OutlineSection": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "count",
+          "offset"
+        ],
+        "title": "OutlineSection",
+        "type": "object"
+      },
       "OverEstimate": {
         "properties": {
           "instructing_party": {
@@ -20521,6 +20582,17 @@
             "title": "Results",
             "type": "array"
           },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
           "specialty": {
             "anyOf": [
               {
@@ -20549,6 +20621,21 @@
           "result_labels"
         ],
         "title": "TranscriptEntryOut",
+        "type": "object"
+      },
+      "TranscriptFileIn": {
+        "properties": {
+          "format": {
+            "default": "docx",
+            "enum": [
+              "docx",
+              "pdf"
+            ],
+            "title": "Format",
+            "type": "string"
+          }
+        },
+        "title": "TranscriptFileIn",
         "type": "object"
       },
       "TranscriptIn": {
@@ -20626,6 +20713,44 @@
           "entries"
         ],
         "title": "TranscriptList",
+        "type": "object"
+      },
+      "TranscriptOutline": {
+        "description": "The shape of the transcript: sections and the page coverage. Counts, labels and positions only (rule 3).",
+        "properties": {
+          "coverage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OutlineCoverage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sections": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/OutlineSection"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "idle",
+              "preparing",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "TranscriptOutline",
         "type": "object"
       },
       "TranscriptSaved": {
@@ -36873,6 +36998,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TranscriptFileIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "content": {
@@ -36939,6 +37081,7 @@
         "responses": {
           "200": {
             "content": {
+              "application/pdf": {},
               "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {}
             },
             "description": "Successful Response"
@@ -37041,6 +37184,60 @@
           }
         },
         "summary": "Transcript Entries",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/transcript/outline": {
+      "get": {
+        "description": "The sections (with where each starts in the paged list) and the page coverage; counts and labels only.",
+        "operationId": "transcript_outline_v1_cases__case_id__transcript_outline_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptOutline"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Transcript Outline",
         "tags": [
           "reader"
         ]
