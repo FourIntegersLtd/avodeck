@@ -27,23 +27,21 @@ async function open() {
   const bar = await screen.findByRole("toolbar", { name: "Page view" });
   const view = within(bar).getByRole("button", { name: "View" });
   await user.click(view);
-  return { user, bar, view, menu: screen.getByRole("group", { name: "View" }) };
+  return { user, bar, view, menu: await screen.findByRole("menu", { name: "View" }) };
 }
 
 describe("The View menu", () => {
-  test("is not inside the toolbar, is a plain list of buttons, and puts focus on the first item", async () => {
+  test("is not inside the toolbar, is a real menu, and puts focus on the first item", async () => {
     const { view, menu } = await open();
     expect(document.querySelector(".rd-bar")).not.toContainElement(menu);
-    expect(menu).toHaveAttribute("popover");
-    expect(view).toHaveAttribute("popovertarget", menu.id);
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
-    expect(within(menu).getAllByRole("button")[0]).toHaveFocus();
+    expect(view).toHaveAttribute("aria-haspopup", "menu");
+    expect(within(menu).getAllByRole("menuitem").length).toBeGreaterThan(0);
+    expect(within(menu).getAllByRole(/^menuitem/)[0]).toHaveFocus();
   });
 
   test("the arrow keys move between the items", async () => {
     const { user, menu } = await open();
-    const items = within(menu).getAllByRole("button").filter((b) => !(b as HTMLButtonElement).disabled);
+    const items = within(menu).getAllByRole(/^menuitem/).filter((b) => b.getAttribute("aria-disabled") !== "true");
     await user.keyboard("{ArrowDown}");
     expect(items[1]).toHaveFocus();
     await user.keyboard("{ArrowUp}");
@@ -52,27 +50,27 @@ describe("The View menu", () => {
 
   test("Fit to width and Whole page are a pair, one chosen", async () => {
     const { user, menu, view } = await open();
-    expect(within(menu).getByRole("button", { name: "Fit to width" })).toHaveAttribute("aria-pressed", "true");
-    await user.click(within(menu).getByRole("button", { name: "Whole page" }));
+    expect(within(menu).getByRole("menuitemcheckbox", { name: "Fit to width" })).toHaveAttribute("aria-checked", "true");
+    await user.click(within(menu).getByRole("menuitemcheckbox", { name: "Whole page" }));
     await user.click(view);
-    const again = screen.getByRole("group", { name: "View" });
-    expect(within(again).getByRole("button", { name: "Whole page" })).toHaveAttribute("aria-pressed", "true");
-    expect(within(again).getByRole("button", { name: "Fit to width" })).toHaveAttribute("aria-pressed", "false");
+    const again = await screen.findByRole("menu", { name: "View" });
+    expect(within(again).getByRole("menuitemcheckbox", { name: "Whole page" })).toHaveAttribute("aria-checked", "true");
+    expect(within(again).getByRole("menuitemcheckbox", { name: "Fit to width" })).toHaveAttribute("aria-checked", "false");
   });
 
   test("picking Two pages side by side ticks it and closes the menu", async () => {
     const { user, menu, view } = await open();
-    await user.click(within(menu).getByRole("button", { name: "Two pages side by side" }));
-    expect(screen.queryByRole("group", { name: "View" })).not.toBeInTheDocument();
+    await user.click(within(menu).getByRole("menuitemcheckbox", { name: "Two pages side by side" }));
+    expect(screen.queryByRole("menu", { name: "View" })).not.toBeInTheDocument();
     expect(view).toHaveFocus();
     await user.click(view);
-    expect(within(screen.getByRole("group", { name: "View" })).getByRole("button", { name: "Two pages side by side" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(await screen.findByRole("menu", { name: "View" })).getByRole("menuitemcheckbox", { name: "Two pages side by side" })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("Escape closes it and returns focus to View", async () => {
     const { user, view } = await open();
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("group", { name: "View" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menu", { name: "View" })).not.toBeInTheDocument();
     expect(view).toHaveFocus();
   });
 
@@ -82,16 +80,16 @@ describe("The View menu", () => {
     const { user } = renderAt(PATH);
     const bar = await screen.findByRole("toolbar", { name: "Page view" });
     await user.click(within(bar).getByRole("button", { name: "View" }));
-    const menu = screen.getByRole("group", { name: "View" });
-    expect(within(menu).queryByRole("button", { name: "Turn left" })).not.toBeInTheDocument();
-    expect(within(menu).queryByRole("button", { name: "Upside down" })).not.toBeInTheDocument();
-    expect(within(menu).getByRole("button", { name: "Whole page" })).toBeVisible();
+    const menu = await screen.findByRole("menu", { name: "View" });
+    expect(within(menu).queryByRole("menuitem", { name: "Turn left" })).not.toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitem", { name: "Upside down" })).not.toBeInTheDocument();
+    expect(within(menu).getByRole("menuitemcheckbox", { name: "Whole page" })).toBeVisible();
   });
 
   test("Make it clearer opens its own panel beside the page, and a chip shows while a setting is not normal", async () => {
     const { user, bar, menu } = await open();
-    await user.click(within(menu).getByRole("button", { name: "Make it clearer…" }));
-    expect(screen.queryByRole("group", { name: "View" })).not.toBeInTheDocument();
+    await user.click(within(menu).getByRole("menuitem", { name: "Make it clearer…" }));
+    expect(screen.queryByRole("menu", { name: "View" })).not.toBeInTheDocument();
     const panel = screen.getByRole("group", { name: "Make it clearer" });
     expect(document.querySelector(".rd-bar")).not.toContainElement(panel);
     expect(within(bar).queryByRole("button", { name: "Clearer view on" })).not.toBeInTheDocument();

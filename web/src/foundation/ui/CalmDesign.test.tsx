@@ -103,7 +103,8 @@ test("Menu opens from its trigger, ticks the pressed row, shows shortcuts, close
   expect(trigger).toHaveAttribute("aria-expanded", "false");
   await user.click(trigger);
   expect(trigger).toHaveAttribute("aria-expanded", "true");
-  const row = screen.getByRole("button", { name: /Everything/, pressed: true });
+  const row = screen.getByRole("menuitemcheckbox", { name: /Everything/ });
+  expect(row).toHaveAttribute("aria-checked", "true");
   expect(row.querySelector(".av-menu__tick svg")).not.toBeNull();
   expect(screen.getByText("?")).toBeInTheDocument();
   await user.click(row);
