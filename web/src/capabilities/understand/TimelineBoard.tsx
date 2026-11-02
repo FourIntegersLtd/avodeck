@@ -268,6 +268,8 @@ export function TimelineBoard({
   return (
     <div className="av-stack">
       <div className="av-story-board" data-testid="timeline-board" data-level={level} ref={boardRef}>
+        <div className="av-story-scroll" data-testid="timeline-scroll">
+        <div className="av-story-scroll__inner">
         <div className="av-story-axis">
           <span className="av-story-axis__level">{w(`timeline.level.${level}`)}</span>
           {domain && (
@@ -302,6 +304,8 @@ export function TimelineBoard({
           </div>
           );
         })}
+        </div>
+        </div>
         {emptyLanes.length > 0 && (
           <p className="av-story-nothing">{w("timeline.nothing_in_dates", { lanes: emptyLanes.map((l) => l.label).join(" · ") })}</p>
         )}
