@@ -133,3 +133,24 @@ async def test_a_viewer_gets_403_and_anyone_else_404(h: Harness) -> None:
     got = await h.client.post(f"/v1/cases/{h.case_id}/process/retry", headers=other)
     assert got.status_code == 404, got.status_code
     assert row(h, job)[0] == "failed"
+
+
+async def test_retry_does_not_queue_a_job_that_waits_behind_a_running_one(h: Harness) -> None:
+    """A running bundle job holds the case's lock; a re-queued failed job could never be claimed (stuck screen)."""
+    failed = await failed_job(h, "process_pages")
+    running = await h.enqueue("process_bundle")
+    h.admin.execute("update app.jobs set status = 'running' where id = %s", (running,))
+    got = await h.client.post(f"/v1/cases/{h.case_id}/process/retry")
+    assert got.json() == {"requeued": 0}
+    assert row(h, failed)[0] == "failed"
+    assert row(h, running)[0] == "running"
+
+
+async def test_the_screen_follows_the_running_job_not_a_newer_queued_one(h: Harness) -> None:
+    running = await h.enqueue("process_bundle")
+    h.admin.execute("update app.jobs set status = 'running', step = 'sort' where id = %s", (running,))
+    await h.enqueue("process_pages")
+    got = await h.client.get(f"/v1/cases/{h.case_id}/process")
+    job = got.json()["job"]
+    assert job["id"] == str(running)
+    assert job["updated_at"] is not None
