@@ -637,7 +637,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 if again is not None:
                     again_result = extract.sort_facts(again, texts, struck)
                     if not again_result.refused and len(again_result.kept) > len(kept):
-                        output, kept = again, again_result.kept
+                        output, kept = dict(again), again_result.kept
                         evidence = extract.sort_evidence(output, ordered, struck, pack)
                         entries, entries_rejected = _entries_of(output, ordered, struck, pack)
                         reason = coverage.reason_for(ordered=ordered, struck=struck, kept=kept, entries=entries)
@@ -994,7 +994,8 @@ async def extract_entries(ctx: JobContext) -> None:
             if loaded.stored
             else None
         )
-        output = extract.pages_of(raw).get(1) if raw is not None else None
+        answer = extract.pages_of(raw).get(1) if raw is not None else None
+        output = dict(answer) if answer is not None else None
         entries, rejected = _entries_of(output, loaded.ordered, loaded.struck, pack)
         async with ctx.transaction() as conn:
             if loaded.stored and output is None:
