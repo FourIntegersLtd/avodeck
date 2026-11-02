@@ -1,16 +1,10 @@
 import type { RouteObject } from "react-router-dom";
+import { lazyScreen } from "../../foundation/lib/lazyScreen";
 import { registerScreen } from "../../foundation/lib/screens";
 import { registerAccountSection, registerCaseAction } from "../../foundation/lib/slots";
-import { AcceptInvite } from "./AcceptInvite";
-import { CloseAccount, CloseAccountBody, Custodian, CustodianBody } from "./AccountSections";
-import { CaseTeam } from "./CaseTeam";
+import { CloseAccountBody, CustodianBody } from "./AccountSections";
 import { flag } from "./flags";
-import { Leave } from "./Leave";
-import { OrganisationSettings } from "./OrganisationSettings";
-import { StartTeam, StartTeamBody } from "./StartTeam";
-import { SupportCase } from "./SupportCase";
-import { SupportAccounts } from "./SupportAccounts";
-import { SupportConsole } from "./SupportConsole";
+import { StartTeamBody } from "./StartTeam";
 import "./words";
 
 /** Slice O: S27 and its Leave page, S28's custodian and closing sections, and the support console. */
@@ -42,17 +36,17 @@ registerCaseAction({
 
 export const organisationsRoutes: RouteObject[] = [
   // Before ":orgId", or the settings screen would swallow "new".
-  { path: "organisations/new", element: <StartTeam /> },
-  { path: "organisations/:orgId", element: <OrganisationSettings /> },
-  { path: "organisations/:orgId/leave", element: <Leave /> },
-  { path: "account/custodian", element: <Custodian /> },
-  { path: "account/close", element: <CloseAccount /> },
-  { path: "support", element: <SupportConsole /> },
-  { path: "support/cases/:caseId", element: <SupportCase /> },
-  { path: "support/accounts", element: <SupportAccounts /> },
+  { path: "organisations/new", ...lazyScreen(() => import("./StartTeam"), ({ StartTeam }) => <StartTeam />) },
+  { path: "organisations/:orgId", ...lazyScreen(() => import("./OrganisationSettings"), ({ OrganisationSettings }) => <OrganisationSettings />) },
+  { path: "organisations/:orgId/leave", ...lazyScreen(() => import("./Leave"), ({ Leave }) => <Leave />) },
+  { path: "account/custodian", ...lazyScreen(() => import("./AccountSections"), ({ Custodian }) => <Custodian />) },
+  { path: "account/close", ...lazyScreen(() => import("./AccountSections"), ({ CloseAccount }) => <CloseAccount />) },
+  { path: "support", ...lazyScreen(() => import("./SupportConsole"), ({ SupportConsole }) => <SupportConsole />) },
+  { path: "support/cases/:caseId", ...lazyScreen(() => import("./SupportCase"), ({ SupportCase }) => <SupportCase />) },
+  { path: "support/accounts", ...lazyScreen(() => import("./SupportAccounts"), ({ SupportAccounts }) => <SupportAccounts />) },
 ];
 
-export const organisationsCaseRoutes: RouteObject[] = [{ path: "team", element: <CaseTeam /> }];
+export const organisationsCaseRoutes: RouteObject[] = [{ path: "team", ...lazyScreen(() => import("./CaseTeam"), ({ CaseTeam }) => <CaseTeam />) }];
 
 /** The invite link works for someone who is not signed in yet, so it mounts outside the signed-in guard. */
-export const organisationsOfflineRoutes: RouteObject[] = [{ path: "invites/:token", element: <AcceptInvite /> }];
+export const organisationsOfflineRoutes: RouteObject[] = [{ path: "invites/:token", ...lazyScreen(() => import("./AcceptInvite"), ({ AcceptInvite }) => <AcceptInvite />) }];

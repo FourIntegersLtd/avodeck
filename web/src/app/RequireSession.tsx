@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { LegalGate, type LegalStatusResponse } from "../capabilities/account/legal/LegalGate";
 import { t } from "../foundation/i18n";
@@ -29,8 +29,12 @@ async function fetchLegalStatus(): Promise<LegalStatusResponse | null> {
 export function RequireSession() {
   const location = useLocation();
   const session = useResource(async () => {
-    const status = await unwrap(api.GET("/v1/auth/session"));
-    const [me, legal] = await Promise.all([unwrap(api.GET("/v1/me")), fetchLegalStatus()]);
+    // All three start together; a 401 on the session still wins (the person goes to sign in).
+    const [status, me, legal] = await Promise.all([
+      unwrap(api.GET("/v1/auth/session")),
+      unwrap(api.GET("/v1/me")),
+      fetchLegalStatus(),
+    ]);
     return { status, me, legal };
   }, []);
   const [blocked, setBlocked] = useState(false);
@@ -77,7 +81,9 @@ export function RequireSession() {
         <ToastProvider>
           <JobWatchProvider>
             <AppShell name={session.data.me.person.full_name || session.data.me.person.email} support={isSupport}>
-              <Outlet />
+              <Suspense fallback={<Loading />}>
+                <Outlet />
+              </Suspense>
             </AppShell>
           </JobWatchProvider>
         </ToastProvider>

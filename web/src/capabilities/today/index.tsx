@@ -1,15 +1,13 @@
 import type { RouteObject } from "react-router-dom";
+import { lazyScreen } from "../../foundation/lib/lazyScreen";
 import { registerNeedsYouIcon, type NeedsYouIcon } from "../../foundation/lib/needsYouIcons";
 import { registerScreen } from "../../foundation/lib/screens";
-import { Cases } from "./Cases";
-import { Help } from "./Help";
-import { Today } from "./Today";
 
 export const todayRoutes: RouteObject[] = [
-  { path: "today", element: <Today /> },
-  { path: "help", element: <Help /> },
+  { path: "today", ...lazyScreen(() => import("./Today"), ({ Today }) => <Today />) },
+  { path: "help", ...lazyScreen(() => import("./Help"), ({ Help }) => <Help />) },
   // The case list (support staff are sent to the console first, RequireSession).
-  { path: "cases", element: <Cases /> },
+  { path: "cases", ...lazyScreen(() => import("./Cases"), ({ Cases }) => <Cases />) },
 ];
 
 // The header's Cases and Help links (S03 board).

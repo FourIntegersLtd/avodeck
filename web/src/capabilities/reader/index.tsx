@@ -1,9 +1,7 @@
 // Slice B (reader): screens 09 (Reading) and 10 (Pages we couldn't read), inside a case.
 import type { RouteObject } from "react-router-dom";
+import { lazyScreen } from "../../foundation/lib/lazyScreen";
 import { registerScreen } from "../../foundation/lib/screens";
-import { CouldntRead } from "./CouldntRead";
-import { Reader } from "./Reader";
-import { TranscriptRead } from "./TranscriptRead";
 import "./reader.css";
 import "./words";
 
@@ -17,8 +15,8 @@ registerScreen("reader", read);
 registerScreen("couldnt_read", unreadable);
 
 export const readerCaseRoutes: RouteObject[] = [
-  { path: "read", element: <Reader />, handle: { screen: "reader" } },
-  { path: "read/transcript", element: <TranscriptRead />, handle: { screen: "reader" } },
-  { path: "read/:pageNo", element: <Reader />, handle: { screen: "reader" } },
-  { path: "read/couldnt-read", element: <CouldntRead />, handle: { screen: "couldnt_read" } },
+  { path: "read", ...lazyScreen(() => import("./Reader"), ({ Reader }) => <Reader />), handle: { screen: "reader" } },
+  { path: "read/transcript", ...lazyScreen(() => import("./TranscriptRead"), ({ TranscriptRead }) => <TranscriptRead />), handle: { screen: "reader" } },
+  { path: "read/:pageNo", ...lazyScreen(() => import("./Reader"), ({ Reader }) => <Reader />), handle: { screen: "reader" } },
+  { path: "read/couldnt-read", ...lazyScreen(() => import("./CouldntRead"), ({ CouldntRead }) => <CouldntRead />), handle: { screen: "couldnt_read" } },
 ];

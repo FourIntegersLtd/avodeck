@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useMatch } from "react-router-dom";
+import { prefetchRoute } from "../lib/routePrefetch";
 import { t } from "../i18n";
 import { useMessages } from "../lib/messages";
 import { screenPath } from "../lib/screens";
@@ -47,7 +48,14 @@ function ShellNavLinks({
     <ul>
       {nav.map(([key, to]) => (
         <li key={key}>
-          <Link to={to} aria-current={key === current ? "page" : undefined} onClick={onNavigate}>
+          <Link
+            to={to}
+            aria-current={key === current ? "page" : undefined}
+            onClick={onNavigate}
+            onMouseEnter={() => prefetchRoute(to)}
+            onFocus={() => prefetchRoute(to)}
+            onTouchStart={() => prefetchRoute(to)}
+          >
             {t(`app.nav.${key}`)}
           </Link>
         </li>
