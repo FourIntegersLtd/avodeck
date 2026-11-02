@@ -2,6 +2,7 @@
 // API sent, and sending a PDF as the request body.
 import type { Schemas } from "../../foundation/platform-client";
 import type { Frame } from "./frame";
+import { formatDay, formatList, formatNumber } from "../../foundation/i18n/dates";
 import { w } from "./words";
 
 /** A word from the case pack's vocabulary (for example `court_bundle`); empty if the pack has none. */
@@ -11,15 +12,7 @@ export function vocab(pack: Schemas["CasePack"] | undefined, key: string): strin
 }
 
 /** A calendar date (YYYY-MM-DD) or moment as "19 February 2027", in the given locale. */
-export function longDate(iso: string, locale?: string | null): string {
-  const date = iso.length === 10 ? new Date(`${iso}T00:00:00Z`) : new Date(iso);
-  const options: Intl.DateTimeFormatOptions = { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" };
-  try {
-    return new Intl.DateTimeFormat(locale ?? undefined, options).format(date);
-  } catch {
-    return new Intl.DateTimeFormat(undefined, options).format(date);
-  }
-}
+export const longDate = (iso: string, locale?: string | null): string => formatDay(iso, locale, "long");
 
 /** Saves a file the API sent (never a direct storage link, rule 4). */
 export function saveBlob(blob: Blob, name: string): void {
@@ -95,39 +88,17 @@ export function partyWord(frame: Frame): string {
   return found?.label ?? w("pages.tell_fallback");
 }
 
-function format(locale: string | null | undefined, options: Intl.DateTimeFormatOptions, iso: string): string {
-  const date = iso.length === 10 ? new Date(`${iso}T00:00:00Z`) : new Date(iso);
-  try {
-    return new Intl.DateTimeFormat(locale ?? undefined, { ...options, timeZone: "UTC" }).format(date);
-  } catch {
-    return new Intl.DateTimeFormat(undefined, { ...options, timeZone: "UTC" }).format(date);
-  }
-}
-
 /** "19 Feb", as the boards write a deadline. */
-export const shortDate = (iso: string, locale?: string | null) => format(locale, { day: "numeric", month: "short" }, iso);
+export const shortDate = (iso: string, locale?: string | null) => formatDay(iso, locale, "short");
 
 /** "1 Mar 2024", as the boards write a document's date. */
-export const mediumDate = (iso: string, locale?: string | null) => format(locale, { day: "numeric", month: "short", year: "numeric" }, iso);
+export const mediumDate = (iso: string, locale?: string | null) => formatDay(iso, locale, "medium");
 
 /** A whole number with the locale's thousands separator: "3,914". */
-export function num(n: number, locale?: string | null): string {
-  try {
-    return new Intl.NumberFormat(locale ?? undefined).format(n);
-  } catch {
-    return new Intl.NumberFormat(undefined).format(n);
-  }
-}
+export const num = (n: number, locale?: string | null): string => formatNumber(n, locale);
 
 /** "11 and 4": the locale's way of joining a list. */
-export function joined(items: Array<string | number>, locale?: string | null): string {
-  const words = items.map(String);
-  try {
-    return new Intl.ListFormat(locale ?? undefined, { style: "long", type: "conjunction" }).format(words);
-  } catch {
-    return words.join(", ");
-  }
-}
+export const joined = (items: Array<string | number>, locale?: string | null): string => formatList(items, locale);
 
 /** The bundle's short name on the boards ("TB"): the first letters of the pack's word for it. */
 export function bundleAbbr(name: string): string {
