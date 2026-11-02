@@ -6,8 +6,8 @@ import type { Schemas } from "../../foundation/platform-client";
 import { LinkButton, QChip } from "../../foundation/ui";
 import { DateMarkIcon } from "./laneIcons";
 import { w } from "./words";
+import { formatNumber } from "../../foundation/i18n/dates";
 
-const NUMBER = new Intl.NumberFormat("en-GB");
 
 /** The pack's word for a kind of record; when the pack has none the API sends the key back, so make it plain. */
 export const sourceLabel = (s: Schemas["TimelineSource"]) => (s.label && s.label !== s.key ? s.label : humanise(s.key));
@@ -15,7 +15,7 @@ export const sourceLabel = (s: Schemas["TimelineSource"]) => (s.label && s.label
 export function TimelineFooter({ caseId, shown, total, sources, found }: { caseId: string; shown: number; total: number; sources?: Schemas["TimelineSource"][]; found: number }) {
   return (
     <div className="av-calm-foot">
-      <p className="av-story-shown">{w("timeline.shown", { shown: NUMBER.format(shown), total: NUMBER.format(total) })}</p>
+      <p className="av-story-shown">{w("timeline.shown", { shown: formatNumber(shown, undefined), total: formatNumber(total, undefined) })}</p>
       <p className="av-muted av-calm-foot__hint">{w("timeline.blind_read_hint")}</p>
       <details className="av-understand-later av-understand-key-fold">
         <summary>{w("timeline.legend_fold")}</summary>

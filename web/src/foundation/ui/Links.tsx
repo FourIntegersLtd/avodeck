@@ -2,10 +2,11 @@ import type { ReactNode } from "react";
 import type { LinkProps } from "react-router-dom";
 import { SafeLink as Link } from "./SafeLink";
 import { t } from "../i18n";
+import { cx } from "./cx";
 
 /** A link that reads as a link (underlined, bold) with a 52px tap area. */
 export function TextLink({ className, ...rest }: LinkProps) {
-  return <Link className={["av-text-link", className].filter(Boolean).join(" ")} {...rest} />;
+  return <Link className={cx("av-text-link", className)} {...rest} />;
 }
 
 /** "← Back" above a screen. Says "Back" unless given other words. */

@@ -8,18 +8,15 @@ import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Notice } from "../../foundation/ui";
 import type { Status } from "../../foundation/ui/StatusBadge";
 import { w } from "./words";
+import { formatDay } from "../../foundation/i18n/dates";
 
 export const casePath = (caseId: string) => ({ params: { path: { case_id: caseId } } });
 
 /** "2024-05-15" -> "15 May 2024" (a calendar date, never shifted by timezone). */
 export function longDate(iso: string | null | undefined): string {
   if (!iso) return w("common.no_date");
-  const [y, m, d] = iso.split("-").map(Number);
-  return LONG_DATE.format(new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1)));
+  return formatDay(iso.slice(0, 10), undefined, "long");
 }
-
-/** Built once: a long timeline formats a date per entry, and making a formatter each time is slow. */
-const LONG_DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
 /** A fact's status in glossary terms: edited counts as checked by the expert. */
 export const statusOf = (status: string): Status => (status === "verified" || status === "edited" ? "checked" : "please_check");
@@ -43,8 +40,7 @@ export function useKindWord(): (kind: string) => string {
 }
 
 /** "2024-05-15" -> "15 May" (the year is left out; the screens that use it sit inside one record). */
-export const shortDay = (iso: string | null | undefined): string => (iso ? SHORT_DAY.format(new Date(`${iso}T00:00:00Z`)) : w("common.no_date"));
-const SHORT_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+export const shortDay = (iso: string | null | undefined): string => (iso ? formatDay(iso.slice(0, 10), undefined, "short") : w("common.no_date"));
 
 export const pageLabel = (page: number) => w("common.page", { page });
 

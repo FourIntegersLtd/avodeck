@@ -3,7 +3,7 @@
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
 import { t } from "../../foundation/i18n";
 import type { Schemas } from "../../foundation/platform-client";
-import { ProgressBar } from "../../foundation/ui";
+import { cx, ProgressBar } from "../../foundation/ui";
 import { kindLabel, longDate } from "./data";
 import { w } from "./words";
 
@@ -69,7 +69,7 @@ export function FactList({
     const mark = markOf(f);
     const date = longDate(f.event_date);
     return (
-      <li key={f.id} data-fact={f.id} className={["rd-row", open && "rd-row--open", mark !== "please_check" && "rd-row--done"].filter(Boolean).join(" ")}>
+      <li key={f.id} data-fact={f.id} className={cx("rd-row", open && "rd-row--open", mark !== "please_check" && "rd-row--done")}>
         <button type="button" className="rd-row__head" aria-expanded={open} onClick={() => onFocus(f.id)}>
           <StatusMark mark={mark} />
           <span className="rd-row__text">

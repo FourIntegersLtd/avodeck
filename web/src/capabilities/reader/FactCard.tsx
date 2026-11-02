@@ -2,7 +2,7 @@
 import { useId, useState, type ReactNode } from "react";
 import type { Schemas } from "../../foundation/platform-client";
 import { t } from "../../foundation/i18n";
-import { Button, Checkbox, IconTile, LinkButton } from "../../foundation/ui";
+import { Button, Checkbox, cx, IconTile, LinkButton } from "../../foundation/ui";
 import { fieldWord } from "../../foundation/lib/packWords";
 import { kindLabel, longDate } from "./data";
 import { DotsIcon } from "./icons";
@@ -105,7 +105,7 @@ export function FactCard(p: FactCardProps) {
   const checked = fact.status === "verified" || fact.status === "edited";
   const rejected = fact.status === "rejected";
   const recheck = checked && fact.needs_recheck === true;
-  const cls = ["rd-card", p.focused && "rd-card--focus", checked && "rd-card--checked", rejected && "rd-card--rejected"].filter(Boolean).join(" ");
+  const cls = cx("rd-card", p.focused && "rd-card--focus", checked && "rd-card--checked", rejected && "rd-card--rejected");
   const formProblem = p.formError ? (
     <div className="rd-form-error">
       <p role="alert" className="rd-form-error__text">{p.formError}</p>

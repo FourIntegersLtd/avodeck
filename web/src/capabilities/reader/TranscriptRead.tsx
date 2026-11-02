@@ -11,6 +11,7 @@ import { Button, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, No
 import { count } from "./data";
 import { smallPageImage } from "../../foundation/lib/pageImageCache";
 import { w } from "./words";
+import { saveBlob } from "../../foundation/lib/files";
 
 type Entry = Schemas["TranscriptEntryOut"];
 const LIMIT = 50;
@@ -271,13 +272,7 @@ export function TranscriptRead() {
       for (let n = 0; n < tries; n += 1) {
         try {
           const blob = await unwrap(api.GET("/v1/cases/{case_id}/transcript/download/{job_id}", { params: { path: { case_id: caseId, job_id } }, parseAs: "blob" }));
-          if (typeof URL.createObjectURL === "function") {
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob as Blob);
-            link.download = `transcript-${caseId.slice(0, 8)}.${format}`;
-            link.click();
-            URL.revokeObjectURL(link.href);
-          }
+          saveBlob(blob as Blob, `transcript-${caseId.slice(0, 8)}.${format}`);
           setMessage(w(format === "pdf" ? "transcript.downloaded_pdf" : "transcript.downloaded"));
           return;
         } catch (err) {

@@ -1,5 +1,5 @@
 // S03d Today (first visit): no cases yet. A welcome, three things to get ready, and how a case works.
-import { formatDay, t } from "../../foundation/i18n";
+import { formatWeekdayDate, t } from "../../foundation/i18n";
 import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
 import type { components } from "../../foundation/platform-client/schema";
@@ -22,7 +22,7 @@ export function TodayFirst({ ready }: { ready: components["schemas"]["Readiness"
     <div className="av-page av-stack">
       <div>
         <p className="av-muted av-today__date" data-testid="today-date">
-          {formatDay(new Date(), me.person.locale ?? undefined, me.person.timezone)}
+          {formatWeekdayDate(new Date(), me.person.locale ?? undefined, me.person.timezone)}
         </p>
         <h1 className="av-today__title">{t("today.first.title", { name })}</h1>
         <p className="av-muted">{t("today.first.intro")}</p>

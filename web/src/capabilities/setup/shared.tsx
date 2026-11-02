@@ -7,7 +7,8 @@ import { uploadInParts, type UploadOptions } from "../../foundation/lib/chunkedU
 import { sw } from "./words";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { ChoicePills, Segmented, Spinner, StackedBar } from "../../foundation/ui";
+import { ChoicePills, cx, Segmented, Spinner, StackedBar } from "../../foundation/ui";
+import { bytesOf } from "../../foundation/lib/files";
 
 /** Waits for a client call and returns its body with the ETag it carried (for If-Match later). */
 export async function withEtag<D>(call: Promise<{ data?: D; error?: unknown; response: Response }>): Promise<{ data: D; etag: string }> {
@@ -161,7 +162,7 @@ export function PartMark({ done, number }: { done: boolean; number: number }) {
 
 /** A button that reads as a link ("Edit", "Replace"): it does something here instead of opening a page. */
 export function LinkAction({ className, ...rest }: ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button type="button" className={["av-text-link", "av-setup-linkbtn", className].filter(Boolean).join(" ")} {...rest} />;
+  return <button type="button" className={cx("av-text-link", "av-setup-linkbtn", className)} {...rest} />;
 }
 
 /** How often the expert has acted for each side lately (judges notice one-sided experts). */
@@ -227,16 +228,6 @@ export function NoteView({ note }: { note: Schemas["NoteDraft"] }) {
       {note.joint && <p className="av-muted">{t("setup.notes.joint")}</p>}
     </section>
   );
-}
-
-async function bytesOf(file: Blob): Promise<ArrayBuffer> {
-  if (typeof file.arrayBuffer === "function") return file.arrayBuffer();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as ArrayBuffer);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsArrayBuffer(file);
-  });
 }
 
 /** Sends a file to the API in parts and returns the document it became (checks and retries: foundation/lib/chunkedUpload). */

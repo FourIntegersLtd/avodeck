@@ -1,4 +1,5 @@
 import { useId, type InputHTMLAttributes } from "react";
+import { cx } from "./cx";
 
 export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "id"> {
   label: string;
@@ -31,7 +32,7 @@ export function TextField({ label, hint, error, code, className, ...input }: Tex
       )}
       <input
         id={id}
-        className={["av-input", code && "av-input--code", className].filter(Boolean).join(" ")}
+        className={cx("av-input", code && "av-input--code", className)}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         {...input}

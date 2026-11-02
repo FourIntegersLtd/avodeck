@@ -3,11 +3,12 @@ import type { ButtonHTMLAttributes, MouseEvent, ReactNode } from "react";
 import type { LinkProps } from "react-router-dom";
 import { SafeLink as Link } from "./SafeLink";
 import { Spinner } from "./Spinner";
+import { cx } from "./cx";
 
 type Variant = "primary" | "secondary" | "outline" | "quiet" | "link" | "danger";
 
 function classes(variant: Variant, wide?: boolean, extra?: string, arrow?: boolean | "back") {
-  return ["av-button", variant !== "primary" && `av-button--${variant}`, wide && "av-button--wide", arrow && "av-button--arrow", arrow === "back" && "av-button--arrow-back", extra].filter(Boolean).join(" ");
+  return cx("av-button", variant !== "primary" && `av-button--${variant}`, wide && "av-button--wide", arrow && "av-button--arrow", arrow === "back" && "av-button--arrow-back", extra);
 }
 
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> {

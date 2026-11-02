@@ -1,4 +1,5 @@
 // What slice B's screens read from the API and the pack, beyond the generated types.
+import { formatDay, formatNumber } from "../../foundation/i18n/dates";
 import { kindWord } from "../../foundation/lib/packWords";
 import { type Schemas } from "../../foundation/platform-client";
 import { w } from "./words";
@@ -33,34 +34,17 @@ export function boxOf(fact: Schemas["FactOut"]): Box | null {
   return b as Box;
 }
 
-/** The person's locale if the browser knows it, else en-GB. */
-function localeTag(locale: string | null | undefined): string {
-  try {
-    new Intl.DateTimeFormat(locale ?? undefined);
-    return locale || "en-GB";
-  } catch {
-    return "en-GB";
-  }
-}
-
 /** A whole number with the thousands separator of the person's locale ("1,231"). */
-export const count = (n: number, locale: string | null | undefined) => new Intl.NumberFormat(localeTag(locale)).format(n);
+export const count = (n: number, locale: string | null | undefined) => formatNumber(n, locale);
 
 /** "Feb 2024 to Aug 2024" in the pack's language and date order; empty when the case has no period. */
 export function periodRange(start: string | null | undefined, end: string | null | undefined, locale: string | null | undefined): string {
   if (!start || !end) return "";
-  const tag = localeTag(locale);
-  const fmt = (iso: string) => {
-    const [y, m, d] = iso.split("-").map(Number);
-    return new Intl.DateTimeFormat(tag, { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1)));
-  };
+  const fmt = (iso: string) => formatDay(iso, locale, "monthYearShort");
   return w("read.period_range", { from: fmt(start), to: fmt(end) });
 }
 
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-/** "2024-05-15" as "15 May 2024"; fixed, so it does not depend on the pack's locale. */
+/** "2024-05-15" as "15 May 2024" in the base locale; empty when there is no date. */
 export function longDate(iso: string | null | undefined): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
-  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : "";
+  return /^\d{4}-\d{2}-\d{2}/.test(iso ?? "") ? formatDay(iso!.slice(0, 10), undefined, "long") : "";
 }

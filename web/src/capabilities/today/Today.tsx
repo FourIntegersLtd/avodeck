@@ -1,6 +1,7 @@
 // S03a Today: what needs you, the week ahead, and where to pick up. The case list is on Cases (S03c).
 import { Link } from "react-router-dom";
-import { formatDay, hourIn, t } from "../../foundation/i18n";
+import { formatWeekdayDate, hourIn, t } from "../../foundation/i18n";
+import { safeLocale } from "../../foundation/i18n/dates";
 import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
@@ -26,7 +27,7 @@ export function Today() {
       <div className="av-today__head">
         <div>
           <p className="av-muted av-today__date" data-testid="today-date">
-            {formatDay(new Date(), me.person.locale ?? undefined, me.person.timezone)}
+            {formatWeekdayDate(new Date(), me.person.locale ?? undefined, me.person.timezone)}
           </p>
           <h1 className="av-today__title">{t(greetingKey(hourIn(me.person.timezone)), { name })}</h1>
           {data && <p className="av-muted">{intro()}</p>}
@@ -133,7 +134,7 @@ function Week({ cases, needs, timezone, locale }: { cases: CaseCard[]; needs: Sc
     }
     return [...names];
   };
-  const fmt = (opts: Intl.DateTimeFormatOptions, day: Date) => new Intl.DateTimeFormat(locale ?? "en-GB", { ...opts, timeZone: "UTC" }).format(day);
+  const fmt = (opts: Intl.DateTimeFormatOptions, day: Date) => new Intl.DateTimeFormat(safeLocale(locale), { ...opts, timeZone: "UTC" }).format(day);
   return (
     <section aria-labelledby="this-week" className="av-section">
       <div className="av-today__head">

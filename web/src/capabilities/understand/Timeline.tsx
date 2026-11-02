@@ -19,6 +19,7 @@ import { useRibbonData } from "./ribbonData";
 import { TimelineRibbon } from "./TimelineRibbon";
 import { lastTwoYearsWindow, periodDefaultDates } from "./timelineTimeWindow";
 import { w } from "./words";
+import { formatDay } from "../../foundation/i18n/dates";
 
 export { axisIso } from "./shared";
 export { splitForTrack } from "./TimelineBoard";
@@ -27,7 +28,6 @@ const SPLIT_DEFAULT = 72;
 const SPLIT_MIN = 40;
 const SPLIT_MAX = 85;
 
-const MONTH_YEAR = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
 
 type Event = Schemas["Event"];
 type ViewMode = "board" | "list";
@@ -158,7 +158,7 @@ export function Timeline() {
   const questionWord = questionId && numbers[questionId] !== undefined ? t("ui.qchip", { n: numbers[questionId] }) : w("timeline.filter.question.all");
   const spanFrom = from || recordRange?.first || "";
   const spanTo = to || recordRange?.last || "";
-  const spanText = spanFrom && spanTo ? `${MONTH_YEAR.format(new Date(`${spanFrom.slice(0, 7)}-01T00:00:00Z`))} – ${MONTH_YEAR.format(new Date(`${spanTo.slice(0, 7)}-01T00:00:00Z`))}` : "";
+  const spanText = spanFrom && spanTo ? `${formatDay(`${spanFrom.slice(0, 7)}-01`, undefined, "monthYearShort")} – ${formatDay(`${spanTo.slice(0, 7)}-01`, undefined, "monthYearShort")}` : "";
   const undated = data?.counts?.undated ?? 0;
   const showUndatedBanner = !!split && undated > 0 && !split.lanes.some((l) => l.events.length > 0) && split.unplaced.length > 0;
 

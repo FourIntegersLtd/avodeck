@@ -2,6 +2,7 @@
 // number (yours or the court bundle's), a date in the case's date order or written out, or words that must
 // all appear, across the served report, the checked facts, the meeting statement and the written answers.
 import type { CopyContent } from "./copy";
+import { DEFAULT_LOCALE } from "../../foundation/i18n/dates";
 
 export interface Hit {
   kind: "fact" | "paragraph" | "item" | "answer";
@@ -41,7 +42,7 @@ function paragraph(p: NonNullable<CopyContent["report"]>["paragraphs"][number], 
 
 function monthNames(locale: string): Map<string, number> {
   const names = new Map<string, number>();
-  for (const loc of [locale, "en-GB"]) {
+  for (const loc of [locale, DEFAULT_LOCALE]) {
     for (const month of ["long", "short"] as const) {
       let format: Intl.DateTimeFormat;
       try {

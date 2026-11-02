@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { t } from "../../foundation/i18n";
+import { formatList } from "../../foundation/i18n/dates";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
@@ -122,7 +123,7 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
               ? t("setup.conflicts.other_cases_match", { count: state.other_cases.matches })
               : t("setup.conflicts.other_cases_none", {
                   count: state.other_cases.checked,
-                  places: new Intl.ListFormat("en-GB", { style: "long", type: "conjunction" }).format(state.other_cases.organisations),
+                  places: formatList(state.other_cases.organisations, null),
                 })}
           </p>
         )}

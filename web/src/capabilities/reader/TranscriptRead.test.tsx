@@ -124,7 +124,7 @@ describe.each([
     const { user } = renderAt(PATH);
     expect(await screen.findByText("We're getting the record ready to read. This can take a minute.")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Download a copy" }));
-    expect(screen.getByRole("button", { name: "Download as Word" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "Download as Word" })).toHaveAttribute("aria-disabled", "true");
   });
 
   test("while preparing it shows a spinner and how many pages are done", async () => {
@@ -248,7 +248,7 @@ describe.each([
     const log = mockTranscript("ready");
     const { user } = renderAt(PATH);
     await user.click(await screen.findByRole("button", { name: "Download a copy" }));
-    await user.click(await screen.findByRole("button", { name: "Download as Word" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Download as Word" }));
     expect(await screen.findByText("Your Word file has been downloaded.")).toBeVisible();
     expect(log.downloads).toBe(1);
   });
@@ -322,11 +322,13 @@ describe.each([
     const log = mockTranscript("ready");
     const { user } = renderAt(PATH);
     await user.click(await screen.findByRole("button", { name: "Download a copy" }));
-    await user.click(await screen.findByRole("button", { name: "Download as Word" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Download as Word" }));
     expect(await screen.findByText("Your Word file has been downloaded.")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Download as PDF" }));
+    await user.click(screen.getByRole("button", { name: "Download a copy" }));
+    await user.click(screen.getByRole("menuitem", { name: "Download as PDF" }));
     expect(await screen.findByText("Your PDF has been downloaded.")).toBeVisible();
     expect(log.bodies).toEqual([{ format: "docx" }, { format: "pdf" }]);
+    await user.click(screen.getByRole("button", { name: "Download a copy" }));
     expect(screen.getByText("The file is a copy. Downloading it doesn't count as reading.")).toBeVisible();
   });
 
@@ -336,10 +338,12 @@ describe.each([
     server.use(http.get(`${C}/transcript/download/:job`, () => new Promise<Response>(() => undefined)));
     const { user } = renderAt(PATH);
     await user.click(await screen.findByRole("button", { name: "Download a copy" }));
-    await user.click(await screen.findByRole("button", { name: "Download as PDF" }));
-    const busy = await screen.findAllByRole("button", { name: "Preparing your file" });
+    await user.click(await screen.findByRole("menuitem", { name: "Download as PDF" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Download a copy" })).toBeVisible());
+    await user.click(screen.getByRole("button", { name: "Download a copy" }));
+    const busy = await screen.findAllByRole("menuitem", { name: "Preparing your file" });
     expect(busy).toHaveLength(2);
-    busy.forEach((button) => expect(button).toBeDisabled());
+    busy.forEach((item) => expect(item).toHaveAttribute("aria-disabled", "true"));
   });
 
   test("the buttons are enabled when the transcript is ready even if no page has been read", async () => {
@@ -348,8 +352,8 @@ describe.each([
     mockTranscript("ready");
     const { user } = renderAt(PATH);
     await user.click(await screen.findByRole("button", { name: "Download a copy" }));
-    expect(await screen.findByRole("button", { name: "Download as Word" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Download as PDF" })).toBeEnabled();
+    expect(await screen.findByRole("menuitem", { name: "Download as Word" })).toBeEnabled();
+    expect(screen.getByRole("menuitem", { name: "Download as PDF" })).toBeEnabled();
   });
 
   describe("sections", () => {

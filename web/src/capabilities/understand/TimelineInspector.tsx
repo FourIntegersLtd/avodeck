@@ -10,10 +10,10 @@ import { axisIso, entryHref, statusOf, useKindWord } from "./shared";
 import { pageImage } from "../../foundation/lib/pageImageCache";
 import { dateMark, entryLabel, entryName } from "./TimelineBoard";
 import { w } from "./words";
+import { formatDay } from "../../foundation/i18n/dates";
 
 type Event = Schemas["Event"];
 
-const SHORT_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
 function PagePicture({ caseId, page }: { caseId: string; page: number }) {
   const [src, setSrc] = useState<string | null>(null);
@@ -156,7 +156,7 @@ export function TimelineInspector({
                     onClick={() => onSelect(e)}
                   >
                     <span className="av-story-card__dot" data-state={e.has_finding ? "look" : statusOf(e.status)} aria-hidden="true" />
-                    <span>{`${axisIso(e) ? SHORT_DAY.format(new Date(`${axisIso(e)}T00:00:00Z`)) : w("common.no_date")} · ${e.summary || word(e.kind)}`}</span>
+                    <span>{`${axisIso(e) ? formatDay(axisIso(e)!, undefined, "short") : w("common.no_date")} · ${e.summary || word(e.kind)}`}</span>
                   </button>
                 </li>
               ))}

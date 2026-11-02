@@ -2,6 +2,7 @@
 // (no WebAssembly): the production Content-Security-Policy has no 'wasm-unsafe-eval', so a WebAssembly
 // hasher cannot start in Chrome or Firefox. Runs in a worker (hash.worker.ts) or, with none, on the page.
 import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesOf as readBytes } from "./files";
 
 const hex = (bytes: Uint8Array) => Array.from(bytes, (x) => x.toString(16).padStart(2, "0")).join("");
 
@@ -13,13 +14,7 @@ export function chunkRanges(size: number, chunkSize: number): Array<[number, num
 }
 
 export async function bytesOf(file: Blob): Promise<Uint8Array> {
-  if (typeof file.arrayBuffer === "function") return new Uint8Array(await file.arrayBuffer());
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(new Uint8Array(r.result as ArrayBuffer));
-    r.onerror = () => reject(r.error);
-    r.readAsArrayBuffer(file);
-  });
+  return new Uint8Array(await readBytes(file));
 }
 
 export const abortError = () => new DOMException("The upload was stopped.", "AbortError");
