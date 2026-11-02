@@ -54,7 +54,12 @@ function readCookie(name: string): string | null {
 
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 
-type MutationListener = () => void;
+/** What a change was: its method and path (no query string, no body). */
+export interface MutationInfo {
+  method: string;
+  path: string;
+}
+type MutationListener = (info: MutationInfo) => void;
 const mutationListeners = new Set<MutationListener>();
 
 /** Called when a change (POST, PUT, PATCH, DELETE) is sent and again when it is answered, so kept
@@ -64,13 +69,19 @@ export function onMutation(listener: MutationListener): () => void {
   return () => mutationListeners.delete(listener);
 }
 
+function announceMutation(request: Request): void {
+  if (SAFE.has(request.method)) return;
+  const info = { method: request.method, path: new URL(request.url).pathname };
+  mutationListeners.forEach((listener) => listener(info));
+}
+
 const mutations: Middleware = {
   onRequest({ request }) {
-    if (!SAFE.has(request.method)) mutationListeners.forEach((listener) => listener());
+    announceMutation(request);
     return request;
   },
   onResponse({ request, response }) {
-    if (!SAFE.has(request.method)) mutationListeners.forEach((listener) => listener());
+    announceMutation(request);
     return response;
   },
 };
@@ -113,7 +124,9 @@ export const CODE_NEEDED = new Set(["step_up_required", "mfa_required"]);
 async function codeNeeded(response: Response): Promise<{ setup: boolean } | null> {
   if (response.status !== 403) return null;
   try {
-    const body = (await response.clone().json()) as { error?: { code?: unknown; mfa_enrolled?: unknown } };
+    const body = (await response.clone().json()) as {
+      error?: { code?: unknown; mfa_enrolled?: unknown };
+    };
     const code = body.error?.code;
     return typeof code === "string" && CODE_NEEDED.has(code) ? { setup: body.error?.mfa_enrolled === false } : null;
   } catch {
@@ -126,7 +139,11 @@ const needsCode = async (response: Response) => (await codeNeeded(response)) !==
 function markAsked(response: Response): Response {
   const headers = new Headers(response.headers);
   headers.set(ASKED, "1");
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 /** Sends a request; if it needs the code, asks once (shared by calls in flight) and sends it again once. */
