@@ -10,7 +10,6 @@ not alter what a signed report rests on (architecture 10.6). Snapshot content is
 from __future__ import annotations
 
 import base64
-import hashlib
 import io
 import json
 import uuid
@@ -26,6 +25,7 @@ from reportlab.pdfgen import canvas
 
 from app.core.contracts import profile
 from app.core.crypto import KeyProvider, SecretBox
+from app.core.hashing import sha256_hex
 from app.core.packs import MergedPack
 from app.features.report.checks import named_expert
 
@@ -36,8 +36,7 @@ def snapshot_purpose(kind: str) -> str:
     return f"report_snapshot:{kind}"
 
 
-def sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+sha256 = sha256_hex  # the name the report modules import
 
 
 def version_hash(docx_sha: str, pdf_sha: str) -> str:

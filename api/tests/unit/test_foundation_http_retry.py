@@ -12,6 +12,8 @@ from app.core.email import Mail
 from app.core.email_live import ResendMailer
 from app.core.http_retry import backoff, parse_retry_after
 
+pytestmark = pytest.mark.anyio
+
 NOW = datetime(2026, 11, 2, 12, 0, 0, tzinfo=UTC)
 
 

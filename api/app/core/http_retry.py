@@ -41,4 +41,4 @@ def backoff(
     shortened by up to `jitter` (a fraction) at random, so callers that failed together do not retry together.
     Never above the unjittered wait, so totals computed from the nominal waits still hold."""
     nominal = min(base * 2**attempt, cap)
-    return nominal * (1.0 - jitter * (1.0 - rng()))
+    return float(nominal * (1.0 - jitter * (1.0 - rng())))

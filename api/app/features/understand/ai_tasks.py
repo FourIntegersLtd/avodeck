@@ -16,6 +16,7 @@ from typing import Any
 
 from app.core.ai.kit import AiTask
 from app.core.packs import MergedPack
+from app.core.uuids import uuid_or_none
 
 PROMPTS = Path(__file__).resolve().parent / "prompts"
 ID = {"type": "string", "maxLength": 40}
@@ -90,20 +91,13 @@ def t13a_text(rule: str, candidates: Sequence[tuple[uuid.UUID, Sequence[tuple[st
     return "\n".join(lines)
 
 
-def _uuid(value: Any) -> uuid.UUID | None:
-    try:
-        return uuid.UUID(str(value))
-    except ValueError:
-        return None
-
-
 def accept_links(
     output: Mapping[str, Any], offered: Mapping[uuid.UUID, Collection[uuid.UUID]]
 ) -> list[tuple[uuid.UUID, uuid.UUID, str]]:
     """(fact_id, question_id, reason) for each relevant pair the code offered, once."""
     kept: dict[tuple[uuid.UUID, uuid.UUID], str] = {}
     for link in output.get("links", []):
-        fid, qid = _uuid(link.get("fact_id")), _uuid(link.get("question_id"))
+        fid, qid = uuid_or_none(link.get("fact_id")), uuid_or_none(link.get("question_id"))
         if fid is None or qid is None or not link.get("relevant") or fid not in offered.get(qid, ()):
             continue
         kept.setdefault((fid, qid), str(link.get("reason", "")))
@@ -114,7 +108,7 @@ def accept_labels(output: Mapping[str, Any], spans: Mapping[uuid.UUID, Collectio
     """fact_id → label, for the first label per candidate whose words lie inside its span."""
     kept: dict[uuid.UUID, str] = {}
     for label in output.get("labels", []):
-        fid = _uuid(label.get("fact_id"))
+        fid = uuid_or_none(label.get("fact_id"))
         words = set(label.get("word_ids", []))
         if fid is None or fid in kept or fid not in spans or not words or not words <= set(spans[fid]):
             continue

@@ -57,10 +57,10 @@ class InvalidOutput(Exception):
 
 
 def backoff_delays(retries: int, base: float = 2.0, limit: float = MAX_WAIT_SECONDS) -> list[float]:
-    """Growing waits between attempts, never more than `limit` seconds in all."""
+    """Growing waits between attempts, never more than `limit` seconds in all. No jitter: guard F5 pins the schedule."""
     delays: list[float] = []
     for attempt in range(retries):
-        delay = min(backoff(attempt, base, limit), limit - sum(delays))
+        delay = min(backoff(attempt, base, limit, jitter=0.0), limit - sum(delays))
         if delay <= 0:
             break
         delays.append(delay)

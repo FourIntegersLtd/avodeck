@@ -27,6 +27,7 @@ from app.core.contracts.org_policy import org_policy
 from app.core.contracts.reading import page_read_log, verification_counts
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError, conflict
+from app.core.iterkit import iter_chunks
 from app.core.jobs import registry
 from app.core.packs import PackLibrary
 from app.core.storage import CaseFileStorage, StorageError, case_prefix
@@ -294,6 +295,4 @@ async def download_export(
 
 
 def chunks(data: bytes, size: int = DOWNLOAD_CHUNK) -> Iterator[bytes]:
-    view = memoryview(data)
-    for start in range(0, len(view), size):
-        yield bytes(view[start : start + size])
+    return iter_chunks(data, size)

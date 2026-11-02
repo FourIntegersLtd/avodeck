@@ -20,6 +20,7 @@ from typing import Any
 from psycopg import AsyncConnection
 
 from app.core.contracts.hearings import hearing_state
+from app.core.uuids import require_uuid
 
 REASONS = ("court_bundle_superseded", "hearing_adjourned", "hearing_changed", "new_served_version", "new_pages")
 
@@ -42,19 +43,20 @@ class BuiltFrom:
     court_bundle_id: uuid.UUID | None = None
 
 
-def _uuid(value: Any) -> uuid.UUID | None:
-    return None if value is None else value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+def _optional_uuid(value: Any) -> uuid.UUID | None:
+    """None stays None; anything else must be a UUID (a bad value raises, so a corrupt snapshot is not hidden)."""
+    return None if value is None else require_uuid(value)
 
 
 def built_from_row(row: Mapping[str, Any]) -> BuiltFrom:
     """The snapshot kept on a pack or copy row (a dict or `to_jsonb` of it); missing columns count as none."""
     version, last = row.get(COLUMNS["hearing_version"]), row.get(COLUMNS["last_page_no"])
     return BuiltFrom(
-        hearing_id=_uuid(row.get("hearing_id")),
+        hearing_id=_optional_uuid(row.get("hearing_id")),
         hearing_version=None if version is None else int(version),
         last_page_no=None if last is None else int(last),
-        served_version_id=_uuid(row.get(COLUMNS["served_version_id"])),
-        court_bundle_id=_uuid(row.get(COLUMNS["court_bundle_id"])),
+        served_version_id=_optional_uuid(row.get(COLUMNS["served_version_id"])),
+        court_bundle_id=_optional_uuid(row.get(COLUMNS["court_bundle_id"])),
     )
 
 
