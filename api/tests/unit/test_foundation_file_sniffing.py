@@ -48,3 +48,18 @@ def test_a_pdf_starts_with_its_marker() -> None:
     assert convert.sniff(PDF_BYTES) == convert.PDF
     assert not is_pdf(b"junk" + PDF_BYTES)
     assert not is_pdf(b"")
+
+
+@pytest.mark.parametrize("lead", [b"\xef\xbb\xbf", b"\r\n", b"junk bytes\n" * 20])
+def test_a_pdf_with_a_byte_order_mark_or_leading_junk_is_still_a_pdf(lead: bytes) -> None:
+    data = lead + PDF_BYTES
+    assert is_pdf(data)
+    assert convert.sniff(data) == convert.PDF
+
+
+def test_the_marker_far_into_a_file_is_not_a_pdf() -> None:
+    assert not is_pdf(b"x" * 2000 + PDF_BYTES)
+
+
+def test_a_zip_is_never_a_pdf_whatever_it_holds() -> None:
+    assert not is_pdf(b"PK\x03\x04" + b"\x00" * 10 + PDF_BYTES)

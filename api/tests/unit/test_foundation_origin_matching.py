@@ -41,3 +41,16 @@ DEV = ("http://localhost:5173",)
 )
 def test_origin_allowed(origin: str, allowed: tuple[str, ...], expected: bool) -> None:
     assert origin_allowed(origin, allowed) is expected
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://user:pass@app.example.test",
+        "https://app.example.test?x=1",
+        "https://app.example.test#frag",
+        "https://app.example.test/path",
+    ],
+)
+def test_an_origin_with_more_than_scheme_host_and_port_is_refused(origin: str) -> None:
+    assert origin_allowed(origin, APP) is False

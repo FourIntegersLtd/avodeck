@@ -110,3 +110,43 @@ async def test_a_fresh_session_takes_one_connection_on_an_error_answer(
     resp = await client.get(MISSING_CASE)
     assert resp.status_code == 404
     assert len(checkouts) == 1
+
+
+async def test_activity_is_still_counted_when_the_client_goes_away_mid_request(
+    seed: Seed, api_db: Database, admin: psycopg.Connection
+) -> None:
+    """A disconnect cancels the request; the count (and the rollback before it) must still finish."""
+    import anyio
+
+    from app.core.auth import session as sessions
+
+    person = seed.person()
+    session = seed.session(person, idle=timedelta(minutes=5))
+    with anyio.CancelScope() as scope:
+        async with api_db.session_request(sessions.resolve_args(session.token, touch=True), "a") as (_, row):
+            assert row is not None
+            scope.cancel()
+            await anyio.sleep(1)
+    assert scope.cancelled_caught
+    seen = admin.execute(
+        "select now() - last_seen_at < interval '1 minute' from app.sessions where id = %s", (session.id,)
+    ).fetchone()
+    assert seen is not None and seen[0]
+
+
+def test_touch_does_not_revive_a_session_past_its_idle_or_total_age(seed: Seed, admin: psycopg.Connection) -> None:
+    person = seed.person()
+    idle = seed.session(person, idle=timedelta(hours=2))
+    old = seed.session(person, idle=timedelta(minutes=5), age=timedelta(days=60))
+    fresh = seed.session(person, idle=timedelta(minutes=5))
+    for s in (idle, old, fresh):
+        admin.execute("select app.session_touch(%s, interval '30 minutes', interval '12 hours')", (s.id,))
+    ages = {
+        s.id: admin.execute(
+            "select now() - last_seen_at > interval '1 minute' from app.sessions where id = %s", (s.id,)
+        ).fetchone()
+        for s in (idle, old, fresh)
+    }
+    assert ages[idle.id] == (True,), "an idle-expired session was revived"
+    assert ages[old.id] == (True,), "a session past its total age was revived"
+    assert ages[fresh.id] == (False,)

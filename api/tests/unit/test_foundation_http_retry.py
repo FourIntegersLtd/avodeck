@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from app.core.email import Mail
-from app.core.email_live import ResendMailer
+from app.core.email_live import MailSendError, ResendMailer
 from app.core.http_retry import backoff, parse_retry_after
 
 pytestmark = pytest.mark.anyio
@@ -100,3 +100,24 @@ async def test_resend_waits_for_a_429_retry_after_date_capped() -> None:
     mailer = ResendMailer("k", "a@example.test", transport=httpx.MockTransport(handler), sleep=sleep)
     await mailer.send(Mail("b@example.test", "mfa.recovery_code_used"))
     assert waits and 0 < waits[0] <= 60
+
+
+async def test_a_conflict_on_the_retry_means_the_first_send_went_out() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(500) if len(seen) == 1 else httpx.Response(409)
+
+    async def no_sleep(_: float) -> None:
+        return None
+
+    mailer = ResendMailer("k", "a@example.test", transport=httpx.MockTransport(handler), sleep=no_sleep)
+    await mailer.send(Mail("b@example.test", "mfa.recovery_code_used"))
+    assert len(seen) == 2
+
+
+async def test_a_conflict_on_the_first_attempt_is_still_an_error() -> None:
+    mailer = ResendMailer("k", "a@example.test", transport=httpx.MockTransport(lambda request: httpx.Response(409)))
+    with pytest.raises(MailSendError):
+        await mailer.send(Mail("b@example.test", "mfa.recovery_code_used"))
