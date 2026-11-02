@@ -538,6 +538,10 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
     *whole batch* is asked again; a page still failing after that becomes `needs_human`. One
     malformed page therefore costs a full second call for every page in its batch, not just itself —
     accepted for the throughput win; no partial-batch recovery is attempted.
+
+    A page with enough words but little or nothing kept (`coverage.reason_for`'s `no_facts` or
+    `low_coverage`) is asked once more, on its own; the second answer replaces the first only when
+    it keeps strictly more facts and is not itself refused.
     """
     async with ctx.transaction() as conn:
         await repo.reset_undone(conn, ctx.case_id)
@@ -630,6 +634,15 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 entries = None  # no usable answer: not "no entries"; the page is left for a person
             if reason is None and stored and output is not None:
                 reason = coverage.reason_for(ordered=ordered, struck=struck, kept=kept, entries=entries)
+            if reason in ("no_facts", "low_coverage"):  # enough words, little to show: ask once more, on its own
+                again = await _ask(ctx, services, task, pack, who, loaded_page.text, loaded_page.subject)
+                if again is not None:
+                    again_result = extract.sort_facts(again, texts, struck)
+                    if not again_result.refused and len(again_result.kept) > len(kept):
+                        output, kept = again, again_result.kept
+                        evidence = extract.sort_evidence(output, ordered, struck, pack)
+                        entries, entries_rejected = _entries_of(output, ordered, struck, pack)
+                        reason = coverage.reason_for(ordered=ordered, struck=struck, kept=kept, entries=entries)
             facts = []
             lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
             anchor = dates.bundle_anchor(
