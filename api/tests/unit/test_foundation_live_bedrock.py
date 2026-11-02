@@ -171,3 +171,27 @@ def test_credentials_are_needed() -> None:
         AwsCredentials("", "secret")
     with pytest.raises(ValueError):
         AwsCredentials("id", "")
+
+
+@pytest.mark.parametrize(
+    ("message", "kind"),
+    [
+        ("Too many tokens, please wait before trying again.", "tokens"),
+        ("Too many requests, please wait before trying again.", "requests"),
+        ("Slow down for Ada Pemberton-Vale", "other"),
+    ],
+)
+async def test_a_throttle_log_says_which_limit_without_the_message(
+    message: str, kind: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    live = LiveBedrock(cell(), CREDS)
+    with Stubber(live.client) as stub:
+        stub.add_client_error(
+            "converse", service_error_code="ThrottlingException", service_message=message, http_status_code=429
+        )
+        with caplog.at_level("WARNING", logger="app.ai.bedrock"), pytest.raises(ServiceBusy):
+            await live.invoke(request())
+    text = " ".join(r.getMessage() for r in caplog.records)
+    assert f"limit={kind}" in text
+    assert "max_tokens=1024" in text
+    assert "Pemberton" not in text and "please wait" not in text
