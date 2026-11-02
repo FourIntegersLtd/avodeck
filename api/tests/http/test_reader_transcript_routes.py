@@ -23,7 +23,7 @@ from fastapi import FastAPI
 
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
-from app.features.reader import transcript
+from app.features.reader import transcript, transcript_jobs
 from tests.support.files import build_app
 from tests.support.seed import Seed
 from tests.support.transcript_world import Spec, add_document, add_page
@@ -216,23 +216,31 @@ async def test_an_unknown_entry_is_404(client_for: Any, world: dict[str, Any]) -
     assert resp.status_code == 404
 
 
-async def test_the_download_needs_a_recent_second_factor(client_for: Any, world: dict[str, Any]) -> None:
+@pytest.mark.parametrize("body", [None, {}, {"format": "docx"}, {"format": "pdf"}])
+async def test_the_download_needs_a_recent_second_factor(client_for: Any, world: dict[str, Any], body: Any) -> None:
     client = await client_for(world["expert"], mfa_age=LAPSED)
-    resp = await client.post(f"{base(world)}/transcript/download")
+    resp = await client.post(f"{base(world)}/transcript/download", json=body)
     assert resp.status_code == 403
     assert resp.json()["error"]["code"] == "step_up_required"
 
 
-async def test_the_download_queues_a_job_for_the_requester(
-    client_for: Any, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+@pytest.mark.parametrize(
+    ("body", "kind"),
+    [
+        (None, "export_transcript"),
+        ({"format": "docx"}, "export_transcript"),
+        ({"format": "pdf"}, "export_transcript_pdf"),
+    ],
+)
+async def test_the_download_queues_a_job_for_the_requester_before_any_page_is_read(
+    client_for: Any, admin: psycopg.Connection, world: dict[str, Any], body: Any, kind: str
 ) -> None:
     client: httpx.AsyncClient = await client_for(world["expert"])
-    await read_one_page(client, aconn, world)
-    resp = await client.post(f"{base(world)}/transcript/download")
+    resp = await client.post(f"{base(world)}/transcript/download", json=body)
     assert resp.status_code == 202, resp.text
     job = resp.json()["job_id"]
     row = admin.execute("select kind, requested_by from app.jobs where id = %s", (job,)).fetchone()
-    assert row == ("export_transcript", world["expert"])
+    assert row == (kind, world["expert"])
     audited = admin.execute(
         "select count(*) from app.audit_log where case_id = %s and action = 'case.transcript_requested'",
         (world["case"],),
@@ -240,11 +248,45 @@ async def test_the_download_queues_a_job_for_the_requester(
     assert audited is not None and audited[0] == 1
 
 
-async def test_a_download_that_is_not_ready_is_409_and_someone_elses_is_404(
-    client_for: Any, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, seed: Seed, world: dict[str, Any]
+async def test_a_bad_format_is_422(client_for: Any, world: dict[str, Any]) -> None:
+    client = await client_for(world["expert"])
+    assert (await client.post(f"{base(world)}/transcript/download", json={"format": "rtf"})).status_code == 422
+
+
+async def test_a_case_with_no_named_expert_cannot_be_downloaded(
+    client_for: Any, admin: psycopg.Connection, world: dict[str, Any]
 ) -> None:
     client = await client_for(world["expert"])
-    await read_one_page(client, aconn, world)
+    admin.execute("update app.cases set named_expert_id = null where id = %s", (world["case"],))
+    resp = await client.post(f"{base(world)}/transcript/download")
+    assert resp.status_code == 409 and resp.json()["error"]["code"] == "no_named_expert"
+
+
+async def test_a_pdf_job_is_returned_as_a_pdf(
+    client_for: Any, admin: psycopg.Connection, seed: Seed, world: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = await client_for(world["expert"])
+    job = seed.job(world["case"], kind="export_transcript_pdf", requested_by=world["expert"])
+    admin.execute("update app.jobs set status = 'running' where id = %s", (job,))
+    admin.execute("update app.jobs set status = 'done' where id = %s", (job,))
+    seen: list[str] = []
+
+    async def take(conn: Any, storage: Any, crypto: Any, case_id: Any, job_id: Any, fmt: str = "docx") -> bytes:
+        seen.append(fmt)
+        return b"%PDF-1.4 x"
+
+    monkeypatch.setattr(transcript_jobs, "take", take)
+    resp = await client.get(f"{base(world)}/transcript/download/{job}")
+    assert resp.status_code == 200, resp.text
+    assert resp.headers["content-type"].startswith("application/pdf")
+    assert resp.headers["content-disposition"] == f'attachment; filename="transcript-{job}.pdf"'
+    assert seen == ["pdf"]
+
+
+async def test_a_download_that_is_not_ready_is_409_and_someone_elses_is_404(
+    client_for: Any, admin: psycopg.Connection, seed: Seed, world: dict[str, Any]
+) -> None:
+    client = await client_for(world["expert"])
     job = (await client.post(f"{base(world)}/transcript/download")).json()["job_id"]
     assert (await client.get(f"{base(world)}/transcript/download/{job}")).status_code == 409
     other = seed.job(world["case"], kind="export_transcript", requested_by=world["stranger"])
