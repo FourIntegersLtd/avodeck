@@ -290,6 +290,19 @@ describe("the side panel", () => {
     expect(router.state.location.search).not.toContain("entry=");
   });
 
+  test("Escape that a dialog or menu already handled does not close the panel", async () => {
+    inCase("launch");
+    serve();
+    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
+    await user.click(await screen.findByRole("button", { name: /Consultation · 15 May 2024/ }));
+    await screen.findByRole("complementary", { name: "The entry you opened" });
+    const handled = (e: KeyboardEvent) => e.preventDefault();
+    document.addEventListener("keydown", handled, true);
+    await user.keyboard("{Escape}");
+    document.removeEventListener("keydown", handled, true);
+    expect(screen.getByRole("complementary", { name: "The entry you opened" })).toBeInTheDocument();
+  });
+
   test("an address with an entry opens it straight away", async () => {
     inCase("launch");
     serve();
