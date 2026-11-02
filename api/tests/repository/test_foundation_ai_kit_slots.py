@@ -41,9 +41,7 @@ def case(seed: Seed) -> uuid.UUID:
 
 
 async def _pending_row(admin: psycopg.Connection, job_id: uuid.UUID) -> tuple[object, ...] | None:
-    return admin.execute(
-        "select id, granted_at from app.ai_request_slots where job_id = %s", (job_id,)
-    ).fetchone()
+    return admin.execute("select id, granted_at from app.ai_request_slots where job_id = %s", (job_id,)).fetchone()
 
 
 async def test_a_job_waits_when_the_sixty_second_ceiling_is_already_spent(
