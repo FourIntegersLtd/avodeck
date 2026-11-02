@@ -272,6 +272,7 @@ async def test_the_preparing_screen_finds_the_case_s_latest_processing_job(
         "step_done",
         "step_total",
         "error_code",
+        "updated_at",
     }
 
     await h.drain()

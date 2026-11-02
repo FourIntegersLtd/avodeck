@@ -240,6 +240,7 @@ class ProcessingJob(BaseModel):
     step_done: int | None = None
     step_total: int | None = None
     error_code: str | None
+    updated_at: dt.datetime | None = None
 
 
 class Processing(BaseModel):

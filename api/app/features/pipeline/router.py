@@ -676,6 +676,8 @@ async def retry_processing(
     registry = wiring.registry()
     kinds = (SCAN_DOCUMENT, PROCESS_BUNDLE, PROCESS_PAGES, REPROCESS_CASE)
     requeued = 0
+    if await repo.has_live_bundle_job(conn, case_id):
+        return ProcessingRetried(requeued=0)  # it holds the case's lock: a job queued now could only wait
     for job_id, name in await repo.failed_job_ids(conn, case_id, kinds):
         kind = registry.kinds[name]
         priority = INTERACTIVE_PRIORITY if kind.interactive else BATCH_PRIORITY

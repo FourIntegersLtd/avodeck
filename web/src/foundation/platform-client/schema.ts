@@ -10354,6 +10354,8 @@ export interface components {
             step_done?: number | null;
             /** Step Total */
             step_total?: number | null;
+            /** Updated At */
+            updated_at?: string | null;
         };
         /** ProcessingRetried */
         ProcessingRetried: {
