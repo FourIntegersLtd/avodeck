@@ -99,14 +99,14 @@ async def test_appended_pages_follow_the_last_page_and_only_they_are_processed(h
     await h.drain()
     before = {p["id"]: p["bundle_page_no"] for p in h.pages()}
     asked = len(t07b_requests(h))
-    assert asked == 5  # 3 pages, each near-empty: asked once each, then asked again on its own
+    assert asked == 3  # 3 pages, each asked once: too few words to judge coverage, so no extra ask
     later = await h.upload(text_pdf(LATER), filename="later.pdf", append=True)
     assert set((await h.drain()).values()) == {"done"}
     pages = h.pages()
     assert [p["bundle_page_no"] for p in pages] == [1, 2, 3, 4, 5]
     assert {p["id"]: p["bundle_page_no"] for p in pages if p["id"] in before} == before
     assert {p["bundle_page_no"] for p in pages if p["document_id"] == later} == {4, 5}
-    assert len(t07b_requests(h)) == asked + 4  # 2 appended pages, each near-empty: asked twice each
+    assert len(t07b_requests(h)) == asked + 2  # 2 appended pages, each asked once
     assert versions(h) == {first: 1, later: 2}
 
 

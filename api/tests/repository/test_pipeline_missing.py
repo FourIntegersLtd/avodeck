@@ -13,6 +13,7 @@ is sealed. A rerun asks nothing again. Messages name pages only (rule 6).
 from __future__ import annotations
 
 import datetime as dt
+import re
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
@@ -55,6 +56,7 @@ LETTER = [
 SCAN = ["Ultrasound scan report from the imaging department", "No abnormality was seen on 05/04/2024"]
 COLONOSCOPY_WORDS = ["p1w9", "p1w10"]
 ULTRASOUND_WORDS = ["p1w17", "p1w18"]
+_PAGE_MARK = re.compile(r"^=== PAGE (\d+) ===$", re.MULTILINE)
 
 
 @pytest.fixture
@@ -182,7 +184,8 @@ class ByWords:
         if request.task_id == "T-07c":
             matched = 2 if "Ultrasound" in request.text and "Colonoscopy" not in request.text else None
             return response({"reference_id": "r", "matched_page": matched, "confidence": 0.9})
-        page = request.text.split("\n\n", 1)[-1] if request.text.startswith("Previous page header") else request.text
+        unmarked = _PAGE_MARK.sub("", request.text, count=1).lstrip("\n")
+        page = unmarked.split("\n\n", 1)[-1] if unmarked.startswith("Previous page header") else unmarked
         if "Colonoscopy" not in page:  # the previous page's header is context, not this page's words
             return empty_answer(self.source_key)
         return response(

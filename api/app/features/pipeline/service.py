@@ -586,11 +586,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                     task,
                     pack,
                     who,
-                    (
-                        loaded[askable[0][0]].text
-                        if len(askable) == 1
-                        else extract.batch_text([(page_no, loaded[page_id].text) for page_id, page_no in askable])
-                    ),
+                    extract.batch_text([(page_no, loaded[page_id].text) for page_id, page_no in askable]),
                     subject,
                 )
                 answers = extract.pages_of(raw) if raw is not None else {}
@@ -635,7 +631,10 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
             if reason is None and stored and output is not None:
                 reason = coverage.reason_for(ordered=ordered, struck=struck, kept=kept, entries=entries)
             if reason in ("no_facts", "low_coverage"):  # enough words, little to show: ask once more, on its own
-                again = await _ask(ctx, services, task, pack, who, loaded_page.text, loaded_page.subject)
+                again_raw = await _ask(
+                    ctx, services, task, pack, who, extract.batch_text([(page_no, loaded_page.text)]), loaded_page.subject
+                )
+                again = extract.pages_of(again_raw).get(page_no) if again_raw is not None else None
                 if again is not None:
                     again_result = extract.sort_facts(again, texts, struck)
                     if not again_result.refused and len(again_result.kept) > len(kept):
@@ -991,7 +990,12 @@ async def extract_entries(ctx: JobContext) -> None:
         nonlocal done
         loaded = await _load_page(ctx, services, pack, who, page_id)
         # The kit asks twice itself before refusing, so a None here is the settled "no usable answer".
-        output = await _ask(ctx, services, task, pack, who, loaded.text, loaded.subject) if loaded.stored else None
+        raw = (
+            await _ask(ctx, services, task, pack, who, extract.batch_text([(1, loaded.text)]), loaded.subject)
+            if loaded.stored
+            else None
+        )
+        output = extract.pages_of(raw).get(1) if raw is not None else None
         entries, rejected = _entries_of(output, loaded.ordered, loaded.struck, pack)
         async with ctx.transaction() as conn:
             if loaded.stored and output is None:

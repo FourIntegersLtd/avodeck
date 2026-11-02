@@ -59,13 +59,15 @@ async def test_app_api_cannot_see_or_write_ai_request_slots(
     admin.commit()
 
     async with api_db.request(scope_for(expert)) as conn:
-        cur = await conn.execute("select count(*) from app.ai_request_slots")
-        assert await cur.fetchone() == (0,)
         with pytest.raises(psycopg.Error):
-            await conn.execute(
-                "insert into app.ai_request_slots (job_id, case_id, requested_at) values (%s, %s, now())",
-                (job_id, case_id),
-            )
+            async with conn.transaction():
+                await conn.execute("select count(*) from app.ai_request_slots")
+        with pytest.raises(psycopg.Error):
+            async with conn.transaction():
+                await conn.execute(
+                    "insert into app.ai_request_slots (job_id, case_id, requested_at) values (%s, %s, now())",
+                    (job_id, case_id),
+                )
 
 
 async def test_a_job_sees_only_its_own_case_slots(worker_db: Database, admin: psycopg.Connection, seed: Seed) -> None:
