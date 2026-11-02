@@ -28,9 +28,16 @@ function cached<T extends Intl.DateTimeFormat | Intl.NumberFormat | Intl.ListFor
   return found;
 }
 
-/** The locale if the browser knows it, else the message locale. */
+let sessionLocale: string | null = null;
+
+/** The signed-in person's locale: what a screen that passes none gets. Null on sign-out. */
+export function setSessionLocale(locale: string | null | undefined): void {
+  sessionLocale = locale ? safeLocale(locale) : null;
+}
+
+/** The locale if the browser knows it, else the person's locale, else the message locale. */
 export function safeLocale(locale: string | null | undefined): string {
-  if (!locale) return DEFAULT_LOCALE;
+  if (!locale) return sessionLocale ?? DEFAULT_LOCALE;
   try {
     return Intl.getCanonicalLocales(locale)[0] ?? DEFAULT_LOCALE;
   } catch {

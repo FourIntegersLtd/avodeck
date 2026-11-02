@@ -8,6 +8,7 @@
 //   Today; any other change, an ended session and a different person signed in empty everything.
 import { notifyManager, QueryClient } from "@tanstack/react-query";
 import { ApiError, onMutation, onSignedOut } from "../platform-client";
+import { setSessionLocale } from "../i18n/dates";
 
 // Tell screens the moment an answer arrives (a microtask), not a timer tick later, as useResource did before.
 notifyManager.setScheduler(queueMicrotask);
@@ -77,4 +78,7 @@ queryClient.getQueryCache().subscribe((event) => {
 });
 
 onMutation(onChange);
-onSignedOut(clearResourceCache);
+onSignedOut(() => {
+  setSessionLocale(null);
+  clearResourceCache();
+});

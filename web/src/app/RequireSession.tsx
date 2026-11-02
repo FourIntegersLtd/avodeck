@@ -5,6 +5,7 @@ import { t } from "../foundation/i18n";
 import { JobWatchProvider } from "../foundation/lib/jobWatch";
 import { MessagesProvider } from "../foundation/lib/messages";
 import { ToastProvider } from "../foundation/lib/toasts";
+import { setSessionLocale } from "../foundation/i18n/dates";
 import { claimResourceCache } from "../foundation/lib/resourceCache";
 import { SessionContext } from "../foundation/lib/session";
 import { useResource } from "../foundation/lib/useResource";
@@ -72,6 +73,7 @@ export function RequireSession() {
   if (session.data.legal && !session.data.legal.accepted && !legalDone && location.pathname !== "/agree") {
     return <LegalGate from={location.pathname} onDone={() => { setLegalDone(true); session.reload(); }} />;
   }
+  setSessionLocale(session.data.me.person.locale);
   claimResourceCache(session.data.me.person.id); // a different person empties the screen cache
   const isSupport = session.data.me.is_support_staff === true;
   if (isSupport && EXPERT_ONLY.has(location.pathname.replace(/\/$/, ""))) return <Navigate to="/support" replace />;
