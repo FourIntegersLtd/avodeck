@@ -23,6 +23,7 @@ from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from psycopg import AsyncConnection, AsyncCursor
@@ -117,23 +118,31 @@ class Database:
         `app.org_ids`, `app.request_id` and `TimeZone` are the same as `request()` sets.
         """
         settings = {"app.org_ids": "", "app.request_id": request_id, "TimeZone": "UTC"}
+        *lookup, touch = resolve_args
+        row: tuple[Any, ...] | None = None
         async with self._pool.connection() as conn:
             try:
-                async with conn.pipeline():
-                    await conn.execute("BEGIN")
-                    await _set(conn, settings)
-                    cur = await conn.execute(
-                        "select r.*, set_config('app.person_id', "
-                        "case when r.state = 'active' then r.person_id::text else '' end, true) "
-                        "from app.session_resolve(%s, %s, %s, %s) r",
-                        tuple(resolve_args),
-                    )
-                row = await cur.fetchone()
-                yield conn, (row[:-1] if row is not None else None)
-                await conn.execute("COMMIT")
-            except BaseException:
-                await _rollback(conn)
-                raise
+                try:
+                    async with conn.pipeline():
+                        await conn.execute("BEGIN")
+                        await _set(conn, settings)
+                        # p_touch is always false here: counting activity inside this transaction would keep
+                        # the session row locked until the route ends. It is counted below, after the request.
+                        cur = await conn.execute(
+                            "select r.*, set_config('app.person_id', "
+                            "case when r.state = 'active' then r.person_id::text else '' end, true) "
+                            "from app.session_resolve(%s, %s, %s, false) r",
+                            tuple(lookup),
+                        )
+                    row = await cur.fetchone()
+                    yield conn, (row[:-1] if row is not None else None)
+                    await conn.execute("COMMIT")
+                except BaseException:
+                    await _rollback(conn)
+                    raise
+            finally:
+                if touch and row is not None:
+                    await _count_activity(conn, row)
 
     @asynccontextmanager
     async def anonymous(self, request_id: str = "") -> AsyncIterator[AsyncConnection]:
@@ -180,6 +189,17 @@ class Database:
             except BaseException:
                 await _rollback(conn)
                 raise
+
+
+async def _count_activity(conn: AsyncConnection, row: tuple[Any, ...]) -> None:
+    """After the request's transaction has ended: one autocommit statement counts the activity of the active
+    session `row` (the `session_request` row) if it was last counted over 30 seconds ago, so the session row
+    is locked only for that statement. Skipped when the lookup just saw it counted. Never raises."""
+    *fields, _person_setting = row
+    if fields[-1] != "active" or fields[8] > datetime.now(UTC) - timedelta(seconds=30):
+        return
+    with suppress(Exception):
+        await conn.execute("select app.session_touch(%s)", (fields[0],))
 
 
 async def _rollback(conn: AsyncConnection) -> None:

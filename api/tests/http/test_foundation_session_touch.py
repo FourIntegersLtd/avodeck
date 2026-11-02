@@ -56,7 +56,9 @@ async def test_an_open_request_does_not_keep_its_session_row_locked(
             admin.execute("reset lock_timeout")
 
 
-async def test_activity_is_counted_when_the_request_ends(seed: Seed, api_db: Database, admin: psycopg.Connection) -> None:
+async def test_activity_is_counted_when_the_request_ends(
+    seed: Seed, api_db: Database, admin: psycopg.Connection
+) -> None:
     from app.core.auth import session as sessions
 
     person = seed.person()

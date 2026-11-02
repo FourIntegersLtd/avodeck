@@ -34,7 +34,6 @@ import json
 import re
 import uuid
 from collections.abc import Callable, Coroutine
-from contextlib import suppress
 from contextvars import ContextVar
 from typing import Annotated, Any, cast
 
@@ -48,7 +47,7 @@ from app.core import audit
 from app.core.auth import session as sessions
 from app.core.auth.identity import Identity
 from app.core.crypto import cell_secret_box
-from app.core.db import Database, RequestScope
+from app.core.db import RequestScope
 from app.core.errors import ApiError
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -248,7 +247,6 @@ class SessionRoute(APIRoute):
             fingerprint = await _fingerprint(request) if key else ""
             scopes: list[RequestScope] = []  # filled once the session is known
             refusal: ApiError | None = None
-            active = False
             try:
                 # One connection, one transaction: the session lookup (which also ends an idle or expired
                 # session and counts activity) shares it with the route's own work.
@@ -268,7 +266,6 @@ class SessionRoute(APIRoute):
                         elif session.must_change_password and not (self.mfa_pending or self.password_pending):
                             refusal = ApiError("password_change_required", "Choose your own password to continue.", 403)
                     if refusal is None:
-                        active = True
                         identity = Identity(session.person_id, session.email, session.full_name, session.mfa_enrolled)
                         scopes.append(RequestScope(person_id=identity.person_id, org_ids=(), request_id=request_id))
                         request.state.conn = conn
@@ -293,23 +290,11 @@ class SessionRoute(APIRoute):
                                 await _remember(conn, pending, response)
                         return response
             except _Discard as discarded:
-                await self._count_activity(database, token)
                 return discarded.response
-            except Exception:
-                if active:
-                    await self._count_activity(database, token)
-                raise
             assert refusal is not None
             raise refusal
 
         return run
-
-    async def _count_activity(self, database: Database, token: str) -> None:
-        """The route's work was rolled back (an error answer), and the activity the session lookup counted
-        went with it: count it again on its own, so a person who only meets errors is not timed out."""
-        if self.touch:
-            with suppress(Exception):
-                await sessions.resolve(database, token, touch=True)
 
 
 FoundationRoute = SessionRoute  # the step 3 name
