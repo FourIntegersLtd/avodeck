@@ -1,5 +1,7 @@
 /** Time-window presets for S11: whole record, instruction period, or custom dates. */
 
+import { addYears } from "../../foundation/i18n/dates";
+
 export type TimelineWindowPreset = "whole" | "period" | "custom";
 
 export type DateRange = { first: string; last: string };
@@ -20,11 +22,8 @@ export function instructionPeriod(caseRow: { period_start?: string | null; perio
 
 /** Default window when there is no instruction period: last two calendar years ending at range.last. */
 export function lastTwoYearsWindow(range: DateRange): { from: string; to: string } {
-  const end = parseUtc(range.last);
-  const start = new Date(Date.UTC(end.getUTCFullYear() - 2, end.getUTCMonth(), end.getUTCDate()));
-  const first = parseUtc(range.first);
-  const fromDate = start.getTime() < first.getTime() ? first : start;
-  return { from: isoDay(fromDate), to: range.last };
+  const start = addYears(range.last, -2);
+  return { from: start < range.first ? range.first : start, to: range.last };
 }
 
 export function periodDefaultDates(
@@ -37,16 +36,4 @@ export function periodDefaultDates(
     return lastTwoYearsWindow(recordRange);
   }
   return null;
-}
-
-function parseUtc(iso: string): Date {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1));
-}
-
-function isoDay(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }
