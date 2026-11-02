@@ -1,6 +1,8 @@
 /* Design tokens from the canvas (docs/design/screens/Main.dc.html). Sizes meet U2: body text
    at least 17px, buttons at least 52px tall. Colour pairs meet WCAG AA contrast. */
 :root {
+  /* Breakpoints used across the app: 700 / 900 / 1100 (px). */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
   --green: #1E6B4E;
   --green-dark: #0F3D2C;
   --green-bright: #2F9E6E;
