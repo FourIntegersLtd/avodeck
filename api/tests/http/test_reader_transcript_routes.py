@@ -23,6 +23,7 @@ from fastapi import FastAPI
 
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
+from app.core.packs import MergedPack as Pack
 from app.features.reader import transcript
 from tests.support.files import build_app
 from tests.support.seed import Seed
@@ -79,7 +80,7 @@ async def test_entries_are_listed_without_any_fact(
     assert entry["page_no"] == 1 and entry["lines"] == ["hello there"] and entry["event_date"] == "2020-01-02"
     assert set(entry) == {
         "id", "page_no", "kind", "kind_label", "folded", "author_role", "author_label", "specialty", "event_date",
-        "date_basis", "lines", "results", "result_labels",
+        "date_basis", "lines", "results", "result_labels", "section",
     }  # fmt: skip
     assert body["picture_pages"] == []
 
@@ -292,3 +293,59 @@ async def test_the_listing_names_the_pages_that_need_their_picture_opened(
     await add_page(aconn, CRYPTO, world["case"], doc, 2, [])
     client = await client_for(world["expert"])
     assert (await client.get(f"{base(world)}/transcript/entries")).json()["picture_pages"] == [2]
+
+
+async def test_entries_carry_the_section_they_are_in(
+    client_for: Any, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("hello",), day=date(2020, 1, 2))])
+    client = await client_for(world["expert"])
+    entry = (await client.get(f"{base(world)}/transcript/entries")).json()["entries"][0]
+    assert "section" in entry
+
+
+async def test_the_outline_gives_sections_with_offsets_and_page_coverage(
+    client_for: Any, aconn: psycopg.AsyncConnection, world: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        Pack,
+        "transcript_sections",
+        lambda self: [
+            {"key": "clinic", "label": "t.clinic", "sources": ["clinic_notes"]},
+            {"key": "rest", "label": "t.rest"},
+        ],
+        raising=False,
+    )
+    doc = await add_document(aconn, world["case"])
+    for n, source in ((1, "other_src"), (2, "clinic_notes"), (3, "clinic_notes")):
+        built = await add_page(aconn, CRYPTO, world["case"], doc, n, [Spec("zz_session", (f"note {n}",))])
+        await aconn.execute("update app.pages set source_type = %s where id = %s", (source, built.page_id))
+    await add_page(aconn, CRYPTO, world["case"], doc, 4, [])  # no entries: a picture page
+    await add_page(aconn, CRYPTO, world["case"], doc, 5, [Spec("zz_session", ("copy",))], quarantined=True)
+    client = await client_for(world["expert"])
+    resp = await client.get(f"{base(world)}/transcript/outline")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "ready"
+    assert body["sections"] == [
+        {"key": "clinic", "label": "t.clinic", "count": 2, "offset": 0},
+        {"key": "rest", "label": "t.rest", "count": 1, "offset": 2},
+    ]
+    assert body["coverage"] == {"total_pages": 4, "with_entries": 3, "no_entries": 1, "unreadable": 0, "set_aside": 1}
+
+
+async def test_the_outline_says_preparing_and_queues_nothing_while_entries_are_not_ready(
+    client_for: Any, aconn: psycopg.AsyncConnection, admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("x",))], analysed=False)
+    client = await client_for(world["expert"])
+    body = (await client.get(f"{base(world)}/transcript/outline")).json()
+    assert body["status"] in ("idle", "preparing") and body["sections"] == [] and body["coverage"] is None
+    assert _jobs(admin, world) == 0
+
+
+async def test_a_stranger_gets_404_on_the_outline(client_for: Any, world: dict[str, Any]) -> None:
+    client = await client_for(world["stranger"])
+    assert (await client.get(f"{base(world)}/transcript/outline")).status_code == 404

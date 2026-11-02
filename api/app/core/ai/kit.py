@@ -216,9 +216,7 @@ class AiKit:
                 raise ProcessingPaused("model_unavailable") from None
         raise AssertionError("unreachable")  # pragma: no cover
 
-    async def _wait_for_slot_detached(
-        self, database: Database, case_id: uuid.UUID, job_id: uuid.UUID
-    ) -> None:
+    async def _wait_for_slot_detached(self, database: Database, case_id: uuid.UUID, job_id: uuid.UUID) -> None:
         """Like ``_wait_for_slot``, but opens a short-lived transaction for each poll so no
         connection is held during the sleep between iterations."""
         while True:
@@ -258,17 +256,11 @@ class AiKit:
                             await conn.execute(
                                 "update app.ai_request_slots set granted_at = now() where id = %s", (slot_id,)
                             )
-                            await conn.execute(
-                                "update app.jobs set last_granted_at = now() where id = %s", (job_id,)
-                            )
+                            await conn.execute("update app.jobs set last_granted_at = now() where id = %s", (job_id,))
                             return
-                    await conn.execute(
-                        "update app.jobs set step = 'waiting_for_capacity' where id = %s", (job_id,)
-                    )
+                    await conn.execute("update app.jobs set step = 'waiting_for_capacity' where id = %s", (job_id,))
                 finally:
-                    await conn.execute(
-                        "select pg_advisory_unlock(hashtextextended('app.ai_request_slots', 0))"
-                    )
+                    await conn.execute("select pg_advisory_unlock(hashtextextended('app.ai_request_slots', 0))")
             # Connection is back in the pool here. Sleep holds nothing.
             await self.sleep(self.slot_poll_seconds)
 
@@ -388,9 +380,7 @@ class AiKit:
                         )
                         await conn.execute("update app.jobs set last_granted_at = now() where id = %s", (job_id,))
                         return
-                await conn.execute(
-                    "update app.jobs set step = 'waiting_for_capacity' where id = %s", (job_id,)
-                )
+                await conn.execute("update app.jobs set step = 'waiting_for_capacity' where id = %s", (job_id,))
             finally:
                 await conn.execute("select pg_advisory_unlock(hashtextextended('app.ai_request_slots', 0))")
             await self.sleep(self.slot_poll_seconds)

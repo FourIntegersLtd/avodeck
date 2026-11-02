@@ -61,8 +61,16 @@ def test_enough_coverage_is_fine() -> None:
 
 def test_punctuation_only_words_are_never_counted() -> None:
     punctuation = [
-        ("p0", "-"), ("p1", "."), ("p2", ","), ("p3", ":"), ("p4", ";"),
-        ("p5", "--"), ("p6", "("), ("p7", ")"), ("p8", "..."), ("p9", "/"),
+        ("p0", "-"),
+        ("p1", "."),
+        ("p2", ","),
+        ("p3", ":"),
+        ("p4", ";"),
+        ("p5", "--"),
+        ("p6", "("),
+        ("p7", ")"),
+        ("p8", "..."),
+        ("p9", "/"),
     ]
     ordered = [*words(35), *punctuation]
     assert len(ordered) == 45

@@ -8,8 +8,9 @@ out. Nothing here is logged (rule 6) and nothing is added to the words of the re
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
-from app.core.packs import Pack
+from app.core.packs import MergedPack as Pack
 from app.features.reader.transcript import TranscriptEntry
 
 OTHER_KEY = "other"
@@ -42,12 +43,34 @@ class Layout:
     coverage: Coverage
 
 
+def _sections(pack: Pack) -> list[dict[str, Any]]:
+    # `transcript_sections` is the pack's `transcript.yaml`; a pack without it has no sections.
+    return list(getattr(pack, "transcript_sections", lambda: [])())
+
+
+def place(pack: Pack, *, source_type: str | None, kind: str, folded: bool) -> tuple[int, str, str]:
+    """The rule behind `section_of`, from the three things it needs, so the page can apply it unopened."""
+    sections = _sections(pack)
+    if not sections:
+        return 0, ALL_KEY, ALL_LABEL
+    letter = kind == pack.letter_entry_kind()
+    for position, section in enumerate(sections):
+        if "sources" in section and source_type not in section["sources"]:
+            continue
+        if "letters" in section and bool(section["letters"]) != letter:
+            continue
+        if "administrative" in section and bool(section["administrative"]) != folded:
+            continue
+        return position, str(section["key"]), str(section["label"])
+    return len(sections), OTHER_KEY, OTHER_LABEL
+
+
 def section_of(entry: TranscriptEntry, pack: Pack) -> tuple[int, str, str]:
     """(position, key, label) of the first pack section the entry matches, else the "other" section placed last.
 
     A section matches when each condition it gives holds: `sources` contains the entry's page source,
     `letters` equals whether the entry is the pack's letter kind, `administrative` equals whether it is folded."""
-    raise NotImplementedError
+    return place(pack, source_type=entry.source_type, kind=entry.kind, folded=entry.folded)
 
 
 def arrange(
@@ -59,4 +82,8 @@ def arrange(
     coverage: Coverage,
 ) -> Layout:
     """Sections in pack order (empty ones dropped), the date order of `entries` kept inside each."""
-    raise NotImplementedError
+    found: dict[int, Section] = {}
+    for e in entries:
+        position, key, label = section_of(e, pack)
+        found.setdefault(position, Section(key, label)).entries.append(e)
+    return Layout([found[p] for p in sorted(found)], no_entry_pages, unread_pages, coverage)
