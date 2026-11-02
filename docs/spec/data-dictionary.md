@@ -1096,6 +1096,7 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | step_done / step_total | Whole numbers for the current step ("page 40 of 900"); empty until the job reports them, and start again when the step changes |
 | code_version / error_code | Which version of Avodeck ran it; what went wrong if it failed, or `case_on_hold` while it waits for its case to resume (a short code, never text) |
 | requested_by | The person who asked for it; empty for work started by another job or the daily run. Set by the system |
+| last_granted_at | When this job was last let through the Bedrock request limit; used to pick fairly among jobs waiting for a turn |
 
 ### job_kind_actions
 | Field | In plain words |
@@ -1108,6 +1109,13 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | job_id / case_id | Which job, on which case |
 | step | A step that finished (a short code), so a retry skips it |
 | created_at | When it finished |
+
+### ai_request_slots
+| Field | In plain words |
+|---|---|
+| job_id / case_id | Which job is waiting for a turn to call Claude, and its case |
+| requested_at | When the job asked for a turn |
+| granted_at | When it was let through; empty while it still waits. The account-wide limit on Bedrock requests per minute decides when |
 
 ### job_support_actions
 | Field | In plain words |

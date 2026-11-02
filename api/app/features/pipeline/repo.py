@@ -423,16 +423,17 @@ async def case_codes(conn: AsyncConnection, case_id: uuid.UUID) -> dict[str, str
     return {"jurisdiction": row[0], "case_type": row[1], "specialty": row[2]}
 
 
-async def pages_to_extract(conn: AsyncConnection, case_id: uuid.UUID) -> list[uuid.UUID]:
-    """Pages with their words read, not set aside as copies, and not yet extracted."""
+async def pages_to_extract(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, int]]:
+    """Pages with their words read, not set aside as copies, and not yet extracted, with their
+    bundle page number (T-07b batches pages by number, so the model is told which is which)."""
     cur = await conn.execute(
-        "select p.id from app.pages p left join app.page_analysis a on a.page_id = p.id"
+        "select p.id, p.bundle_page_no from app.pages p left join app.page_analysis a on a.page_id = p.id"
         " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
         " and p.text_source is not null and p.duplicate_of_page_id is null"
         " and not p.quarantined and a.extracted_at is null order by p.bundle_page_no",
         (case_id,),
     )
-    return [r[0] for r in await cur.fetchall()]
+    return [(r[0], r[1]) for r in await cur.fetchall()]
 
 
 @dataclass(frozen=True)

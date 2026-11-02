@@ -176,7 +176,7 @@ Daily work uses `@registry.schedule(name)` with a handler taking `(conn, run_dat
 ### AI pipeline rules (from docs/architecture.md section 6)
 
 1. `pii.strip()` before every Claude call, using the case's pack identifier recognisers (NHS number for `gb-eaw`). Mask identifier regions on images sent to vision (T-10).
-2. One Claude call per page for extraction (T-07b), using the cached system prompt + JSON schema. Use Bedrock batch where available in-region.
+2. T-07b sends up to `AiSettings.extraction_batch_size` pages (default 100) per Claude call, not one call per page, using the cached system prompt + JSON schema and the rate-limit scheduler in `core/ai/kit.py`. Requests and responses are page-keyed, and each page's `word_ids` are scoped to that page only. Use Bedrock batch where available in-region.
 3. Every extracted item lists `word_ids`. `provenance.check()` rejects values not present in those words. Retry once, then mark `needs_human`.
 4. Dates are normalised by code (`dateparser`) using the pack's date order (DMY under `gb-eaw`, MDY under the `zz-test` fixture); ambiguous dates are flagged "Please check", never guessed. The model's date is never final.
 5. "As the clinician saw it" visibility is computed by code from `availability_evidence`, never decided by the model.

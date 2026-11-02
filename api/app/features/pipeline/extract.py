@@ -1,7 +1,17 @@
 """Per-page extraction (T-07b, architecture 6.2 and 7 step 4): pure pieces, no database.
 
-- `task_for(pack)`: the task with its neutral prompt and an output schema generated from the case's
-  packs (source types, fact kinds and each kind's fields). No field asks for prose (rule 1).
+- `task_for(pack)`: the task with its neutral prompt and a batched output schema generated from the
+  case's packs (source types, fact kinds and each kind's fields). No field asks for prose (rule 1).
+- `page_schema(pack)`: one page's shape (`source_type`, `facts`, `entries`, ...).
+- `output_schema(pack)`: T-07b's real answer shape, `{"pages": [page_schema plus "page_no", ...]}`.
+  Several pages are asked about in one call (to stay inside the account-wide Bedrock on-demand
+  throughput ceiling), so every page's answer is keyed by its own `page_no`: word IDs are only
+  unique within a page (`ocr_words` is `unique(page_id, n)`), so a flat cross-page list of facts
+  would risk resolving one page's word ID against another page's words (rule 2). Each page's facts
+  and entries are checked only against that page's own word map (`sort_facts`/`sort_entries`).
+- `batch_text(pages)`: the prompt text for a batch: every page's own `page_text`, headed by its
+  page number, so the model can tell them apart and answer each one under the right `page_no`.
+- `pages_of(output)`: the batch answer's pages keyed by `page_no`.
 - `page_text(words, stripped)`: the page as one word per line, `<word id> <word>`, built only from
   the identifier-stripped text, so a masked word keeps its ID but never its text (rule 7).
 - `sort_facts(output, words, struck)`: facts citing a crossed-out word are dropped; the rest are
@@ -27,12 +37,14 @@ from app.core.packs import MergedPack
 from app.features.pipeline import dates
 
 TASK_ID = "T-07b"
-PROMPT_VERSION = "2026-10-30.1"
+PROMPT_VERSION = "2026-11-01.1"  # batched, multi-page prompt (page-keyed output, see output_schema)
 MODEL_ROLE = "sonnet"
 AVAILABILITY = ("received", "filed", "seen", "sent_to_clinician")
 _FIELD_TYPES = {"date": ["string", "null"], "string": ["string", "null"], "boolean": ["boolean", "null"]}
 _SHORT = 120
 _SPAN = 4000
+BATCH_MAX_TOKENS = 16000  # enough structured output for a batch of ~100 pages, well under the model's limit
+PAGE_MARK = "=== PAGE {0} ==="
 
 
 @cache
@@ -49,7 +61,8 @@ def _dated(**properties: Any) -> dict[str, Any]:
     return {"type": "object", "additionalProperties": False, "required": list(props), "properties": props}
 
 
-def output_schema(pack: MergedPack) -> dict[str, Any]:
+def page_schema(pack: MergedPack) -> dict[str, Any]:
+    """One page's answer shape (source type, printed dates, facts, entries, ...)."""
     kinds = pack.fact_kinds()
     fields_of = [
         {
@@ -115,10 +128,42 @@ def output_schema(pack: MergedPack) -> dict[str, Any]:
     return {"type": "object", "additionalProperties": False, "required": list(properties), "properties": properties}
 
 
+def output_schema(pack: MergedPack) -> dict[str, Any]:
+    """T-07b's real answer: `page_schema` repeated once per page asked about in the batch, each
+    carrying the `page_no` it was given, so pages are never resolved against each other's words."""
+    page = page_schema(pack)
+    page = {
+        **page,
+        "required": ["page_no", *page["required"]],
+        "properties": {"page_no": {"type": "integer", "minimum": 1}, **page["properties"]},
+    }
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["pages"],
+        "properties": {"pages": {"type": "array", "minItems": 1, "items": page}},
+    }
+
+
 def task_for(pack: MergedPack) -> AiTask:
     return AiTask(
-        task_id=TASK_ID, prompt_version=PROMPT_VERSION, model=MODEL_ROLE, system=_system(), schema=output_schema(pack)
+        task_id=TASK_ID,
+        prompt_version=PROMPT_VERSION,
+        model=MODEL_ROLE,
+        system=_system(),
+        schema=output_schema(pack),
+        max_tokens=BATCH_MAX_TOKENS,
     )
+
+
+def pages_of(output: Mapping[str, Any] | None) -> dict[int, Mapping[str, Any]]:
+    """The batch answer's pages keyed by `page_no`; a repeated `page_no` keeps the first one."""
+    found: dict[int, Mapping[str, Any]] = {}
+    for item in (output or {}).get("pages", []):
+        no = item.get("page_no")
+        if isinstance(no, int) and no not in found:
+            found[no] = item
+    return found
 
 
 def plain_text(words: Sequence[tuple[str, str]]) -> str:
@@ -146,6 +191,13 @@ def page_text(words: Sequence[tuple[str, str]], stripped: str) -> str:
         word_id, _, text = line.partition(" ")
         seen.setdefault(word_id, []).append(text)
     return "\n".join(f"{word_id} {' '.join(texts)}" for word_id, texts in seen.items())
+
+
+def batch_text(pages: Sequence[tuple[int, str]]) -> str:
+    """The prompt text for a batch of pages: each page's own `page_text` (already identifier-stripped
+    and, where there is one, headed with the previous page's top), introduced by its page number so
+    the model answers each one under its own `page_no` in `output_schema`'s `pages[]`."""
+    return "\n\n".join(f"{PAGE_MARK.format(page_no)}\n{text}" for page_no, text in pages)
 
 
 HEADER_WORDS = 15

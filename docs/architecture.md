@@ -403,8 +403,9 @@ The machinery behind everything: keys, jobs, notifications, logs.
 | Table | In plain words | Key fields |
 |---|---|---|
 | `case_keys` | The case's encryption key (scrambled by the key service); destroying it makes the case unreadable. | case_id, wrapped_key, key_ref, created_at, destroyed_at |
-| `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, step, pct, eta_seconds, step_done, step_total, code_version, error_code, requested_by |
+| `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, step, pct, eta_seconds, step_done, step_total, code_version, error_code, requested_by, last_granted_at |
 | `job_steps` | The steps of a job that have finished, so a retried or requeued job skips them (F6). | job_id, case_id, step, created_at |
+| `ai_request_slots` | Each attempt by a job to call Claude via Bedrock, against the account-wide requests-per-minute ceiling that on-demand throughput is held to; grants go to whichever waiting job was least recently granted one, so one job cannot starve another. Worker-only. | job_id, case_id, requested_at, granted_at |
 | `job_support_actions` | Each time Avodeck support resumed a paused job or requeued a failed one, with what the job was before (so a requeue that resets attempts keeps the history). Ids and codes only; goes with its job (migration 0035). | job_id, action (resume/requeue), reason_code, from_status, error_code, attempts, person_id (staff), created_at |
 | `job_kind_actions` | The case action each job kind needs; `app.enqueue_job()` looks it up, so a caller cannot choose a weaker one. | kind, action |
 | `scheduled_runs` | One row per daily job per date it ran, so a missed date catches up exactly once (F28). | name, run_date, started_at |
@@ -971,7 +972,7 @@ Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for s
 | 05 Conflicts | — | No AI | — | — | — | — |
 | 06 Questions | T-06 Question and assumption extraction | M1 → M3 | LOI OCR done | LOI OCR text with word IDs | `questions[{number, text_verbatim, word_ids, para_ref, type: (from the case-type pack's question types), outside_expertise: bool, reason}]`, `assumptions[{text_verbatim, word_ids}]` | Exact-substring check; expert confirms each |
 | 07 Preparing | T-07a OCR | M1 | Each page | Page image | Words, polygons, confidence, handwriting flag, tables | Low confidence → screen 10 |
-| 07 Preparing | T-07b Per-page extraction | M3 (batch) | After OCR + M9 | One page's words with IDs + previous page header | `source_type`, `printed_dates[]`, `facts[{kind: (generated from the pack's fact-kind registry; at launch consultation, phone_consultation, home_visit, result, prescription, referral, letter, examination, safety_netting, missed_appointment, task), clinician_role, fields (schema per kind from the pack), value, word_ids}]`, `references_out[{described_document, date, word_ids}]`, `availability_evidence[{kind: received|filed|seen|sent_to_clinician, date, word_ids}]`, `actions_requested_of_clinician[{text, word_ids}]` | Value-in-span check; dates normalised by code; nothing shown until the page is read |
+| 07 Preparing | T-07b Per-page extraction | M3 (batch) | After OCR + M9 | Up to `extraction_batch_size` pages' words with IDs (page-keyed) + previous page header | `source_type`, `printed_dates[]`, `facts[{kind: (generated from the pack's fact-kind registry; at launch consultation, phone_consultation, home_visit, result, prescription, referral, letter, examination, safety_netting, missed_appointment, task), clinician_role, fields (schema per kind from the pack), value, word_ids}]`, `references_out[{described_document, date, word_ids}]`, `availability_evidence[{kind: received|filed|seen|sent_to_clinician, date, word_ids}]`, `actions_requested_of_clinician[{text, word_ids}]` | Value-in-span check; dates normalised by code; nothing shown until the page is read |
 | 07 Preparing | T-07c Missing documents | M7 + M3 | All pages extracted | `references_out` list + document inventory | `{reference_id, matched_page | null, confidence}` | Unmatched → missing list; expert confirms |
 | 07 Preparing | Duplicates, gaps, ordering | No AI | — | — | — | Expert reviews duplicates |
 | 08 / 08b | — | No AI | — | — | Template email | Expert edits before sending |
@@ -1016,7 +1017,7 @@ Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for s
 |---|---|---|
 | M1 Layout OCR | ~1,270 pages + LOI and other documents | T-07a, T-06, T-14c, T-20a, T-22a |
 | M2 Read OCR | ~4,000 pages (court bundle) + other expert's report | T-21b, T-23 |
-| M3 Sonnet 5 | ~1,300 (one per page) + ~100–300 smaller calls | T-07b and everything else |
+| M3 Sonnet 5 | ~13 (batches of up to 100 pages) + ~100–300 smaller calls | T-07b and everything else |
 | M4 Opus 5.5 | ~10–60 | T-14c, T-21c, T-22c |
 | M5 Vision | ~30–130 pages (low-confidence handwriting only) | T-10 |
 | M6 Speech | 3–5 hours of audio | T-DICT |
@@ -1044,7 +1045,7 @@ Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for s
 2. **Text layer or OCR:** for each page, check for a usable embedded text layer (born-digital hospital letters, discharge summaries, results). If present, read words and their boxes directly with pypdfium2, give them `word_ids` in `ocr_words` like any OCR output, and skip Azure; set `pages.text_source = 'embedded'`. Treat the layer as unusable (send to OCR) if it is empty, mostly non-dictionary characters, or covers only part of a page that also contains an image of text (scans with a stamped header). Everything else goes to Azure DI Layout (UK South), bounded concurrency, `text_source = 'ocr'`. Embedded-text pages get confidence 1.0 and are never sent to screen 10 for unreadable text. Docling and other local layout models are not used (see decision 0009).
 3. **Triage:** confidence + OCR/VLM disagreement → screen 10; Claude vision fallback with identifier boxes masked.
 4. **PII stripping:** Presidio + case dictionary (dates kept).
-5. **Classification + event extraction:** one Sonnet 5 call per page with cached system prompt + JSON schema, returning source type, clinical and availability dates, and facts with OCR word IDs.
+5. **Classification + event extraction:** Sonnet 5 calls batching up to `AiSettings.extraction_batch_size` pages per call (default 100; page-keyed request/response, each page's word IDs scoped to that page) with cached system prompt + JSON schema, returning source type, clinical and availability dates, and facts with OCR word IDs.
 6. **Deterministic verification:** value-in-span, date normalisation in the pack's date order, schema validation; one retry, then "needs human". A page that passes all of that but still ends up with too little extracted (no kept facts, or kept facts/entries covering under half its countable words) is also flagged "needs human" (`no_facts` / `low_coverage`), unless it already has a reason from OCR or the words check.
 7. **Case-level passes:** dedup, missing references, gaps, anomaly rules, availability computation.
 8. **Indexing:** Supabase Postgres full-text + pgvector; timeline view.
