@@ -23,7 +23,7 @@ from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.jobs import JobContext
 from app.core.storage import CaseFileStorage, StorageError, case_prefix
-from app.features.reader import repo, transcript_docx, transcript_jobs, transcript_layout, transcript_pdf
+from app.features.reader import repo, transcript_jobs, transcript_pdf
 from app.features.reader.transcript_words import word
 from tests.support.db import scope_for
 from tests.support.files import build_app, local_storage
@@ -94,67 +94,21 @@ def paragraphs(data: bytes) -> list[str]:
     return [p.text for p in docx.Document(io.BytesIO(data)).paragraphs]
 
 
-@pytest.fixture
-def real_builders() -> None:
-    """Ask for this in a test that needs the real arranging and the real Word and PDF builders."""
-
-
 PICTURES: list[tuple[int, bytes | None]] = []
 
 
 @pytest.fixture(autouse=True)
-def stand_ins(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """While a builder is still a stub, plain stand-ins let the job's own work be tested; real ones win once built."""
+def capture_pictures(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Record the pictures the job hands the real PDF builder."""
     PICTURES.clear()
-    if "real_builders" in request.fixturenames:
-        return
-    empty = transcript_layout.Coverage(0, 0, 0, 0, 0)
+    real = transcript_pdf.build_pdf
 
-    def stub(call: Any) -> bool:
-        try:
-            call()
-        except NotImplementedError:
-            return True
-        except Exception:  # noqa: BLE001 - a real builder may dislike the probe; it is not a stub
-            return False
-        return False
+    def build_pdf(lay: Any, pictures: Any, **kw: Any) -> bytes:
+        pictures = list(pictures)
+        PICTURES.extend(pictures)
+        return real(lay, pictures, **kw)
 
-    layout = transcript_layout.Layout([], [], [], empty)
-    if stub(lambda: transcript_layout.arrange([], None, no_entry_pages=[], unread_pages=[], coverage=empty)):  # type: ignore[arg-type]
-
-        def arrange(entries: Any, pack: Any, *, no_entry_pages: Any, unread_pages: Any, coverage: Any) -> Any:
-            return transcript_layout.Layout(
-                [transcript_layout.Section("entries", "transcript.section.entries", list(entries))],
-                no_entry_pages,
-                unread_pages,
-                coverage,
-            )
-
-        monkeypatch.setattr(transcript_layout, "arrange", arrange)
-    if stub(lambda: transcript_docx.build(layout, date_order="dmy", language="en", received={})):
-
-        def docx_build(lay: Any, *, date_order: str, language: str, received: Any) -> bytes:
-            document = docx.Document()
-            for e in (x for sec in lay.sections for x in sec.entries):
-                document.add_heading(f"Page {e.page_no}", level=2)
-                for line in e.lines:
-                    document.add_paragraph(line)
-            for n in [*lay.no_entry_pages, *lay.unread_pages]:
-                document.add_heading(f"Page {n}", level=2)
-            for _ in lay.unread_pages:
-                document.add_paragraph(word(language, "unread"))
-            out = io.BytesIO()
-            document.save(out)
-            return out.getvalue()
-
-        monkeypatch.setattr(transcript_docx, "build", docx_build)
-    if stub(lambda: transcript_pdf.build_pdf(layout, [], date_order="dmy", language="en", received={})):
-
-        def pdf_build(lay: Any, pictures: Any, *, date_order: str, language: str, received: Any) -> bytes:
-            PICTURES.extend(pictures)
-            return b"%PDF-1.4 stand-in " + b" ".join(e.lines[0].encode() for s in lay.sections for e in s.entries[:1])
-
-        monkeypatch.setattr(transcript_pdf, "build_pdf", pdf_build)
+    monkeypatch.setattr(transcript_pdf, "build_pdf", build_pdf)
 
 
 FORMATS = ["docx", "pdf"]
@@ -316,8 +270,8 @@ async def test_a_page_the_computer_could_not_read_is_said_so_in_the_file(
     job = await build(client, worker_db, admin, world)
     resp = await client.get(f"/v1/cases/{world['case']}/transcript/download/{job}")
     text = paragraphs(resp.content)
-    assert any("look at the picture" in p for p in text)
-    assert any("Page 2" in p for p in text) and any("Page 3" in p for p in text)  # all pages, read or not
+    assert any(p == word("en", "unread_pages") for p in text)
+    assert "2, 3" in text  # all pages, read or not
 
 
 async def test_the_file_is_built_before_any_page_is_read(
@@ -367,7 +321,6 @@ async def test_the_word_file_has_sections_in_pack_order(
     aconn: psycopg.AsyncConnection,
     crypto: CaseCrypto,
     seed: Seed,
-    real_builders: None,
 ) -> None:
     expert = seed.person()
     case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
@@ -409,7 +362,6 @@ async def test_the_pdf_has_a_picture_page_per_bundle_page(
     crypto: CaseCrypto,
     storage: CaseFileStorage,
     world: dict[str, Any],
-    real_builders: None,
 ) -> None:
     doc = await add_document(aconn, world["case"])
     one = await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("note",))])
