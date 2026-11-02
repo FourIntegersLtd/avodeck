@@ -102,7 +102,7 @@ def _size(jpeg: bytes) -> tuple[int, int]:
         return im.size
 
 
-def _prepare(data: bytes | None) -> bytes | None:
+def prepare_picture(data: bytes | None) -> bytes | None:
     """Grey, no longer than PICTURE_EDGE on its longest side, compressed; None when it cannot be read."""
     if data is None:
         return None
@@ -189,7 +189,7 @@ def build_pdf(
         story.append(PageBreak())
         story.append(
             _PicturePage(
-                number, _prepare(data), word(language, "page", number=number), word(language, "picture_missing")
+                number, prepare_picture(data), word(language, "page", number=number), word(language, "picture_missing")
             )
         )
 

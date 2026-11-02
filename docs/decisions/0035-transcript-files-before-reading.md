@@ -19,3 +19,7 @@ Date: 2026-11-02 · Status: accepted · Decided by: the founder · Builds on: ru
 **Supersedes** these sentences of ADR 0028: "There is no Word file before reading." and "The Word file holds only pages the named expert has read, and is refused (409 `nothing_read`) when none are read."
 
 **Consequences.** A PDF holds a picture per page (about 100 KB each after re-compressing), so a large bundle gives a large file, built in memory by the worker. Pictures are never written to disk (ADR 0021).
+
+**Received dates.** A letter's heading may carry the date the page says it was received, taken from the page's availability evidence. That value is cited to the page's words (rule 2), is printed as it was read, and is not a verified fact: the expert still reads the page and checks it before relying on it. The file's first-page line says the file has not been checked.
+
+**Known limits.** The PDF uses the built-in Helvetica, so characters outside Latin-1 may not print; Word is unaffected. A bundle of 4,000 pages makes a large PDF (pictures are shrunk as they are fetched).

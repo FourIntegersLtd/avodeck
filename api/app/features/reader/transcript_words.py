@@ -25,7 +25,7 @@ _WORDS: dict[str, dict[str, str]] = {
         "coverage": "Every page accounted for",
         "coverage_line": (
             "{total} pages: {with_entries} with entries, {no_entries} with no entries, {unreadable} the computer "
-            "couldn't read. {set_aside} pages set aside as copies are not included."
+            "couldn't read. {set_aside} pages set aside (copies, replaced or held back) are not included."
         ),
         "received": "Received {date}",
         "pictures": "Pictures of the pages",

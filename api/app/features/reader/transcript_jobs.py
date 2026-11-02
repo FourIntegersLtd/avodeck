@@ -132,7 +132,10 @@ async def _picture(
 ) -> bytes | None:
     """One page picture, opened in memory only; None when it cannot be fetched (the file goes on without it)."""
     try:
-        return await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path)
+        # shrunk at once, so a long bundle never holds every full-size picture at the same time
+        return transcript_pdf.prepare_picture(
+            await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path)
+        )
     except Exception as error:  # noqa: BLE001 - one missing picture must not stop the file; only the type is logged
         log.warning("transcript picture unavailable (%s)", type(error).__name__)
         return None

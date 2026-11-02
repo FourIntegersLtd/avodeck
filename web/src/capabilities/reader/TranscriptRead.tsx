@@ -139,7 +139,8 @@ export function TranscriptRead() {
         setTotal(got.total);
         setPicturePages(got.picture_pages);
         setUnreadPages(got.unread_pages);
-        setEntries((old) => (offset === 0 ? got.entries : [...old, ...got.entries]));
+        entriesRef.current = offset === 0 ? got.entries : [...entriesRef.current, ...got.entries]; // read at once by showPosition
+        setEntries(entriesRef.current);
       } catch {
         setFailed(true);
       }
@@ -208,7 +209,7 @@ export function TranscriptRead() {
       const started = await stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/transcript/download", { params: { path: { case_id: caseId } }, body: { format } })));
       if (!started) return;
       const job_id = started.job_id;
-      const tries = format === "pdf" ? 200 : 60;
+      const tries = format === "pdf" ? 400 : 60;
       for (let n = 0; n < tries; n += 1) {
         try {
           const blob = await unwrap(api.GET("/v1/cases/{case_id}/transcript/download/{job_id}", { params: { path: { case_id: caseId, job_id } }, parseAs: "blob" }));

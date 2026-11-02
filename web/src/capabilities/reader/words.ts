@@ -216,7 +216,7 @@ const WORDS = {
   "transcript.downloaded_pdf": "Your PDF has been downloaded.",
   "transcript.file_note": "The file is a copy. Downloading it doesn't count as reading.",
   "transcript.jump_to": "Jump to",
-  "transcript.coverage": "{{total}} pages: {{with_entries}} with entries, {{no_entries}} with no entries, {{unreadable}} the computer couldn't read. {{set_aside}} pages set aside as copies are not included.",
+  "transcript.coverage": "{{total}} pages: {{with_entries}} with entries, {{no_entries}} with no entries, {{unreadable}} the computer couldn't read. {{set_aside}} pages set aside (copies, replaced or held back) are not included.",
 } as const;
 
 // Today's items use `reader.today.*`, which live in the base file (en-GB.json).

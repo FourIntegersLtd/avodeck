@@ -271,7 +271,7 @@ describe.each([
       renderAt(PATH);
       expect(
         await screen.findByText(
-          "20 pages: 12 with entries, 5 with no entries, 3 the computer couldn't read. 2 pages set aside as copies are not included.",
+          "20 pages: 12 with entries, 5 with no entries, 3 the computer couldn't read. 2 pages set aside (copies, replaced or held back) are not included.",
         ),
       ).toBeVisible();
       expect(screen.getByText("Jump to")).toBeVisible();
