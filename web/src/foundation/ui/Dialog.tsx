@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
+import * as RadixDialog from "@radix-ui/react-dialog";
+import { useState, type ReactNode } from "react";
 
 export interface DialogProps {
   title: string;
@@ -8,51 +9,35 @@ export interface DialogProps {
   className?: string;
 }
 
-/** A modal box: focus moves into it, Escape closes it, and focus returns afterwards. */
+/**
+ * A modal box on the Radix dialog primitive: focus moves in and is trapped, Escape closes it,
+ * the page behind is hidden from assistive technology and cannot scroll, and focus returns afterwards.
+ * A click on the backdrop does not close it (as before).
+ */
 export function Dialog({ title, onClose, children, className }: DialogProps) {
-  const titleId = useId();
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const before = document.activeElement as HTMLElement | null;
-    const first = box.current?.querySelector<HTMLElement>("input, button, [href], textarea, select");
-    (first ?? box.current)?.focus();
-    return () => before?.focus();
-  }, []);
+  // Radix returns focus only to its own trigger; callers mount this on demand, so remember who had focus.
+  const [before] = useState(() => document.activeElement as HTMLElement | null);
   return (
-    <div className="av-dialog-backdrop">
-      <div
-        ref={box}
-        className={className ? `av-dialog ${className}` : "av-dialog"}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onClose();
-          if (e.key === "Tab") keepFocusInside(e, box.current);
-        }}
-      >
-        <h2 id={titleId}>{title}</h2>
-        {children}
-      </div>
-    </div>
+    <RadixDialog.Root open onOpenChange={(open) => !open && onClose()}>
+      <RadixDialog.Portal>
+        <RadixDialog.Overlay className="av-dialog-backdrop">
+          <RadixDialog.Content
+            aria-modal="true"
+            onCloseAutoFocus={(e) => {
+              e.preventDefault();
+              before?.focus();
+            }}
+            className={className ? `av-dialog ${className}` : "av-dialog"}
+            aria-describedby={undefined}
+            onInteractOutside={(e) => e.preventDefault()}
+          >
+            <RadixDialog.Title asChild>
+              <h2>{title}</h2>
+            </RadixDialog.Title>
+            {children}
+          </RadixDialog.Content>
+        </RadixDialog.Overlay>
+      </RadixDialog.Portal>
+    </RadixDialog.Root>
   );
-}
-
-const FOCUSABLE = "a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])";
-
-/** Tab and Shift+Tab go round the box instead of out to the page behind it. */
-function keepFocusInside(e: KeyboardEvent<HTMLElement>, box: HTMLElement | null) {
-  const items = box ? [...box.querySelectorAll<HTMLElement>(FOCUSABLE)] : [];
-  if (items.length === 0) return;
-  const first = items[0]!;
-  const last = items[items.length - 1]!;
-  const active = document.activeElement;
-  if (e.shiftKey && (active === first || active === box)) {
-    e.preventDefault();
-    last.focus();
-  } else if (!e.shiftKey && active === last) {
-    e.preventDefault();
-    first.focus();
-  }
 }

@@ -79,7 +79,8 @@ export function TimelineInspector({
 
   useEffect(() => {
     const close = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      // A dialog or menu in front has already used this Escape.
+      if (e.key === "Escape" && !e.defaultPrevented) onClose();
     };
     document.addEventListener("keydown", close);
     return () => document.removeEventListener("keydown", close);

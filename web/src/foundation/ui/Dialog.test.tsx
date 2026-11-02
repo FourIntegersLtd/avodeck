@@ -1,5 +1,5 @@
 // B2-1: one dialog primitive; the page behind is unreachable, focus is trapped and returned.
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { expect, test } from "vitest";
 import { axeViolations, renderUi } from "../../test/render";
@@ -44,7 +44,7 @@ test("Tab goes round the dialog and Escape closes it, giving focus back to the t
   }
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("dialog")).toBeNull();
-  expect(trigger).toHaveFocus();
+  await waitFor(() => expect(trigger).toHaveFocus());
   expect(document.body.hasAttribute("data-scroll-locked")).toBe(false);
 });
 

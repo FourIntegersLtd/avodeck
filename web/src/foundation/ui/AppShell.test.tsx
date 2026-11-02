@@ -1,7 +1,7 @@
 // The signed-in frame (S03 header): the bell with the unread count, the person's initials for their
 // account, the banner when we couldn't email them (F33), and the header nav that collapses into a
 // hamburger + drawer below the mobile breakpoint.
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, expect, test } from "vitest";
@@ -114,7 +114,7 @@ test("the hamburger opens the drawer with the same places as the header nav, and
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("dialog", { name: "Menu" })).toBeNull();
   // Focus came back to the hamburger.
-  expect(document.activeElement).toBe(hamburger);
+  await waitFor(() => expect(document.activeElement).toBe(hamburger));
   expect(hamburger).toHaveAttribute("aria-expanded", "false");
 });
 
