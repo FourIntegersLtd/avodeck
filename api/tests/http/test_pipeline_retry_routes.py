@@ -154,3 +154,44 @@ async def test_the_screen_follows_the_running_job_not_a_newer_queued_one(h: Harn
     job = got.json()["job"]
     assert job["id"] == str(running)
     assert job["updated_at"] is not None
+
+
+def make_stale(h: Harness, job: uuid.UUID) -> None:
+    h.admin.execute("update app.jobs set updated_at = now() - interval '2 hours' where id = %s", (job,))
+
+
+async def test_a_stale_running_row_does_not_block_retry(h: Harness) -> None:
+    """A 'running' row nobody has touched for ages is an orphan: it holds no lock worth waiting for."""
+    failed = await failed_job(h, "process_pages")
+    orphan = await h.enqueue("process_bundle")
+    h.admin.execute("update app.jobs set status = 'running' where id = %s", (orphan,))
+    make_stale(h, orphan)
+    got = await h.client.post(f"/v1/cases/{h.case_id}/process/retry")
+    assert got.json()["requeued"] == 1
+    assert row(h, failed)[0] == "queued"
+
+
+async def test_retry_says_when_it_waited_for_a_running_job(h: Harness) -> None:
+    await failed_job(h, "process_pages")
+    running = await h.enqueue("process_bundle")
+    h.admin.execute("update app.jobs set status = 'running' where id = %s", (running,))
+    got = await h.client.post(f"/v1/cases/{h.case_id}/process/retry")
+    assert got.json() == {"requeued": 0, "blocked": True}
+
+
+async def test_the_screen_follows_the_newest_job_when_the_running_row_is_stale(h: Harness) -> None:
+    orphan = await h.enqueue("process_bundle")
+    h.admin.execute("update app.jobs set status = 'running' where id = %s", (orphan,))
+    make_stale(h, orphan)
+    newer = await failed_job(h, "process_pages")
+    job = (await h.client.get(f"/v1/cases/{h.case_id}/process")).json()["job"]
+    assert job["id"] == str(newer)
+
+
+async def test_the_screen_follows_the_newest_job_when_nothing_is_running(h: Harness) -> None:
+    older = await h.enqueue("process_bundle")
+    h.admin.execute("update app.jobs set status = 'running' where id = %s", (older,))
+    h.admin.execute("update app.jobs set status = 'done', pct = 100 where id = %s", (older,))
+    newer = await h.enqueue("process_pages")
+    job = (await h.client.get(f"/v1/cases/{h.case_id}/process")).json()["job"]
+    assert job["id"] == str(newer)

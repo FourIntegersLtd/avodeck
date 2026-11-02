@@ -196,6 +196,15 @@ describe.each([
     expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
   });
 
+  test("Try again on a long-quiet job says plainly when nothing could be restarted", async () => {
+    const updated_at = new Date(Date.now() - 12 * 60_000).toISOString();
+    mockCase(pack, { job: processingJob({ status: "running", step: "sort", pct: 40, updated_at }) });
+    server.use(http.post(`/v1/cases/${CASE_ID}/process/retry`, () => json({ requeued: 0, blocked: true })));
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Your bundle is still being worked on, so there was nothing to restart. You can leave this page; we'll email you when it's ready.")).toBeVisible();
+  });
+
   test("a step that counts pages shows 'X of Y' while it runs", async () => {
     mockCase(pack, { job: processingJob({ status: "running", step: "ocr", pct: 33, step_done: 140, step_total: 900, updated_at: new Date().toISOString() }) });
     renderAt(PATH);
