@@ -181,16 +181,23 @@ async def test_no_fact_comes_from_crossed_out_text(bundle: Harness, pages: dict[
 def test_planted_wrong_answers_are_retried_and_then_need_a_person(
     bundle: Harness, pages: dict[int, dict[str, Any]]
 ) -> None:
-    rows: dict[int, bool] = dict(
-        bundle.admin.execute(
-            "select p.bundle_page_no, a.needs_human from app.page_analysis a join app.pages p on p.id = a.page_id"
+    rows = {
+        int(n): (flag, reason)
+        for n, flag, reason in bundle.admin.execute(
+            "select p.bundle_page_no, a.needs_human, a.reason"
+            " from app.page_analysis a join app.pages p on p.id = a.page_id"
             " where p.bundle_id = (select bundle_id from app.cases where id = %s)",
             (bundle.case_id,),
         ).fetchall()
-    )
-    assert rows[702] is True and rows[113] is False
-    needing = sorted(n for n, flag in rows.items() if flag)
-    assert len(needing) <= 9, f"pages needing a person: {needing}"
+    }
+    assert rows[702][0] is True
+    # Page 113 is the retried page: its first answer cites a wrong value and the second is right. Its fixture
+    # answer is deliberately narrow, so flagging it for low coverage (planted item 15) is correct.
+    assert rows[113][0] is False or rows[113][1] == "low_coverage", f"page 113: {rows[113][1]}"
+    # no_facts / low_coverage (planted item 15) are expected here: the recorded answers hold the planted facts,
+    # not every word on every page. Only a wrong-value or invalid-output reason means a page was got wrong.
+    needing = sorted(n for n, (flag, why) in rows.items() if flag and why not in ("no_facts", "low_coverage"))
+    assert len(needing) <= 9, f"pages needing a person: {[(n, rows[n][1]) for n in needing]}"
 
 
 def test_dates_are_read_in_the_pack_date_order(bundle: Harness) -> None:
@@ -200,7 +207,9 @@ def test_dates_are_read_in_the_pack_date_order(bundle: Harness) -> None:
     assert score.coverage >= 0.75, f"dates right on {score.coverage:.3f} of {score.wanted} dated facts"
     planted = [(when, basis) for n, _, when, basis in rows if n == 82]  # printed 03/04/2024: 3 April
     assert (dt.date(2024, 4, 3), "printed") in planted, "page 82: 03/04/2024 was not read as 3 April"
-    assert all((when is not None) == (basis == "printed") for _, _, when, basis in rows)
+    dated = ("printed", "printed_century", "line_above")  # ADR 0017; "please_check" sets no date
+    odd = [(n, basis, when is not None) for n, _, when, basis in rows if (when is not None) != (basis in dated)]
+    assert not odd, f"{len(odd)} facts where a date and its basis disagree, (page, basis, has date): {odd[:10]}"
 
 
 def planted_groups() -> dict[int, int]:
