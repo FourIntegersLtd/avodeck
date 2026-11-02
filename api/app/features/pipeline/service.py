@@ -631,9 +631,8 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
             if reason is None and stored and output is not None:
                 reason = coverage.reason_for(ordered=ordered, struck=struck, kept=kept, entries=entries)
             if reason in ("no_facts", "low_coverage"):  # enough words, little to show: ask once more, on its own
-                again_raw = await _ask(
-                    ctx, services, task, pack, who, extract.batch_text([(page_no, loaded_page.text)]), loaded_page.subject
-                )
+                again_text = extract.batch_text([(page_no, loaded_page.text)])
+                again_raw = await _ask(ctx, services, task, pack, who, again_text, loaded_page.subject)
                 again = extract.pages_of(again_raw).get(page_no) if again_raw is not None else None
                 if again is not None:
                     again_result = extract.sort_facts(again, texts, struck)

@@ -188,7 +188,8 @@ async def test_the_experts_text_replaces_the_words_and_is_sent_to_the_model(h: H
     assert (fact(h, kept_id)["status"], fact(h, kept_id)["word_ids"]) == ("verified", ["e1", "e2"])
     assert fact(h, lost_id)["status"] == "edited"
     assert rechecks(h) == [(lost_id, None)]
-    assert t07b_requests(h)[-1].text.split() == ["e1", "chest", "e2", "clear"], "the model reads the typed words"
+    sent = t07b_requests(h)[-1].text.removeprefix("=== PAGE 1 ===\n")
+    assert sent.split() == ["e1", "chest", "e2", "clear"], "the model reads the typed words"
 
 
 async def test_quarantined_pages_are_not_read_again(h: Harness) -> None:
