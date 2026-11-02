@@ -44,7 +44,8 @@ def _documents_pages_facts(admin: psycopg.Connection, seed: Seed, w: CaseWorld) 
 def _jobs(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
     job = seed.job(w.case)
     admin.execute("insert into app.job_steps (job_id, case_id, step) values (%s, %s, 'zz_step')", (job, w.case))
-    return {"jobs": 1, "job_steps": 1}
+    admin.execute("insert into app.ai_request_slots (job_id, case_id) values (%s, %s)", (job, w.case))
+    return {"jobs": 1, "job_steps": 1, "ai_request_slots": 1}
 
 
 def _reports(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:

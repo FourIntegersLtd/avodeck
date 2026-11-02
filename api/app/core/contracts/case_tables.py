@@ -156,7 +156,6 @@ AWAITING_SLICE_MIGRATION: dict[str, str] = {}
 # `app.case_purge_order()`; a slice adding a case table adds it to both.
 PURGE_ORDER: tuple[str, ...] = (
     "job_steps",
-    "ai_request_slots",
     "instruction_extractions",
     "prefill_runs",
     "prefill_suggestions",
@@ -212,6 +211,7 @@ PURGE_ORDER: tuple[str, ...] = (
     "expert_meeting_participants",
     "expert_meetings",
     "uploads",
+    "ai_request_slots",
     "jobs",
     "fact_flags",
     "fact_verifications",
