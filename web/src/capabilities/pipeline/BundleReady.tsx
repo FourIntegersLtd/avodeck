@@ -8,7 +8,7 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, IconTile, LinkButton, LoadError, Loading, Notice, SectionIcon, TextField, TextLink } from "../../foundation/ui";
+import { Button, cx, IconTile, LinkButton, LoadError, Loading, Notice, SectionIcon, TextField, TextLink } from "../../foundation/ui";
 import { can, casePath, documentsOf, requestLabel, sourceWord } from "./data";
 import { formatDate, formatNumber, languageName, pageList } from "./format";
 import { AlertIcon, CopyIcon, MicIcon, OtherPersonIcon, PageIcon, SearchIcon } from "./icons";
@@ -219,7 +219,7 @@ interface CardProps {
 
 function Card({ icon, title, tone, centred, action, children, below }: CardProps) {
   return (
-    <section className={["av-card", "pl-card", tone === "amber" && "av-notice av-notice--amber", centred && "pl-card--centred"].filter(Boolean).join(" ")}>
+    <section className={cx("av-card", "pl-card", tone === "amber" && "av-notice av-notice--amber", centred && "pl-card--centred")}>
       <div className="pl-card__row">
         <IconTile tone={tone ?? "mint"}>{icon}</IconTile>
         <div className="pl-card__text">

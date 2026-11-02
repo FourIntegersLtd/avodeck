@@ -6,6 +6,7 @@ import "./tokens.css";
 import "./styles.css";
 
 export { AppShell } from "./AppShell";
+export { cx } from "./cx";
 export { Button, LinkButton } from "./Button";
 export type { ButtonProps, LinkButtonProps } from "./Button";
 export { AuthLayout } from "./AuthLayout";

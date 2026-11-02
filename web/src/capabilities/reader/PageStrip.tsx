@@ -7,6 +7,7 @@ import type { Listed } from "./bundlePages";
 import { smallPageImage } from "../../foundation/lib/pageImageCache";
 import { stripWindow } from "./viewer";
 import { w } from "./words";
+import { cx } from "../../foundation/ui";
 
 const ITEM = 136;
 const OVERSCAN = 4;
@@ -111,7 +112,7 @@ export function PageStrip({ caseId, pages, current, currentRead, onOpen }: Props
       <div className="rd-strip__track" style={{ height: pages.length * ITEM }}>
         {shown.map((p, i) => {
           const read = p.page_no === current ? currentRead || p.read : p.read;
-          const classes = ["rd-strip__item", p.page_no === current && "rd-strip__item--current", start + i === active && "rd-strip__item--active"].filter(Boolean).join(" ");
+          const classes = cx("rd-strip__item", p.page_no === current && "rd-strip__item--current", start + i === active && "rd-strip__item--active");
           return (
             <div
               key={p.page_no}
