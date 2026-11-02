@@ -2,6 +2,7 @@
 // API sent, and sending a PDF as the request body.
 import type { Schemas } from "../../foundation/platform-client";
 import type { Frame } from "./frame";
+import { bytesOf, saveBlob } from "../../foundation/lib/files";
 import { formatDay, formatList, formatNumber } from "../../foundation/i18n/dates";
 import { w } from "./words";
 
@@ -13,32 +14,6 @@ export function vocab(pack: Schemas["CasePack"] | undefined, key: string): strin
 
 /** A calendar date (YYYY-MM-DD) or moment as "19 February 2027", in the given locale. */
 export const longDate = (iso: string, locale?: string | null): string => formatDay(iso, locale, "long");
-
-/** Saves a file the API sent (never a direct storage link, rule 4). */
-export function saveBlob(blob: Blob, name: string): void {
-  const href = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = href;
-  link.download = name;
-  document.body.appendChild(link);
-  try {
-    link.click();
-  } catch {
-    // jsdom has no navigation; the browser saves the file
-  }
-  link.remove();
-  URL.revokeObjectURL(href);
-}
-
-async function bytesOf(file: Blob): Promise<ArrayBuffer> {
-  if (typeof file.arrayBuffer === "function") return file.arrayBuffer();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as ArrayBuffer);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsArrayBuffer(file);
-  });
-}
 
 /** Request options that send a chosen PDF file's bytes as the raw body. */
 export async function pdfBody(file: File) {
@@ -113,3 +88,5 @@ export function bundleAbbr(name: string): string {
 export function trialRef(name: string, page: number, locale?: string | null): string {
   return w("pages.trial_ref", { abbr: bundleAbbr(name), number: num(page, locale) });
 }
+
+export { saveBlob };

@@ -4,6 +4,7 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { useContext } from "react";
 import { useParams } from "react-router-dom";
+import { saveBlob } from "../../foundation/lib/files";
 import { formatDay } from "../../foundation/i18n/dates";
 import { caseSubtitle, stepFor } from "../../foundation/lib/caseFrame";
 import { SessionContext } from "../../foundation/lib/session";
@@ -187,13 +188,7 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
         unwrap(api.GET("/v1/cases/{case_id}/export/{job_id}/download", { params: { path: { case_id: caseId, job_id: job } }, parseAs: "blob" })),
       );
       if (!blob) return;
-      if (typeof URL.createObjectURL === "function") {
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob as Blob);
-        link.download = `case-${caseId.slice(0, 8)}.zip`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-      }
+      saveBlob(blob as Blob, `case-${caseId.slice(0, 8)}.zip`);
       setMaking({ state: "done" });
     } catch (err) {
       setMaking({ state: "idle" });

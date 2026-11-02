@@ -8,6 +8,7 @@ import { sw } from "./words";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { ChoicePills, Segmented, Spinner, StackedBar } from "../../foundation/ui";
+import { bytesOf } from "../../foundation/lib/files";
 
 /** Waits for a client call and returns its body with the ETag it carried (for If-Match later). */
 export async function withEtag<D>(call: Promise<{ data?: D; error?: unknown; response: Response }>): Promise<{ data: D; etag: string }> {
@@ -227,16 +228,6 @@ export function NoteView({ note }: { note: Schemas["NoteDraft"] }) {
       {note.joint && <p className="av-muted">{t("setup.notes.joint")}</p>}
     </section>
   );
-}
-
-async function bytesOf(file: Blob): Promise<ArrayBuffer> {
-  if (typeof file.arrayBuffer === "function") return file.arrayBuffer();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as ArrayBuffer);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsArrayBuffer(file);
-  });
 }
 
 /** Sends a file to the API in parts and returns the document it became (checks and retries: foundation/lib/chunkedUpload). */
