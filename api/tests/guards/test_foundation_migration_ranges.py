@@ -22,7 +22,8 @@ CREATES = re.compile(r"create table (?:if not exists )?app\.([a-z_0-9]+)")
 ALTERS = re.compile(r"alter table (?:if exists )?(?:only )?app\.([a-z_0-9]+)")
 
 RANGES = {
-    "foundation": range(0, 100),
+    # 9000-9099: foundation-only migrations that must run after every slice (9000 rewrites RLS policies)
+    "foundation": [*range(0, 100), *range(9000, 9100)],
     "pipeline": range(100, 200),
     "reader": range(200, 300),
     "setup": range(300, 400),
