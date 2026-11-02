@@ -44,6 +44,8 @@ jobs:
       - run: supabase start -x studio,postgres-meta,edge-runtime,logflare,vector,realtime,supavisor,imgproxy
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils  # pdftoppm for evals/generator/scan.py
       - run: make eval-data      # builds the synthetic bundle and its recorded answers (not committed)
+      - name: Committed expected files and fixtures are current
+        run: git diff --exit-code -- 'evals/*/*/*/expected' api/tests/fixtures/ai/pipeline api/tests/fixtures/setup
       - name: 900-page acceptance test
         env:
           RUN_SLOW: "1"

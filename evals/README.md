@@ -8,7 +8,9 @@ Layout: `evals/<jurisdiction>/<case-type>/<specialty>/bundles/<case>/` and `…/
 
 **The story.** A woman in her 50s sees her GP several times between February and August 2024 with tiredness and change in bowel habit. She is later diagnosed with colorectal cancer. The questions concern whether an urgent suspected-cancer referral should have been made earlier.
 
-**Bundle:** 900 pages, 4,272 expected facts. Regenerate with `make eval-data` (deterministic; the PDFs are not committed).
+**Bundle:** 900 pages, 4,272 expected facts. Regenerate with `make eval-data`. The PDFs are not committed.
+
+The generator is deterministic: every random choice is seeded, and handwriting is seeded by the font's file name, not its path, so a checkout in any folder gives the same bundle. The committed `expected/` files and the recorded fixtures in `api/tests/fixtures/ai/pipeline` and `api/tests/fixtures/setup` must come from one full `make eval-data`, never from editing them in place: a small change to how handwritten lines wrap moves later pages, and a half-updated set drifts. The nightly run fails if they differ. `expected/links.json` and `letters.json` are written by hand, so after a regeneration check their page numbers against `pages.json` (`doc_id` and `page_in_doc` identify the same page across runs).
 
 Page numbers are positions in `records.pdf` (upload order), which are also Avodeck's permanent bundle page numbers.
 
