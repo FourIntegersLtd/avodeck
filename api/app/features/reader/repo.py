@@ -654,3 +654,30 @@ async def my_notes(
             note = plain.decode()
         out.append({"page_no": page_no, "bookmarked": bookmarked, "note": note, "updated_at": updated_at})
     return out
+
+
+_TO_READ = (
+    "p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined"
+    " and p.duplicate_of_page_id is null and p.superseded_by_page_id is null"
+)  # the same pages `transcript._pages_to_read` counts
+
+
+async def page_pictures(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[int, str | None]]:
+    """(bundle page number, picture path or None) for each page not set aside, in page order."""
+    cur = await conn.execute(
+        f"select p.bundle_page_no, p.image_path from app.pages p where {_TO_READ} order by p.bundle_page_no",  # noqa: S608
+        (case_id,),
+    )
+    return [(int(r[0]), r[1]) for r in await cur.fetchall()]
+
+
+async def page_counts(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[int, int]:
+    """(pages not set aside, pages set aside): copies, replaced and quarantined pages are set aside."""
+    cur = await conn.execute(
+        f"select count(*) filter (where {_TO_READ}), count(*) filter (where not ({_TO_READ}))"  # noqa: S608
+        " from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %s)",
+        (case_id, case_id, case_id),
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    return int(row[0]), int(row[1])

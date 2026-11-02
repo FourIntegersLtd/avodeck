@@ -16,7 +16,6 @@ from fastapi.responses import StreamingResponse
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, require_case_access
-from app.core.contracts.reading import PageReads
 from app.core.contracts.record_entries import entries_ready, entries_status, request_entries
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
@@ -45,6 +44,7 @@ Export = Annotated[CaseAccess, Depends(require_case_access("case.export"))]
 
 CHUNK = 1 << 16
 DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+PDF = "application/pdf"
 
 
 def _not_found() -> ApiError:
@@ -133,9 +133,10 @@ async def transcript_download_request(
 ) -> JobOut:
     cur = await conn.execute("select named_expert_id from app.cases where id = %s", (case_id,))
     named = (await cur.fetchone() or (None,))[0]
-    if named is None or not await PageReads().read_page_ids(conn, case_id, named):
-        raise ApiError("nothing_read", "No pages have been read yet.", 409)
-    job = await registry.enqueue(conn, case_id, transcript_jobs.KIND)
+    if named is None:
+        raise ApiError("no_named_expert", "This case has no named expert yet.", 409)
+    pdf = body is not None and body.format == "pdf"
+    job = await registry.enqueue(conn, case_id, transcript_jobs.KIND_PDF if pdf else transcript_jobs.KIND)
     await audit.record(conn, action="case.transcript_requested", target=f"export:{job}", case_id=case_id)
     return JobOut(job_id=job)
 
@@ -146,14 +147,16 @@ def _chunks(data: bytes) -> Iterator[bytes]:
         yield bytes(view[start : start + CHUNK])
 
 
-@router.get("/transcript/download/{job_id}", response_class=StreamingResponse, responses={200: {"content": {DOCX: {}}}})
+@router.get(
+    "/transcript/download/{job_id}", response_class=StreamingResponse, responses={200: {"content": {DOCX: {}, PDF: {}}}}
+)
 async def transcript_download(
     case_id: uuid.UUID, job_id: uuid.UUID, request: Request, access: Export, conn: DbConn, after: BackgroundTasks
 ) -> StreamingResponse:
     cur = await conn.execute(
-        "select status, requested_by is not distinct from app.current_person_id() from app.jobs"
-        " where id = %s and case_id = %s and kind = %s",
-        (job_id, case_id, transcript_jobs.KIND),
+        "select status, requested_by is not distinct from app.current_person_id(), kind from app.jobs"
+        " where id = %s and case_id = %s and kind = any(%s)",
+        (job_id, case_id, [transcript_jobs.KIND, transcript_jobs.KIND_PDF]),
     )
     job = await cur.fetchone()
     if job is None or not job[1]:
@@ -164,13 +167,14 @@ async def transcript_download(
     crypto: CaseCrypto | None = request.app.state.crypto
     if storage is None or crypto is None:
         raise ApiError("unavailable", "File storage is not ready.", 503)
-    data = await transcript_jobs.take(conn, storage, crypto, case_id, job_id)
-    after.add_task(transcript_jobs.remove, storage, case_id, job_id)  # runs once the audit row is committed
+    fmt = "pdf" if job[2] == transcript_jobs.KIND_PDF else "docx"
+    data = await transcript_jobs.take(conn, storage, crypto, case_id, job_id, fmt)
+    after.add_task(transcript_jobs.remove, storage, case_id, job_id, fmt)  # runs once the audit row is committed
     return StreamingResponse(
         _chunks(data),
-        media_type=DOCX,
+        media_type=PDF if fmt == "pdf" else DOCX,
         headers={
             "Cache-Control": "private, no-store",
-            "Content-Disposition": f'attachment; filename="transcript-{job_id}.docx"',
+            "Content-Disposition": f'attachment; filename="transcript-{job_id}.{fmt}"',
         },
     )
