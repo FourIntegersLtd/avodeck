@@ -7,7 +7,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { humanise, t } from "../../foundation/i18n";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LinkButton, LoadError, Loading, Notice, ProgressBar } from "../../foundation/ui";
+import { Button, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, ProgressBar, Spinner } from "../../foundation/ui";
 import { count } from "./data";
 import { smallPageImage } from "../../foundation/lib/pageImageCache";
 import { w } from "./words";
@@ -18,6 +18,62 @@ const LIMIT = 50;
 const POLL_MS = 3000;
 // Seconds' worth of milliseconds an entry must stay in view before it is reported.
 const REPORT_AFTER_MS = 400;
+// After this long with no change the screen says so and offers to start again.
+const SLOW_AFTER_MS = 3 * 60 * 1000;
+
+/** Milliseconds since the wait began, ticking once a second; it starts again when `progressKey` changes. */
+function useElapsed(progressKey: number): number {
+  const started = useRef(Date.now());
+  const [, tick] = useState(0);
+  useEffect(() => {
+    started.current = Date.now();
+    tick((n) => n + 1);
+  }, [progressKey]);
+  useEffect(() => {
+    const timer = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return Date.now() - started.current;
+}
+
+interface WaitProps {
+  /** The sentence that says what is being waited for. */
+  words: string;
+  /** Determinate progress, when the server can count: the line and the numbers. */
+  counted?: { label: string; value: number; max: number };
+  onRetry?: () => void;
+  /** Where to look when it is slow and there is nothing to retry. */
+  progressTo?: string;
+}
+
+/** A spinner with honest progress: a count when the server has one, else how long it has been working. */
+function WaitNotice({ words, counted, onRetry, progressTo }: WaitProps) {
+  const ms = useElapsed(counted?.value ?? 0);
+  const seconds = Math.floor(ms / 1000);
+  const elapsed = seconds >= 60 ? w("transcript.working_for", { minutes: Math.floor(seconds / 60), seconds: seconds % 60 }) : w("transcript.working_for_seconds", { seconds });
+  const slow = ms >= SLOW_AFTER_MS;
+  return (
+    <Notice tone="info">
+      <div className="rd-wait">
+        <Spinner />
+        <div className="rd-wait__text">
+          <p>{words}</p>
+          {counted ? (
+            <>
+              <p>{counted.label}</p>
+              <ProgressBar value={counted.value} max={counted.max} label={counted.label} />
+            </>
+          ) : (
+            <p>{elapsed}</p>
+          )}
+          {slow && <p>{w("transcript.slow")}</p>}
+          {slow && onRetry && <Button variant="secondary" onClick={onRetry}>{w("transcript.try_again")}</Button>}
+          {slow && !onRetry && progressTo && <LinkButton variant="secondary" to={progressTo}>{w("transcript.pipeline_stopped_link")}</LinkButton>}
+        </div>
+      </div>
+    </Notice>
+  );
+}
 
 type SeenFn = (view: { entry_id?: string; page_no?: number; dwell_ms?: number; picture_opened: boolean }) => void;
 
@@ -111,6 +167,7 @@ export function TranscriptRead() {
   const [picturePages, setPicturePages] = useState<number[]>([]);
   const [unreadPages, setUnreadPages] = useState<number[]>([]);
   const [status, setStatus] = useState<Schemas["TranscriptList"]["status"] | null>(null);
+  const [wait, setWait] = useState<Schemas["TranscriptList"] | null>(null);
   const [failed, setFailed] = useState(false);
   const [read, setRead] = useState<number | null>(null);
   const [pagesTotal, setPagesTotal] = useState(0);
@@ -137,6 +194,7 @@ export function TranscriptRead() {
         const got = await unwrap(api.GET("/v1/cases/{case_id}/transcript/entries", { params: { path: { case_id: caseId }, query: { offset, limit: LIMIT } } }));
         setFailed(false);
         setStatus(got.status);
+        setWait(got);
         setTotal(got.total);
         setPicturePages(got.picture_pages);
         setUnreadPages(got.unread_pages);
@@ -155,10 +213,10 @@ export function TranscriptRead() {
   }, [load, progress]);
 
   useEffect(() => {
-    if (status !== "preparing") return;
+    if (status !== "preparing" && !(status === "idle" && wait?.pipeline_running)) return;
     const timer = setTimeout(() => void load(0), POLL_MS);
     return () => clearTimeout(timer);
-  }, [status, load, entries]);
+  }, [status, wait, load, entries]);
 
   // The shape of the transcript (sections and coverage) is fetched once, when the transcript is ready.
   useEffect(() => {
@@ -230,29 +288,69 @@ export function TranscriptRead() {
     }
   }
 
+  function waitState() {
+    const all = wait?.total_pages ?? 0;
+    if (wait?.waiting_for === "pipeline") {
+      const have = wait.extracted_pages ?? 0;
+      if (wait.pipeline_running) {
+        return <WaitNotice words={w("transcript.preparing")} counted={all > 0 ? { label: w("transcript.pipeline_progress", { read: count(have, pack.locale), total: count(all, pack.locale) }), value: have, max: all } : undefined} />;
+      }
+      return (
+        <Notice tone="warning">
+          <p>{w("transcript.pipeline_stopped", { waiting: count(all - have, pack.locale), total: count(all, pack.locale) })}</p>
+          <LinkButton variant="secondary" to={`/cases/${caseId}/preparing`}>{w("transcript.pipeline_stopped_link")}</LinkButton>
+        </Notice>
+      );
+    }
+    if (status === "failed") {
+      return (
+        <Notice tone="warning">
+          <p>{w("transcript.failed")}</p>
+          {wait?.can_prepare !== false && <Button onClick={() => void retry()}>{w("transcript.try_again")}</Button>}
+        </Notice>
+      );
+    }
+    if (status === "idle" && wait?.can_prepare === false) return <Notice tone="info"><p>{w("transcript.ask_expert")}</p></Notice>;
+    const done = wait?.prepared_pages ?? 0;
+    return (
+      <WaitNotice
+        words={w("transcript.preparing")}
+        counted={all > 0 && done > 0 ? { label: w("transcript.preparing_page", { done: count(done, pack.locale), total: count(all, pack.locale) }), value: done, max: all } : undefined}
+        onRetry={status === "idle" && wait?.can_prepare !== false ? () => void retry() : undefined}
+        progressTo={`/cases/${caseId}/preparing`}
+      />
+    );
+  }
+
   if (failed && entries.length === 0) return <LoadError onRetry={() => void load(0)} />;
   if (status === null) return <Loading />;
   return (
     <div className="rd-transcript">
       <header className="rd-transcript__bar">
         <h1>{w("transcript.heading")}</h1>
-        <LinkButton variant="secondary" to={`/cases/${caseId}/read`}>{w("transcript.page_by_page")}</LinkButton>
-        <Button variant="secondary" onClick={() => void download("docx")} disabled={preparingFile || status !== "ready"}>
-          {preparingFile ? w("transcript.preparing_file") : w("transcript.download")}
-        </Button>
-        <Button variant="secondary" onClick={() => void download("pdf")} disabled={preparingFile || status !== "ready"}>
-          {preparingFile ? w("transcript.preparing_file") : w("transcript.download_pdf")}
-        </Button>
-        <p className="rd-transcript__note">{w("transcript.file_note")}</p>
+        <div className="rd-transcript__actions">
+          <LinkButton variant="secondary" to={`/cases/${caseId}/read`}>{w("transcript.page_by_page")}</LinkButton>
+          <Menu label={w("transcript.download_menu")} trigger={w("transcript.download_menu")}>
+            <MenuSection>
+              <MenuItem onClick={() => void download("docx")} disabled={preparingFile || status !== "ready"}>
+                {preparingFile ? w("transcript.preparing_file") : w("transcript.download")}
+              </MenuItem>
+              <MenuItem onClick={() => void download("pdf")} disabled={preparingFile || status !== "ready"}>
+                {preparingFile ? w("transcript.preparing_file") : w("transcript.download_pdf")}
+              </MenuItem>
+              <p className="rd-transcript__note">{w("transcript.file_note")}</p>
+            </MenuSection>
+          </Menu>
+        </div>
         {read !== null && pagesTotal > 0 && (
           <div className="rd-transcript__progress">
             <p>{w("read.read_count", { read: count(read, pack.locale), total: count(pagesTotal, pack.locale) })}</p>
             <ProgressBar max={pagesTotal || 1} value={read} label={w("read.progress_done", { read, total: pagesTotal })} />
           </div>
         )}
+        <p className="rd-transcript__lead">{w("transcript.lead")}</p>
       </header>
       {message && <Notice tone="info"><p>{message}</p></Notice>}
-      <p>{w("transcript.lead")}</p>
       {outline?.coverage && (
         <p className="rd-transcript__coverage">
           {w("transcript.coverage", {
@@ -278,14 +376,7 @@ export function TranscriptRead() {
           </ul>
         </nav>
       )}
-      {status === "preparing" && <Notice tone="info"><p>{w("transcript.preparing")}</p></Notice>}
-      {status === "failed" && (
-        <Notice tone="warning">
-          <p>{w("transcript.failed")}</p>
-          <Button onClick={() => void retry()}>{w("transcript.try_again")}</Button>
-        </Notice>
-      )}
-      {status === "idle" && <Notice tone="info"><p>{w("transcript.preparing")}</p></Notice>}
+      {status !== "ready" && waitState()}
       {status === "ready" && entries.length === 0 && <p>{w("transcript.none")}</p>}
       {entries.map((entry, i) => {
         const startsSection = entry.section && entry.section !== entries[i - 1]?.section;

@@ -11,12 +11,14 @@ from collections import OrderedDict
 
 import pikepdf
 
+from app.core.pdf import is_pdf
+
 _REMEMBERED: OrderedDict[str, int | None] = OrderedDict()
 _LIMIT = 512
 
 
 def page_count(data: bytes) -> int | None:
-    if not data.startswith(b"%PDF"):
+    if not is_pdf(data):
         return None
     try:
         with pikepdf.open(io.BytesIO(data)) as pdf:

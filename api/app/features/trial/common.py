@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import uuid
 from typing import Annotated, Any
 
@@ -13,6 +12,7 @@ from pydantic import BaseModel
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
+from app.core.hashing import sha256_hex
 from app.core.http import DbConn
 from app.core.packs import MergedPack, PackLibrary
 from app.core.storage import CaseFileStorage, case_prefix
@@ -60,8 +60,7 @@ class Queued(BaseModel):
     job_id: uuid.UUID
 
 
-def sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+sha256 = sha256_hex  # the name the other trial modules import
 
 
 def trial_path(case_id: uuid.UUID, *parts: object) -> str:

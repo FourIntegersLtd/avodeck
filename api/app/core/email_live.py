@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import re
+import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
@@ -22,6 +23,7 @@ import httpx
 
 from app.core.config import ConfigError
 from app.core.email import TEMPLATE_PARAMS, TEMPLATES, Mail, Mailer, OutboxMailer, check_params
+from app.core.http_retry import backoff, parse_retry_after
 
 logger = logging.getLogger("app.email")
 # httpx logs each request line at INFO; hold it back so a log can never carry more than we choose to.
@@ -29,6 +31,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 RESEND_URL = "https://api.resend.com/emails"
+_MAX_MAIL_WAIT = 60.0  # a mail is sent while someone waits: never hold the request longer for a Retry-After
 _WORDS = Path(__file__).with_name("words")
 # Parameters of templates with no entry in TEMPLATE_PARAMS, as their callers pass them.
 _FREE_PARAMS: dict[str, frozenset[str]] = {
@@ -262,23 +265,27 @@ class ResendMailer:
         }
         if mail.reply_to:
             payload["reply_to"] = mail.reply_to
-        headers = {"Authorization": f"Bearer {self._key}"}
+        # One key for every attempt of this send: if the first attempt reached Resend but its answer was lost
+        # (a timeout), the retry returns the first result instead of sending a second email.
+        headers = {"Authorization": f"Bearer {self._key}", "Idempotency-Key": uuid.uuid4().hex}
+        retry_after: float | None = None
         status = 0
         async with httpx.AsyncClient(timeout=self.timeout, transport=self._transport) as client:
             for attempt in (1, 2):
                 try:
                     response = await client.post(RESEND_URL, json=payload, headers=headers)
                     status = response.status_code
+                    retry_after = parse_retry_after(response.headers.get("Retry-After"), cap=_MAX_MAIL_WAIT)
                 except httpx.TransportError as exc:
                     status = 0
                     logger.info("mail attempt %d failed: %s", attempt, type(exc).__name__)
                 else:
                     logger.info("mail attempt %d status %d", attempt, status)
-                    if status < 300:
-                        return
+                    if status < 300 or (attempt == 2 and status == 409):
+                        return  # on the retry a conflict on our own key means the first send is in or done
                 retryable = status == 0 or status == 429 or status >= 500
                 if attempt == 1 and retryable:
-                    await self._sleep(self._retry_delay)
+                    await self._sleep(max(backoff(0, self._retry_delay, _MAX_MAIL_WAIT), retry_after or 0.0))
                     continue
                 break
         raise MailSendError(f"mail service answered {status}" if status else "mail service unreachable")

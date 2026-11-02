@@ -28,6 +28,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from app.core.ai.bedrock import ModelRequest, ModelResponse, ModelUnavailable, ServiceBusy
 from app.core.ai.cell import check_endpoint, check_model
 from app.core.config import AiSettings
+from app.core.http_retry import parse_retry_after
 
 logger = logging.getLogger("app.ai.bedrock")
 
@@ -174,7 +175,4 @@ def _params(request: ModelRequest) -> dict[str, Any]:
 
 def _retry_after(response: Any) -> float | None:
     headers = response.get("ResponseMetadata", {}).get("HTTPHeaders", {}) or {}
-    try:
-        return max(float(headers["retry-after"]), 0.0)
-    except (KeyError, ValueError):
-        return None
+    return parse_retry_after(headers.get("retry-after"))

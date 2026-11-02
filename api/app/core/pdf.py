@@ -18,6 +18,12 @@ from app.core.ai.ocr import OcrPage, OcrWord, word_id
 POINTS_PER_INCH = 72.0
 
 
+def is_pdf(data: bytes) -> bool:
+    """A PDF has its marker at the start, or within the first 1024 bytes after a byte-order mark or stray lead-in
+    (readers accept that). A zip never counts, whatever it holds."""
+    return not data.startswith(b"PK") and b"%PDF-" in data[:1024]
+
+
 def _save(pdf: pikepdf.Pdf) -> bytes:
     out = io.BytesIO()
     pdf.save(

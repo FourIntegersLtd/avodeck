@@ -20692,12 +20692,22 @@
       },
       "TranscriptList": {
         "properties": {
+          "can_prepare": {
+            "default": true,
+            "title": "Can Prepare",
+            "type": "boolean"
+          },
           "entries": {
             "items": {
               "$ref": "#/components/schemas/TranscriptEntryOut"
             },
             "title": "Entries",
             "type": "array"
+          },
+          "extracted_pages": {
+            "default": 0,
+            "title": "Extracted Pages",
+            "type": "integer"
           },
           "picture_pages": {
             "default": [],
@@ -20706,6 +20716,16 @@
             },
             "title": "Picture Pages",
             "type": "array"
+          },
+          "pipeline_running": {
+            "default": false,
+            "title": "Pipeline Running",
+            "type": "boolean"
+          },
+          "prepared_pages": {
+            "default": 0,
+            "title": "Prepared Pages",
+            "type": "integer"
           },
           "status": {
             "enum": [
@@ -20721,6 +20741,11 @@
             "title": "Total",
             "type": "integer"
           },
+          "total_pages": {
+            "default": 0,
+            "title": "Total Pages",
+            "type": "integer"
+          },
           "unread_pages": {
             "default": [],
             "items": {
@@ -20728,6 +20753,21 @@
             },
             "title": "Unread Pages",
             "type": "array"
+          },
+          "waiting_for": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pipeline",
+                  "entries"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waiting For"
           }
         },
         "required": [
