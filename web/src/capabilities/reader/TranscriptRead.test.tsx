@@ -137,28 +137,52 @@ describe.each([
     expect(status.querySelector(".av-spinner")).not.toBeNull();
   });
 
-  test("with no page count it shows how long it has been working, then says it is slow and offers Try again", async () => {
+  async function slowWait(status: "preparing" | "idle") {
+    mockTranscript(status, [], [], [], { prepared_pages: 0, total_pages: 0, waiting_for: "entries", can_prepare: true });
+    renderAt(PATH);
+    await waitNotice();
+    await act(async () => {
+      vi.setSystemTime(Date.now() + 79_000);
+      vi.advanceTimersByTime(1000);
+    });
+    expect(waitNoticeNow()).toHaveTextContent("Working for 1 min 20 s");
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    await act(async () => {
+      vi.setSystemTime(Date.now() + 120_000);
+      vi.advanceTimersByTime(1000);
+    });
+    expect(waitNoticeNow()).toHaveTextContent("This is taking longer than usual.");
+  }
+
+  test("while the work is queued, slow means a link to see how far it got, not a Try again that does nothing", async () => {
     vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
     try {
       mockReader(pack);
-      mockTranscript("preparing", [], [], [], { prepared_pages: 0, total_pages: 0, waiting_for: "entries" });
-      renderAt(PATH);
-      await waitNotice();
-      await act(async () => {
-        vi.setSystemTime(Date.now() + 79_000);
-        vi.advanceTimersByTime(1000);
-      });
-      expect(waitNoticeNow()).toHaveTextContent("Working for 1 min 20 s");
+      await slowWait("preparing");
       expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
-      await act(async () => {
-        vi.setSystemTime(Date.now() + 120_000);
-        vi.advanceTimersByTime(1000);
-      });
-      expect(waitNoticeNow()).toHaveTextContent("This is taking longer than usual.");
+      expect(screen.getByRole("link", { name: "See how far it got" })).toHaveAttribute("href", `/cases/${CASE_ID}/preparing`);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("when nothing is queued, slow offers Try again", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    try {
+      mockReader(pack);
+      await slowWait("idle");
       expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  test("Try again is not offered to someone who cannot start the work", async () => {
+    mockReader(pack);
+    mockTranscript("failed", [], [], [], { can_prepare: false, waiting_for: "entries" });
+    renderAt(PATH);
+    expect(await screen.findByText("We couldn't get your transcript ready.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
   test("pages still waiting to be read by Avodeck, with the pipeline running: spinner and a count", async () => {

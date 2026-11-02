@@ -140,6 +140,17 @@ async def test_the_pipeline_counts_as_running_while_a_pipeline_job_is_waiting(
     assert body["waiting_for"] == "pipeline" and body["pipeline_running"] is True
 
 
+async def test_a_paused_pipeline_does_not_count_as_running(
+    client_for: Any, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("x",))], analysed=False)
+    admin.execute("insert into app.jobs (case_id, kind) values (%s, 'process_pages')", (world["case"],))
+    admin.execute("update app.jobs set status = 'paused' where case_id = %s and kind = 'process_pages'", (world["case"],))
+    body = (await (await client_for(world["expert"])).get(f"{base(world)}/transcript/entries")).json()
+    assert body["waiting_for"] == "pipeline" and body["pipeline_running"] is False
+
+
 async def test_someone_who_cannot_read_is_told_so_and_starts_nothing(
     client_for: Any,
     admin: psycopg.Connection,
