@@ -61,17 +61,30 @@ export function formatDay(date: Date, locale: string | null | undefined, timeZon
 }
 
 const UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-  ["year", 365 * 86_400_000],
-  ["month", 30 * 86_400_000],
   ["day", 86_400_000],
   ["hour", 3_600_000],
   ["minute", 60_000],
 ];
 
-/** "2 days ago", "in 3 hours", "now". */
+/** Whole calendar months from `from` to `to` (31 Jan to 28 Feb is none; 1 Feb to 1 Mar is one). */
+function wholeMonths(from: Date, to: Date): number {
+  let months = (to.getUTCFullYear() - from.getUTCFullYear()) * 12 + to.getUTCMonth() - from.getUTCMonth();
+  const stepped = new Date(from.getTime());
+  stepped.setUTCDate(1);
+  stepped.setUTCMonth(stepped.getUTCMonth() + months);
+  stepped.setUTCDate(Math.min(from.getUTCDate(), new Date(Date.UTC(stepped.getUTCFullYear(), stepped.getUTCMonth() + 1, 0)).getUTCDate()));
+  if (stepped.getTime() > to.getTime()) months -= 1;
+  return months;
+}
+
+/** "2 days ago", "in 3 hours", "last month", "now". Months are calendar months, years are twelve of them. */
 export function formatRelative(date: Date, locale: string | null | undefined, now: Date = new Date()): string {
   const diff = date.getTime() - now.getTime();
   const format = new Intl.RelativeTimeFormat(safeLocale(locale), { numeric: "auto" });
+  const [early, late] = diff < 0 ? [date, now] : [now, date];
+  const months = wholeMonths(early, late);
+  if (months >= 12) return format.format((diff < 0 ? -1 : 1) * Math.floor(months / 12), "year");
+  if (months >= 1) return format.format((diff < 0 ? -1 : 1) * months, "month");
   for (const [unit, ms] of UNITS) {
     if (Math.abs(diff) >= ms) return format.format(Math.round(diff / ms), unit);
   }
