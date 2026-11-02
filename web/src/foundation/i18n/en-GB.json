@@ -725,5 +725,6 @@
   "viewer.brightness": "Brightness",
   "viewer.contrast": "Contrast",
   "viewer.page_alt": "Page {{page}}",
-  "viewer.loading": "Loading"
+  "viewer.loading": "Loading",
+  "name.titles": "dr|mr|mrs|ms|miss|prof"
 }
