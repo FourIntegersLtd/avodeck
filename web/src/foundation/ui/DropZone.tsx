@@ -1,4 +1,4 @@
-import { useState, type DragEvent, type ReactNode } from "react";
+import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { t } from "../i18n";
 import { IconTile } from "./Callout";
 
@@ -26,17 +26,28 @@ export interface DropZoneProps {
  */
 export function DropZone({ title, hint, icon, accept, multiple, disabled, added, addedLabel, mark, children, onFiles }: DropZoneProps) {
   const [over, setOver] = useState(false);
+  // dragenter/dragleave fire for every child the pointer crosses; count them so the outline only goes off when the drag really leaves.
+  const depth = useRef(0);
   const stop = (e: DragEvent) => e.preventDefault();
   return (
     <div
       className={`av-dropzone${over ? " av-dropzone--over" : ""}${added ? " av-dropzone--added" : ""}`}
+      onDragEnter={(e) => {
+        stop(e);
+        depth.current += 1;
+        if (!disabled) setOver(true);
+      }}
       onDragOver={(e) => {
         stop(e);
         if (!disabled) setOver(true);
       }}
-      onDragLeave={() => setOver(false)}
+      onDragLeave={() => {
+        depth.current = Math.max(0, depth.current - 1);
+        if (depth.current === 0) setOver(false);
+      }}
       onDrop={(e) => {
         stop(e);
+        depth.current = 0;
         setOver(false);
         const files = Array.from(e.dataTransfer?.files ?? []);
         if (!disabled && files.length) onFiles(files);
