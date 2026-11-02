@@ -17,4 +17,8 @@ describe("timelineTimeWindow", () => {
     });
     expect(lastTwoYearsWindow({ first: "2023-01-01", last: "2024-01-01" })).toEqual({ from: "2023-01-01", to: "2024-01-01" });
   });
+
+  test("29 February two years back is 28 February, not 1 March", () => {
+    expect(lastTwoYearsWindow({ first: "2018-01-01", last: "2024-02-29" })).toEqual({ from: "2022-02-28", to: "2024-02-29" });
+  });
 });
