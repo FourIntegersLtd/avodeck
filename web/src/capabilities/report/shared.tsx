@@ -1,6 +1,7 @@
 // Small helpers the four report screens share: waiting for a queued job, version tags, dates and money.
 import { useEffect, useState } from "react";
 import { humanise } from "../../foundation/i18n";
+import { DEFAULT_LOCALE, formatDay } from "../../foundation/i18n/dates";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { useSession } from "../../foundation/lib/session";
 
@@ -31,18 +32,11 @@ export function useWaiting(reload: () => void, signal: unknown) {
 }
 
 export function useLocale(): string {
-  return useSession().me.person.locale || "en-GB";
+  return useSession().me.person.locale || DEFAULT_LOCALE;
 }
 
 /** A calendar day (YYYY-MM-DD) or a moment, as "28 November 2026". */
-export function longDate(value: string, locale: string): string {
-  const day = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00Z`) : new Date(value);
-  try {
-    return new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(day);
-  } catch {
-    return value;
-  }
-}
+export const longDate = (value: string, locale: string): string => formatDay(value, locale, "long");
 
 export function money(amount: string | number, currency: string, locale: string): string {
   try {
