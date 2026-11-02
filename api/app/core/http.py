@@ -34,6 +34,7 @@ import json
 import re
 import uuid
 from collections.abc import Callable, Coroutine
+from contextlib import suppress
 from contextvars import ContextVar
 from typing import Annotated, Any, cast
 
@@ -47,7 +48,7 @@ from app.core import audit
 from app.core.auth import session as sessions
 from app.core.auth.identity import Identity
 from app.core.crypto import cell_secret_box
-from app.core.db import RequestScope
+from app.core.db import Database, RequestScope
 from app.core.errors import ApiError
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -239,46 +240,76 @@ class SessionRoute(APIRoute):
             database = request.app.state.database
             if database is None:
                 raise ApiError("unavailable", "The service is not ready.", 503)
-            session = await sessions.resolve(database, request.cookies.get(sessions.SESSION_COOKIE), touch=self.touch)
-            if request.method not in SAFE_METHODS and not session.csrf_matches(
-                request.headers.get(sessions.CSRF_HEADER)
-            ):
-                raise ApiError("csrf_required", "Reload the page and try again.", 403)
-            if session.must_change_password and not (self.mfa_pending or self.password_pending):
-                raise ApiError("password_change_required", "Choose your own password to continue.", 403)
-            identity = Identity(session.person_id, session.email, session.full_name, session.mfa_enrolled)
-            scope = RequestScope(
-                person_id=identity.person_id,
-                org_ids=(),
-                request_id=request.headers.get("x-request-id") or uuid.uuid4().hex,
-            )
+            token = request.cookies.get(sessions.SESSION_COOKIE)
+            if not token:
+                raise sessions.not_signed_in()
+            request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
             key = request.headers.get("idempotency-key") if request.method not in SAFE_METHODS else None
             fingerprint = await _fingerprint(request) if key else ""
+            scopes: list[RequestScope] = []  # filled once the session is known
+            refusal: ApiError | None = None
+            active = False
             try:
-                async with audit.detached(database, scope), database.request(scope) as conn:
-                    request.state.conn = conn
-                    request.state.scope = scope  # for streamed bodies, which run after this transaction
-                    request.state.identity = identity
-                    request.state.session = session
-                    pending = _Pending(conn, identity.person_id, key, fingerprint, _case_id(request)) if key else None
-                    token = _PENDING.set(pending)
-                    try:
-                        response = await handler(request)
-                    finally:
-                        _PENDING.reset(token)
-                    if response.status_code >= 400:
-                        raise _Discard(response)
-                    if pending is not None and response.headers.get("idempotent-replayed") is None:
-                        instead: bytes | None = getattr(request.state, "idempotent_body", None)
-                        if instead is not None:
-                            await _remember(conn, pending, response, body=instead)
-                        elif not _no_store(response):
-                            await _remember(conn, pending, response)
-                    return response
+                # One connection, one transaction: the session lookup (which also ends an idle or expired
+                # session and counts activity) shares it with the route's own work.
+                async with (
+                    audit.detached(database, lambda: scopes[0] if scopes else None),
+                    database.session_request(sessions.resolve_args(token, touch=self.touch), request_id) as (conn, row),
+                ):
+                    outcome = sessions.from_row(row)
+                    if isinstance(outcome, ApiError):
+                        refusal = outcome  # leaving normally commits the session's own writes (the revoke)
+                    else:
+                        session = outcome
+                        if request.method not in SAFE_METHODS and not session.csrf_matches(
+                            request.headers.get(sessions.CSRF_HEADER)
+                        ):
+                            refusal = ApiError("csrf_required", "Reload the page and try again.", 403)
+                        elif session.must_change_password and not (self.mfa_pending or self.password_pending):
+                            refusal = ApiError("password_change_required", "Choose your own password to continue.", 403)
+                    if refusal is None:
+                        active = True
+                        identity = Identity(session.person_id, session.email, session.full_name, session.mfa_enrolled)
+                        scopes.append(RequestScope(person_id=identity.person_id, org_ids=(), request_id=request_id))
+                        request.state.conn = conn
+                        request.state.scope = scopes[0]  # for streamed bodies, which run after this transaction
+                        request.state.identity = identity
+                        request.state.session = session
+                        pending = (
+                            _Pending(conn, identity.person_id, key, fingerprint, _case_id(request)) if key else None
+                        )
+                        pending_token = _PENDING.set(pending)
+                        try:
+                            response = await handler(request)
+                        finally:
+                            _PENDING.reset(pending_token)
+                        if response.status_code >= 400:
+                            raise _Discard(response)
+                        if pending is not None and response.headers.get("idempotent-replayed") is None:
+                            instead: bytes | None = getattr(request.state, "idempotent_body", None)
+                            if instead is not None:
+                                await _remember(conn, pending, response, body=instead)
+                            elif not _no_store(response):
+                                await _remember(conn, pending, response)
+                        return response
             except _Discard as discarded:
+                await self._count_activity(database, token)
                 return discarded.response
+            except Exception:
+                if active:
+                    await self._count_activity(database, token)
+                raise
+            assert refusal is not None
+            raise refusal
 
         return run
+
+    async def _count_activity(self, database: Database, token: str) -> None:
+        """The route's work was rolled back (an error answer), and the activity the session lookup counted
+        went with it: count it again on its own, so a person who only meets errors is not timed out."""
+        if self.touch:
+            with suppress(Exception):
+                await sessions.resolve(database, token, touch=True)
 
 
 FoundationRoute = SessionRoute  # the step 3 name

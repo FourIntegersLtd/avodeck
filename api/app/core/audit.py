@@ -17,7 +17,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import uuid
-from collections.abc import AsyncIterator, Iterable
+from collections.abc import AsyncIterator, Callable, Iterable
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -118,19 +118,23 @@ def record_detached(
 
 
 @asynccontextmanager
-async def detached(database: Database, scope: RequestScope) -> AsyncIterator[None]:
-    """Around a request's transaction: on the way out, write every `record_detached()` row in a new one."""
+async def detached(database: Database, scope: RequestScope | Callable[[], RequestScope | None]) -> AsyncIterator[None]:
+    """Around a request's transaction: on the way out, write every `record_detached()` row in a new one.
+
+    `scope` may be a function, for a request whose person is only known inside the transaction; if it
+    gives None (nobody signed in) there is nothing to write."""
     pending: list[_Detached] = []
     token = _DETACHED.set(pending)
     try:
         yield
     finally:
         _DETACHED.reset(token)
-        if pending:
+        resolved = scope() if callable(scope) else scope
+        if pending and resolved is not None:
             # The request's own answer stands whatever happens here (its transaction has already ended), so
             # a failed write is logged, by action code and error type only, never raised over it.
             try:
-                async with database.request(scope) as conn:
+                async with database.request(resolved) as conn:
                     for row in pending:
                         await record(
                             conn, action=row.action, target=row.target, case_id=row.case_id,

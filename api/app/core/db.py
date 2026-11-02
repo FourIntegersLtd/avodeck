@@ -103,6 +103,37 @@ class Database:
             yield conn
 
     @asynccontextmanager
+    async def session_request(
+        self, resolve_args: Sequence[Any], request_id: str
+    ) -> AsyncIterator[tuple[AsyncConnection, tuple[Any, ...] | None]]:
+        """`request()` for a signed-in route whose person is not known yet: ONE connection, ONE transaction.
+
+        BEGIN, the settings and `app.session_resolve(*resolve_args)` go out together; `app.person_id` is
+        then set from the session row it returns, in the same statement. Yields the connection and that
+        row (None when no session matches, and then `app.person_id` is unset: RLS shows nothing). The
+        caller decides what the row means and must still leave normally to keep the function's own
+        writes (it ends an idle or expired session, and counts activity): raising rolls them back.
+        `app.org_ids`, `app.request_id` and `TimeZone` are the same as `request()` sets.
+        """
+        settings = {"app.org_ids": "", "app.request_id": request_id, "TimeZone": "UTC"}
+        async with self._pool.connection() as conn:
+            try:
+                async with conn.pipeline():
+                    await conn.execute("BEGIN")
+                    await _set(conn, settings)
+                    cur = await conn.execute(
+                        "select r.*, set_config('app.person_id', r.person_id::text, true) "
+                        "from app.session_resolve(%s, %s, %s, %s) r",
+                        tuple(resolve_args),
+                    )
+                row = await cur.fetchone()
+                yield conn, (row[:-1] if row is not None else None)
+                await conn.execute("COMMIT")
+            except BaseException:
+                await _rollback(conn)
+                raise
+
+    @asynccontextmanager
     async def anonymous(self, request_id: str = "") -> AsyncIterator[AsyncConnection]:
         """A transaction acting for nobody: RLS shows no rows. Only the narrow security-definer
         functions for the signed-out steps (session lookup, email-change links, failed sign-in
