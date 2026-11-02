@@ -36,6 +36,7 @@ import uuid
 from collections.abc import Callable, Coroutine
 from contextvars import ContextVar
 from typing import Annotated, Any, cast
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, Header, Request, Response
 from fastapi.concurrency import run_in_threadpool
@@ -159,16 +160,20 @@ def _replaying(endpoint: Callable[..., Any]) -> Callable[..., Any]:
     return call
 
 
-def _local_dev_origin_alias(origin: str, allowed: str) -> bool:
-    """localhost and 127.0.0.1 are the same dev machine; APP_ORIGIN is usually only one of them."""
-    for scheme in ("http://", "https://"):
-        localhost = f"{scheme}localhost:"
-        loopback = f"{scheme}127.0.0.1:"
-        if allowed.startswith(localhost) and origin == allowed.replace(localhost, loopback, 1):
-            return True
-        if allowed.startswith(loopback) and origin == allowed.replace(loopback, localhost, 1):
-            return True
-    return False
+_LOOPBACK = frozenset({"localhost", "127.0.0.1", "::1"})
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _origin_parts(origin: str) -> tuple[str, str, int | None] | None:
+    """(scheme, host, port) of an origin, host lowercased and the scheme's default port filled in."""
+    try:
+        parts = urlsplit(origin)
+        host, port = parts.hostname, parts.port
+    except ValueError:
+        return None
+    if parts.scheme not in _DEFAULT_PORTS or host is None or parts.path not in ("", "/"):
+        return None
+    return parts.scheme, host, port if port is not None else _DEFAULT_PORTS[parts.scheme]
 
 
 def allowed_origins(app: Any) -> tuple[str, ...]:
@@ -178,8 +183,13 @@ def allowed_origins(app: Any) -> tuple[str, ...]:
 
 
 def origin_matches(origin: str, allowed: str) -> bool:
-    origin = origin.lower()  # a browser lowercases the host; the allow-list is stored lowercased too
-    return origin == allowed or _local_dev_origin_alias(origin, allowed)
+    """Same scheme, host and port; localhost, 127.0.0.1 and [::1] are one dev machine."""
+    got, want = _origin_parts(origin), _origin_parts(allowed)
+    if got is None or want is None:
+        return False
+    if got == want:
+        return True
+    return got[0] == want[0] and got[2] == want[2] and got[1] in _LOOPBACK and want[1] in _LOOPBACK
 
 
 def origin_allowed(origin: str, allowed: tuple[str, ...]) -> bool:
