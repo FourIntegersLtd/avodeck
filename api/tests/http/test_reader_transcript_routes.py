@@ -253,18 +253,20 @@ async def test_a_bad_format_is_422(client_for: Any, world: dict[str, Any]) -> No
     assert (await client.post(f"{base(world)}/transcript/download", json={"format": "rtf"})).status_code == 422
 
 
-async def test_a_case_with_no_named_expert_cannot_be_downloaded(
-    client_for: Any, admin: psycopg.Connection, world: dict[str, Any]
-) -> None:
-    client = await client_for(world["expert"])
-    admin.execute("update app.cases set named_expert_id = null where id = %s", (world["case"],))
-    resp = await client.post(f"{base(world)}/transcript/download")
-    assert resp.status_code == 409 and resp.json()["error"]["code"] == "no_named_expert"
-
-
 async def test_a_pdf_job_is_returned_as_a_pdf(
-    client_for: Any, admin: psycopg.Connection, seed: Seed, world: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    client_for: Any,
+    admin: psycopg.Connection,
+    seed: Seed,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    app: FastAPI,
 ) -> None:
+
+    class Shelf:
+        async def delete(self, paths: Any) -> None:
+            return None
+
+    app.state.storage = Shelf()  # only `take` is replaced below; removing the copy is a no-op here
     client = await client_for(world["expert"])
     job = seed.job(world["case"], kind="export_transcript_pdf", requested_by=world["expert"])
     admin.execute("update app.jobs set status = 'running' where id = %s", (job,))

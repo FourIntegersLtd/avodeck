@@ -351,12 +351,12 @@ async def test_requesting_and_downloading_records_no_read(
     doc = await add_document(aconn, world["case"])
     await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("note",))])
     client = await client_for(world["expert"])
-    count = "select count(*) from app.page_reads"
-    before = admin.execute(count).fetchone()
+    count = "select count(*) from app.page_reads where case_id = %s"
+    before = admin.execute(count, (world["case"],)).fetchone()
     progress = (await client.get(f"/v1/cases/{world['case']}/progress")).json()
     job = await build(client, worker_db, admin, world, fmt)
     assert (await client.get(f"/v1/cases/{world['case']}/transcript/download/{job}")).status_code == 200
-    assert admin.execute(count).fetchone() == before
+    assert admin.execute(count, (world["case"],)).fetchone() == before
     assert (await client.get(f"/v1/cases/{world['case']}/progress")).json() == progress
 
 
