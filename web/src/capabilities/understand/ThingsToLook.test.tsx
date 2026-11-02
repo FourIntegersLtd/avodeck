@@ -143,6 +143,21 @@ test("already decided findings show a one-line summary of the decision", async (
   expect(within(other).getByRole("button", { name: "Relevant" })).toHaveAttribute("aria-pressed", "true");
 });
 
+test("a decided finding folds and opens with a button that says whether it is open", async () => {
+  inCase("launch");
+  serve();
+  const { user } = open();
+  const row = await screen.findByRole("group", { name: "Nothing in the record shows this was acknowledged" });
+  const toggle = within(row).getByRole("button", { name: /^Nothing in the record shows this was acknowledged/ });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await user.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  expect(within(row).getByRole("article", { name: "Nothing in the record shows this was acknowledged" })).toBeInTheDocument();
+  await user.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(within(row).queryByRole("article")).toBeNull();
+});
+
 test("you can add your own check: it needs a name, a kind of entry to follow, and a number of days", async () => {
   inCase("launch");
   const calls = serve();
