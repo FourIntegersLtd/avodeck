@@ -1,13 +1,7 @@
 // Slice A (bundle pipeline): screens 07, 08, 08b and 30, inside a case.
 import type { RouteObject } from "react-router-dom";
+import { lazyScreen } from "../../foundation/lib/lazyScreen";
 import { registerScreen } from "../../foundation/lib/screens";
-import { AddPapers } from "./AddPapers";
-import { AskInstructingParty } from "./AskInstructingParty";
-import { BundleReady } from "./BundleReady";
-import { CaseHome } from "./CaseHome";
-import { Copies } from "./Copies";
-import { NotThisPatient } from "./NotThisPatient";
-import { Preparing } from "./Preparing";
 import "./pipeline.css";
 import "./words";
 
@@ -20,11 +14,11 @@ registerScreen("ask_instructing_party", ({ caseId }) => `/cases/${caseId}/bundle
 registerScreen("not_this_patient", ({ caseId }) => `/cases/${caseId}/bundle/not-this-patient`);
 
 export const pipelineCaseRoutes: RouteObject[] = [
-  { path: "home", element: <CaseHome /> },
-  { path: "papers/add", element: <AddPapers /> },
-  { path: "preparing", element: <Preparing />, handle: { screen: "preparing" } },
-  { path: "bundle", element: <BundleReady />, handle: { screen: "bundle_ready" } },
-  { path: "bundle/copies", element: <Copies />, handle: { screen: "bundle_ready" } },
-  { path: "bundle/ask", element: <AskInstructingParty />, handle: { screen: "ask_instructing_party" } },
-  { path: "bundle/not-this-patient", element: <NotThisPatient />, handle: { screen: "bundle_ready" } },
+  { path: "home", ...lazyScreen(() => import("./CaseHome"), ({ CaseHome }) => <CaseHome />) },
+  { path: "papers/add", ...lazyScreen(() => import("./AddPapers"), ({ AddPapers }) => <AddPapers />) },
+  { path: "preparing", ...lazyScreen(() => import("./Preparing"), ({ Preparing }) => <Preparing />), handle: { screen: "preparing" } },
+  { path: "bundle", ...lazyScreen(() => import("./BundleReady"), ({ BundleReady }) => <BundleReady />), handle: { screen: "bundle_ready" } },
+  { path: "bundle/copies", ...lazyScreen(() => import("./Copies"), ({ Copies }) => <Copies />), handle: { screen: "bundle_ready" } },
+  { path: "bundle/ask", ...lazyScreen(() => import("./AskInstructingParty"), ({ AskInstructingParty }) => <AskInstructingParty />), handle: { screen: "ask_instructing_party" } },
+  { path: "bundle/not-this-patient", ...lazyScreen(() => import("./NotThisPatient"), ({ NotThisPatient }) => <NotThisPatient />), handle: { screen: "bundle_ready" } },
 ];

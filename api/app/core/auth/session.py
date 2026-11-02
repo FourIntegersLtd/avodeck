@@ -15,6 +15,7 @@ import secrets
 import uuid
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import Request, Response
 from psycopg import AsyncConnection
@@ -87,16 +88,30 @@ async def resolve(database: Database, token: str | None, *, touch: bool) -> Sess
     if not token:
         raise not_signed_in()
     # One round trip: the lookup (and its touch, inside the function) in its own anonymous transaction.
-    row = await database.anonymous_one(
-        "select * from app.session_resolve(%s, %s, %s, %s)", (digest(token), IDLE_TIMEOUT, MAX_AGE, touch)
-    )
+    row = await database.anonymous_one(RESOLVE_SQL, resolve_args(token, touch=touch))
+    outcome = from_row(row)
+    if isinstance(outcome, ApiError):
+        raise outcome
+    return outcome
+
+
+RESOLVE_SQL = "select * from app.session_resolve(%s, %s, %s, %s)"
+
+
+def resolve_args(token: str, *, touch: bool) -> tuple[str, timedelta, timedelta, bool]:
+    return digest(token), IDLE_TIMEOUT, MAX_AGE, touch
+
+
+def from_row(row: tuple[Any, ...] | None) -> Session | ApiError:
+    """What `app.session_resolve` returned: the session, or the error to answer with (returned, not raised,
+    so a caller inside a transaction can still commit what the function wrote)."""
     if row is None:
-        raise not_signed_in()
+        return not_signed_in()
     *fields, state = row
     if state == "expired":
-        raise ApiError("session_expired", "Your session has ended. Please sign in again.", 401)
+        return ApiError("session_expired", "Your session has ended. Please sign in again.", 401)
     if state != "active":
-        raise not_signed_in()
+        return not_signed_in()
     session = Session(*fields)
     if local_mfa_skip():
         session = replace(session, aal="aal2", mfa_enrolled=True, mfa_verified_at=datetime.now(UTC))

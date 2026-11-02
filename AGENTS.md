@@ -63,7 +63,7 @@ If a test looks wrong, stop and explain why. Never change a test to make code pa
 
 ### Migration ranges
 
-Foundation 0000–0099 · A 0100–0199 · B 0200–0299 · C 0300–0399 · D 0400–0499 · E 0500–0599 · F 0600–0699 · G 0700–0799 · H 0800–0899 · I 0900–0999 · O 1000–1099. Use the `add-migration` skill.
+Foundation 0000–0099 (and 9000–9099, run last: 9000 rewrites SELECT policies to the once-per-query form) · A 0100–0199 · B 0200–0299 · C 0300–0399 · D 0400–0499 · E 0500–0599 · F 0600–0699 · G 0700–0799 · H 0800–0899 · I 0900–0999 · O 1000–1099. Use the `add-migration` skill.
 
 ### Branches and commits
 

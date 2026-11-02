@@ -33,6 +33,7 @@ export function caseRoutesFrom(modules: Record<string, CapabilityModule>): Route
   return collect(modules, (name) => /CaseRoutes$/.test(name));
 }
 
+// Each index registers its screens and lists lazy routes; the screens themselves download when first opened.
 const modules = import.meta.glob<CapabilityModule>("../capabilities/*/index.tsx", { eager: true });
 
 export const capabilityRoutes: RouteObject[] = routesFrom(modules);

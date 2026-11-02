@@ -22,6 +22,8 @@ from typing import Any
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.core.db import statement_count
+
 Finder = Callable[[str], list[tuple[int, int, str]]]
 
 _URL = re.compile(r"\b((?:https?|wss?)://[^/\s\"'?]+)[^\s\"']*")
@@ -134,11 +136,16 @@ class RequestLog:
             return
         started = time.perf_counter()
         status = 500
+        counter = [0]
+        statement_count.set(counter)
 
         async def capture(message: Message) -> None:
             nonlocal status
             if message["type"] == "http.response.start":
                 status = int(message["status"])
+                millis = (time.perf_counter() - started) * 1000
+                timing = f'app;dur={millis:.1f}, db;desc="queries={counter[0]}"'
+                message = {**message, "headers": [*message.get("headers", []), (b"server-timing", timing.encode())]}
             await send(message)
 
         try:
@@ -146,7 +153,7 @@ class RequestLog:
         finally:
             route = getattr(scope.get("route"), "path", "unmatched")
             elapsed = (time.perf_counter() - started) * 1000
-            self.logger.info("%s %s %d %.0fms", scope.get("method", ""), route, status, elapsed)
+            self.logger.info("%s %s %d queries=%d %.0fms", scope.get("method", ""), route, status, counter[0], elapsed)
 
 
 # --- Sentry ----------------------------------------------------------------------------------------------------------

@@ -144,6 +144,7 @@ a.av-step__hit:hover .av-step--current .av-step__pill { background: var(--surfac
 
 /* Sign in */
 .av-sign-in { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); background: var(--surface-soft); }
+.av-sign-in { min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); background: var(--surface-soft); }
 .av-sign-in__brand { background: var(--brand); color: var(--on-brand); padding: 64px 72px; display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-7); }
 .av-logo--on-dark { color: var(--on-accent); }
 .av-sign-in__brand .av-logo svg { height: 48px; }

@@ -51,7 +51,8 @@ test("a person look-up shows the account's state in plain words, with the cases 
   expect(within(section).getByText("No records custodian named.")).toBeInTheDocument();
   expect(within(section).getByText("Cases to export before the account can close: 1")).toBeInTheDocument();
   await user.click(within(section).getByRole("link", { name: CASE_A }));
-  expect(router.state.location.pathname).toBe(`/support/cases/${CASE_A}`);
+  // The screen downloads on first open, so the move to it finishes a moment after the click.
+  await vi.waitFor(() => expect(router.state.location.pathname).toBe(`/support/cases/${CASE_A}`));
 });
 
 test("a person look-up that finds nobody says so", async () => {

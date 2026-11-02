@@ -1,22 +1,19 @@
 import type { RouteObject } from "react-router-dom";
+import { lazyScreen } from "../../foundation/lib/lazyScreen";
 import { registerScreen } from "../../foundation/lib/screens";
-import { Conflicts } from "./Conflicts";
-import { CaseDetails, NewCase } from "./NewCase";
-import { Profile } from "./Profile";
-import { Questions } from "./Questions";
 import "./setup.css";
 import "./words";
 
 /** Slice C (case setup) screens. Signed-in routes (profile, new case) and routes inside a case
  * (details, conflicts, questions). Today's items open them through the screen keys below. */
 export const setupRoutes: RouteObject[] = [
-  { path: "profile", element: <Profile /> },
-  { path: "cases/new", element: <NewCase /> },
+  { path: "profile", ...lazyScreen(() => import("./Profile"), ({ Profile }) => <Profile />) },
+  { path: "cases/new", ...lazyScreen(() => import("./NewCase"), ({ NewCase }) => <NewCase />) },
 ];
 export const setupCaseRoutes: RouteObject[] = [
-  { path: "details", element: <CaseDetails />, handle: { screen: "new_case" } },
-  { path: "conflicts", element: <Conflicts />, handle: { screen: "conflicts" } },
-  { path: "questions", element: <Questions />, handle: { screen: "questions" } },
+  { path: "details", ...lazyScreen(() => import("./NewCase"), ({ CaseDetails }) => <CaseDetails />), handle: { screen: "new_case" } },
+  { path: "conflicts", ...lazyScreen(() => import("./Conflicts"), ({ Conflicts }) => <Conflicts />), handle: { screen: "conflicts" } },
+  { path: "questions", ...lazyScreen(() => import("./Questions"), ({ Questions }) => <Questions />), handle: { screen: "questions" } },
 ];
 
 const profile = () => "/profile";

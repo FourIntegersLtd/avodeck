@@ -41,15 +41,67 @@ afterEach(() => {
 });
 
 describe("useResource with a cache name", () => {
-  test("a resource loaded before shows at once on remount, then the fresh answer replaces it", async () => {
+  test("a second mount within 30 seconds shows the kept answer and makes no new fetch", async () => {
     await loadOnce("probe.instant", "old");
-    const fresh = deferred<string>();
-    const load = vi.fn(() => fresh.promise);
+    const load = vi.fn(() => Promise.resolve("new"));
     render(<Probe load={load} cache="probe.instant" />);
     expect(out()).toBe("data old"); // first render, no loading state
-    expect(load).toHaveBeenCalledTimes(1); // it still asks the server
-    await act(async () => fresh.resolve("new"));
-    expect(out()).toBe("data new");
+    await act(async () => {});
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  test("a change to case A does not drop case B, and does drop Today", async () => {
+    server.use(http.post("/v1/cases/case-a/notes", () => new HttpResponse(null, { status: 204 })));
+    await loadOnce("probe.case", "a", "case-a");
+    await loadOnce("probe.case", "b", "case-b");
+    await loadOnce("probe.today", "today");
+    await unwrap(api.POST("/v1/cases/{case_id}/notes" as never, { params: { path: { case_id: "case-a" } } } as never));
+    render(<Probe load={() => new Promise<string>(() => {})} k="case-b" cache="probe.case" />);
+    expect(out()).toBe("data b");
+    render(<Probe load={() => new Promise<string>(() => {})} k="case-a" cache="probe.case" />);
+    expect(screen.getAllByTestId("out")[1]!.textContent).toBe("data a"); // marked stale, still shown while it is fetched again
+    const stale = vi.fn(() => Promise.resolve("fresh"));
+    render(<Probe load={stale} cache="probe.today" />);
+    await waitFor(() => expect(stale).toHaveBeenCalled());
+  });
+
+  test("a failed background reload keeps the data already shown", async () => {
+    await loadOnce("probe.keep", "shown");
+    const load = vi.fn(() => Promise.reject<string>(new ApiError(500, "server_error")));
+    render(<Probe load={load} cache="probe.keep" />);
+    expect(out()).toBe("data shown");
+    act(() => latest!.reload());
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2), { timeout: 4000 }); // one try and one more
+    await act(async () => {});
+    expect(out()).toBe("data shown");
+  });
+
+  test("a change to a case drops a read of that case that was already on its way", async () => {
+    server.use(http.post("/v1/cases/case-a/notes", () => new HttpResponse(null, { status: 204 })));
+    await loadOnce("probe.inflight", "old", "case-a");
+    const slow = deferred<string>();
+    const first = render(<Probe load={() => slow.promise} k="case-a" cache="probe.inflight" />);
+    act(() => latest!.reload());
+    await unwrap(api.POST("/v1/cases/{case_id}/notes" as never, { params: { path: { case_id: "case-a" } } } as never));
+    await act(async () => slow.resolve("from before the change"));
+    first.unmount();
+    const load = vi.fn(() => Promise.resolve("after"));
+    render(<Probe load={load} k="case-a" cache="probe.inflight" />);
+    await waitFor(() => expect(load).toHaveBeenCalled());
+  });
+
+  test("a change to a case also refreshes balance and messages, which carry no case id", async () => {
+    server.use(http.post("/v1/cases/case-a/notes", () => new HttpResponse(null, { status: 204 })));
+    await loadOnce("setup/shared#Balance:found", "b");
+    await loadOnce("account/Messages#Messages:found", "m");
+    await loadOnce("foundation/lib/messages#MessagesProvider:found", "p");
+    await unwrap(api.POST("/v1/cases/{case_id}/notes" as never, { params: { path: { case_id: "case-a" } } } as never));
+    for (const name of ["setup/shared#Balance:found", "account/Messages#Messages:found", "foundation/lib/messages#MessagesProvider:found"]) {
+      const load = vi.fn(() => Promise.resolve("fresh"));
+      const view = render(<Probe load={load} cache={name} />);
+      await waitFor(() => expect(load).toHaveBeenCalled());
+      view.unmount();
+    }
   });
 
   test("different arguments are different entries", async () => {
@@ -83,12 +135,15 @@ describe("useResource with a cache name", () => {
 
   test("a kept answer is dropped when a fresh load is refused", async () => {
     await loadOnce("probe.dropped", "facts");
-    const again = render(<Probe load={() => Promise.reject(new ApiError(423, "blind_read"))} cache="probe.dropped" />);
+    let refuse = false;
+    const again = render(
+      <Probe load={() => (refuse ? Promise.reject(new ApiError(423, "blind_read")) : Promise.resolve("facts"))} cache="probe.dropped" />,
+    );
     expect(out()).toBe("data facts");
+    refuse = true;
+    act(() => latest!.reload());
     await waitFor(() => expect(out()).toBe("error 423"));
     again.unmount();
-    render(<Probe load={() => new Promise<string>(() => {})} cache="probe.dropped" />);
-    expect(out()).toBe("loading");
   });
 
   test("reload always asks the server and never brings back a kept answer", async () => {
@@ -96,10 +151,11 @@ describe("useResource with a cache name", () => {
     let n = 0;
     const load = vi.fn(() => Promise.resolve(`fresh ${++n}`));
     render(<Probe load={load} cache="probe.reload" />);
-    await waitFor(() => expect(out()).toBe("data fresh 1"));
+    await act(async () => {});
+    expect(out()).toBe("data old");
     act(() => latest!.reload());
-    await waitFor(() => expect(out()).toBe("data fresh 2"));
-    expect(load).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(out()).toBe("data fresh 1"));
+    expect(load).toHaveBeenCalledTimes(1);
   });
 
   test("a change (POST, PUT, PATCH or DELETE) empties the cache", async () => {

@@ -1,9 +1,7 @@
 import type { RouteObject } from "react-router-dom";
+import { lazyScreen } from "../../foundation/lib/lazyScreen";
 import { registerScreen } from "../../foundation/lib/screens";
-import { JointStatement } from "./JointStatement";
 import { Lookup } from "./Lookup";
-import { TrialPack } from "./TrialPack";
-import { TrialPages } from "./TrialPages";
 import "./words";
 
 for (const [screen, path] of [["S22", "joint-statement"], ["S23", "trial-pages"], ["S24", "trial-pack"], ["S25", "witness-box"]] as const) {
@@ -16,10 +14,10 @@ registerScreen("witness_box", ({ caseId }) => `/cases/${caseId}/witness-box`);
 
 /** S22-S24: inside the case frame, which draws the case bar and marks the pack step that holds each screen. */
 export const trialCaseRoutes: RouteObject[] = [
-  { path: "joint-statement", element: <JointStatement />, handle: { screen: "expert_meeting" } },
-  { path: "trial-pages", element: <TrialPages />, handle: { screen: "court_bundle_pages" } },
-  { path: "trial-pack", element: <TrialPack />, handle: { screen: "trial_pack" } },
+  { path: "joint-statement", ...lazyScreen(() => import("./JointStatement"), ({ JointStatement }) => <JointStatement />), handle: { screen: "expert_meeting" } },
+  { path: "trial-pages", ...lazyScreen(() => import("./TrialPages"), ({ TrialPages }) => <TrialPages />), handle: { screen: "court_bundle_pages" } },
+  { path: "trial-pack", ...lazyScreen(() => import("./TrialPack"), ({ TrialPack }) => <TrialPack />), handle: { screen: "trial_pack" } },
 ];
 
-/** S25: works from the copy on this device with no connection and no sign-in (rule 4's exception). */
+/** S25: works from the copy on this device with no connection and no sign-in (rule 4's exception). Eager, never lazy: there is no service worker, so its code must already be in the main bundle. */
 export const trialOfflineRoutes: RouteObject[] = [{ path: "cases/:caseId/witness-box", element: <Lookup /> }];

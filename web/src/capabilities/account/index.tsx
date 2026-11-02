@@ -1,10 +1,8 @@
 import type { RouteObject } from "react-router-dom";
-import { Account } from "./Account";
-import { LegalGate } from "./legal/LegalGate";
-import { Messages } from "./Messages";
+import { lazyScreen } from "../../foundation/lib/lazyScreen";
 
 export const accountRoutes: RouteObject[] = [
-  { path: "account", element: <Account /> },
-  { path: "messages", element: <Messages /> },
-  { path: "agree", element: <LegalGate /> },
+  { path: "account", ...lazyScreen(() => import("./Account"), ({ Account }) => <Account />) },
+  { path: "messages", ...lazyScreen(() => import("./Messages"), ({ Messages }) => <Messages />) },
+  { path: "agree", ...lazyScreen(() => import("./legal/LegalGate"), ({ LegalGate }) => <LegalGate />) },
 ];

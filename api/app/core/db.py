@@ -21,10 +21,11 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager, suppress
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any
 
-from psycopg import AsyncConnection
+from psycopg import AsyncConnection, AsyncCursor
 from psycopg.pq import TransactionStatus
 from psycopg_pool import AsyncConnectionPool
 
@@ -37,6 +38,20 @@ _PRIVILEGED_ROLES = frozenset({"postgres", "service_role", "supabase_admin", "ap
 
 class UnsafeDatabaseRole(RuntimeError):
     """The connection's role could bypass row-level security."""
+
+
+# SQL statements run in the current request (set to 0 by `RequestLog`, read for the log line and the
+# Server-Timing header). A one-item list, so statements run in child tasks are counted too. Only the
+# number is kept, never the SQL or its parameters (rule 6).
+statement_count: ContextVar[list[int]] = ContextVar("statement_count")
+
+
+class _CountingCursor(AsyncCursor[Any]):
+    async def execute(self, *args: Any, **kwargs: Any) -> Any:
+        counter = statement_count.get(None)
+        if counter is not None:
+            counter[0] += 1
+        return await super().execute(*args, **kwargs)
 
 
 @dataclass(frozen=True)
@@ -58,7 +73,7 @@ class Database:
             open=False,
             # autocommit: db.py sends BEGIN and COMMIT itself, so BEGIN shares a round trip with the
             # settings (psycopg's own BEGIN waits for its answer). Callers still get one transaction.
-            kwargs={"prepare_threshold": None, "autocommit": True},
+            kwargs={"prepare_threshold": None, "autocommit": True, "cursor_factory": _CountingCursor},
         )
 
     async def open(self) -> None:
@@ -86,6 +101,39 @@ class Database:
         }
         async with self._transaction(settings) as conn:
             yield conn
+
+    @asynccontextmanager
+    async def session_request(
+        self, resolve_args: Sequence[Any], request_id: str
+    ) -> AsyncIterator[tuple[AsyncConnection, tuple[Any, ...] | None]]:
+        """`request()` for a signed-in route whose person is not known yet: ONE connection, ONE transaction.
+
+        BEGIN, the settings and `app.session_resolve(*resolve_args)` go out together; `app.person_id` is
+        then set from the session row it returns, in the same statement, but only for an active session
+        (otherwise it stays unset and RLS shows nothing). Yields the connection and that row (None when
+        no session matches). The caller decides what the row means and must still leave normally to keep
+        the function's own writes (it ends an idle or expired session, and counts activity): raising
+        rolls them back.
+        `app.org_ids`, `app.request_id` and `TimeZone` are the same as `request()` sets.
+        """
+        settings = {"app.org_ids": "", "app.request_id": request_id, "TimeZone": "UTC"}
+        async with self._pool.connection() as conn:
+            try:
+                async with conn.pipeline():
+                    await conn.execute("BEGIN")
+                    await _set(conn, settings)
+                    cur = await conn.execute(
+                        "select r.*, set_config('app.person_id', "
+                        "case when r.state = 'active' then r.person_id::text else '' end, true) "
+                        "from app.session_resolve(%s, %s, %s, %s) r",
+                        tuple(resolve_args),
+                    )
+                row = await cur.fetchone()
+                yield conn, (row[:-1] if row is not None else None)
+                await conn.execute("COMMIT")
+            except BaseException:
+                await _rollback(conn)
+                raise
 
     @asynccontextmanager
     async def anonymous(self, request_id: str = "") -> AsyncIterator[AsyncConnection]:

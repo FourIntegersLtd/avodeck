@@ -5,7 +5,7 @@ description: Add a Supabase/Postgres migration for an Avodeck slice with the rig
 
 # Add a migration
 
-1. **Number range** for your slice (root `AGENTS.md`): foundation 0000–0099, A 0100–0199, B 0200–0299, C 0300–0399, D 0400–0499, E 0500–0599, F 0600–0699, G 0700–0799, H 0800–0899, I 0900–0999, O 1000–1099. File: `supabase/migrations/<NNNN>_<slice>_<what>.sql`.
+1. **Number range** for your slice (root `AGENTS.md`): foundation 0000–0099 (9000–9099 reserved, run last; a new SELECT policy added after 9000 ends with `select app.use_accessible_id_sets();`), A 0100–0199, B 0200–0299, C 0300–0399, D 0400–0499, E 0500–0599, F 0600–0699, G 0700–0799, H 0800–0899, I 0900–0999, O 1000–1099. File: `supabase/migrations/<NNNN>_<slice>_<what>.sql`.
 2. **Test first:** a database test in `api/tests/repository/test_<feature>_<table>.py` (and pgTAP for RLS where useful) that fails before the migration exists.
 3. **Tables** go in the `app` schema (not exposed to Supabase's Data API). Use UUID primary keys, `created_at timestamptz default now()`, and `case_id uuid not null references app.cases(id) on delete cascade` for case data.
 4. **RLS:** `alter table … enable row level security;` with policies for `app_api` and `app_worker` that call `app.can_access_case(case_id, '<action>')` (ADR 0013). Add a pgTAP test that a person without access sees zero rows and the bare role sees nothing. Add it even though FastAPI uses the service role.

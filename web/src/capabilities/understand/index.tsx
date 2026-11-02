@@ -1,17 +1,15 @@
 // Slice D (understand): screens 11, 12 and 13, inside a case. Today's item opens S13.
 import type { RouteObject } from "react-router-dom";
+import { lazyScreen } from "../../foundation/lib/lazyScreen";
 import { registerScreen } from "../../foundation/lib/screens";
-import { Consultation } from "./Consultation";
-import { ThingsToLook } from "./ThingsToLook";
 import { PackScope } from "./shared";
-import { Timeline } from "./Timeline";
 import "./understand.css";
 import "./words";
 
 export const understandCaseRoutes: RouteObject[] = [
-  { path: "timeline", element: <PackScope><Timeline /></PackScope>, handle: { screen: "timeline" } },
-  { path: "consultation/:factId", element: <PackScope><Consultation /></PackScope>, handle: { screen: "as_clinician_saw_it" } },
-  { path: "things-to-look-at", element: <PackScope><ThingsToLook /></PackScope>, handle: { screen: "things_to_look_at" } },
+  { path: "timeline", ...lazyScreen(() => import("./Timeline"), ({ Timeline }) => <PackScope><Timeline /></PackScope>), handle: { screen: "timeline" } },
+  { path: "consultation/:factId", ...lazyScreen(() => import("./Consultation"), ({ Consultation }) => <PackScope><Consultation /></PackScope>), handle: { screen: "as_clinician_saw_it" } },
+  { path: "things-to-look-at", ...lazyScreen(() => import("./ThingsToLook"), ({ ThingsToLook }) => <PackScope><ThingsToLook /></PackScope>), handle: { screen: "things_to_look_at" } },
 ];
 
 const timeline = ({ caseId }: { caseId: string }) => `/cases/${caseId}/timeline`;

@@ -1,4 +1,5 @@
-import { Navigate, type RouteObject } from "react-router-dom";
+import { matchRoutes, Navigate, type RouteObject } from "react-router-dom";
+import { setRoutePrefetcher } from "../foundation/lib/routePrefetch";
 import { ConfirmEmail } from "./auth/ConfirmEmail";
 import { ResetPassword } from "./auth/ResetPassword";
 import { SignIn } from "./auth/SignIn";
@@ -31,3 +32,13 @@ export const routes: RouteObject[] = [
     ],
   },
 ];
+
+/** Start the download of the screens behind a path (the nav calls this on hover, focus and touch). */
+export function prefetchPath(path: string) {
+  for (const match of matchRoutes(routes, path) ?? []) {
+    const load = match.route.lazy as (() => Promise<unknown>) | undefined;
+    if (typeof load === "function") void load().catch(() => undefined);
+  }
+}
+
+setRoutePrefetcher(prefetchPath);
