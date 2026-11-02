@@ -55,7 +55,7 @@ OPTIONAL: dict[str, frozenset[str]] = {
     "case-type": frozenset({"final_checks.yaml", "declarations.md", "opinion.yaml"}),
     "specialty": frozenset(
         {"checks.yaml", "final_checks.yaml", "vocabulary.yaml"}
-        | {"entries.yaml", "specialties.yaml", "result_groups.yaml", "reading_prompts.yaml"}
+        | {"entries.yaml", "specialties.yaml", "result_groups.yaml", "reading_prompts.yaml", "transcript.yaml"}
     ),
     "overlay": frozenset(
         {"records.yaml", "guidelines.yaml", "vocabulary.yaml", "speech_phrases.yaml", "drug_monitoring.yaml"}
@@ -658,6 +658,10 @@ class MergedPack:
         """Word groups that point the reader at places in the record (`reading_prompts.yaml`): an index only."""
         return self._registry("reading_prompts.yaml", "term_groups")
 
+    def transcript_sections(self) -> list[dict[str, Any]]:
+        """How the transcript file groups entries (`transcript.yaml`), in order; [] when the pack has none."""
+        return self._registry("transcript.yaml", "sections")
+
     def lanes(self) -> list[dict[str, Any]]:
         """Lanes top to bottom, each with its `kinds` (empty if none) and optional `when` (lanes.schema.json)."""
         return [{**lane, "kinds": lane.get("kinds", [])} for lane in self._registry("lanes.yaml", "lanes")]
@@ -715,6 +719,14 @@ class MergedPack:
         for name, where, kind in named:
             if kind not in kinds:
                 raise PackError(f"{label}: {name}: {where} names '{kind}', which is not a fact kind")
+        source_keys = {s["key"] for s in self.source_types()}
+        for section in self.transcript_sections():
+            for source in section.get("sources", []):
+                if source not in source_keys:
+                    raise PackError(
+                        f"{label}: transcript.yaml: section '{section['key']}' names source '{source}', "
+                        "which is not a source type"
+                    )
         sources = {s["key"] for s in self.guideline_sources()}
         for version in self.guidelines():
             if version["source"] not in sources:

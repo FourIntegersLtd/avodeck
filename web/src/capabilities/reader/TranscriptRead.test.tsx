@@ -233,8 +233,9 @@ describe.each([
     server.use(http.get(`${C}/transcript/download/:job`, () => new Promise<Response>(() => undefined)));
     const { user } = renderAt(PATH);
     await user.click(await screen.findByRole("button", { name: "Download as PDF" }));
-    expect(await screen.findByRole("button", { name: "Preparing your file" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Download as Word" })).toBeDisabled();
+    const busy = await screen.findAllByRole("button", { name: "Preparing your file" });
+    expect(busy).toHaveLength(2);
+    busy.forEach((button) => expect(button).toBeDisabled());
   });
 
   test("the buttons are enabled when the transcript is ready even if no page has been read", async () => {
@@ -274,8 +275,8 @@ describe.each([
         ),
       ).toBeVisible();
       expect(screen.getByText("Jump to")).toBeVisible();
-      expect(screen.getByRole("button", { name: /Zz alpha.*2/ })).toBeVisible();
-      expect(screen.getByRole("button", { name: /Zz beta.*1/ })).toBeVisible();
+      expect(screen.getByRole("button", { name: /Alpha.*2/ })).toBeVisible();
+      expect(screen.getByRole("button", { name: /Beta.*1/ })).toBeVisible();
     });
 
     test("a section heading appears above the first entry of each section only", async () => {
@@ -286,7 +287,7 @@ describe.each([
       await screen.findByLabelText("Entry on page 11");
       expect(container.querySelectorAll("h2#section-alpha")).toHaveLength(1);
       expect(container.querySelectorAll("h2#section-beta")).toHaveLength(1);
-      expect(container.querySelector("h2#section-alpha")?.textContent).toBe("Zz alpha");
+      expect(container.querySelector("h2#section-alpha")?.textContent).toBe("Alpha");
       expect(container.querySelector("#entry-00000000-0000-0000-0000-000000000003")).not.toBeNull();
     });
 
@@ -295,7 +296,7 @@ describe.each([
       withOutline();
       const log = mockTranscript("ready", sectioned());
       const { user } = renderAt(PATH);
-      await user.click(await screen.findByRole("button", { name: /Zz beta/ }));
+      await user.click(await screen.findByRole("button", { name: /Beta/ }));
       expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
       expect(log.seen).toEqual([]);
       expect(log.outlines).toBe(1);
@@ -316,7 +317,7 @@ describe.each([
         }),
       );
       const { user } = renderAt(PATH);
-      await user.click(await screen.findByRole("button", { name: /Zz beta/ }));
+      await user.click(await screen.findByRole("button", { name: /Beta/ }));
       await waitFor(() => expect(offsets).toContain(2));
       await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
       expect(log.seen).toEqual([]);
