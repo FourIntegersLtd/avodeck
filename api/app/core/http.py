@@ -34,9 +34,9 @@ import json
 import re
 import uuid
 from collections.abc import Callable, Coroutine
-from contextlib import suppress
 from contextvars import ContextVar
 from typing import Annotated, Any, cast
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, Header, Request, Response
 from fastapi.concurrency import run_in_threadpool
@@ -48,7 +48,7 @@ from app.core import audit
 from app.core.auth import session as sessions
 from app.core.auth.identity import Identity
 from app.core.crypto import cell_secret_box
-from app.core.db import Database, RequestScope
+from app.core.db import RequestScope
 from app.core.errors import ApiError
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -160,16 +160,22 @@ def _replaying(endpoint: Callable[..., Any]) -> Callable[..., Any]:
     return call
 
 
-def _local_dev_origin_alias(origin: str, allowed: str) -> bool:
-    """localhost and 127.0.0.1 are the same dev machine; APP_ORIGIN is usually only one of them."""
-    for scheme in ("http://", "https://"):
-        localhost = f"{scheme}localhost:"
-        loopback = f"{scheme}127.0.0.1:"
-        if allowed.startswith(localhost) and origin == allowed.replace(localhost, loopback, 1):
-            return True
-        if allowed.startswith(loopback) and origin == allowed.replace(loopback, localhost, 1):
-            return True
-    return False
+_LOOPBACK = frozenset({"localhost", "127.0.0.1", "::1"})
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _origin_parts(origin: str) -> tuple[str, str, int | None] | None:
+    """(scheme, host, port) of an origin, host lowercased and the scheme's default port filled in."""
+    try:
+        parts = urlsplit(origin)
+        host, port = parts.hostname, parts.port
+    except ValueError:
+        return None
+    if parts.scheme not in _DEFAULT_PORTS or host is None or parts.path not in ("", "/"):
+        return None
+    if parts.username is not None or parts.password is not None or parts.query or parts.fragment:
+        return None
+    return parts.scheme, host, port if port is not None else _DEFAULT_PORTS[parts.scheme]
 
 
 def allowed_origins(app: Any) -> tuple[str, ...]:
@@ -179,8 +185,13 @@ def allowed_origins(app: Any) -> tuple[str, ...]:
 
 
 def origin_matches(origin: str, allowed: str) -> bool:
-    origin = origin.lower()  # a browser lowercases the host; the allow-list is stored lowercased too
-    return origin == allowed or _local_dev_origin_alias(origin, allowed)
+    """Same scheme, host and port; localhost, 127.0.0.1 and [::1] are one dev machine."""
+    got, want = _origin_parts(origin), _origin_parts(allowed)
+    if got is None or want is None:
+        return False
+    if got == want:
+        return True
+    return got[0] == want[0] and got[2] == want[2] and got[1] in _LOOPBACK and want[1] in _LOOPBACK
 
 
 def origin_allowed(origin: str, allowed: tuple[str, ...]) -> bool:
@@ -248,7 +259,6 @@ class SessionRoute(APIRoute):
             fingerprint = await _fingerprint(request) if key else ""
             scopes: list[RequestScope] = []  # filled once the session is known
             refusal: ApiError | None = None
-            active = False
             try:
                 # One connection, one transaction: the session lookup (which also ends an idle or expired
                 # session and counts activity) shares it with the route's own work.
@@ -268,7 +278,6 @@ class SessionRoute(APIRoute):
                         elif session.must_change_password and not (self.mfa_pending or self.password_pending):
                             refusal = ApiError("password_change_required", "Choose your own password to continue.", 403)
                     if refusal is None:
-                        active = True
                         identity = Identity(session.person_id, session.email, session.full_name, session.mfa_enrolled)
                         scopes.append(RequestScope(person_id=identity.person_id, org_ids=(), request_id=request_id))
                         request.state.conn = conn
@@ -293,23 +302,11 @@ class SessionRoute(APIRoute):
                                 await _remember(conn, pending, response)
                         return response
             except _Discard as discarded:
-                await self._count_activity(database, token)
                 return discarded.response
-            except Exception:
-                if active:
-                    await self._count_activity(database, token)
-                raise
             assert refusal is not None
             raise refusal
 
         return run
-
-    async def _count_activity(self, database: Database, token: str) -> None:
-        """The route's work was rolled back (an error answer), and the activity the session lookup counted
-        went with it: count it again on its own, so a person who only meets errors is not timed out."""
-        if self.touch:
-            with suppress(Exception):
-                await sessions.resolve(database, token, touch=True)
 
 
 FoundationRoute = SessionRoute  # the step 3 name

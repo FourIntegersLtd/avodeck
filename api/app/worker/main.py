@@ -17,7 +17,7 @@ import app.core.housekeeping  # noqa: F401 - registers the foundation's daily sc
 import app.core.notifications  # noqa: F401 - the daily messages schedule
 import app.core.uploads  # noqa: F401 - the finalize_upload job
 import app.features.pipeline  # noqa: F401 - slice A's job kinds and its DocumentUploaded subscriber
-from app.core.config import ConfigError, database_settings
+from app.core.config import ConfigError, database_settings, env_int
 from app.core.db import Database
 from app.core.email import Mailer
 from app.core.email_live import mailer_from_env
@@ -44,7 +44,7 @@ def build_worker(
 async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_PACKAGE) -> None:
     worker = build_worker(env, features=features)
     source = os.environ if env is None else env
-    concurrency = int(source.get("WORKER_CONCURRENCY", "4"))
+    concurrency = env_int(source, "WORKER_CONCURRENCY", 4, minimum=1)
     await worker.database.open()
     try:
         await start_features(features, worker, hook=WORKER_HOOK)  # each slice's `on_worker_start(worker)`

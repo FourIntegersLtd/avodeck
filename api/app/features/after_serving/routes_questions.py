@@ -17,6 +17,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from fastapi import Response
+from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 
 from app.core import audit
@@ -352,7 +353,7 @@ async def change_question(
         params.append(body.paragraph_ids)
     if body.citation_refs is not None:
         sets.append("citation_refs = %s::jsonb")
-        params.append(_json(citations_json(body.citation_refs)))
+        params.append(Jsonb(citations_json(body.citation_refs)))
     if body.answer_text is not None:
         sets.append("answer_text = %s")
         params.append(await seal(conn, crypto, case_id, body.answer_text, ANSWER))
@@ -367,12 +368,6 @@ async def change_question(
         row = updated
     response.headers["etag"] = etag(row["version"])
     return await question_out(conn, crypto, case_id, row)
-
-
-def _json(value: Any) -> str:
-    import json
-
-    return json.dumps(value)
 
 
 @router.post("/cases/{case_id}/written-questions/{question_id}/tell-instructing-party", response_model=Note)

@@ -8,7 +8,6 @@ The Word copy is built by a job (`export_transcript`) and handed over once, to t
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterator
 from typing import Annotated
 
 from fastapi import BackgroundTasks, Depends, Query, Request
@@ -26,6 +25,7 @@ from app.core.contracts.record_entries import (
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn
+from app.core.iterkit import iter_chunks
 from app.core.jobs import registry
 from app.core.packs import PackLibrary
 from app.core.storage import CaseFileStorage
@@ -159,12 +159,6 @@ async def transcript_download_request(
     return JobOut(job_id=job)
 
 
-def _chunks(data: bytes) -> Iterator[bytes]:
-    view = memoryview(data)
-    for start in range(0, len(view), CHUNK):
-        yield bytes(view[start : start + CHUNK])
-
-
 @router.get(
     "/transcript/download/{job_id}", response_class=StreamingResponse, responses={200: {"content": {DOCX: {}, PDF: {}}}}
 )
@@ -189,7 +183,7 @@ async def transcript_download(
     data = await transcript_jobs.take(conn, storage, crypto, case_id, job_id, fmt)
     after.add_task(transcript_jobs.remove, storage, case_id, job_id, fmt)  # runs once the audit row is committed
     return StreamingResponse(
-        _chunks(data),
+        iter_chunks(data, CHUNK),
         media_type=PDF if fmt == "pdf" else DOCX,
         headers={
             "Cache-Control": "private, no-store",

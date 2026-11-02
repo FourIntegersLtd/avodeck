@@ -11,7 +11,7 @@ from fastapi import APIRouter, FastAPI
 
 from app.core import logs
 from app.core.auth.supabase import SupabaseAuth
-from app.core.config import ConfigError, auth_settings, cell_settings, database_settings
+from app.core.config import ConfigError, auth_settings, cell_settings, database_settings, local_mfa_skip
 from app.core.contracts.reading import PageReadLog
 from app.core.contracts.today import NeedsYouRegistry
 from app.core.contracts.today import needs_you as default_needs_you
@@ -71,7 +71,9 @@ def create_app(
     page_reads: PageReadLog | None = READER_LOG,
     features: str = DEFAULT_FEATURES,
 ) -> FastAPI:
-    """Without a database, region or Supabase Auth they are read from the environment at start-up.
+    """A bad `DEV_SKIP_MFA` stops the app being built (ConfigError), so no request ever meets it.
+
+    Without a database, region or Supabase Auth they are read from the environment at start-up.
 
     Storage and case encryption are also read from the environment when not passed; if the cell is
     missing them, file routes answer 503 until it has them. Speech has no live client yet (no cloud
@@ -85,6 +87,7 @@ def create_app(
     Packs load here, not in the lifespan: an invalid pack stops the app being built at all.
     Each slice's router under `features` (`app.features.<name>.router`) is mounted with `mount()`.
     """
+    local_mfa_skip()  # refuses a bad DEV_SKIP_MFA here, once, so per-request reads never raise
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

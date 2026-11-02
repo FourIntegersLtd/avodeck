@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import builtins
+import functools
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -37,6 +39,15 @@ def case_prefix(case_id: object) -> str:
 def upload_prefix(case_id: object, upload_id: object) -> str:
     """Where an upload's chunks are kept until it completes or expires."""
     return f"{case_prefix(case_id)}/uploads/{upload_id}"
+
+
+_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="case-files")
+
+
+async def _run(func: Any, /, *args: Any, **kwargs: Any) -> Any:
+    """Call blocking boto3 code on this module's own threads, so file work and the loop's shared pool
+    (Bedrock, embeddings, page rendering) never queue behind each other."""
+    return await asyncio.get_running_loop().run_in_executor(_POOL, functools.partial(func, *args, **kwargs))
 
 
 class StorageError(RuntimeError):
@@ -112,7 +123,7 @@ def storage_settings(env: Mapping[str, str] | None = None) -> StorageSettings:
 class CaseFileStorage:
     """S3-backed object store for case files and person-level files (templates, signatures).
 
-    The sync boto3 client is called through `asyncio.to_thread`, matching the pattern used by
+    The sync boto3 client is called through `_run` (its own thread pool), matching the pattern used by
     `LiveBedrock` in `core/ai/bedrock_live.py`.
     """
 
@@ -167,7 +178,7 @@ class CaseFileStorage:
     async def ensure_bucket(self) -> None:
         """Create the private bucket if it is not there yet."""
         try:
-            await asyncio.to_thread(self._client.head_bucket, Bucket=self.settings.bucket)
+            await _run(self._client.head_bucket, Bucket=self.settings.bucket)
             return
         except ClientError as exc:
             if not self._not_found(exc):
@@ -178,7 +189,7 @@ class CaseFileStorage:
             # us-east-1 does not accept a LocationConstraint (it's the default).
             if self.settings.region and self.settings.region != "us-east-1":
                 create_args["CreateBucketConfiguration"] = {"LocationConstraint": self.settings.region}
-            await asyncio.to_thread(self._client.create_bucket, **create_args)
+            await _run(self._client.create_bucket, **create_args)
         except ClientError as exc:
             # Bucket may have been created between our head and create (race in tests or multi-worker).
             if "BucketAlreadyOwnedByYou" not in str(exc) and "BucketAlreadyExists" not in str(exc):
@@ -186,7 +197,7 @@ class CaseFileStorage:
 
     async def put(self, path: str, data: bytes) -> None:
         try:
-            await asyncio.to_thread(
+            await _run(
                 self._client.put_object,
                 Bucket=self.settings.bucket,
                 Key=path,
@@ -200,55 +211,43 @@ class CaseFileStorage:
 
     async def get(self, path: str) -> bytes:
         try:
-            resp = await asyncio.to_thread(self._client.get_object, Bucket=self.settings.bucket, Key=path)
-            return await asyncio.to_thread(resp["Body"].read)
+            resp = await _run(self._client.get_object, Bucket=self.settings.bucket, Key=path)
+            body: bytes = await _run(resp["Body"].read)
+            return body
         except ClientError as exc:
             self._raise(exc)
             raise  # unreachable, but keeps mypy happy
         except BotoCoreError as exc:
             raise StorageError(f"storage: {type(exc).__name__}") from exc
 
+    async def _pages(self, **kwargs: Any) -> AsyncIterator[dict[str, Any]]:
+        """Every page of a `list_objects_v2` listing; each page is fetched off the event loop."""
+        pages = iter(
+            self._client.get_paginator("list_objects_v2").paginate(
+                Bucket=self.settings.bucket, PaginationConfig={"PageSize": self.list_page_size}, **kwargs
+            )
+        )
+        while (page := await _run(next, pages, None)) is not None:
+            yield page
+
     async def list(self, prefix: str) -> builtins.list[str]:
         """Full paths of the objects directly under `prefix`, in name order, however many pages."""
         prefix = prefix.rstrip("/") + "/"
-        found: builtins.list[str] = []
-        continuation: dict[str, str] = {}
-        while True:
-            resp = await asyncio.to_thread(
-                self._client.list_objects_v2,
-                Bucket=self.settings.bucket,
-                Prefix=prefix,
-                Delimiter="/",
-                MaxKeys=self.list_page_size,
-                **continuation,
-            )
-            found.extend(obj["Key"] for obj in resp.get("Contents", []))
-            if not resp.get("IsTruncated"):
-                return found
-            continuation = {"ContinuationToken": resp["NextContinuationToken"]}
+        return [
+            obj["Key"] async for page in self._pages(Prefix=prefix, Delimiter="/") for obj in page.get("Contents", [])
+        ]
 
     async def list_folders(self, prefix: str) -> builtins.list[str]:
         """Names (not paths) of the folders directly under `prefix`, however many pages."""
         prefix = prefix.rstrip("/") + "/"
         names: builtins.list[str] = []
-        continuation: dict[str, str] = {}
-        while True:
-            resp = await asyncio.to_thread(
-                self._client.list_objects_v2,
-                Bucket=self.settings.bucket,
-                Prefix=prefix,
-                Delimiter="/",
-                MaxKeys=self.list_page_size,
-                **continuation,
-            )
-            for cp in resp.get("CommonPrefixes", []):
+        async for page in self._pages(Prefix=prefix, Delimiter="/"):
+            for cp in page.get("CommonPrefixes", []):
                 # CommonPrefixes look like "cases/<id>/uploads/" — strip the prefix and trailing slash.
                 name = cp["Prefix"][len(prefix) :].rstrip("/")
                 if name:
                     names.append(name)
-            if not resp.get("IsTruncated"):
-                return names
-            continuation = {"ContinuationToken": resp["NextContinuationToken"]}
+        return names
 
     async def list_object_times(self, prefix: str) -> dict[str, datetime | None]:
         """Every object anywhere below `prefix` (full path) → the time it was last written.
@@ -258,39 +257,16 @@ class CaseFileStorage:
         matters to a caller, this will return the *last* write time.
         """
         prefix = prefix.rstrip("/") + "/"
-        times: dict[str, datetime | None] = {}
-        continuation: dict[str, str] = {}
-        while True:
-            resp = await asyncio.to_thread(
-                self._client.list_objects_v2,
-                Bucket=self.settings.bucket,
-                Prefix=prefix,
-                MaxKeys=self.list_page_size,
-                **continuation,
-            )
-            for obj in resp.get("Contents", []):
-                times[obj["Key"]] = obj.get("LastModified")
-            if not resp.get("IsTruncated"):
-                return times
-            continuation = {"ContinuationToken": resp["NextContinuationToken"]}
+        return {
+            obj["Key"]: obj.get("LastModified")
+            async for page in self._pages(Prefix=prefix)
+            for obj in page.get("Contents", [])
+        }
 
     async def list_recursive(self, prefix: str) -> builtins.list[str]:
         """Full paths of every object anywhere below `prefix`, however many, sorted."""
         prefix = prefix.rstrip("/") + "/"
-        found: builtins.list[str] = []
-        continuation: dict[str, str] = {}
-        while True:
-            resp = await asyncio.to_thread(
-                self._client.list_objects_v2,
-                Bucket=self.settings.bucket,
-                Prefix=prefix,
-                MaxKeys=self.list_page_size,
-                **continuation,
-            )
-            found.extend(obj["Key"] for obj in resp.get("Contents", []))
-            if not resp.get("IsTruncated"):
-                return sorted(found)
-            continuation = {"ContinuationToken": resp["NextContinuationToken"]}
+        return sorted([obj["Key"] async for page in self._pages(Prefix=prefix) for obj in page.get("Contents", [])])
 
     async def delete(self, paths: Sequence[str]) -> None:
         """Remove objects by full path, in batches. Paths that are already gone are not an error."""
@@ -298,7 +274,7 @@ class CaseFileStorage:
         for start in range(0, len(paths_list), self.delete_batch_size):
             batch = paths_list[start : start + self.delete_batch_size]
             try:
-                await asyncio.to_thread(
+                await _run(
                     self._client.delete_objects,
                     Bucket=self.settings.bucket,
                     Delete={"Objects": [{"Key": k} for k in batch], "Quiet": True},

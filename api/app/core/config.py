@@ -18,6 +18,39 @@ class ConfigError(RuntimeError):
     """A required setting is missing or invalid."""
 
 
+def env_int(source: Mapping[str, str], name: str, default: int, *, minimum: int | None = None) -> int:
+    """A whole-number setting; unset or empty gives `default`. Anything else is a ConfigError naming it."""
+    raw = source.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ConfigError(f"{name} must be a whole number") from exc
+    if minimum is not None and value < minimum:
+        raise ConfigError(f"{name} must be at least {minimum}")
+    return value
+
+
+_TRUE_WORDS = frozenset({"1", "true", "yes"})
+_FALSE_WORDS = frozenset({"", "0", "false", "no"})
+
+
+def env_bool(source: Mapping[str, str], name: str) -> bool:
+    """An on/off setting (1/true/yes or 0/false/no/unset); any other word is a ConfigError, never a silent off."""
+    raw = source.get(name, "").strip().lower()
+    if raw in _TRUE_WORDS:
+        return True
+    if raw in _FALSE_WORDS:
+        return False
+    raise ConfigError(f"{name} must be 1 or 0")
+
+
+def env_csv(source: Mapping[str, str], name: str) -> tuple[str, ...]:
+    """A comma-separated list setting, trimmed, empties dropped."""
+    return tuple(part.strip() for part in source.get(name, "").split(",") if part.strip())
+
+
 @dataclass(frozen=True)
 class DatabaseSettings:
     """Connection strings for the restricted roles (ADR 0013). Hidden from repr so they never reach logs.
@@ -147,7 +180,7 @@ def local_mfa_skip(env: Mapping[str, str] | None = None) -> bool:
     """`DEV_SKIP_MFA=1`: local development only, a password sign-in counts as a completed code
     (rule 10 off). Refused unless Auth is a local Supabase, so no deployed cell can turn it on."""
     source = os.environ if env is None else env
-    if source.get("DEV_SKIP_MFA", "").strip().lower() not in ("1", "true"):
+    if not env_bool(source, "DEV_SKIP_MFA"):
         return False
     if urlsplit(source.get("SUPABASE_URL", "").strip()).hostname not in _LOCAL_HOSTS:
         raise ConfigError("DEV_SKIP_MFA is only allowed against a local Supabase")
@@ -275,7 +308,7 @@ def clamd_settings(env: Mapping[str, str] | None = None) -> ClamdSettings:
     if not host:
         raise ConfigError("CLAMD_HOST is not set")
     try:
-        port = int(source.get("CLAMD_PORT", "").strip() or 3310)
+        port = env_int(source, "CLAMD_PORT", 3310, minimum=1)
         timeout_s = float(source.get("CLAMD_TIMEOUT_S", "").strip() or 60)
     except ValueError as exc:
         raise ConfigError("CLAMD_PORT and CLAMD_TIMEOUT_S must be numbers") from exc

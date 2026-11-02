@@ -22,10 +22,14 @@ from html.parser import HTMLParser
 import pikepdf
 from PIL import Image, ImageSequence
 
+from app.core.pdf import is_pdf
+
 PDF = "application/pdf"
 ZIP = "application/zip"
 EMAIL = "message/rfc822"
 DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 UNKNOWN = "application/octet-stream"
 
 PAGED = {PDF, EMAIL, DOCX, "image/jpeg", "image/png", "image/tiff"}
@@ -63,7 +67,7 @@ class Unpacked:
 
 def sniff(data: bytes, filename: str = "") -> str:
     head = data[:64]
-    if b"%PDF-" in data[:1024]:
+    if data.startswith(b"%PDF-"):
         return PDF
     if head.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"
@@ -74,14 +78,19 @@ def sniff(data: bytes, filename: str = "") -> str:
     if head.startswith(b"PK\x03\x04"):
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as z:
-                return DOCX if "word/document.xml" in z.namelist() else ZIP
+                names = set(z.namelist())
+            if "word/document.xml" in names:
+                return DOCX
+            if "xl/workbook.xml" in names:
+                return XLSX
+            return PPTX if "ppt/presentation.xml" in names else ZIP
         except zipfile.BadZipFile:
             return UNKNOWN
     if head.startswith(b"RIFF") and head[8:12] == b"WAVE":
         return "audio/wav"
     if head.startswith(b"RIFF") and head[8:12] == b"AVI ":
         return "video/x-msvideo"
-    if head.startswith((b"ID3", b"\xff\xfb", b"\xff\xf3")):
+    if head.startswith((b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2", b"\xff\xe3")):
         return "audio/mpeg"
     if head.startswith(b"OggS"):
         return "audio/ogg"
@@ -100,6 +109,8 @@ def sniff(data: bytes, filename: str = "") -> str:
         return "video/mp4"
     if data[128:132] == b"DICM":
         return "application/dicom"
+    if is_pdf(data):  # a PDF with a byte-order mark or a lead-in before its marker
+        return PDF
     if filename.lower().endswith(".eml") or _HEADER.match(data[:2048]):
         return EMAIL
     return UNKNOWN

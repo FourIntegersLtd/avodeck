@@ -161,11 +161,19 @@ class RequestLog:
 _REQUEST_KEEP = ("method",)
 
 
+def _denied_keys() -> frozenset[str]:
+    from sentry_sdk.scrubber import DEFAULT_DENYLIST, DEFAULT_PII_DENYLIST
+
+    return frozenset(k.lower() for k in (*DEFAULT_DENYLIST, *DEFAULT_PII_DENYLIST))
+
+
 def _scrub_value(value: Any) -> Any:
+    """Free text scrubbed; whatever sits under a sensitive key (password, token, cookie...) replaced outright."""
     if isinstance(value, str):
         return scrub(value)
     if isinstance(value, dict):
-        return {k: _scrub_value(v) for k, v in value.items()}
+        denied = _denied_keys()
+        return {k: "[Filtered]" if str(k).lower() in denied else _scrub_value(v) for k, v in value.items()}
     if isinstance(value, list):
         return [_scrub_value(v) for v in value]
     return value
@@ -190,6 +198,8 @@ def before_send(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] |
             event[key] = scrub(entry)
     if "contexts" in event:
         event["contexts"] = _scrub_value(event["contexts"])
+    if isinstance(event.get("tags"), dict):  # the SDK's scrubber leaves tags alone
+        event["tags"] = _scrub_value(event["tags"])
     return event
 
 
@@ -201,6 +211,8 @@ def before_breadcrumb(crumb: dict[str, Any], hint: dict[str, Any]) -> dict[str, 
 
 
 def sentry_options(dsn: str, *, environment: str) -> dict[str, Any]:
+    from sentry_sdk.scrubber import EventScrubber
+
     return {
         "dsn": dsn,
         "environment": environment,
@@ -208,6 +220,7 @@ def sentry_options(dsn: str, *, environment: str) -> dict[str, Any]:
         "include_local_variables": False,
         "include_source_context": False,
         "max_request_body_size": "never",
+        "event_scrubber": EventScrubber(recursive=True),
         "before_send": before_send,
         "before_breadcrumb": before_breadcrumb,
         "traces_sample_rate": 0.0,
