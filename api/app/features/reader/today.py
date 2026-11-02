@@ -32,8 +32,10 @@ async def pages_to_read(conn: AsyncConnection, cards: list[CaseCard]) -> list[Ne
     row = await cur.fetchone()
     assert row is not None
     items = []
-    for case_id in await _mine(conn, cards):
-        read, total, seconds_left = await repo.progress(conn, case_id, row[0])
+    mine = await _mine(conn, cards)
+    progress = await repo.progress_many(conn, mine, row[0]) if mine else {}
+    for case_id in mine:
+        read, total, seconds_left = progress[case_id]
         if read < total:
             items.append(
                 NeedsYouItem(

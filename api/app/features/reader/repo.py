@@ -196,6 +196,36 @@ async def progress(conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UU
     return int(row[0]), int(row[1]), round(row[2])
 
 
+async def progress_many(
+    conn: AsyncConnection, case_ids: list[uuid.UUID], person_id: uuid.UUID
+) -> dict[uuid.UUID, tuple[int, int, int]]:
+    """`progress` for many cases in one query: case id -> (pages read, pages, seconds left)."""
+    cur = await conn.execute(
+        """with shown as (select c.id as case_id, p.id, p.source_type from app.cases c
+                    join app.pages p on p.bundle_id = c.bundle_id and not p.quarantined
+                    where c.id = any(%(cases)s)),
+                mine as (select s.case_id, s.source_type, r.page_id, r.dwell_seconds from app.page_reads r
+                         join shown s on s.id = r.page_id where r.person_id = %(person)s),
+                pace as (select case_id, source_type, percentile_cont(0.5) within group (order by dwell_seconds) as m
+                         from mine group by case_id, source_type),
+                overall as (select case_id, percentile_cont(0.5) within group (order by dwell_seconds) as m
+                            from mine group by case_id)
+           select c.id,
+                  (select count(distinct page_id) from mine where mine.case_id = c.id),
+                  (select count(*) from shown where shown.case_id = c.id),
+                  coalesce((select sum(coalesce(pace.m, (select o.m from overall o where o.case_id = c.id),
+                                                %(default)s))
+                            from shown s
+                            left join pace on pace.case_id = s.case_id
+                                          and pace.source_type is not distinct from s.source_type
+                            where s.case_id = c.id
+                              and not exists (select 1 from mine m where m.page_id = s.id)), 0)
+           from app.cases c where c.id = any(%(cases)s)""",
+        {"cases": case_ids, "person": person_id, "default": DEFAULT_SECONDS_PER_PAGE},
+    )
+    return {r[0]: (int(r[1]), int(r[2]), round(r[3])) for r in await cur.fetchall()}
+
+
 def _row(cur: Any, row: tuple[Any, ...]) -> dict[str, Any]:
     return {d.name: v for d, v in zip(cur.description, row, strict=True)}
 

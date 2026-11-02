@@ -9,7 +9,7 @@ import pytest
 
 from app.core.contracts.today import CaseCard, needs_you
 from app.core.db import Database, statement_count
-from app.features.reader import repo
+from app.features.reader import repo, today  # noqa: F401  (registers the provider)
 from tests.support.db import scope_for
 from tests.support.seed import Seed
 
