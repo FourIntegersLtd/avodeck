@@ -37081,6 +37081,7 @@
         "responses": {
           "200": {
             "content": {
+              "application/pdf": {},
               "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {}
             },
             "description": "Successful Response"
@@ -37190,7 +37191,7 @@
     },
     "/v1/cases/{case_id}/transcript/outline": {
       "get": {
-        "description": "The sections and page coverage of the transcript. Interface only: always \"preparing\" until slice B fills it in.",
+        "description": "The sections (with where each starts in the paged list) and the page coverage; counts and labels only.",
         "operationId": "transcript_outline_v1_cases__case_id__transcript_outline_get",
         "parameters": [
           {

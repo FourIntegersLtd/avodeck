@@ -7,6 +7,7 @@ import uuid
 from datetime import date
 
 from docx import Document
+from docx.document import Document as DocumentType
 
 from app.features.reader.transcript import TranscriptEntry
 from app.features.reader.transcript_docx import build
@@ -44,7 +45,7 @@ def _layout() -> Layout:
     )
 
 
-def _doc():
+def _doc() -> DocumentType:
     data = build(_layout(), date_order="DMY", language="en", received={1: date(2020, 3, 9)})
     return Document(io.BytesIO(data))
 
@@ -52,9 +53,9 @@ def _doc():
 def test_parts_in_order_with_not_checked_first() -> None:
     doc = _doc()
     paras = doc.paragraphs
-    assert paras[0].style.name == "Title"
+    assert paras[0].style is not None and paras[0].style.name == "Title"
     assert paras[1].text.startswith("This file has not been checked")
-    heads = [p.text for p in paras if p.style.name.startswith("Heading")]
+    heads = [p.text for p in paras if p.style is not None and p.style.name.startswith("Heading")]
     first = heads.index("First part")
     assert (
         first

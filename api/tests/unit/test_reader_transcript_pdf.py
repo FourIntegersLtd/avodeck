@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import uuid
 from datetime import date
+from typing import Any
 
 from PIL import Image
 from pypdf import PdfReader
@@ -47,12 +48,12 @@ def _layout(lines: list[str] | None = None) -> Layout:
     )
 
 
-def _build(layout: Layout | None = None, pictures=None) -> bytes:
+def _build(layout: Layout | None = None, pictures: Any = None) -> bytes:
     pics = pictures if pictures is not None else [(n, _jpeg()) for n in (1, 2, 3, 4)]
     return build_pdf(layout or _layout(), pics, date_order="DMY", language="en", received={1: date(2020, 3, 9)})
 
 
-def _titles(outline) -> list[str]:
+def _titles(outline: Any) -> list[str]:
     out: list[str] = []
     for item in outline:
         out.extend(_titles(item) if isinstance(item, list) else [item.title])

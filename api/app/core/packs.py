@@ -719,7 +719,9 @@ class MergedPack:
         for name, where, kind in named:
             if kind not in kinds:
                 raise PackError(f"{label}: {name}: {where} names '{kind}', which is not a fact kind")
-        source_keys = {s["key"] for s in self.source_types()}
+        source_keys = {
+            s["key"] for s in self._files.get("sources.yaml", {}).get("source_types", [])
+        }  # even if switched off
         for section in self.transcript_sections():
             for source in section.get("sources", []):
                 if source not in source_keys:

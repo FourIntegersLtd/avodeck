@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 
 import jsonschema_rs
 import pytest
@@ -150,7 +151,7 @@ def test_transcript_sections_fixture_pack(library: packs.PackLibrary) -> None:
     assert keys == ["zz_notes", "zz_rest"]
 
 
-def test_transcript_sections_refuse_unknown_source(tmp_path) -> None:  # noqa: ANN001
+def test_transcript_sections_refuse_unknown_source(tmp_path: Path) -> None:
     launch, fixtures = copy_packs(tmp_path)
     write(
         fixtures / "specialty" / "zz-specialty" / "transcript.yaml",
@@ -160,7 +161,7 @@ def test_transcript_sections_refuse_unknown_source(tmp_path) -> None:  # noqa: A
         packs.load_library(launch, fixtures).combine(*FIXTURE.codes)
 
 
-def test_pack_with_no_transcript_file_has_no_sections(tmp_path) -> None:  # noqa: ANN001
+def test_pack_with_no_transcript_file_has_no_sections(tmp_path: Path) -> None:
     launch, fixtures = copy_packs(tmp_path)
     (fixtures / "specialty" / "zz-specialty" / "transcript.yaml").unlink()
     assert packs.load_library(launch, fixtures).combine(*FIXTURE.codes).transcript_sections() == []

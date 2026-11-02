@@ -330,7 +330,11 @@ async def test_the_word_file_has_sections_in_pack_order(
     client = await client_for(expert)
     job = await build(client, worker_db, admin, world)
     got = await client.get(f"/v1/cases/{case}/transcript/download/{job}")
-    headings = [p.text for p in docx.Document(io.BytesIO(got.content)).paragraphs if p.style.name == "Heading 1"]
+    headings = [
+        p.text
+        for p in docx.Document(io.BytesIO(got.content)).paragraphs
+        if p.style is not None and p.style.name == "Heading 1"
+    ]
     assert headings and headings == sorted(headings, key=headings.index)  # the pack's order, not alphabetical
 
 

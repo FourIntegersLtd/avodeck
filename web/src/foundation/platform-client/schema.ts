@@ -3550,7 +3550,7 @@ export interface paths {
         };
         /**
          * Transcript Outline
-         * @description The sections and page coverage of the transcript. Interface only: always "preparing" until slice B fills it in.
+         * @description The sections (with where each starts in the paged list) and the page coverage; counts and labels only.
          */
         get: operations["transcript_outline_v1_cases__case_id__transcript_outline_get"];
         put?: never;
@@ -23151,6 +23151,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/pdf": unknown;
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
                 };
             };
