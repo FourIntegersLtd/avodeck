@@ -1,13 +1,13 @@
 {
   "kind": "answer",
   "request": {
-    "subject": "3e8e304eb1f9fe88a52ed8c606f0aca6a5f281bf5c7d40c8dc4a4f274e35e191",
+    "subject": "226ce29913471edd67c9195fc988d014fea180ecadeb0874fe65942ea44f0143",
     "task_id": "T-07b"
   },
   "response": {
     "responses": [
       {
-        "input_tokens": 788,
+        "input_tokens": 794,
         "output": {
           "actions_requested_of_clinician": [],
           "availability_evidence": [
@@ -34,7 +34,8 @@
             {
               "clinician_role": null,
               "fields": {
-                "date": "2024-05-10"
+                "date": "2024-05-10",
+                "specialty": "Haematology"
               },
               "kind": "letter",
               "value": "Advice and Guidance response",
@@ -52,7 +53,7 @@
           "references_out": [],
           "source_type": "hospital"
         },
-        "output_tokens": 105
+        "output_tokens": 141
       }
     ]
   }

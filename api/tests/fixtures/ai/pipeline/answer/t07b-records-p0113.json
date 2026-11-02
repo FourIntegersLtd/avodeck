@@ -105,7 +105,7 @@
           "references_out": [],
           "source_type": "primary_care_record"
         },
-        "output_tokens": 253
+        "output_tokens": 378
       },
       {
         "input_tokens": 827,
@@ -206,7 +206,7 @@
           "references_out": [],
           "source_type": "primary_care_record"
         },
-        "output_tokens": 253
+        "output_tokens": 378
       }
     ]
   }

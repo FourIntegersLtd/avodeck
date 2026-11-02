@@ -1,7 +1,7 @@
 {
   "kind": "answer",
   "request": {
-    "subject": "0f591e524191bf42e872a65ed2462c1af216f499ce20d52bd54d00f73b7902d9",
+    "subject": "0ecd1cdec64eee905c6ce8a6cd6632c80593cabcc2c1f6143a65bfb96bfefbf7",
     "task_id": "T-07b"
   },
   "response": {
@@ -21,37 +21,44 @@
             },
             {
               "author_role": null,
-              "first_word_id": "p1w26",
+              "first_word_id": "p1w27",
               "kind": "consultation",
-              "last_word_id": "p1w28",
+              "last_word_id": "p1w29",
               "specialty": null
             },
             {
               "author_role": null,
-              "first_word_id": "p1w35",
+              "first_word_id": "p1w36",
               "kind": "consultation",
-              "last_word_id": "p1w39",
+              "last_word_id": "p1w40",
               "specialty": null
             },
             {
               "author_role": null,
-              "first_word_id": "p1w49",
+              "first_word_id": "p1w48",
               "kind": "consultation",
-              "last_word_id": "p1w52",
+              "last_word_id": "p1w51",
               "specialty": null
             },
             {
               "author_role": null,
-              "first_word_id": "p1w57",
+              "first_word_id": "p1w58",
               "kind": "consultation",
-              "last_word_id": "p1w59",
+              "last_word_id": "p1w60",
               "specialty": null
             },
             {
               "author_role": null,
-              "first_word_id": "p1w64",
+              "first_word_id": "p1w65",
               "kind": "consultation",
-              "last_word_id": "p1w68",
+              "last_word_id": "p1w69",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w77",
+              "kind": "consultation",
+              "last_word_id": "p1w79",
               "specialty": null
             }
           ],
@@ -80,9 +87,9 @@
               "kind": "consultation",
               "value": "BP check 142/88",
               "word_ids": [
-                "p1w26",
                 "p1w27",
-                "p1w28"
+                "p1w28",
+                "p1w29"
               ]
             },
             {
@@ -93,11 +100,11 @@
               "kind": "consultation",
               "value": "L knee pain after fall",
               "word_ids": [
-                "p1w35",
                 "p1w36",
                 "p1w37",
                 "p1w38",
-                "p1w39"
+                "p1w39",
+                "p1w40"
               ]
             },
             {
@@ -108,10 +115,10 @@
               "kind": "consultation",
               "value": "Pill check. BP 118/74",
               "word_ids": [
+                "p1w48",
                 "p1w49",
                 "p1w50",
-                "p1w51",
-                "p1w52"
+                "p1w51"
               ]
             },
             {
@@ -122,9 +129,9 @@
               "kind": "consultation",
               "value": "tired ++. ?anaemia",
               "word_ids": [
-                "p1w57",
                 "p1w58",
-                "p1w59"
+                "p1w59",
+                "p1w60"
               ]
             },
             {
@@ -135,11 +142,24 @@
               "kind": "consultation",
               "value": "FBC nad. TFT TSH 8.9",
               "word_ids": [
-                "p1w64",
                 "p1w65",
                 "p1w66",
                 "p1w67",
-                "p1w68"
+                "p1w68",
+                "p1w69"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "1988-01-18"
+              },
+              "kind": "consultation",
+              "value": "URTI. chest clear",
+              "word_ids": [
+                "p1w77",
+                "p1w78",
+                "p1w79"
               ]
             }
           ],
@@ -155,7 +175,7 @@
           "references_out": [],
           "source_type": "primary_care_record"
         },
-        "output_tokens": 317
+        "output_tokens": 566
       }
     ]
   }
