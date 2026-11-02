@@ -1,8 +1,12 @@
-// A page's picture for S09 and S10: the bytes FastAPI streams become an object URL (no base64 copy of the page in
+// A page's picture for the reader and the consultation page: the bytes FastAPI streams become an object URL (no base64 copy of the page in
 // memory), and the last few pages are kept so flipping back does not fetch and decrypt the page again.
 // Nothing is written to disk and nothing outlives the tab: the server's no-store stays honoured.
-import { api, unwrap } from "../../foundation/platform-client";
-import { forgetBundlePages } from "./bundlePages";
+import { api, unwrap } from "../platform-client";
+// Other caches that belong to the same case (the bundle page list) register here to be released together.
+const forgetters = new Set<() => void>();
+export function onForgetPages(fn: () => void): void {
+  forgetters.add(fn);
+}
 
 /** How many pages are kept; a page picture is a few hundred KB, so this stays small. */
 export const KEEP_PAGES = 6;
@@ -61,7 +65,7 @@ export function forgetPages() {
   for (const page of kept.values()) release(page);
   kept.clear();
   forgetSmallPages();
-  forgetBundlePages();
+  for (const fn of forgetters) fn();
 }
 
 /** Releases one kept page, so the next look fetches it again (after it was turned or replaced). */

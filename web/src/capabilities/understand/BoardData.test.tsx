@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { forgetPages } from "./pageImage";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import { consultation, event, FACT_1, FACT_2, FACT_3, finding, findingsReply, inCase, launchWords, Q_2, timeline } from "./testing";
 
 function serveTimeline(body = timeline()) {
@@ -54,9 +54,9 @@ describe("S11 lanes", () => {
     const seen = serveTimeline();
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
     await user.click(await screen.findByRole("button", { name: /^Question:/ }));
-    const pills = screen.getByRole("group", { name: "Linked to" });
+    const pills = screen.getByRole("menu", { name: "Linked to" });
     expect(screen.queryByText("Question 2 only")).not.toBeInTheDocument();
-    await user.click(await within(pills).findByRole("button", { name: "Q2" }));
+    await user.click(await within(pills).findByRole("menuitemcheckbox", { name: "Q2" }));
     expect(await screen.findByText("Question 2 only")).toBeInTheDocument();
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("question_id")).toBe(Q_2));
     await user.click(screen.getByRole("button", { name: "Show every question" }));

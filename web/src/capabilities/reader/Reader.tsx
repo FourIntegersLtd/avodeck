@@ -2,19 +2,18 @@
 // the suggestions (blind read, rule 3: the page asks for them after the read and shows none on a 423).
 // Every action sends the version it loaded (If-Match). The server decides; this screen shows.
 import { createPortal } from "react-dom";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorAction, errorMessage, type ErrorAction } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LinkButton, LoadError, Loading, Notice, PageRef, ProgressBar, turnBy, usePageView, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "../../foundation/ui";
+import { Button, LoadError, Loading, Menu, MenuItem as MenuRow, MenuLink, MenuSection, Notice, PageRef, ProgressBar, SplitDivider, turnBy, usePageView, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "../../foundation/ui";
 import { casePath, count, periodRange, sourceLabel } from "./data";
 import { dateFieldKey, suggestTimelineDate } from "./timelineDate";
 import { allowed, editableFields, FactCard, fieldTypes } from "./FactCard";
 import { FactList } from "./FactList";
-import { loadSplitPct, saveSplitPct } from "./splitPane";
-import { SplitDivider } from "./SplitDivider";
+import { loadSplitPct, MAX_SPLIT_PCT, MIN_SPLIT_PCT, saveSplitPct } from "./splitPane";
 import { BundleSearch, SearchMarks } from "./BundleSearch";
 import { Highlights } from "./Highlights";
 import { MyNotes } from "./MyNotes";
@@ -27,19 +26,6 @@ import { inPageOrder, TypedWordToggles, WordToggles, type PageWord } from "./Wor
 import { w } from "./words";
 import { ChevronIcon, EyeIcon, SidebarIcon, FindIcon, FullScreenIcon, SlidersIcon, TickIcon, TurnIcon, ViewIcon } from "./icons";
 
-/** The browser has the Popover API (the View menu then sits in the top layer, above the bar and the page). */
-const POPOVER = typeof HTMLElement !== "undefined" && "showPopover" in HTMLElement.prototype;
-
-/** One row of the View menu: a plain button, an icon on the left, a tick on the right while it is on. */
-function MenuItem({ icon, on, children, ...rest }: { icon: ReactNode; on?: boolean; children: ReactNode; disabled?: boolean; onClick?: () => void; "aria-expanded"?: boolean; "aria-controls"?: string }) {
-  return (
-    <Button variant="secondary" className="rd-menu__item" {...(on === undefined ? {} : { "aria-pressed": on })} {...rest}>
-      <span className="rd-menu__icon">{icon}</span>
-      <span className="rd-menu__text">{children}</span>
-      <span className="rd-menu__tick">{on ? <TickIcon /> : null}</span>
-    </Button>
-  );
-}
 
 type Fact = Schemas["FactOut"];
 type Action = "correct" | "not_right" | "edit";
@@ -118,22 +104,6 @@ function FirstUnread({ caseId }: { caseId: string }) {
   return <Navigate to={`/cases/${caseId}/read/${first.data.pages[0]?.page_no ?? 1}`} replace />;
 }
 
-/** Where the browser cannot anchor the menu to View: right-aligned under it, up when there is no room below. */
-function placeMenu(el: HTMLElement, button: HTMLElement | null) {
-  if (!button || window.innerWidth <= 900) {
-    el.style.top = el.style.left = el.style.maxHeight = "";
-    return;
-  }
-  const r = button.getBoundingClientRect();
-  const gap = 8;
-  const below = window.innerHeight - r.bottom - gap * 2;
-  const above = r.top - gap * 2;
-  const down = below >= Math.min(el.scrollHeight, 480) || below >= above;
-  el.style.maxHeight = `${Math.max(160, down ? below : above)}px`;
-  const height = Math.min(el.scrollHeight, el.offsetHeight || el.scrollHeight);
-  el.style.top = `${down ? r.bottom + gap : Math.max(gap, r.top - gap - height)}px`;
-  el.style.left = `${Math.min(Math.max(gap, r.right - el.offsetWidth), window.innerWidth - el.offsetWidth - gap)}px`;
-}
 
 const typing = (t: EventTarget | null) => {
   const el = t as HTMLElement | null;
@@ -200,7 +170,6 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   const [keys, setKeys] = useState(false);
   const [stripHidden, setStripHidden] = useState(loadStripHidden);
   const toggleStrip = useCallback(() => setStripHidden((h) => { saveStripHidden(!h); return !h; }), []);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   const loadFacts = useCallback(async () => {
     try {
@@ -514,10 +483,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   }
 
   /** A tool from More tools: do it, close the panel, and keep the keyboard on the More tools button. */
-  const pick = (run: () => void) => () => {
-    run();
-    closeMore();
-  };
+  const pick = (run: () => void) => () => run();
   function openKeys() {
     setMore(true);
     setKeys(true);
@@ -532,56 +498,6 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
     document.getElementById("rd-more-button")?.focus();
   }
 
-  // Without the Popover API a click outside closes the menu; with it the browser does that (and Escape).
-  useEffect(() => {
-    if (!more || POPOVER) return;
-    const away = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (!menuRef.current?.contains(t) && !document.getElementById("rd-more-button")?.contains(t)) setMore(false);
-    };
-    document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
-  }, [more]);
-
-  const pageLoaded = detail.data !== undefined;
-  // Keep the browser's popover and the menu's state in step (the browser closes it on Escape or an outside click).
-  useEffect(() => {
-    const el = menuRef.current;
-    if (!el || !POPOVER) return;
-    const sync = (e: Event) => setMore((e as Event & { newState?: string }).newState === "open");
-    el.addEventListener("toggle", sync);
-    return () => el.removeEventListener("toggle", sync);
-  }, [pageLoaded]);
-
-  // Show or hide the popover, place it where CSS anchoring is missing, and put focus on the first item.
-  useLayoutEffect(() => {
-    const el = menuRef.current;
-    if (!el) return;
-    if (POPOVER) {
-      try {
-        const shown = el.matches(":popover-open");
-        if (more && !shown) el.showPopover();
-        if (!more && shown) el.hidePopover();
-      } catch {
-        /* already in the right state */
-      }
-      if (more && typeof CSS !== "undefined" && !CSS.supports("position-anchor: --rd-view")) placeMenu(el, document.getElementById("rd-more-button"));
-    }
-    if (more) el.querySelector<HTMLElement>("button:not(:disabled), a")?.focus();
-  }, [more]);
-
-  function onMenuKey(e: ReactKeyboardEvent<HTMLDivElement>) {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      closeMore();
-    }
-    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>("button:not(:disabled), a"));
-    const at = items.indexOf(document.activeElement as HTMLElement);
-    const next = e.key === "ArrowDown" ? (at + 1) % items.length : (at <= 0 ? items.length - 1 : at - 1);
-    items[next]?.focus();
-    e.preventDefault();
-  }
 
   // Opening the sliders from the menu puts the keyboard on them.
   useEffect(() => {
@@ -743,6 +659,60 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   const sourceColour = (pack.source_types as Array<{ key: string; colour?: string }>).find((s) => s.key === page.source_type)?.colour;
   const readCount = progress.data ? count(progress.data.read, pack.locale) : "";
 
+  // The View menu: the shared Menu (a real `role="menu"`), so no bar or page can clip or cover it.
+  const viewMenu = (
+    <Menu
+      label={w("read.more_tools")}
+      open={more}
+      onOpenChange={(o) => {
+        setMore(o);
+        if (!o) setKeys(false);
+      }}
+      onCloseFocus={(e) => clearer && e.preventDefault()}
+      triggerId="rd-more-button"
+      triggerClassName="av-button av-button--secondary rd-tool rd-view__more"
+      noChevron
+      trigger={
+        <>
+          <ViewIcon />
+          {w("read.more_tools")}
+          <ChevronIcon dir={more ? "up" : "down"} />
+        </>
+      }
+    >
+      {canTurn && (
+        <MenuSection label={w("read.more.turning")}>
+          <MenuRow icon={<TurnIcon />} onClick={pick(() => turnPage(-90))}>{w("read.turn_left")}</MenuRow>
+          <MenuRow icon={<TurnIcon />} onClick={pick(() => turnPage(180))}>{w("read.upside_down")}</MenuRow>
+          <MenuRow icon={<TurnIcon />} disabled={turnsBefore.length === 0} onClick={pick(undoTurn)}>{w("read.undo_turn")}</MenuRow>
+        </MenuSection>
+      )}
+      <MenuSection label={w("read.more.size")}>
+        <MenuRow icon={<ViewIcon />} pressed={view.fit === "width"} onClick={pick(() => setFit("width"))}>{w("read.fit_width")}</MenuRow>
+        <MenuRow icon={<ViewIcon />} pressed={view.fit === "page"} onClick={pick(() => setFit("page"))}>{w("read.whole_page")}</MenuRow>
+      </MenuSection>
+      <MenuSection label={w("read.more.view")}>
+        <MenuRow icon={<ViewIcon />} pressed={tools.twoPages} onClick={pick(() => setTools((t) => ({ ...t, twoPages: !t.twoPages })))}>{w("read.two_pages")}</MenuRow>
+        <MenuRow icon={<ViewIcon />} disabled={busy} onClick={pick(() => void askClearerCopy())}>{w("read.clearer")}</MenuRow>
+        <MenuRow icon={<SlidersIcon />} onClick={pick(() => setClearer(true))}>{w("read.clearer_view")}</MenuRow>
+      </MenuSection>
+      <MenuSection label={w("read.more.page")}>
+        <MenuLink icon={<ChevronIcon dir="right" />} to={`/cases/${caseId}/bundle/not-this-patient?page=${pageNo}`}>{w("read.not_patient")}</MenuLink>
+        <MenuRow icon={<ChevronIcon dir={keys ? "up" : "down"} />} keepOpen aria-expanded={keys} aria-controls="rd-keys" onClick={() => setKeys((o) => !o)}>{w("read.keys.heading")}</MenuRow>
+        {keys && (
+          <div id="rd-keys" className="rd-keys" role="group" aria-label={w("read.keys.heading")}>
+            <p className="rd-hints">
+              <span><kbd>C</kbd> {w("read.keys.correct")}</span>
+              <span><kbd>N</kbd> {w("read.keys.not_right")}</span>
+              <span><kbd>→</kbd> {w("read.keys.next")}</span>
+            </p>
+            <p>{w("read.keys.more")}</p>
+          </div>
+        )}
+      </MenuSection>
+    </Menu>
+  );
+
   return (
     <div className={tools.full ? "rd rd--full" : "rd"}>
       {page.in_period && (
@@ -830,21 +800,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
               {w("read.clearer_on")}
             </Button>
           )}
-          <Button
-            id="rd-more-button"
-            variant="secondary"
-            className="rd-tool rd-view__more"
-            aria-expanded={more}
-            aria-controls="rd-more"
-            {...({ popovertarget: "rd-more" } as object)}
-            onClick={() => {
-              if (!POPOVER) setMore((o) => !o);
-            }}
-          >
-            <ViewIcon />
-            {w("read.more_tools")}
-            <ChevronIcon dir={more ? "up" : "down"} />
-          </Button>
+          {viewMenu}
           <Button variant="secondary" className="rd-tool rd-view__full" aria-pressed={tools.full} aria-label={w(tools.full ? "read.leave_full_screen" : "read.full_screen")} onClick={() => setFull(!tools.full)}>
             <FullScreenIcon leave={tools.full} />
           </Button>
@@ -954,7 +910,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
           </div>
         </section>
 
-        <SplitDivider workRef={workRef} value={splitPct} onChange={setSplitPct} onCommit={saveSplitPct} />
+        <SplitDivider areaRef={workRef} value={splitPct} min={MIN_SPLIT_PCT} max={MAX_SPLIT_PCT} label={w("read.resize_split")} className="rd-split" onChange={setSplitPct} onCommit={saveSplitPct} />
 
         <aside className="rd-side" aria-label={w("read.found")}>
           {notice && <Notice tone="error">{notice}</Notice>}
@@ -985,52 +941,6 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
           {canNote ? <MyNotes caseId={caseId} pageNo={pageNo} trailing={hardLink} /> : hardLink && <div className="rd-notes"><div className="rd-notes__line">{hardLink}</div></div>}
         </aside>
       </div>
-
-      {/* The View menu: a plain list of buttons in the browser's top layer, so no bar or page can clip or cover it. */}
-      {(POPOVER || more) && <div id="rd-more" ref={menuRef} className="rd-menu" role="group" aria-label={w("read.more_tools")} onKeyDown={onMenuKey} {...({ popover: "auto" } as object)}>
-        {more && (
-          <>
-            {canTurn && (
-              <div className="rd-menu__group" role="group" aria-labelledby="rd-more-turning">
-                <p id="rd-more-turning" className="rd-more__head">{w("read.more.turning")}</p>
-                <MenuItem icon={<TurnIcon />} onClick={pick(() => turnPage(-90))}>{w("read.turn_left")}</MenuItem>
-                <MenuItem icon={<TurnIcon />} onClick={pick(() => turnPage(180))}>{w("read.upside_down")}</MenuItem>
-                <MenuItem icon={<TurnIcon />} disabled={turnsBefore.length === 0} onClick={pick(undoTurn)}>{w("read.undo_turn")}</MenuItem>
-              </div>
-            )}
-            <div className="rd-menu__group" role="group" aria-labelledby="rd-more-size">
-              <p id="rd-more-size" className="rd-more__head">{w("read.more.size")}</p>
-              <MenuItem icon={<ViewIcon />} on={view.fit === "width"} onClick={pick(() => setFit("width"))}>{w("read.fit_width")}</MenuItem>
-              <MenuItem icon={<ViewIcon />} on={view.fit === "page"} onClick={pick(() => setFit("page"))}>{w("read.whole_page")}</MenuItem>
-            </div>
-            <div className="rd-menu__group" role="group" aria-labelledby="rd-more-view">
-              <p id="rd-more-view" className="rd-more__head">{w("read.more.view")}</p>
-              <MenuItem icon={<ViewIcon />} on={tools.twoPages} onClick={pick(() => setTools((t) => ({ ...t, twoPages: !t.twoPages })))}>{w("read.two_pages")}</MenuItem>
-              <MenuItem icon={<ViewIcon />} disabled={busy} onClick={pick(() => void askClearerCopy())}>{w("read.clearer")}</MenuItem>
-              <MenuItem icon={<SlidersIcon />} onClick={pick(() => setClearer(true))}>{w("read.clearer_view")}</MenuItem>
-            </div>
-            <div className="rd-menu__group" role="group" aria-labelledby="rd-more-page">
-              <p id="rd-more-page" className="rd-more__head">{w("read.more.page")}</p>
-              <LinkButton variant="secondary" className="rd-menu__item" to={`/cases/${caseId}/bundle/not-this-patient?page=${pageNo}`}>
-                <span className="rd-menu__icon"><ChevronIcon dir="right" /></span>
-                <span className="rd-menu__text">{w("read.not_patient")}</span>
-                <span className="rd-menu__tick" />
-              </LinkButton>
-              <MenuItem icon={<ChevronIcon dir={keys ? "up" : "down"} />} aria-expanded={keys} aria-controls="rd-keys" onClick={() => setKeys((o) => !o)}>{w("read.keys.heading")}</MenuItem>
-              {keys && (
-                <div id="rd-keys" className="rd-keys" role="group" aria-label={w("read.keys.heading")}>
-                  <p className="rd-hints">
-                    <span><kbd>C</kbd> {w("read.keys.correct")}</span>
-                    <span><kbd>N</kbd> {w("read.keys.not_right")}</span>
-                    <span><kbd>→</kbd> {w("read.keys.next")}</span>
-                  </p>
-                  <p>{w("read.keys.more")}</p>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>}
 
       <footer className="rd-foot">
         <Button variant="secondary" className="rd-foot__prev" arrow="back" disabled={pageNo <= 1} onClick={() => go(pageNo - 1)}>

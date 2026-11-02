@@ -290,6 +290,19 @@ describe("the side panel", () => {
     expect(router.state.location.search).not.toContain("entry=");
   });
 
+  test("Escape that a dialog or menu already handled does not close the panel", async () => {
+    inCase("launch");
+    serve();
+    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
+    await user.click(await screen.findByRole("button", { name: /Consultation · 15 May 2024/ }));
+    await screen.findByRole("complementary", { name: "The entry you opened" });
+    const handled = (e: KeyboardEvent) => e.preventDefault();
+    document.addEventListener("keydown", handled, true);
+    await user.keyboard("{Escape}");
+    document.removeEventListener("keydown", handled, true);
+    expect(screen.getByRole("complementary", { name: "The entry you opened" })).toBeInTheDocument();
+  });
+
   test("an address with an entry opens it straight away", async () => {
     inCase("launch");
     serve();
@@ -379,16 +392,16 @@ describe("filters", () => {
     const seen = serve();
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
     await user.click(await screen.findByRole("button", { name: /^Show:/ }));
-    const menu = screen.getByRole("group", { name: "Show" });
-    expect(within(menu).getByRole("button", { name: "Everything" })).toHaveAttribute("aria-pressed", "true");
-    expect(within(menu).getByRole("button", { name: "Checked by you 2" })).toBeInTheDocument();
-    await user.click(within(menu).getByRole("button", { name: "Please check 1" }));
+    const menu = screen.getByRole("menu", { name: "Show" });
+    expect(within(menu).getByRole("menuitemcheckbox", { name: "Everything" })).toHaveAttribute("aria-checked", "true");
+    expect(within(menu).getByRole("menuitemcheckbox", { name: "Checked by you 2" })).toBeInTheDocument();
+    await user.click(within(menu).getByRole("menuitemcheckbox", { name: "Please check 1" }));
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("status")).toBe("suggested"));
     await user.click(screen.getByRole("button", { name: /^Show:/ }));
-    await user.click(screen.getByRole("button", { name: "Thing to look at 1" }));
+    await user.click(screen.getByRole("menuitemcheckbox", { name: "Thing to look at 1" }));
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("only")).toBe("things_to_look"));
     await user.click(screen.getByRole("button", { name: /^Show:/ }));
-    await user.click(screen.getByRole("button", { name: "Not linked to a question 1" }));
+    await user.click(screen.getByRole("menuitemcheckbox", { name: "Not linked to a question 1" }));
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("only")).toBe("not_linked"));
     expect(seen.at(-1)!.searchParams.get("status")).toBeNull();
   });
@@ -398,10 +411,10 @@ describe("filters", () => {
     serve(timeline({ status_options: ["verified", "not_linked"], counts: { checked: 2, please_check: 0, things_to_look: 0, not_linked: 1, undated: 0, total: 2 } }));
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
     await user.click(await screen.findByRole("button", { name: /^Show:/ }));
-    const menu = screen.getByRole("group", { name: "Show" });
-    expect(within(menu).getByRole("button", { name: "Checked by you 2" })).toBeInTheDocument();
-    expect(within(menu).queryByRole("button", { name: /^Please check/ })).not.toBeInTheDocument();
-    expect(within(menu).queryByRole("button", { name: /^Thing to look at/ })).not.toBeInTheDocument();
+    const menu = screen.getByRole("menu", { name: "Show" });
+    expect(within(menu).getByRole("menuitemcheckbox", { name: "Checked by you 2" })).toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitemcheckbox", { name: /^Please check/ })).not.toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitemcheckbox", { name: /^Thing to look at/ })).not.toBeInTheDocument();
   });
 
   test("the Question menu sends the question", async () => {
@@ -409,9 +422,9 @@ describe("filters", () => {
     const seen = serve();
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
     await user.click(await screen.findByRole("button", { name: /^Question:/ }));
-    const menu = screen.getByRole("group", { name: "Linked to" });
-    expect(within(menu).getByRole("button", { name: "Any question" })).toHaveAttribute("aria-pressed", "true");
-    await user.click(await within(menu).findByRole("button", { name: "Q2" }));
+    const menu = screen.getByRole("menu", { name: "Linked to" });
+    expect(within(menu).getByRole("menuitemcheckbox", { name: "Any question" })).toHaveAttribute("aria-checked", "true");
+    await user.click(await within(menu).findByRole("menuitemcheckbox", { name: "Q2" }));
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("question_id")).toBe(Q_2));
   });
 

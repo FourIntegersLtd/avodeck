@@ -5,7 +5,7 @@
 import { screen, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { registerScreen } from "../../foundation/lib/screens";
-import { forgetPages } from "./pageImageCache";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import { launchPack } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
 import { CASE_ID, fact } from "./testData";

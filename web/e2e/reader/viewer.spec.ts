@@ -40,7 +40,8 @@ async function expectAligned(page: Page, turn: number) {
 async function moreTool(page: Page, name: string) {
   const more = page.getByRole("toolbar", { name: "Page view" }).getByRole("button", { name: "View" });
   if ((await more.getAttribute("aria-expanded")) !== "true") await more.click();
-  await page.getByRole("group", { name: "View", exact: true }).first().getByRole("button", { name, exact: true }).click();
+  const menu = page.getByRole("menu", { name: "View", exact: true });
+  await menu.getByRole("menuitem", { name, exact: true }).or(menu.getByRole("menuitemcheckbox", { name, exact: true })).click();
 }
 
 async function openRead(page: Page) {
@@ -148,14 +149,14 @@ for (const size of [{ width: 1280, height: 800 }, { width: 1024, height: 700 }])
       await stubReader(page, PACKS[0]!.pack);
       await openRead(page);
       await page.getByRole("toolbar", { name: "Page view" }).getByRole("button", { name: "View" }).click();
-      const menu = page.getByRole("group", { name: "View", exact: true }).first();
+      const menu = page.getByRole("menu", { name: "View", exact: true });
       await expect(menu).toBeVisible();
       const box = (await menu.boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.y).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(size.width);
       expect(box.y + box.height).toBeLessThanOrEqual(size.height);
-      const last = menu.getByRole("button").last();
+      const last = menu.locator("[role^=menuitem]").last();
       await last.scrollIntoViewIfNeeded();
       const r = (await last.boundingBox())!;
       const topmost = await last.evaluate((el, [x, y]) => {

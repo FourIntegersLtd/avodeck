@@ -1,7 +1,7 @@
 // Screen 10, another reading of a page (T-10): asked for by the expert, shown beside the page to check, never merged.
 import { screen } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { forgetPages } from "./pageImageCache";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchPack } from "../../test/fixtures";
 import { CASE_ID } from "./testData";

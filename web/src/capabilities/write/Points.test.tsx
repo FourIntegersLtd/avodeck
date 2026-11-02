@@ -45,7 +45,7 @@ test("moving a point sends the side and the version you saw", async () => {
   const { user } = renderAt(`${url}?q=${Q1}`);
   const column = await screen.findByRole("region", { name: sides("launch")[0]!.label });
   await user.click(within(column).getByRole("button", { name: M["write.points.more"]! }));
-  await user.click(await screen.findByRole("button", { name: `Move to ${sides("launch")[1]!.label}` }));
+  await user.click(await screen.findByRole("menuitem", { name: `Move to ${sides("launch")[1]!.label}` }));
   await waitFor(() => expect(sent).toContainEqual({ method: "PATCH", path: expect.stringMatching(/\/points\//), body: { side: "supports_clinician" }, ifMatch: '"1"' }));
 });
 
@@ -62,7 +62,7 @@ test("removing a point asks for a short reason first", async () => {
   server.use(http.patch("/v1/cases/:caseId/points/:id", async ({ request }) => (await record(request), ok(pointOut({ status: "dismissed", version: 2 }), 2))));
   const { user } = renderAt(`${url}?q=${Q1}`);
   await user.click(await screen.findByRole("button", { name: M["write.points.more"]! }));
-  await user.click(await screen.findByRole("button", { name: M["write.points.remove"]! }));
+  await user.click(await screen.findByRole("menuitem", { name: M["write.points.remove"]! }));
   const dialog = await screen.findByRole("dialog", { name: M["write.points.remove_title"] });
   await user.click(within(dialog).getByRole("button", { name: M["write.points.remove_confirm"]! }));
   expect(sent).toEqual([]);

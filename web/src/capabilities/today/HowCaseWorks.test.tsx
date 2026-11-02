@@ -47,6 +47,15 @@ test("exactly one step shows at a time and Next and Back move one step", async (
   expect(within(dialog).getByRole("heading", { level: 3, name: "Prepare" })).toBeInTheDocument();
 });
 
+test("browser shortcuts that use the arrow keys (Alt+Left is Back) do not step the walkthrough", async () => {
+  const { trigger, user } = await emptyCases();
+  await user.click(trigger);
+  const dialog = screen.getByRole("dialog");
+  await user.keyboard("{Alt>}{ArrowRight}{/Alt}");
+  await user.keyboard("{Control>}{ArrowRight}{/Control}");
+  expect(within(dialog).getByText("Step 1 of 5")).toBeInTheDocument();
+});
+
 test("the arrow keys step too", async () => {
   const { trigger, user } = await emptyCases();
   await user.click(trigger);

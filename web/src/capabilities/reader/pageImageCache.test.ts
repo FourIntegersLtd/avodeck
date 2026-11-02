@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { http, HttpResponse, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
-import { KEEP_PAGES, forgetPage, forgetPages, pageImage } from "./pageImageCache";
+import { KEEP_PAGES, forgetPage, forgetPages, pageImage } from "../../foundation/lib/pageImageCache";
 
 let made = 0;
 const fetched: number[] = [];

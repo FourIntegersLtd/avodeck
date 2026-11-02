@@ -9,7 +9,7 @@ import { useStepUp } from "../../foundation/lib/stepUp";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LinkButton, LoadError, Loading, Notice, ProgressBar } from "../../foundation/ui";
 import { count } from "./data";
-import { smallPageImage } from "./pageImageCache";
+import { smallPageImage } from "../../foundation/lib/pageImageCache";
 import { w } from "./words";
 
 type Entry = Schemas["TranscriptEntryOut"];

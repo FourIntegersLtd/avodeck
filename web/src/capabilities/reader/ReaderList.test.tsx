@@ -4,7 +4,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { launchPack } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
-import { forgetPages } from "./pageImageCache";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import { forgetSearch } from "./search";
 import { CASE_ID, fact, factId } from "./testData";
 import { mockReader } from "./testing";

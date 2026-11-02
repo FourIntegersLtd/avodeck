@@ -1,7 +1,7 @@
 // Save change always answers: the reason shows right under the button, and a badly read page has a way out.
 import { screen, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
-import { forgetPages } from "./pageImageCache";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import { launchPack } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
 import { CASE_ID, fact, queuePage } from "./testData";

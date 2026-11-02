@@ -205,10 +205,10 @@
 
 /* S13: decided findings folded into one line each. */
 .av-understand-folded { padding: 0; }
-.av-understand-folded > summary { display: flex; align-items: center; gap: var(--space-3); min-height: var(--button-min-height); padding: 0 var(--space-5); cursor: pointer; list-style: none; }
-.av-understand-folded > summary::-webkit-details-marker { display: none; }
+.av-understand-folded__head { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: var(--space-3); min-height: var(--button-min-height); padding: 0 var(--space-5); cursor: pointer; }
+.av-understand-folded__head:focus-visible { outline: 3px solid var(--green); outline-offset: -3px; border-radius: inherit; }
 .av-understand-folded__title { flex: 1; font-weight: 700; }
-.av-understand-folded > article { border: 0; box-shadow: none; }
+.av-understand-folded article { border: 0; box-shadow: none; }
 .av-understand-finding__icon { display: inline-flex; }
 .av-story-pin { position: absolute; top: -4px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; box-sizing: border-box; background: var(--surface); border: 2px dashed var(--ink-soft); pointer-events: none; }
 .av-story-pin[data-state="look"] { background: var(--amber-tint); border: 2.5px solid var(--amber-bright); }

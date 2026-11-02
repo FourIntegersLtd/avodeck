@@ -3,7 +3,7 @@
 // Save and next never greys out silently: it says why it cannot save yet.
 import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
-import { forgetPages } from "./pageImageCache";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import { launchPack } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
 import { CASE_ID, queuePage } from "./testData";

@@ -2,6 +2,7 @@
 // block of 1,000 at a time and are kept for a few minutes, so turning pages does not ask for them again.
 import { useEffect, useState } from "react";
 import { api, unwrap } from "../../foundation/platform-client";
+import { onForgetPages } from "../../foundation/lib/pageImageCache";
 
 export interface Listed {
   page_no: number;
@@ -44,6 +45,7 @@ export function noteRead(caseId: string, pageNo: number) {
 export function forgetBundlePages() {
   kept.clear();
 }
+onForgetPages(forgetBundlePages);
 
 /** The bundle's pages, or null while they load (or when they could not be loaded). */
 export function useBundlePages(caseId: string): Listed[] | null {

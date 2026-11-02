@@ -41,6 +41,7 @@ function Walkthrough({ keys, onClose }: { keys: string[]; onClose: () => void })
     if (!body.current?.contains(document.activeElement)) body.current?.querySelector<HTMLElement>("[data-primary]")?.focus();
   }, [index]);
   const onKey = (e: KeyboardEvent) => {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.defaultPrevented) return; // browser shortcuts such as Alt+Left (Back)
     if (e.key === "ArrowRight") go(index + 1);
     if (e.key === "ArrowLeft") go(index - 1);
   };

@@ -6,7 +6,7 @@ import { describe, expect, test, vi } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { forgetPages } from "./pageImage";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import { comment, consultation, entry, FACT_1, FACT_2, FACT_3, inCase, launchWords, type PackRun } from "./testing";
 
 function serve(body = consultation()) {

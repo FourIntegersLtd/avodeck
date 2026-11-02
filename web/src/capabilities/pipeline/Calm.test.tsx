@@ -44,9 +44,9 @@ describe("Preparing, calm", () => {
     const { container, user } = renderAt(`/cases/${CASE_ID}/preparing`);
     await screen.findByRole("heading", { level: 1 });
     expect(primaries(container)).toHaveLength(0);
-    expect(screen.queryByRole("button", { name: "Stop preparing" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Stop preparing" })).toBeNull();
     await user.click(await screen.findByRole("button", { name: "More" }));
-    expect(screen.getByRole("button", { name: "Stop preparing" })).toBeVisible();
+    expect(screen.getByRole("menuitem", { name: "Stop preparing" })).toBeVisible();
   });
 
   test("with nothing started, Start preparing is the one primary button", async () => {
@@ -69,9 +69,9 @@ describe("Ask for what's missing, calm", () => {
     const { container, user } = renderAt(`/cases/${CASE_ID}/bundle/ask`);
     await screen.findByRole("button", { name: "Edit the email" });
     expect(primaries(container)).toHaveLength(1);
-    expect(screen.queryByRole("button", { name: "Copy the text" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Copy the text" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "More" }));
-    expect(screen.getByRole("button", { name: "Copy the text" })).toBeVisible();
+    expect(screen.getByRole("menuitem", { name: "Copy the text" })).toBeVisible();
   });
 });
 

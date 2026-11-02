@@ -7,7 +7,7 @@ import { LinkButton, Notice, PageRef, PageViewer, StatusMark } from "../../found
 import { useHighlight } from "./highlight";
 import { QuestionToggle } from "./QuestionChip";
 import { axisIso, entryHref, statusOf, useKindWord } from "./shared";
-import { pageImage } from "./pageImage";
+import { pageImage } from "../../foundation/lib/pageImageCache";
 import { dateMark, entryLabel, entryName } from "./TimelineBoard";
 import { w } from "./words";
 
@@ -79,7 +79,8 @@ export function TimelineInspector({
 
   useEffect(() => {
     const close = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      // A dialog or menu in front has already used this Escape.
+      if (e.key === "Escape" && !e.defaultPrevented) onClose();
     };
     document.addEventListener("keydown", close);
     return () => document.removeEventListener("keydown", close);

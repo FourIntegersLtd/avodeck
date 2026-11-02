@@ -4,6 +4,19 @@ import { afterAll, afterEach, beforeAll, beforeEach, expect } from "vitest";
 import { resetScreens } from "../foundation/lib/screens";
 import { server } from "./server";
 
+// jsdom has no layout engine: the few browser calls Radix's menus make are stubbed.
+if (typeof window !== "undefined") {
+  window.ResizeObserver ??= class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+  Element.prototype.hasPointerCapture ??= () => false;
+  Element.prototype.setPointerCapture ??= () => {};
+  Element.prototype.releasePointerCapture ??= () => {};
+  Element.prototype.scrollIntoView ??= () => {};
+}
+
 // CI runs every file in parallel under coverage, where a screen can take over the 1 s default to settle.
 configure({ asyncUtilTimeout: 5000 });
 

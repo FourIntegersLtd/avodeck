@@ -6,7 +6,7 @@ import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
 import { byName, expectBusyOnce, hold } from "./busyTesting";
-import { forgetPages } from "./pageImage";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import { comment, consultation, entry, FACT_1, FACT_2, FACT_3, finding, inCase, link, Q_2, timeline } from "./testing";
 
 vi.setConfig({ testTimeout: 20_000 });

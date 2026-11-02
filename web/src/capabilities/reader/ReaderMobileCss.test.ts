@@ -37,7 +37,8 @@ describe("reader on a phone", () => {
 
   test("page view and menu caps use dvh with a vh fallback first", () => {
     expect(mobile).toMatch(/max-height:\s*55vh;\s*max-height:\s*55dvh/);
-    expect(mobile).toMatch(/max-height:\s*75vh;\s*max-height:\s*75dvh/);
+    const shared = readFileSync("src/foundation/ui/styles.css", "utf8");
+    expect(shared).toMatch(/\.av-menu \{[^}]*max-height:\s*75vh;\s*max-height:\s*75dvh/);
   });
 
   test("notes are not sticky on a phone", () => {

@@ -3,7 +3,7 @@
 // timeline date and as the date detail, so the server never gets the date as written back (it refuses it).
 import { screen, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
-import { forgetPages } from "./pageImageCache";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
 import { CASE_ID, fact } from "./testData";
