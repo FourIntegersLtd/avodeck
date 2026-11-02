@@ -253,6 +253,9 @@ class ProcessingCancelled(BaseModel):
 
 class ProcessingRetried(BaseModel):
     requeued: int  # failed processing jobs put back on the queue; 0 when nothing had failed
+    blocked: bool | None = (
+        None  # true only when a failed job was left alone: another is running and holds the case's lock
+    )
 
 
 class ReplaceAsk(BaseModel):

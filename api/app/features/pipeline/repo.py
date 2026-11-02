@@ -1344,6 +1344,7 @@ async def mark_requested(
     return [r[0] for r in await cur.fetchall()]
 
 
+LIVE_MINUTES = 30  # a running job unchanged for this long is taken for an orphan
 BUNDLE_JOBS = ("process_bundle", "process_pages", "reprocess_case")
 
 
@@ -1355,7 +1356,8 @@ async def latest_processing(
     cur = await conn.execute(
         "select id, kind, status, step, pct, eta_seconds, step_done, step_total, error_code, updated_at"
         " from app.jobs where case_id = %s and kind = any(%s)"
-        " order by (status = 'running') desc, created_at desc, id desc limit 1",
+        f" order by (status = 'running' and updated_at > now() - interval '{LIVE_MINUTES} minutes') desc,"
+        " created_at desc, id desc limit 1",
         (case_id, list(kinds)),
     )
     row = await cur.fetchone()
@@ -1406,9 +1408,11 @@ async def failed_job_ids(
 
 
 async def has_live_bundle_job(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
-    """A bundle job is running now: it holds the case's lock, so a job queued behind it only waits."""
+    """A bundle job is running now: it holds the case's lock, so a job queued behind it only waits. A
+    'running' row untouched for `LIVE_MINUTES` is an orphan (its worker died) and does not count."""
     cur = await conn.execute(
-        "select exists (select 1 from app.jobs where case_id = %s and kind = any(%s) and status = 'running')",
+        "select exists (select 1 from app.jobs where case_id = %s and kind = any(%s) and status = 'running'"
+        f" and updated_at > now() - interval '{LIVE_MINUTES} minutes')",
         (case_id, list(BUNDLE_JOBS)),
     )
     row = await cur.fetchone()

@@ -665,7 +665,7 @@ async def cancel_processing(
     return ProcessingCancelled(cancelled=cancelled)
 
 
-@pipeline_router.post("/{case_id}/process/retry", response_model=ProcessingRetried)
+@pipeline_router.post("/{case_id}/process/retry", response_model=ProcessingRetried, response_model_exclude_none=True)
 async def retry_processing(
     case_id: uuid.UUID,
     access: Annotated[CaseAccess, Depends(require_case_access("case.upload"))],
@@ -676,16 +676,19 @@ async def retry_processing(
     registry = wiring.registry()
     kinds = (SCAN_DOCUMENT, PROCESS_BUNDLE, PROCESS_PAGES, REPROCESS_CASE)
     requeued = 0
-    if await repo.has_live_bundle_job(conn, case_id):
-        return ProcessingRetried(requeued=0)  # it holds the case's lock: a job queued now could only wait
+    live = await repo.has_live_bundle_job(conn, case_id)
+    blocked = False
     for job_id, name in await repo.failed_job_ids(conn, case_id, kinds):
         kind = registry.kinds[name]
+        if live and kind.changes_case:
+            blocked = True  # the running job holds the case's lock: a job queued now could only wait
+            continue
         priority = INTERACTIVE_PRIORITY if kind.interactive else BATCH_PRIORITY
         if await repo.requeue_failed(conn, job_id, registry.queue, priority, kind.changes_case):
             requeued += 1
     if requeued:
         await audit.record(conn, action="bundle.processing_retried", target=f"case:{case_id}", case_id=case_id)
-    return ProcessingRetried(requeued=requeued)
+    return ProcessingRetried(requeued=requeued, blocked=True if blocked else None)
 
 
 @pipeline_router.post("/{case_id}/reprocess", status_code=202, response_model=JobQueued)

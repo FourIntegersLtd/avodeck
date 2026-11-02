@@ -13954,6 +13954,17 @@
       },
       "ProcessingRetried": {
         "properties": {
+          "blocked": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked"
+          },
           "requeued": {
             "title": "Requeued",
             "type": "integer"

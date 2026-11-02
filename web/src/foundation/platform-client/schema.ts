@@ -10359,6 +10359,8 @@ export interface components {
         };
         /** ProcessingRetried */
         ProcessingRetried: {
+            /** Blocked */
+            blocked?: boolean | null;
             /** Requeued */
             requeued: number;
         };

@@ -30,6 +30,7 @@ const WORDS = {
   "preparing.changed_other": "Last change {{n}} minutes ago.",
   "preparing.stuck_one": "Nothing has changed for {{n}} minute. If it stays like this, try again.",
   "preparing.stuck_other": "Nothing has changed for {{n}} minutes. If it stays like this, try again.",
+  "preparing.nothing_to_restart": "Your bundle is still being worked on, so there was nothing to restart. You can leave this page; we'll email you when it's ready.",
   "preparing.count": "{{done}} of {{total}}",
   "preparing.progress": "{{pct}}% of your bundle done",
   "preparing.kept": "Your original files are kept exactly as you sent them.",

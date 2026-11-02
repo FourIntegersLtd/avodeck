@@ -42,6 +42,7 @@ export function Preparing() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [stopped, setStopped] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [nothingRestarted, setNothingRestarted] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const uploads = can(item, "case.upload");
   const [now, setNow] = useState(() => Date.now());
@@ -105,8 +106,9 @@ export function Preparing() {
     setBusy(true);
     setActionError(null);
     try {
-      await unwrap(api.POST("/v1/cases/{case_id}/process/retry", casePath(caseId)));
+      const { requeued } = await unwrap(api.POST("/v1/cases/{case_id}/process/retry", casePath(caseId)));
       setStopped(false);
+      setNothingRestarted(requeued === 0 && job?.status !== "failed");
       await check();
     } catch (error) {
       setActionError(errorMessage(error, OWN));
@@ -165,6 +167,7 @@ export function Preparing() {
         {(size || left) && <p className="pl-lead">{[size, left].filter(Boolean).join(" ")}</p>}
       </header>
       {actionError && <Notice tone="error"><p>{actionError}</p></Notice>}
+      {nothingRestarted && <Notice><p>{w("preparing.nothing_to_restart")}</p></Notice>}
       {stopped && <Notice><p>{w("preparing.stopped")}</p></Notice>}
       {job === null && !stopped && <Notice><p>{w("preparing.nothing")}</p></Notice>}
       {job?.status === "paused" && (
