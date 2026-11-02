@@ -2,6 +2,7 @@
 // labelled select.
 import { useEffect, useId, useState, type SelectHTMLAttributes } from "react";
 import { hasMessage, humanise, t } from "../../foundation/i18n";
+import { DEFAULT_LOCALE, formatDay, parseDay } from "../../foundation/i18n/dates";
 import { useSession } from "../../foundation/lib/session";
 
 export const versionTag = (version: number | string) => `"${version}"`;
@@ -31,66 +32,37 @@ export function useWaiting(reload: () => void, signal: unknown) {
 }
 
 export function useLocale(): string {
-  return useSession().me.person.locale || "en-GB";
+  return useSession().me.person.locale || DEFAULT_LOCALE;
 }
 
 /** A calendar day (YYYY-MM-DD) or a moment, as "28 November 2026". Days are the court's own; they never shift. */
-export function longDate(value: string, locale: string): string {
-  const day = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00Z`) : new Date(value);
-  try {
-    return new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(day);
-  } catch {
-    return value;
-  }
-}
-
-function onDay(value: string): Date {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00Z`) : new Date(value);
-}
+export const longDate = (value: string, locale: string): string => formatDay(value, locale, "long");
 
 /** "28 Nov". */
-export function shortDate(value: string, locale: string): string {
-  try {
-    return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(onDay(value));
-  } catch {
-    return value;
-  }
-}
+export const shortDate = (value: string, locale: string): string => formatDay(value, locale, "short");
 
 /** "14–16 Jun 2027": a run of days, or the one day when it starts and ends together. */
 export function dateRange(from: string, to: string, locale: string): string {
   try {
     const f = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-    if (from === to) return f.format(onDay(from));
-    const a = f.formatToParts(onDay(from));
-    const b = f.formatToParts(onDay(to));
+    if (from === to) return f.format(parseDay(from));
+    const a = f.formatToParts(parseDay(from));
+    const b = f.formatToParts(parseDay(to));
     const part = (parts: Intl.DateTimeFormatPart[], type: string) => parts.find((p) => p.type === type)?.value ?? "";
     if (part(a, "month") === part(b, "month") && part(a, "year") === part(b, "year")) {
-      return f.formatToParts(onDay(from)).map((p) => (p.type === "day" ? `${part(a, "day")}–${part(b, "day")}` : p.value)).join("");
+      return a.map((p) => (p.type === "day" ? `${part(a, "day")}–${part(b, "day")}` : p.value)).join("");
     }
-    return `${f.format(onDay(from))} – ${f.format(onDay(to))}`;
+    return `${f.format(parseDay(from))} – ${f.format(parseDay(to))}`;
   } catch {
     return `${from} – ${to}`;
   }
 }
 
 /** "Saturday 19 December". */
-export function weekdayDate(value: string, locale: string): string {
-  try {
-    return new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(onDay(value)).replace(",", "");
-  } catch {
-    return value;
-  }
-}
+export const weekdayDate = (value: string, locale: string): string => formatDay(value, locale, "weekday");
 
 /** "1 December": the day and month without the year. */
-export function dayMonth(value: string, locale: string): string {
-  try {
-    return new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", timeZone: "UTC" }).format(onDay(value));
-  } catch {
-    return value;
-  }
-}
+export const dayMonth = (value: string, locale: string): string => formatDay(value, locale, "dayMonth");
 
 /** The words for a pack key under `after_serving.<group>.`, else the key in plain words. */
 export function keyName(group: string, key: string): string {
