@@ -295,6 +295,13 @@ class TranscriptList(BaseModel):
     entries: list[TranscriptEntryOut]
     picture_pages: list[int] = []  # pages with no entries: read by opening the picture
     unread_pages: list[int] = []  # pages the computer could not read: read by opening the picture
+    # While the record is not ready (counts only, never text):
+    prepared_pages: int = 0  # pages whose entries have been read (or failed)
+    total_pages: int = 0
+    extracted_pages: int = 0  # pages the pipeline has read
+    waiting_for: Literal["pipeline", "entries"] | None = None  # what the wait is on
+    pipeline_running: bool = False
+    can_prepare: bool = True  # this person's visit starts the work (needs page.read)
 
 
 class TranscriptFileIn(BaseModel):

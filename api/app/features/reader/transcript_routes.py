@@ -16,7 +16,13 @@ from fastapi.responses import StreamingResponse
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, require_case_access
-from app.core.contracts.record_entries import entries_ready, entries_status, request_entries
+from app.core.contracts.record_entries import (
+    entries_progress,
+    entries_ready,
+    entries_status,
+    pipeline_running,
+    request_entries,
+)
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn
@@ -62,11 +68,23 @@ async def transcript_entries(
 ) -> TranscriptList:
     if not await entries_ready(conn, case_id):
         status = await entries_status(conn, case_id)
+        can_prepare = "page.read" in access.allowed_actions  # others do not start the work
         # A failed job is not queued again by a poll; the reader asks again (`/transcript/retry`).
-        if status == "idle" and "page.read" in access.allowed_actions:  # others do not start the work
-            await request_entries(conn, case_id)  # queues once; nothing while one is waiting
+        if status == "idle" and can_prepare:
+            await request_entries(conn, case_id)  # queues once, and not while pages await the pipeline
             status = await entries_status(conn, case_id)
-        return TranscriptList(status=status, total=0, entries=[])
+        progress = await entries_progress(conn, case_id)
+        return TranscriptList(
+            status=status,
+            total=0,
+            entries=[],
+            prepared_pages=progress.entries_done,
+            total_pages=progress.total,
+            extracted_pages=progress.extracted,
+            waiting_for="pipeline" if progress.extracted < progress.total else "entries",
+            pipeline_running=await pipeline_running(conn, case_id),
+            can_prepare=can_prepare,
+        )
     crypto: CaseCrypto = request.app.state.crypto
     library: PackLibrary = request.app.state.packs
     got = await transcript.entries(conn, crypto, library, case_id, offset=offset, limit=limit)
