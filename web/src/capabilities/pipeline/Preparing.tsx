@@ -19,9 +19,11 @@ const SCAN = "scan_document";
 // The steps that handle every page, so a finished one shows the bundle's page count.
 const COUNTED = new Set(["split", "ocr"]);
 const POLL_MS = 3000;
+const STUCK_MINUTES = 10; // no change for this long: say so plainly and offer to try again
+const TICK_MS = 30_000;
 
 type Job = Schemas["ProcessingJob"];
-type Update = Partial<Pick<Job, "status" | "step" | "pct" | "eta_seconds" | "error_code">>;
+type Update = Partial<Pick<Job, "status" | "step" | "pct" | "eta_seconds" | "error_code" | "step_done" | "step_total">>;
 
 const finished = (status: string | undefined) => status === "done" || status === "failed" || status === "cancelled";
 const eventsUrl = (jobId: string) => `${apiOrigin()}/v1/jobs/${jobId}/events`;
@@ -42,6 +44,11 @@ export function Preparing() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const uploads = can(item, "case.upload");
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), TICK_MS);
+    return () => window.clearInterval(id);
+  }, []);
 
   const check = useCallback(async () => {
     const { job: latest } = await unwrap(api.GET("/v1/cases/{case_id}/process", casePath(caseId)));
@@ -55,7 +62,11 @@ export function Preparing() {
   }, [caseId, navigate]);
 
   const onUpdate = (update: Update) => {
-    setJob((prev) => (prev ? { ...prev, ...update } : prev));
+    setJob((prev) => {
+      if (!prev) return prev;
+      const changed = (["status", "step", "pct", "step_done"] as const).some((k) => k in update && update[k] !== prev[k]);
+      return { ...prev, ...update, ...(changed ? { updated_at: new Date().toISOString() } : {}) };
+    });
     if (update.status === "done") void check().catch(() => setLoadFailed(true));
   };
 
@@ -131,6 +142,10 @@ export function Preparing() {
   const size = files ? wn("preparing.size", files, pack.locale, { pages: new Intl.NumberFormat(pack.locale).format(info.data?.pages ?? 0) }) : "";
   const left = running && job.eta_seconds != null ? wn("preparing.left", Math.max(1, Math.ceil(job.eta_seconds / 60)), pack.locale) : "";
   const current = job ? (job.status === "done" ? STEPS.length : STEPS.indexOf(job.step as (typeof STEPS)[number])) : -1;
+  const queued = job?.status === "queued";
+  const changedAt = job?.updated_at ? Date.parse(job.updated_at) : NaN;
+  const idleMinutes = running && !Number.isNaN(changedAt) ? Math.max(0, Math.floor((now - changedAt) / 60_000)) : null;
+  const stuck = idleMinutes != null && idleMinutes >= STUCK_MINUTES;
   const questions = screenPath("questions", { caseId });
 
   const stopButton =
@@ -171,7 +186,22 @@ export function Preparing() {
           <Button onClick={start} disabled={busy}>{w("preparing.start")}</Button>
         </div>
       )}
-      {job && (
+      {queued && (
+        <Notice>
+          <div className="pl-waiting"><Spinner /><p>{w("preparing.waiting")}</p></div>
+        </Notice>
+      )}
+      {running && idleMinutes != null && (
+        <p className="pl-lead">
+          {stuck ? wn("preparing.stuck", idleMinutes, pack.locale) : idleMinutes < 1 ? w("preparing.changed_now") : wn("preparing.changed", idleMinutes, pack.locale)}
+        </p>
+      )}
+      {stuck && uploads && (
+        <div className="pl-actions">
+          <Button variant="secondary" onClick={retry} disabled={busy}>{w("preparing.again")}</Button>
+        </div>
+      )}
+      {job && !queued && (
         <ol className="av-card pl-steps" aria-label={w("preparing.steps")}>
           {STEPS.map((step, i) => {
             const state = i < current ? "done" : i === current ? "current" : "waiting";
