@@ -529,7 +529,7 @@ def _entries_of(
 
 
 async def _extract(ctx: JobContext, services: PipelineServices) -> int:
-    """Extracts every page waiting for it, in batches of up to `extraction_batch_size` pages (never more than `extract.MAX_PAGES_PER_CALL`) sent to
+    """Extracts every page waiting for it, in batches of up to `extract.pages_per_call` pages sent to
     the model in one call (one call per batch, not per page, to stay inside the account-wide Bedrock
     on-demand throughput ceiling). Returns how many pages were extracted.
 
