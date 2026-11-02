@@ -15,17 +15,17 @@ function toIso(y: number, m: number, d: number): string {
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-function pickPastCentury(day: number, month: number, yy: number, anchor: Date): string | null {
-  const options: Date[] = [];
+/** The latest of 19yy and 20yy (a real calendar day) that is not after `anchor` (YYYY-MM-DD). Compared as text: ISO days sort. */
+function pickPastCentury(day: number, month: number, yy: number, anchor: string): string | null {
+  const options: string[] = [];
   for (const base of [1900, 2000]) {
-    const got = new Date(base + yy, month - 1, day);
-    if (got.getFullYear() !== base + yy || got.getMonth() !== month - 1 || got.getDate() !== day) continue;
-    const atMidnight = new Date(got.getFullYear(), got.getMonth(), got.getDate());
-    if (atMidnight <= anchor) options.push(atMidnight);
+    const year = base + yy;
+    const got = new Date(Date.UTC(year, month - 1, day));
+    if (got.getUTCFullYear() !== year || got.getUTCMonth() !== month - 1 || got.getUTCDate() !== day) continue;
+    const iso = toIso(year, month, day);
+    if (iso <= anchor) options.push(iso);
   }
-  if (options.length === 0) return null;
-  const best = options.reduce((a, b) => (a > b ? a : b));
-  return toIso(best.getFullYear(), best.getMonth() + 1, best.getDate());
+  return options.length ? options.sort().pop()! : null;
 }
 
 /** Value for `<input type="date">` when setting the timeline date from the record. */
@@ -43,7 +43,7 @@ export function suggestTimelineDate(fact: Schemas["FactOut"], pack: Schemas["Cas
   const month = order === "MDY" ? Number(m[1]) : Number(m[2]);
   const yearPart = m[3]!;
   if (yearPart.length === 4) return toIso(Number(yearPart), month, day);
-  const anchor = new Date();
-  anchor.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const anchor = toIso(now.getFullYear(), now.getMonth() + 1, now.getDate());
   return pickPastCentury(day, month, Number(yearPart), anchor) ?? "";
 }
