@@ -237,7 +237,8 @@ async def test_a_failed_jobs_waiting_slot_does_not_block_a_live_job(
     )
     admin.execute("update app.jobs set last_granted_at = now() - interval '10 minutes' where id = %s", (live,))
     admin.execute(
-        "insert into app.ai_request_slots (job_id, case_id, requested_at) values (%s, %s, now() - interval '5 minutes')",
+        "insert into app.ai_request_slots (job_id, case_id, requested_at)"
+        " values (%s, %s, now() - interval '5 minutes')",
         (dead, case),
     )
     admin.commit()
