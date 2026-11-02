@@ -1017,7 +1017,7 @@ Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for s
 |---|---|---|
 | M1 Layout OCR | ~1,270 pages + LOI and other documents | T-07a, T-06, T-14c, T-20a, T-22a |
 | M2 Read OCR | ~4,000 pages (court bundle) + other expert's report | T-21b, T-23 |
-| M3 Sonnet 5 | ~13 (batches of up to 100 pages) + ~100–300 smaller calls | T-07b and everything else |
+| M3 Sonnet 5 | ~80–90 (batches of up to 10 pages; a cut-off batch is split in half and asked again) + ~100–300 smaller calls | T-07b and everything else |
 | M4 Opus 5.5 | ~10–60 | T-14c, T-21c, T-22c |
 | M5 Vision | ~30–130 pages (low-confidence handwriting only) | T-10 |
 | M6 Speech | 3–5 hours of audio | T-DICT |
@@ -1045,7 +1045,7 @@ Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for s
 2. **Text layer or OCR:** for each page, check for a usable embedded text layer (born-digital hospital letters, discharge summaries, results). If present, read words and their boxes directly with pypdfium2, give them `word_ids` in `ocr_words` like any OCR output, and skip Azure; set `pages.text_source = 'embedded'`. Treat the layer as unusable (send to OCR) if it is empty, mostly non-dictionary characters, or covers only part of a page that also contains an image of text (scans with a stamped header). Everything else goes to Azure DI Layout (UK South), bounded concurrency, `text_source = 'ocr'`. Embedded-text pages get confidence 1.0 and are never sent to screen 10 for unreadable text. Docling and other local layout models are not used (see decision 0009).
 3. **Triage:** confidence + OCR/VLM disagreement → screen 10; Claude vision fallback with identifier boxes masked.
 4. **PII stripping:** Presidio + case dictionary (dates kept).
-5. **Classification + event extraction:** Sonnet 5 calls batching up to `AiSettings.extraction_batch_size` pages per call (default 100; page-keyed request/response, each page's word IDs scoped to that page) with cached system prompt + JSON schema, returning source type, clinical and availability dates, and facts with OCR word IDs.
+5. **Classification + event extraction:** Sonnet 5 calls batching up to `AiSettings.extraction_batch_size` pages per call (default 10, never more than 10; page-keyed request/response, each page's word IDs scoped to that page) with cached system prompt + JSON schema, returning source type, clinical and availability dates, and facts with OCR word IDs.
 6. **Deterministic verification:** value-in-span, date normalisation in the pack's date order, schema validation; one retry, then "needs human". A page that passes all of that but still ends up with too little extracted (no kept facts, or kept facts/entries covering under half its countable words) is also flagged "needs human" (`no_facts` / `low_coverage`), unless it already has a reason from OCR or the words check.
 7. **Case-level passes:** dedup, missing references, gaps, anomaly rules, availability computation.
 8. **Indexing:** Supabase Postgres full-text + pgvector; timeline view.

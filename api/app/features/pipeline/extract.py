@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import difflib
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import cache
@@ -37,6 +38,8 @@ from app.core.packs import MergedPack
 from app.features.pipeline import dates
 
 TASK_ID = "T-07b"
+logger = logging.getLogger(__name__)
+
 PROMPT_VERSION = "2026-11-01.1"  # batched, multi-page prompt (page-keyed output, see output_schema)
 MODEL_ROLE = "sonnet"
 AVAILABILITY = ("received", "filed", "seen", "sent_to_clinician")
@@ -51,6 +54,8 @@ MAX_PAGES_PER_CALL = 10
 
 
 def pages_per_call(configured: int) -> int:
+    if configured > MAX_PAGES_PER_CALL:
+        logger.warning("extraction batch size %d is above the output limit; using %d", configured, MAX_PAGES_PER_CALL)
     return max(1, min(configured, MAX_PAGES_PER_CALL))
 
 

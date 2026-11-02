@@ -569,34 +569,46 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         askable = [(page_id, page_no) for page_id, page_no in batch if loaded[page_id].stored]
         answers: dict[int, Mapping[str, Any]] = {}
         asked = False
-        if askable:
+
+        async def ask_pages(group: Sequence[tuple[uuid.UUID, int]]) -> dict[int, Mapping[str, Any]]:
+            """One call for the group, asked twice if a page failed provenance. A group with no usable answer
+            at all (cut off at the output limit) is split in half and each half asked again, down to single
+            pages, so one oversized answer never costs the pages their extraction."""
             # A lone page keeps its own subject (`_load_page`'s `page_subject(ordered)`), so a batch of
             # one page can still replay a recording made before batching existed; a real batch's subject
             # is the hash of its pages' own subjects, in order.
             subject = (
-                loaded[askable[0][0]].subject
-                if len(askable) == 1
-                else page_subject((str(page_no), loaded[page_id].subject) for page_id, page_no in askable)
+                loaded[group[0][0]].subject
+                if len(group) == 1
+                else page_subject((str(page_no), loaded[page_id].subject) for page_id, page_no in group)
             )
+            found: dict[int, Mapping[str, Any]] = {}
             for _ in range(2):
-                asked = True
                 raw = await _ask(
                     ctx,
                     services,
                     task,
                     pack,
                     who,
-                    extract.batch_text([(page_no, loaded[page_id].text) for page_id, page_no in askable]),
+                    extract.batch_text([(page_no, loaded[page_id].text) for page_id, page_no in group]),
                     subject,
                 )
-                answers = extract.pages_of(raw) if raw is not None else {}
+                found = extract.pages_of(raw) if raw is not None else {}
+                if not found and len(group) > 1:
+                    half = len(group) // 2
+                    return {**await ask_pages(group[:half]), **await ask_pages(group[half:])}
                 ok = raw is not None and all(
-                    page_no in answers
-                    and not extract.sort_facts(answers[page_no], loaded[page_id].texts, loaded[page_id].struck).refused
-                    for page_id, page_no in askable
+                    page_no in found
+                    and not extract.sort_facts(found[page_no], loaded[page_id].texts, loaded[page_id].struck).refused
+                    for page_id, page_no in group
                 )
                 if ok:
                     break
+            return found
+
+        if askable:
+            asked = True
+            answers = await ask_pages(askable)
         for page_id, page_no in batch:
             loaded_page = loaded[page_id]
             stored, size_, latest, texts = (
