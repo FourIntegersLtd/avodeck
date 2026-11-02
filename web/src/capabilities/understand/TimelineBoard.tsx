@@ -15,6 +15,7 @@ import { DateMarkIcon, LaneIcon } from "./laneIcons";
 import { axisIso, kindWord, longDate, useKindWord } from "./shared";
 import { axisMarks, dayMs, foldChips, groupByDay, layoutLane, levelFor, type Level, type StoryGroup } from "./storyLayout";
 import { w, type WordKey } from "./words";
+import { formatDay } from "../../foundation/i18n/dates";
 
 type Event = Schemas["Event"];
 type Lane = Schemas["Timeline"]["lanes"][number];
@@ -24,8 +25,7 @@ export type BoardData = { lanes: Lane[]; unplaced: Event[]; sources?: Source[]; 
 
 const DEFAULT_WIDTH = 960;
 
-const SHORT_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
-const shortDay = (iso: string) => SHORT_DAY.format(new Date(`${iso}T00:00:00Z`));
+const shortDay = (iso: string) => formatDay(iso, undefined, "short");
 
 /** "Result · 19 February 2024": what an entry is called everywhere on this screen. */
 export const entryLabel = (e: Event, word: (kind: string) => string = kindWord) => w("timeline.card_label", { kind: word(e.kind), date: longDate(axisIso(e)) });

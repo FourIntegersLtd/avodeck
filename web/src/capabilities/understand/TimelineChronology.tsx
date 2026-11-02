@@ -7,10 +7,10 @@ import type { ChronologyEntry } from "./chronologyEntries";
 import { axisIso, statusOf, useKindWord } from "./shared";
 import { entryLabel } from "./TimelineBoard";
 import { w } from "./words";
+import { formatDay } from "../../foundation/i18n/dates";
 
 type Event = Schemas["Event"];
 
-const MONTH_YEAR = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 
 function byMonth(entries: ChronologyEntry[]): { key: string; title: string; rows: ChronologyEntry[] }[] {
   const out: { key: string; title: string; rows: ChronologyEntry[] }[] = [];
@@ -19,7 +19,7 @@ function byMonth(entries: ChronologyEntry[]): { key: string; title: string; rows
     const key = iso ? iso.slice(0, 7) : "none";
     let group = out.at(-1);
     if (!group || group.key !== key) {
-      group = { key, title: iso ? MONTH_YEAR.format(new Date(`${key}-01T00:00:00Z`)) : w("common.no_date"), rows: [] };
+      group = { key, title: iso ? formatDay(`${key}-01`, undefined, "monthYear") : w("common.no_date"), rows: [] };
       out.push(group);
     }
     group.rows.push(e);
