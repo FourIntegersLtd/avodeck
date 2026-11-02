@@ -23,7 +23,8 @@ import pytest
 from app.core.contracts.reading import page_read_log
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
-from app.core.packs import Pack, default_library
+from app.core.packs import MergedPack as Pack
+from app.core.packs import default_library
 from app.features.reader import repo, transcript
 from tests.support.contracts import add_fact
 from tests.support.db import scope_for

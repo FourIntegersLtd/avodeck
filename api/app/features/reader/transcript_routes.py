@@ -28,6 +28,8 @@ from app.features.reader import transcript, transcript_jobs
 from app.features.reader.router import router
 from app.features.reader.schemas import (
     JobOut,
+    OutlineCoverage,
+    OutlineSection,
     RetryOut,
     SeenIn,
     SeenOut,
@@ -81,8 +83,22 @@ async def transcript_entries(
 
 @router.get("/transcript/outline", response_model=TranscriptOutline)
 async def transcript_outline(case_id: uuid.UUID, request: Request, access: View, conn: DbConn) -> TranscriptOutline:
-    """The sections and page coverage. Interface only: always "preparing" until the real outline is built."""
-    return TranscriptOutline(status="preparing")
+    """The sections (with where each starts in the paged list) and the page coverage; counts and labels only."""
+    if not await entries_ready(conn, case_id):
+        return TranscriptOutline(status=await entries_status(conn, case_id))  # asking never queues work
+    library: PackLibrary = request.app.state.packs
+    got = await transcript.outline(conn, library, case_id)
+    return TranscriptOutline(
+        status="ready",
+        sections=[OutlineSection(key=k, label=lb, count=c, offset=o) for k, lb, c, o in got.sections],
+        coverage=OutlineCoverage(
+            total_pages=got.total_pages,
+            with_entries=got.with_entries,
+            no_entries=got.no_entries,
+            unreadable=got.unreadable,
+            set_aside=got.set_aside,
+        ),
+    )
 
 
 @router.post("/transcript/retry", status_code=202, response_model=RetryOut)

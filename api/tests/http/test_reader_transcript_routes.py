@@ -23,7 +23,7 @@ from fastapi import FastAPI
 
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
-from app.core.packs import Pack
+from app.core.packs import MergedPack as Pack
 from app.features.reader import transcript
 from tests.support.files import build_app
 from tests.support.seed import Seed
@@ -80,7 +80,7 @@ async def test_entries_are_listed_without_any_fact(
     assert entry["page_no"] == 1 and entry["lines"] == ["hello there"] and entry["event_date"] == "2020-01-02"
     assert set(entry) == {
         "id", "page_no", "kind", "kind_label", "folded", "author_role", "author_label", "specialty", "event_date",
-        "date_basis", "lines", "results", "result_labels",
+        "date_basis", "lines", "results", "result_labels", "section",
     }  # fmt: skip
     assert body["picture_pages"] == []
 

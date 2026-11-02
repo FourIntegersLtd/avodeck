@@ -10,7 +10,7 @@ from datetime import date
 from types import SimpleNamespace
 from typing import Any, cast
 
-from app.core.packs import Pack
+from app.core.packs import MergedPack as Pack
 from app.features.reader.transcript import TranscriptEntry
 from app.features.reader.transcript_layout import (
     ALL_KEY,
