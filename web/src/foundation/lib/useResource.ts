@@ -42,9 +42,11 @@ export function useResource<T>(load: () => Promise<T>, key: unknown[], options?:
     queryClient,
   );
   const failed = q.isError;
-  const data = failed ? undefined : q.data;
+  // A refusal (4xx, e.g. 423) hides what was shown; a network or server fault on a background reload keeps it.
+  const refused = q.error instanceof ApiError && q.error.status >= 400 && q.error.status < 500;
+  const data = failed && refused ? undefined : q.data;
   const loading = q.isFetching && (data === undefined || q.isPlaceholderData || reloading);
-  const error = failed && !loading ? (q.error instanceof ApiError ? q.error : new ApiError(0, "server_error")) : undefined;
+  const error = failed && data === undefined && !loading ? (q.error instanceof ApiError ? q.error : new ApiError(0, "server_error")) : undefined;
   return {
     data,
     error,

@@ -2,7 +2,8 @@
 // and is not asked for again for 30 seconds. Memory only: nothing here outlives the tab.
 //
 // What keeps it from showing the wrong thing:
-// - only successful answers are shown (useResource hides data once a load fails);
+// - only successful answers are shown (useResource hides data once a load is refused; a network or server
+//   fault on a background reload keeps what is already shown);
 // - a change to one case (POST, PUT, PATCH, DELETE on /v1/cases/{id}/...) drops that case's answers and
 //   Today; any other change, an ended session and a different person signed in empty everything.
 import { notifyManager, QueryClient } from "@tanstack/react-query";
@@ -16,7 +17,7 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       gcTime: 600_000,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false, // a reload the person did not ask for must never replace what they are typing in
       // One more try for a network or server fault; an answer like 423 or 404 is final.
       retry: (count, error) => count < 1 && !(error instanceof ApiError && error.status >= 400 && error.status < 500),
     },
@@ -57,13 +58,15 @@ const CASE_PATH = /^\/v1\/cases\/([^/]+)(\/|$)/;
 function onChange({ path }: { path: string }): void {
   const caseId = CASE_PATH.exec(path)?.[1];
   if (!caseId || path === "/v1/cases") return clearResourceCache();
-  void queryClient.invalidateQueries({
-    refetchType: "none", // screens on show reload themselves; the rest refetch when next shown
-    predicate: (q) => {
-      const [name, ...args] = q.queryKey as unknown[];
-      return args.includes(caseId) || (typeof name === "string" && /today/i.test(name));
-    },
-  });
+  const affected = (q: { queryKey: readonly unknown[] }): boolean => {
+    const [name, ...args] = q.queryKey;
+    // Today, the credit balance and messages carry no case id but change with a case.
+    return args.includes(caseId) || (typeof name === "string" && /today|balance|messages/i.test(name));
+  };
+  const invalidate = () => void queryClient.invalidateQueries({ refetchType: "none", predicate: affected }); // screens on show reload themselves; the rest refetch when next shown
+  invalidate();
+  // A read already on its way may show the state from before this change: drop it, then mark stale again.
+  void queryClient.cancelQueries({ predicate: affected }).then(invalidate);
 }
 
 onMutation(onChange);
