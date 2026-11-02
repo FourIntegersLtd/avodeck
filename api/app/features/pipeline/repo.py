@@ -1359,7 +1359,18 @@ async def latest_processing(
         (case_id, list(kinds)),
     )
     row = await cur.fetchone()
-    names = ("id", "kind", "status", "step", "pct", "eta_seconds", "step_done", "step_total", "error_code", "updated_at")
+    names = (
+        "id",
+        "kind",
+        "status",
+        "step",
+        "pct",
+        "eta_seconds",
+        "step_done",
+        "step_total",
+        "error_code",
+        "updated_at",
+    )
     return None if row is None else dict(zip(names, row, strict=True))
 
 
