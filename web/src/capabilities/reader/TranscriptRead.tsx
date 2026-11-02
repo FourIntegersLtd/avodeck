@@ -41,10 +41,12 @@ interface WaitProps {
   /** Determinate progress, when the server can count: the line and the numbers. */
   counted?: { label: string; value: number; max: number };
   onRetry?: () => void;
+  /** Where to look when it is slow and there is nothing to retry. */
+  progressTo?: string;
 }
 
 /** A spinner with honest progress: a count when the server has one, else how long it has been working. */
-function WaitNotice({ words, counted, onRetry }: WaitProps) {
+function WaitNotice({ words, counted, onRetry, progressTo }: WaitProps) {
   const ms = useElapsed(counted?.value ?? 0);
   const seconds = Math.floor(ms / 1000);
   const elapsed = seconds >= 60 ? w("transcript.working_for", { minutes: Math.floor(seconds / 60), seconds: seconds % 60 }) : w("transcript.working_for_seconds", { seconds });
@@ -65,6 +67,7 @@ function WaitNotice({ words, counted, onRetry }: WaitProps) {
           )}
           {slow && <p>{w("transcript.slow")}</p>}
           {slow && onRetry && <Button variant="secondary" onClick={onRetry}>{w("transcript.try_again")}</Button>}
+          {slow && !onRetry && progressTo && <LinkButton variant="secondary" to={progressTo}>{w("transcript.pipeline_stopped_link")}</LinkButton>}
         </div>
       </div>
     </Notice>
@@ -308,7 +311,7 @@ export function TranscriptRead() {
       return (
         <Notice tone="warning">
           <p>{w("transcript.failed")}</p>
-          <Button onClick={() => void retry()}>{w("transcript.try_again")}</Button>
+          {wait?.can_prepare !== false && <Button onClick={() => void retry()}>{w("transcript.try_again")}</Button>}
         </Notice>
       );
     }
@@ -318,7 +321,8 @@ export function TranscriptRead() {
       <WaitNotice
         words={w("transcript.preparing")}
         counted={all > 0 && done > 0 ? { label: w("transcript.preparing_page", { done: count(done, pack.locale), total: count(all, pack.locale) }), value: done, max: all } : undefined}
-        onRetry={() => void retry()}
+        onRetry={status === "idle" && wait?.can_prepare !== false ? () => void retry() : undefined}
+        progressTo={`/cases/${caseId}/preparing`}
       />
     );
   }

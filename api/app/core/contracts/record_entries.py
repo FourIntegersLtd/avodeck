@@ -16,7 +16,7 @@ OCR words, behind the blind-read gate.
   extracted by the pipeline (the entries job could do nothing for them; it would only run again and again).
 - `entries_progress(conn, case_id)`: how many pages there are, how many the pipeline has extracted, and how many
   have had their entries read (or failed); counts only.
-- `pipeline_running(conn, case_id)`: a bundle-processing job is queued, running or paused for the case.
+- `pipeline_running(conn, case_id)`: a bundle-processing job is queued or running for the case (a paused one is not).
 """
 
 from __future__ import annotations
@@ -129,8 +129,7 @@ PIPELINE_JOBS = ("process_bundle", "process_pages", "reprocess_case", "scan_docu
 
 async def pipeline_running(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
     cur = await conn.execute(
-        "select 1 from app.jobs where case_id = %s and kind = any(%s) and status in ('queued', 'running', 'paused')"
-        " limit 1",
+        "select 1 from app.jobs where case_id = %s and kind = any(%s) and status in ('queued', 'running') limit 1",
         (case_id, list(PIPELINE_JOBS)),
     )
     return await cur.fetchone() is not None

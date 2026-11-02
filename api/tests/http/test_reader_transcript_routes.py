@@ -146,7 +146,9 @@ async def test_a_paused_pipeline_does_not_count_as_running(
     doc = await add_document(aconn, world["case"])
     await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("x",))], analysed=False)
     admin.execute("insert into app.jobs (case_id, kind) values (%s, 'process_pages')", (world["case"],))
-    admin.execute("update app.jobs set status = 'paused' where case_id = %s and kind = 'process_pages'", (world["case"],))
+    admin.execute(
+        "update app.jobs set status = 'paused' where case_id = %s and kind = 'process_pages'", (world["case"],)
+    )
     body = (await (await client_for(world["expert"])).get(f"{base(world)}/transcript/entries")).json()
     assert body["waiting_for"] == "pipeline" and body["pipeline_running"] is False
 
