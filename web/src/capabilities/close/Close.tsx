@@ -4,6 +4,7 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { useContext } from "react";
 import { useParams } from "react-router-dom";
+import { formatDay } from "../../foundation/i18n/dates";
 import { caseSubtitle, stepFor } from "../../foundation/lib/caseFrame";
 import { SessionContext } from "../../foundation/lib/session";
 import { errorMessage } from "../../foundation/lib/errors";
@@ -24,15 +25,7 @@ const POLL_MS = 800;
 const HEADINGS = new Set(["active", "served", "settled", "archived", "withdrawn", "deleted"]);
 
 /** A calendar date or moment with its year, in the case's locale. */
-function formatDate(iso: string, locale: string | undefined): string {
-  const date = iso.length === 10 ? new Date(`${iso}T00:00:00Z`) : new Date(iso);
-  const options: Intl.DateTimeFormatOptions = { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" };
-  try {
-    return new Intl.DateTimeFormat(locale, options).format(date);
-  } catch {
-    return new Intl.DateTimeFormat(undefined, options).format(date);
-  }
-}
+const formatDate = (iso: string, locale: string | undefined): string => formatDay(iso, locale, "long");
 
 export function Close() {
   const { caseId = "" } = useParams();
