@@ -65,9 +65,16 @@ function onChange({ path }: { path: string }): void {
   };
   const invalidate = () => void queryClient.invalidateQueries({ refetchType: "none", predicate: affected }); // screens on show reload themselves; the rest refetch when next shown
   invalidate();
-  // A read already on its way may show the state from before this change: drop it, then mark stale again.
-  void queryClient.cancelQueries({ predicate: affected }).then(invalidate);
+  // A read already on its way may show the state from before this change. It is not cancelled (it may be the
+  // very call that made the change); when it lands it is marked stale again.
+  for (const q of queryClient.getQueryCache().getAll()) if (q.state.fetchStatus === "fetching" && affected(q)) changedWhileFetching.add(q.queryHash);
 }
+
+const changedWhileFetching = new Set<string>();
+queryClient.getQueryCache().subscribe((event) => {
+  if (event.type !== "updated" || event.action.type !== "success" || !changedWhileFetching.delete(event.query.queryHash)) return;
+  void queryClient.invalidateQueries({ queryKey: event.query.queryKey, refetchType: "none" });
+});
 
 onMutation(onChange);
 onSignedOut(clearResourceCache);
