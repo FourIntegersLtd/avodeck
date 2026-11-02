@@ -45,7 +45,7 @@ class Layout:
 
 def _sections(pack: Pack) -> list[dict[str, Any]]:
     # `transcript_sections` is the pack's `transcript.yaml`; a pack without it has no sections.
-    return list(getattr(pack, "transcript_sections", lambda: [])())
+    return pack.transcript_sections()
 
 
 def place(pack: Pack, *, source_type: str | None, kind: str, folded: bool) -> tuple[int, str, str]:

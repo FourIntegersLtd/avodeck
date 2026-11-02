@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import date
-from typing import Any, cast
+from typing import Any
 
 from psycopg import AsyncConnection
 
@@ -101,7 +101,7 @@ async def _layout(
         set_aside=set_aside,
     )
     layout = transcript_layout.arrange(
-        everything, cast(Any, pack), no_entry_pages=pictures, unread_pages=unread, coverage=coverage
+        everything, pack, no_entry_pages=pictures, unread_pages=unread, coverage=coverage
     )
     letter = pack.letter_entry_kind()
     received: dict[int, date] = {}
@@ -152,7 +152,7 @@ async def export_transcript_pdf(ctx: JobContext) -> None:
                 (number, await _picture(conn, storage, crypto, ctx.case_id, image_path) if image_path else None)
             )
         document = transcript_pdf.build_pdf(
-            layout, cast(Any, pictures), date_order=pack.date_order, language=pack.language, received=received
+            layout, pictures, date_order=pack.date_order, language=pack.language, received=received
         )
         path = transcript_path(ctx.case_id, ctx.job_id, "pdf")
         await storage.put(path, await crypto.encrypt(conn, ctx.case_id, document, purpose=path))
