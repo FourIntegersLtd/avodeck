@@ -177,6 +177,32 @@ describe.each([
     expect(screen.queryByRole("button", { name: "Start preparing" })).toBeNull();
   });
 
+  test("a queued job says it is waiting to start, with a spinner, not 'Not started yet' for every step", async () => {
+    const updated_at = new Date(Date.now() - 2 * 60_000).toISOString();
+    mockCase(pack, { job: processingJob({ status: "queued", step: null, pct: 40, eta_seconds: null, updated_at }) });
+    renderAt(PATH);
+    expect(await screen.findByText(/Waiting to start/)).toBeVisible();
+    expect(screen.getByText("Last change 2 minutes ago.")).toBeVisible();
+    expect(screen.queryAllByText("Not started yet")).toHaveLength(0);
+    expect(screen.queryByText(/Nothing has changed/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
+  test("a job that has not changed for a long while says so plainly and offers to try again", async () => {
+    const updated_at = new Date(Date.now() - 12 * 60_000).toISOString();
+    mockCase(pack, { job: processingJob({ status: "queued", step: null, pct: 40, eta_seconds: null, updated_at }) });
+    renderAt(PATH);
+    expect(await screen.findByText("Nothing has changed for 12 minutes. If it stays like this, try again.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
+  });
+
+  test("a step that counts pages shows 'X of Y' while it runs", async () => {
+    mockCase(pack, { job: processingJob({ status: "running", step: "ocr", pct: 33, step_done: 140, step_total: 900, updated_at: new Date().toISOString() }) });
+    renderAt(PATH);
+    const reading = await screen.findByText("Reading every page");
+    expect(within(reading.closest("li")!).getByText("140 of 900")).toBeVisible();
+  });
+
   test("a failed job says so in plain words and offers to try again", async () => {
     mockCase(pack);
     let retried = 0;
