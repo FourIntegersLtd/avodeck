@@ -643,7 +643,7 @@ def filler(i: int) -> Item:
 
 
 def appended_records():
-    """14 pages sent after the report was served (slice A and G tests)."""
+    """15 pages sent after the report was served (slice A and G tests)."""
     items = [Item(westvale_clinic_letter("app-oncology-2025-03", specialty="Oncology", consultant="Dr N Fairley",
                                          seen=date(2025, 3, 3), typed=date(2025, 3, 4), diagnosis=["Sigmoid adenocarcinoma, post adjuvant CAPOX"],
                                          outcome="Completed 4 cycles. Surveillance.", plan=["CT 12 months", "CEA 3-monthly"],
@@ -655,6 +655,23 @@ def appended_records():
     while sum(x.n for x in items) < 14:
         items.append(filler(500 + i))
         i += 1
+    # A short letter reporting an imaging result, in its own house style: the eval's "page 52"
+    # case for the silent empty pages figure (evals/README.md, slice A).
+    items.append(Item(northam_letter(
+        "app-mri-shoulder-2025", dept="Department of Orthopaedics", author="Mr H Osei",
+        author_role="Consultant Orthopaedic Surgeon", dated=date(2025, 4, 2), dictated=date(2025, 4, 2),
+        typed=date(2025, 4, 3), received=date(2025, 4, 9), title="MRI right shoulder result",
+        paragraphs=["The MRI right shoulder arranged at her last appointment shows a full thickness "
+                    "supraspinatus tear with mild subacromial impingement.",
+                    "I have referred her for a surgical opinion and would be grateful if you could "
+                    "continue the current analgesia in the meantime."],
+        gp_actions=["Continue current analgesia", "Await surgical opinion"],
+        facts=[Fact("letter", "MRI right shoulder result", "MRI right shoulder result", "2025-04-02",
+                    {"specialty": "Orthopaedics"}),
+               Fact("result", "Full thickness supraspinatus tear with mild subacromial impingement.",
+                    "full thickness supraspinatus tear with mild subacromial impingement", "2025-04-02",
+                    {"test": "MRI right shoulder"})]),
+        None, "app", tag="imaging_letter"))
     return items
 
 

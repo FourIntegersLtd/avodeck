@@ -64,7 +64,7 @@ What's in it, in the order a solicitor might send it:
 | `template.docx` | The expert's own Word template | C, F |
 | `witness-statement.pdf` | Includes "I was never told to come back" | E |
 | `written-questions.pdf` | 6 questions; one asks for a new causation opinion | G |
-| `appended-records.pdf` | 14 pages (numbered 901-914); one relevant new result | A, G |
+| `appended-records.pdf` | 15 pages (numbered 901-915); one relevant new result; page 915 a short hospital letter reporting an imaging result (the silent empty pages case, `letter` + `result` facts) | A, G |
 | `other-expert-report.pdf` | 12 claims: 7 match, 2 cite pages that don't exist, 1 wrong value ("ferritin 19"), 1 contradicted, 1 matches only after Opus review | G |
 | `agenda.pdf` | Includes an item that tests a changed position | I |
 | `trial-bundle.pdf` | Re-ordered and re-paginated; 3 cited pages removed (including 214); 5 re-scanned at lower quality | I |
