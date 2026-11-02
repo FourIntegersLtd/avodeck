@@ -33,8 +33,12 @@ const entry = (n: number, over: Record<string, unknown> = {}) => ({
 interface Seen {
   seen: unknown[];
   downloads: number;
+  bodies: unknown[];
+  outlines: number;
   retries: number;
 }
+
+let outline: Schemas["TranscriptOutline"] = { status: "ready", sections: [] };
 
 function mockTranscript(
   status: "ready" | "preparing" | "failed",
@@ -42,7 +46,7 @@ function mockTranscript(
   picture_pages: number[] = [],
   unread_pages: number[] = [],
 ): Seen {
-  const log: Seen = { seen: [], downloads: 0, retries: 0 };
+  const log: Seen = { seen: [], downloads: 0, bodies: [], outlines: 0, retries: 0 };
   server.use(
     http.get(`${C}/transcript/entries`, () => json({ status, total: entries.length, entries, picture_pages, unread_pages })),
     http.post(`${C}/transcript/retry`, () => {
@@ -53,8 +57,13 @@ function mockTranscript(
       log.seen.push(await request.json());
       return json({ pages_read: [] });
     }),
-    http.post(`${C}/transcript/download`, () => {
+    http.get(`${C}/transcript/outline`, () => {
+      log.outlines += 1;
+      return json(outline);
+    }),
+    http.post(`${C}/transcript/download`, async ({ request }) => {
       log.downloads += 1;
+      log.bodies.push(await request.json());
       return json({ job_id: "00000000-0000-0000-0000-0000000000aa" }, 202);
     }),
     http.get(`${C}/transcript/download/:job`, () => new HttpResponse(new Blob(["docx"]), { status: 200 })),
@@ -79,7 +88,9 @@ class FakeObserver {
 
 beforeEach(() => {
   watchers = [];
+  outline = { status: "ready", sections: [] };
   vi.stubGlobal("IntersectionObserver", FakeObserver);
+  Element.prototype.scrollIntoView = vi.fn();
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:docx"), revokeObjectURL: vi.fn() }));
 });
 
@@ -202,5 +213,114 @@ describe.each([
     mockTranscript("ready", [entry(1, { results: ["zz_level"], result_labels: ["zz.result.level"] })]);
     renderAt(PATH);
     expect(await screen.findByText("Zz level")).toBeVisible();
+  });
+
+  test("two download buttons: Word posts docx, PDF posts pdf and saves a pdf", async () => {
+    mockReader(pack);
+    const log = mockTranscript("ready");
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Download as Word" }));
+    expect(await screen.findByText("Your Word file has been downloaded.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Download as PDF" }));
+    expect(await screen.findByText("Your PDF has been downloaded.")).toBeVisible();
+    expect(log.bodies).toEqual([{ format: "docx" }, { format: "pdf" }]);
+    expect(screen.getByText("The file is a copy. Downloading it doesn't count as reading.")).toBeVisible();
+  });
+
+  test("both buttons are disabled while one file is being prepared", async () => {
+    mockReader(pack);
+    mockTranscript("ready");
+    server.use(http.get(`${C}/transcript/download/:job`, () => new Promise<Response>(() => undefined)));
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Download as PDF" }));
+    const busy = await screen.findAllByRole("button", { name: "Preparing your file" });
+    expect(busy).toHaveLength(2);
+    busy.forEach((button) => expect(button).toBeDisabled());
+  });
+
+  test("the buttons are enabled when the transcript is ready even if no page has been read", async () => {
+    mockReader(pack);
+    server.use(http.get(`${C}/progress`, () => json({ read: 0, total: 40 })));
+    mockTranscript("ready");
+    renderAt(PATH);
+    expect(await screen.findByRole("button", { name: "Download as Word" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Download as PDF" })).toBeEnabled();
+  });
+
+  describe("sections", () => {
+    const sectioned = () => [
+      entry(1, { section: "alpha" }),
+      entry(2, { section: "alpha" }),
+      entry(3, { section: "beta" }),
+    ];
+    const withOutline = () => {
+      outline = {
+        status: "ready",
+        coverage: { total_pages: 20, with_entries: 12, no_entries: 5, unreadable: 3, set_aside: 2 },
+        sections: [
+          { key: "alpha", label: "zz.section.alpha", count: 2, offset: 0 },
+          { key: "beta", label: "zz.section.beta", count: 1, offset: 2 },
+        ],
+      };
+    };
+
+    test("shows the coverage line and a Jump to list with a count per section", async () => {
+      mockReader(pack);
+      withOutline();
+      mockTranscript("ready", sectioned());
+      renderAt(PATH);
+      expect(
+        await screen.findByText(
+          "20 pages: 12 with entries, 5 with no entries, 3 the computer couldn't read. 2 pages set aside as copies are not included.",
+        ),
+      ).toBeVisible();
+      expect(screen.getByText("Jump to")).toBeVisible();
+      expect(screen.getByRole("button", { name: /Alpha.*2/ })).toBeVisible();
+      expect(screen.getByRole("button", { name: /Beta.*1/ })).toBeVisible();
+    });
+
+    test("a section heading appears above the first entry of each section only", async () => {
+      mockReader(pack);
+      withOutline();
+      mockTranscript("ready", sectioned());
+      const { container } = renderAt(PATH);
+      await screen.findByLabelText("Entry on page 11");
+      expect(container.querySelectorAll("h2#section-alpha")).toHaveLength(1);
+      expect(container.querySelectorAll("h2#section-beta")).toHaveLength(1);
+      expect(container.querySelector("h2#section-alpha")?.textContent).toBe("Alpha");
+      expect(container.querySelector("#entry-00000000-0000-0000-0000-000000000003")).not.toBeNull();
+    });
+
+    test("jumping to a section records no read; the outline is fetched once", async () => {
+      mockReader(pack);
+      withOutline();
+      const log = mockTranscript("ready", sectioned());
+      const { user } = renderAt(PATH);
+      await user.click(await screen.findByRole("button", { name: /Beta/ }));
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+      expect(log.seen).toEqual([]);
+      expect(log.outlines).toBe(1);
+    });
+
+    test("a section whose entries are not loaded yet loads more until it is", async () => {
+      mockReader(pack);
+      outline = { status: "ready", sections: [{ key: "beta", label: "zz.section.beta", count: 1, offset: 2 }] };
+      const all = sectioned();
+      const log = mockTranscript("ready", all);
+      const offsets: number[] = [];
+      server.use(
+        http.get(`${C}/transcript/entries`, ({ request }) => {
+          const offset = Number(new URL(request.url).searchParams.get("offset"));
+          offsets.push(offset);
+          const page = offset === 0 ? all.slice(0, 2) : all.slice(offset);
+          return json({ status: "ready", total: all.length, entries: page, picture_pages: [], unread_pages: [] });
+        }),
+      );
+      const { user } = renderAt(PATH);
+      await user.click(await screen.findByRole("button", { name: /Beta/ }));
+      await waitFor(() => expect(offsets).toContain(2));
+      await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
+      expect(log.seen).toEqual([]);
+    });
   });
 });

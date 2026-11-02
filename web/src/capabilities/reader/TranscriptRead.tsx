@@ -1,6 +1,6 @@
 // Screen 9b, Reading by transcript (ADR 0028): every entry in date order. The browser only reports how long
 // each entry was on screen; the server decides when a page counts as read, and suggestions never show here.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
@@ -84,13 +84,13 @@ function EntryCard({ entry, caseId, onSeen }: { entry: Entry; caseId: string; on
   }, [entry.id, onSeen, open]);
   const day = entry.event_date ? new Date(`${entry.event_date}T00:00:00`).toLocaleDateString(undefined, { dateStyle: "long" }) : w("transcript.undated");
   return (
-    <article ref={ref} className={`rd-entry${entry.folded ? " rd-entry--folded" : ""}`} aria-label={w("transcript.entry_label", { page: entry.page_no })}>
-      <h2 className="rd-entry__head">
+    <article ref={ref} id={`entry-${entry.id}`} tabIndex={-1} className={`rd-entry${entry.folded ? " rd-entry--folded" : ""}`} aria-label={w("transcript.entry_label", { page: entry.page_no })}>
+      <h3 className="rd-entry__head">
         <span className="rd-entry__page">{w("read.page_ref", { page: entry.page_no })}</span> {day} · {t(entry.kind_label, {}, humanise(entry.kind))}
         {entry.results.map((key, i) => (
           <span key={key} className="rd-entry__chip">{t(entry.result_labels[i] ?? key, {}, humanise(key))}</span>
         ))}
-      </h2>
+      </h3>
       {entry.lines.map((line, i) => (
         <p key={i} className="rd-entry__line">{line}</p>
       ))}
@@ -115,6 +115,10 @@ export function TranscriptRead() {
   const [pagesTotal, setPagesTotal] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [preparingFile, setPreparingFile] = useState(false);
+  const [outline, setOutline] = useState<Schemas["TranscriptOutline"] | null>(null);
+  const entriesRef = useRef<Entry[]>([]);
+  entriesRef.current = entries;
+  const outlineAsked = useRef(false);
 
   const progress = useCallback(async () => {
     try {
@@ -154,6 +158,30 @@ export function TranscriptRead() {
     return () => clearTimeout(timer);
   }, [status, load, entries]);
 
+  // The shape of the transcript (sections and coverage) is fetched once, when the transcript is ready.
+  useEffect(() => {
+    if (status !== "ready" || outlineAsked.current) return;
+    outlineAsked.current = true;
+    void unwrap(api.GET("/v1/cases/{case_id}/transcript/outline", { params: { path: { case_id: caseId } } }))
+      .then(setOutline)
+      .catch(() => undefined);
+  }, [status, caseId]);
+
+  // Load entries until the one at `offset` is on screen, then move the reader to the heading of its section.
+  // Jumping records nothing as read: only the entries on screen do (rule 3).
+  async function showPosition(offset: number, key: string) {
+    let have = entriesRef.current.length;
+    while (have <= offset) {
+      await load(have);
+      if (entriesRef.current.length <= have) break;
+      have = entriesRef.current.length;
+    }
+    await new Promise((r) => setTimeout(r, 0));
+    const target = document.getElementById(`section-${key}`);
+    target?.scrollIntoView({ block: "start" });
+    target?.focus();
+  }
+
   // Only the reader's own press asks the server to prepare the transcript again; polling never does.
   async function retry() {
     try {
@@ -173,24 +201,25 @@ export function TranscriptRead() {
     [caseId, progress],
   );
 
-  async function download() {
+  async function download(format: "docx" | "pdf") {
     setMessage(null);
     setPreparingFile(true);
     try {
-      const started = await stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/transcript/download", { params: { path: { case_id: caseId } } })));
+      const started = await stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/transcript/download", { params: { path: { case_id: caseId } }, body: { format } })));
       if (!started) return;
       const job_id = started.job_id;
-      for (let tries = 0; tries < 60; tries += 1) {
+      const tries = format === "pdf" ? 200 : 60;
+      for (let n = 0; n < tries; n += 1) {
         try {
           const blob = await unwrap(api.GET("/v1/cases/{case_id}/transcript/download/{job_id}", { params: { path: { case_id: caseId, job_id } }, parseAs: "blob" }));
           if (typeof URL.createObjectURL === "function") {
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob as Blob);
-            link.download = `transcript-${caseId.slice(0, 8)}.docx`;
+            link.download = `transcript-${caseId.slice(0, 8)}.${format}`;
             link.click();
             URL.revokeObjectURL(link.href);
           }
-          setMessage(w("transcript.downloaded"));
+          setMessage(w(format === "pdf" ? "transcript.downloaded_pdf" : "transcript.downloaded"));
           return;
         } catch (err) {
           if ((err as { status?: number }).status !== 409) throw err;
@@ -212,9 +241,13 @@ export function TranscriptRead() {
       <header className="rd-transcript__bar">
         <h1>{w("transcript.heading")}</h1>
         <LinkButton variant="secondary" to={`/cases/${caseId}/read`}>{w("transcript.page_by_page")}</LinkButton>
-        <Button variant="secondary" onClick={() => void download()} disabled={preparingFile || status !== "ready"}>
+        <Button variant="secondary" onClick={() => void download("docx")} disabled={preparingFile || status !== "ready"}>
           {preparingFile ? w("transcript.preparing_file") : w("transcript.download")}
         </Button>
+        <Button variant="secondary" onClick={() => void download("pdf")} disabled={preparingFile || status !== "ready"}>
+          {preparingFile ? w("transcript.preparing_file") : w("transcript.download_pdf")}
+        </Button>
+        <p className="rd-transcript__note">{w("transcript.file_note")}</p>
         {read !== null && pagesTotal > 0 && (
           <div className="rd-transcript__progress">
             <p>{w("read.read_count", { read: count(read, pack.locale), total: count(pagesTotal, pack.locale) })}</p>
@@ -224,6 +257,31 @@ export function TranscriptRead() {
       </header>
       {message && <Notice tone="info"><p>{message}</p></Notice>}
       <p>{w("transcript.lead")}</p>
+      {outline?.coverage && (
+        <p className="rd-transcript__coverage">
+          {w("transcript.coverage", {
+            total: outline.coverage.total_pages,
+            with_entries: outline.coverage.with_entries,
+            no_entries: outline.coverage.no_entries,
+            unreadable: outline.coverage.unreadable,
+            set_aside: outline.coverage.set_aside,
+          })}
+        </p>
+      )}
+      {outline && outline.sections.length > 0 && (
+        <nav className="rd-transcript__jump" aria-label={w("transcript.jump_to")}>
+          <p>{w("transcript.jump_to")}</p>
+          <ul>
+            {outline.sections.map((section) => (
+              <li key={section.key}>
+                <Button variant="link" onClick={() => void showPosition(section.offset, section.key)}>
+                  {t(section.label, {}, humanise(section.key))} ({section.count})
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
       {status === "preparing" && <Notice tone="info"><p>{w("transcript.preparing")}</p></Notice>}
       {status === "failed" && (
         <Notice tone="warning">
@@ -233,9 +291,20 @@ export function TranscriptRead() {
       )}
       {status === "idle" && <Notice tone="info"><p>{w("transcript.preparing")}</p></Notice>}
       {status === "ready" && entries.length === 0 && <p>{w("transcript.none")}</p>}
-      {entries.map((entry) => (
-        <EntryCard key={entry.id} entry={entry} caseId={caseId} onSeen={seen} />
-      ))}
+      {entries.map((entry, i) => {
+        const startsSection = entry.section && entry.section !== entries[i - 1]?.section;
+        const info = startsSection ? outline?.sections.find((s) => s.key === entry.section) : undefined;
+        return (
+          <Fragment key={entry.id}>
+            {startsSection && (
+              <h2 id={`section-${entry.section}`} tabIndex={-1} className="rd-transcript__section">
+                {t(info?.label ?? "", {}, humanise(entry.section ?? ""))}
+              </h2>
+            )}
+            <EntryCard entry={entry} caseId={caseId} onSeen={seen} />
+          </Fragment>
+        );
+      })}
       {picturePages.length > 0 && (
         <section aria-label={w("transcript.picture_pages")}>
           <h2>{w("transcript.picture_pages")}</h2>

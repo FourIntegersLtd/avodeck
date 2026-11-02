@@ -11,7 +11,7 @@ import jsonschema_rs
 import pytest
 
 from app.core import packs
-from tests.support.packs import BOTH, FIXTURE_ROOT, LAUNCH, LAUNCH_ROOT, Combo
+from tests.support.packs import BOTH, FIXTURE, FIXTURE_ROOT, LAUNCH, LAUNCH_ROOT, Combo, copy_packs, write
 
 KEY = re.compile(r"^[a-z][a-z0-9_]*$")
 I18N_KEY = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
@@ -130,3 +130,37 @@ def test_the_extraction_prompt_context_names_the_entry_vocabulary(library: packs
 def test_the_schemas_refuse_a_file_that_does_not_fit(schema: str, bad: dict[str, object]) -> None:
     validator = jsonschema_rs.validator_for(json.loads((LAUNCH_ROOT / "schema" / f"{schema}.schema.json").read_text()))
     assert not validator.is_valid(bad)
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
+def test_transcript_sections_come_from_the_pack_in_order(library: packs.PackLibrary, combo: Combo) -> None:
+    raw = combo.raw("specialty", "transcript.yaml")["sections"]
+    sections = merged(library, combo).transcript_sections()
+    assert [s["key"] for s in sections] == [s["key"] for s in raw if s.get("enabled", True)]
+    assert all(I18N_KEY.match(s["label"]) for s in sections)
+
+
+def test_transcript_sections_load_in_order(library: packs.PackLibrary) -> None:
+    keys = [s["key"] for s in merged(library, LAUNCH).transcript_sections()]
+    assert keys == ["own_record", "letters", "other_records", "administrative"]
+
+
+def test_transcript_sections_fixture_pack(library: packs.PackLibrary) -> None:
+    keys = [s["key"] for s in merged(library, FIXTURE).transcript_sections()]
+    assert keys == ["zz_notes", "zz_rest"]
+
+
+def test_transcript_sections_refuse_unknown_source(tmp_path) -> None:  # noqa: ANN001
+    launch, fixtures = copy_packs(tmp_path)
+    write(
+        fixtures / "specialty" / "zz-specialty" / "transcript.yaml",
+        "sections:\n  - {key: zz_bad, label: zz.section.bad, sources: [not_a_source]}\n",
+    )
+    with pytest.raises(packs.PackError, match="not_a_source"):
+        packs.load_library(launch, fixtures).combine(*FIXTURE.codes)
+
+
+def test_pack_with_no_transcript_file_has_no_sections(tmp_path) -> None:  # noqa: ANN001
+    launch, fixtures = copy_packs(tmp_path)
+    (fixtures / "specialty" / "zz-specialty" / "transcript.yaml").unlink()
+    assert packs.load_library(launch, fixtures).combine(*FIXTURE.codes).transcript_sections() == []

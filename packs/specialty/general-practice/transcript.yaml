@@ -1,0 +1,7 @@
+# How the records transcript file is arranged (ADR 0035). Each entry goes in the FIRST section it matches;
+# an entry no section matches goes in a final "Other entries" section, so nothing is left out.
+sections:
+  - {key: own_record, label: transcript.section.practice_record, sources: [primary_care_record, out_of_hours], letters: false, administrative: false}
+  - {key: letters, label: transcript.section.letters, letters: true, administrative: false}
+  - {key: other_records, label: transcript.section.other_records, administrative: false}
+  - {key: administrative, label: transcript.section.administrative_entries, administrative: true}
