@@ -18,6 +18,11 @@ from app.core.ai.ocr import OcrPage, OcrWord, word_id
 POINTS_PER_INCH = 72.0
 
 
+def is_pdf(data: bytes) -> bool:
+    """A PDF starts with its marker; a file that only holds those bytes somewhere (a zip) is not one."""
+    return data.startswith(b"%PDF-")
+
+
 def _save(pdf: pikepdf.Pdf) -> bytes:
     out = io.BytesIO()
     pdf.save(
