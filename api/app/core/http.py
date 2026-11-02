@@ -173,6 +173,8 @@ def _origin_parts(origin: str) -> tuple[str, str, int | None] | None:
         return None
     if parts.scheme not in _DEFAULT_PORTS or host is None or parts.path not in ("", "/"):
         return None
+    if parts.username is not None or parts.password is not None or parts.query or parts.fragment:
+        return None
     return parts.scheme, host, port if port is not None else _DEFAULT_PORTS[parts.scheme]
 
 

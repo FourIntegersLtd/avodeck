@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import anyio
 from psycopg import AsyncConnection, AsyncCursor
 from psycopg.pq import TransactionStatus
 from psycopg_pool import AsyncConnectionPool
@@ -138,11 +139,13 @@ class Database:
                     yield conn, (row[:-1] if row is not None else None)
                     await conn.execute("COMMIT")
                 except BaseException:
-                    await _rollback(conn)
+                    with anyio.CancelScope(shield=True):  # a dropped client must not leave the transaction open
+                        await _rollback(conn)
                     raise
             finally:
                 if touch and row is not None:
-                    await _count_activity(conn, row)
+                    with anyio.CancelScope(shield=True):  # nor skip the count
+                        await _count_activity(conn, row, idle=lookup[1], max_age=lookup[2])
 
     @asynccontextmanager
     async def anonymous(self, request_id: str = "") -> AsyncIterator[AsyncConnection]:
@@ -191,7 +194,7 @@ class Database:
                 raise
 
 
-async def _count_activity(conn: AsyncConnection, row: tuple[Any, ...]) -> None:
+async def _count_activity(conn: AsyncConnection, row: tuple[Any, ...], *, idle: timedelta, max_age: timedelta) -> None:
     """After the request's transaction has ended: one autocommit statement counts the activity of the active
     session `row` (the `session_request` row) if it was last counted over 30 seconds ago, so the session row
     is locked only for that statement. Skipped when the lookup just saw it counted. Never raises."""
@@ -199,7 +202,7 @@ async def _count_activity(conn: AsyncConnection, row: tuple[Any, ...]) -> None:
     if fields[-1] != "active" or fields[8] > datetime.now(UTC) - timedelta(seconds=30):
         return
     with suppress(Exception):
-        await conn.execute("select app.session_touch(%s)", (fields[0],))
+        await conn.execute("select app.session_touch(%s, %s, %s)", (fields[0], idle, max_age))
 
 
 async def _rollback(conn: AsyncConnection) -> None:

@@ -46,7 +46,6 @@ def test_mp3_frame_headers_are_recognised(head: bytes) -> None:
 def test_a_pdf_starts_with_its_marker() -> None:
     assert is_pdf(PDF_BYTES)
     assert convert.sniff(PDF_BYTES) == convert.PDF
-    assert not is_pdf(b"junk" + PDF_BYTES)
     assert not is_pdf(b"")
 
 

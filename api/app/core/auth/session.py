@@ -21,7 +21,7 @@ from fastapi import Request, Response
 from psycopg import AsyncConnection
 
 from app.core.auth.supabase import AuthTokens
-from app.core.config import local_mfa_skip
+from app.core.config import ConfigError, local_mfa_skip
 from app.core.crypto import CiphertextInvalid, cell_secret_box
 from app.core.db import Database
 from app.core.errors import ApiError
@@ -102,6 +102,15 @@ def resolve_args(token: str, *, touch: bool) -> tuple[str, timedelta, timedelta,
     return digest(token), IDLE_TIMEOUT, MAX_AGE, touch
 
 
+def _mfa_skipped() -> bool:
+    """`DEV_SKIP_MFA`, read per request. A bad value is refused once when the app is built (`create_app`), so
+    here it never raises: a request is not turned into a 500, and the code step stays on."""
+    try:
+        return local_mfa_skip()
+    except ConfigError:
+        return False
+
+
 def from_row(row: tuple[Any, ...] | None) -> Session | ApiError:
     """What `app.session_resolve` returned: the session, or the error to answer with (returned, not raised,
     so a caller inside a transaction can still commit what the function wrote)."""
@@ -113,7 +122,7 @@ def from_row(row: tuple[Any, ...] | None) -> Session | ApiError:
     if state != "active":
         return not_signed_in()
     session = Session(*fields)
-    if local_mfa_skip():
+    if _mfa_skipped():
         session = replace(session, aal="aal2", mfa_enrolled=True, mfa_verified_at=datetime.now(UTC))
     return replace(
         session,

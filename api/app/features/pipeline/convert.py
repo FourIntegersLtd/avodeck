@@ -67,7 +67,7 @@ class Unpacked:
 
 def sniff(data: bytes, filename: str = "") -> str:
     head = data[:64]
-    if is_pdf(data):
+    if data.startswith(b"%PDF-"):
         return PDF
     if head.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"
@@ -109,6 +109,8 @@ def sniff(data: bytes, filename: str = "") -> str:
         return "video/mp4"
     if data[128:132] == b"DICM":
         return "application/dicom"
+    if is_pdf(data):  # a PDF with a byte-order mark or a lead-in before its marker
+        return PDF
     if filename.lower().endswith(".eml") or _HEADER.match(data[:2048]):
         return EMAIL
     return UNKNOWN

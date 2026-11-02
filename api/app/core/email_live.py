@@ -281,8 +281,8 @@ class ResendMailer:
                     logger.info("mail attempt %d failed: %s", attempt, type(exc).__name__)
                 else:
                     logger.info("mail attempt %d status %d", attempt, status)
-                    if status < 300:
-                        return
+                    if status < 300 or (attempt == 2 and status == 409):
+                        return  # on the retry a conflict on our own key means the first send is in or done
                 retryable = status == 0 or status == 429 or status >= 500
                 if attempt == 1 and retryable:
                     await self._sleep(max(backoff(0, self._retry_delay, _MAX_MAIL_WAIT), retry_after or 0.0))
