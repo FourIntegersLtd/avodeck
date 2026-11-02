@@ -9,6 +9,8 @@
 --   another by polling faster.
 -- Worker-only (like `job_steps`, migration 0007): the API never schedules Bedrock slots directly.
 
+set role app_migrator;
+
 alter table app.jobs add column last_granted_at timestamptz;
 
 create table app.ai_request_slots (
@@ -24,6 +26,7 @@ create index ai_request_slots_pending on app.ai_request_slots (job_id) where gra
 
 alter table app.ai_request_slots enable row level security;
 revoke all on app.ai_request_slots from app_api;
+grant select, insert, update, delete on app.ai_request_slots to app_worker;
 
 create policy ai_request_slots_job on app.ai_request_slots to app_worker
   using (case_id = app.current_job_case_id()) with check (case_id = app.current_job_case_id());
@@ -32,3 +35,5 @@ create policy ai_request_slots_job on app.ai_request_slots to app_worker
 -- with a fixed array, which would just wipe a splice done at this number (1014/1019/1022 describe
 -- the same trap). It is added in the organisations range instead, after every one of those fixed
 -- replacements, by migration 1023.
+
+reset role;
