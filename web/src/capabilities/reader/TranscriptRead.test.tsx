@@ -72,6 +72,13 @@ function mockTranscript(
   return log;
 }
 
+const WAIT_WORDS = "We're getting the record ready to read. This can take a minute.";
+const waitNoticeNow = () => screen.getByText(WAIT_WORDS).closest("[role=status]") as HTMLElement;
+const waitNotice = async () => {
+  await screen.findByText(WAIT_WORDS);
+  return waitNoticeNow();
+};
+
 type Watcher = { el: Element; fire: (hit: Partial<IntersectionObserverEntry>) => void };
 let watchers: Watcher[] = [];
 
@@ -124,7 +131,7 @@ describe.each([
     mockReader(pack);
     mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 900, waiting_for: "entries" });
     renderAt(PATH);
-    const status = await screen.findByRole("status");
+    const status = await waitNotice();
     expect(status).toHaveTextContent("Preparing page 20 of 900");
     expect(screen.getByRole("progressbar", { name: "Preparing page 20 of 900" })).toHaveAttribute("aria-valuenow", "20");
     expect(status.querySelector(".av-spinner")).not.toBeNull();
@@ -136,18 +143,18 @@ describe.each([
       mockReader(pack);
       mockTranscript("preparing", [], [], [], { prepared_pages: 0, total_pages: 0, waiting_for: "entries" });
       renderAt(PATH);
-      await screen.findByRole("status");
+      await waitNotice();
       await act(async () => {
-        vi.setSystemTime(Date.now() + 80_000);
+        vi.setSystemTime(Date.now() + 79_000);
         vi.advanceTimersByTime(1000);
       });
-      expect(screen.getByRole("status")).toHaveTextContent("Working for 1 min 20 s");
+      expect(waitNoticeNow()).toHaveTextContent("Working for 1 min 20 s");
       expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
       await act(async () => {
         vi.setSystemTime(Date.now() + 120_000);
         vi.advanceTimersByTime(1000);
       });
-      expect(screen.getByRole("status")).toHaveTextContent("This is taking longer than usual.");
+      expect(waitNoticeNow()).toHaveTextContent("This is taking longer than usual.");
       expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
     } finally {
       vi.useRealTimers();
@@ -158,7 +165,7 @@ describe.each([
     mockReader(pack);
     mockTranscript("idle", [], [], [], { extracted_pages: 140, total_pages: 900, waiting_for: "pipeline", pipeline_running: true });
     renderAt(PATH);
-    const status = await screen.findByRole("status");
+    const status = await waitNotice();
     expect(status).toHaveTextContent("Avodeck has read 140 of 900 pages");
     expect(status.querySelector(".av-spinner")).not.toBeNull();
   });
@@ -169,7 +176,7 @@ describe.each([
     renderAt(PATH);
     expect(await screen.findByText("Some pages haven't been read by Avodeck yet (760 of 900).")).toBeVisible();
     expect(screen.getByRole("link", { name: "See how far it got" })).toHaveAttribute("href", `/cases/${CASE_ID}/preparing`);
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(document.querySelector(".av-spinner")).toBeNull();
   });
 
   test("someone who cannot start the work is told to ask the named expert, with no spinner", async () => {
@@ -177,7 +184,7 @@ describe.each([
     mockTranscript("idle", [], [], [], { can_prepare: false, waiting_for: "entries" });
     renderAt(PATH);
     expect(await screen.findByText("This record has not been prepared yet. Ask the named expert to open it, and it will be ready to read.")).toBeVisible();
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(document.querySelector(".av-spinner")).toBeNull();
   });
 
   test("the intro line is shown once", async () => {
