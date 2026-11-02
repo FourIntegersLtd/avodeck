@@ -7,7 +7,7 @@ S ?= $(SLICE)
 in_web = if [ -f web/package.json ]; then cd web && $(1); else echo "web: not set up yet, skipped"; fi
 
 .PHONY: install dev test test-core test-slice test-api test-web api-client schemathesis eval \
-	lint lint-api lint-web eval-data setup-fixtures check-spec
+	lint lint-api lint-web eval-data eval-check setup-fixtures check-spec
 
 install:        ## Poetry env for api/ (and pnpm for web/ once it exists)
 	$(MAKE) -C api install
@@ -62,6 +62,13 @@ eval-data:      ## synthetic bundles (not committed) and slice C's committed set
 	cd api && poetry run python ../evals/generator/recordings.py ../evals/gb-eaw/clin-neg-breach/general-practice \
 		--fixtures tests/fixtures/ai/pipeline
 	$(MAKE) setup-fixtures
+
+eval-check:     ## are the committed eval answers and fixtures what eval-data builds today? run on a clean tree
+	@test -z "$$(git status --porcelain -- evals/*/*/*/expected api/tests/fixtures/ai/pipeline api/tests/fixtures/setup)" || { echo 'commit or stash your eval changes first'; exit 1; }
+	$(MAKE) eval-data > /dev/null
+	@git diff --stat --exit-code -- 'evals/*/*/*/expected' api/tests/fixtures/ai/pipeline api/tests/fixtures/setup \
+		&& echo 'eval data is current' \
+		|| { echo 'STALE: the files above differ from a fresh make eval-data; review them, then commit them (hand-written links.json and letters.json keep their own page numbers: check them against pages.json)'; exit 1; }
 
 setup-fixtures: ## letter-of-instruction.pdf and template.docx for slice C tests (api/tests/fixtures/setup/)
 	poetry -P api run python evals/generator/extras.py --setup-fixtures api/tests/fixtures/setup evals/gb-eaw/clin-neg-breach/general-practice
