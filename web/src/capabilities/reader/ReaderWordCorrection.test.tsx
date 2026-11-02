@@ -2,7 +2,7 @@
 // expert's reading of the chosen words, so nothing is typed twice (decision 0018).
 import { screen, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
-import { forgetPages } from "./pageImageCache";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import { launchPack } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
 import { CASE_ID, fact } from "./testData";

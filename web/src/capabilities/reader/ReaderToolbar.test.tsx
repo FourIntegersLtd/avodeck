@@ -7,7 +7,7 @@ import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { http, json, server } from "../../test/api";
 import { axeViolations, renderAt } from "../../test/render";
-import { forgetPages } from "./pageImageCache";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import { forgetSearch } from "./search";
 import { forgetView } from "./viewer";
 import { CASE_ID, EXPERT_ACTIONS, theCase } from "./testData";

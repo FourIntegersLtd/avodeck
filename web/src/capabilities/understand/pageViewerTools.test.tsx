@@ -6,7 +6,7 @@ import { http, HttpResponse, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
 import { consultation, FACT_1, inCase } from "./testing";
-import { forgetPages } from "./pageImage";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 
 beforeEach(() => {
   forgetPages();

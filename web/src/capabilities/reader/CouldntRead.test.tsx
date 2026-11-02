@@ -1,7 +1,7 @@
 // Screen 10, Pages we couldn't read: type out each page, say if it matters, move on. Both pack sets.
 import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { forgetPages } from "./pageImageCache";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";

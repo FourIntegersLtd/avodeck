@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { forgetPages } from "./pageImage";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import { consultation, event, FACT_1, FACT_2, FACT_3, finding, findingsReply, inCase, launchWords, Q_2, timeline } from "./testing";
 
 function serveTimeline(body = timeline()) {

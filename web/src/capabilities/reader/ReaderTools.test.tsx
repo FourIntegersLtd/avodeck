@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { forgetPages } from "./pageImageCache";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import { forgetView } from "./viewer";
 import { forgetSearch } from "./search";
 import { CASE_ID, pageWords } from "./testData";
