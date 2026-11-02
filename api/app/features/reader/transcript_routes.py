@@ -81,7 +81,7 @@ async def transcript_entries(
 
 @router.get("/transcript/outline", response_model=TranscriptOutline)
 async def transcript_outline(case_id: uuid.UUID, request: Request, access: View, conn: DbConn) -> TranscriptOutline:
-    """The sections and page coverage of the transcript. Interface only: always "preparing" until slice B fills it in."""
+    """The sections and page coverage. Interface only: always "preparing" until the real outline is built."""
     return TranscriptOutline(status="preparing")
 
 
