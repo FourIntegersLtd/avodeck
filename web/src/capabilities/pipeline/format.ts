@@ -1,24 +1,13 @@
 // Numbers, dates, language names and page lists in the case's locale (Intl), for display only.
+import { formatDay, formatList, formatNumber as formatNumberIn, safeLocale } from "../../foundation/i18n/dates";
 import { w } from "./words";
 
-function locale(tag: string | null | undefined): string {
-  try {
-    return Intl.getCanonicalLocales(tag ?? "en-GB")[0] ?? "en-GB";
-  } catch {
-    return "en-GB";
-  }
-}
+const locale = safeLocale;
 
-export function formatNumber(n: number, tag: string | null | undefined): string {
-  return new Intl.NumberFormat(locale(tag)).format(n);
-}
+export const formatNumber = (n: number, tag: string | null | undefined): string => formatNumberIn(n, tag);
 
 /** A calendar date (YYYY-MM-DD) as day, short month and year. */
-export function formatDate(iso: string, tag: string | null | undefined): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const date = new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1));
-  return new Intl.DateTimeFormat(locale(tag), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(date);
-}
+export const formatDate = (iso: string, tag: string | null | undefined): string => formatDay(iso, tag, "medium");
 
 /** A language's name ("cy" -> "Welsh"), or the code when the browser does not know it. */
 export function languageName(code: string, tag: string | null | undefined): string {
@@ -29,13 +18,7 @@ export function languageName(code: string, tag: string | null | undefined): stri
   }
 }
 
-function joinList(items: string[], tag: string | null | undefined): string {
-  try {
-    return new Intl.ListFormat(locale(tag), { style: "long", type: "conjunction" }).format(items);
-  } catch {
-    return items.join(", ");
-  }
-}
+const joinList = (items: string[], tag: string | null | undefined): string => formatList(items, tag);
 
 /** Page numbers as words: "page 903", "pages 412 to 415", "pages 3, 7 and 20 to 22". */
 export function pageList(pages: number[], tag: string | null | undefined): string {
