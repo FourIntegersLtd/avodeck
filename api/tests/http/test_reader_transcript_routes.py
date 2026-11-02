@@ -98,11 +98,80 @@ async def test_entries_not_read_yet_queue_the_job_once(
     client = await client_for(world["expert"])
     for _ in range(2):
         body = (await client.get(f"{base(world)}/transcript/entries")).json()
-        assert body == {"status": "preparing", "total": 0, "entries": [], "picture_pages": [], "unread_pages": []}
+        assert body == {
+            "status": "preparing", "total": 0, "entries": [], "picture_pages": [], "unread_pages": [],
+            "prepared_pages": 0, "total_pages": 1, "extracted_pages": 1, "waiting_for": "entries",
+            "pipeline_running": False, "can_prepare": True,
+        }  # fmt: skip
     row = admin.execute(
         "select count(*) from app.jobs where case_id = %s and kind = 'extract_entries'", (world["case"],)
     ).fetchone()
     assert row is not None and row[0] == 1
+
+
+def _extracted(admin: psycopg.Connection, w: dict[str, Any]) -> None:
+    admin.execute(
+        "insert into app.page_analysis (page_id, bundle_id, extracted_at) select id, bundle_id, now() from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (w["case"],),
+    )
+
+
+async def test_pages_waiting_for_the_pipeline_queue_no_entries_job_however_often_it_is_polled(
+    client_for: Any, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("x",))], analysed=False)
+    client = await client_for(world["expert"])
+    for _ in range(4):
+        body = (await client.get(f"{base(world)}/transcript/entries")).json()
+        assert body["status"] == "idle" and body["waiting_for"] == "pipeline"
+        assert (body["extracted_pages"], body["total_pages"], body["pipeline_running"]) == (0, 1, False)
+    assert _jobs(admin, world) == 0
+
+
+async def test_the_pipeline_counts_as_running_while_a_pipeline_job_is_waiting(
+    client_for: Any, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("x",))], analysed=False)
+    admin.execute("insert into app.jobs (case_id, kind) values (%s, 'process_pages')", (world["case"],))
+    body = (await (await client_for(world["expert"])).get(f"{base(world)}/transcript/entries")).json()
+    assert body["waiting_for"] == "pipeline" and body["pipeline_running"] is True
+
+
+async def test_someone_who_cannot_read_is_told_so_and_starts_nothing(
+    client_for: Any,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    seed: Seed,
+    world: dict[str, Any],
+) -> None:
+    viewer = seed.person()
+    seed.case_member(world["case"], viewer, "viewer", added_by=world["expert"])
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("x",))], analysed=False)
+    _extracted(admin, world)
+    body = (await (await client_for(viewer)).get(f"{base(world)}/transcript/entries")).json()
+    assert body["status"] == "idle" and body["can_prepare"] is False and body["waiting_for"] == "entries"
+    assert _jobs(admin, world) == 0
+
+
+async def test_the_count_of_pages_prepared_grows_as_entries_are_read(
+    client_for: Any, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("x",))], analysed=False)
+    await add_page(aconn, CRYPTO, world["case"], doc, 2, [Spec("zz_session", ("y",))], analysed=False)
+    _extracted(admin, world)
+    admin.execute(
+        "update app.page_analysis set entries_extracted_at = now() where page_id ="
+        " (select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and bundle_page_no = 1)",
+        (world["case"],),
+    )
+    body = (await (await client_for(world["expert"])).get(f"{base(world)}/transcript/entries")).json()
+    assert (body["status"], body["prepared_pages"], body["total_pages"]) == ("preparing", 1, 2)
 
 
 async def _failed_entries_job(admin: psycopg.Connection, aconn: psycopg.AsyncConnection, w: dict[str, Any]) -> None:

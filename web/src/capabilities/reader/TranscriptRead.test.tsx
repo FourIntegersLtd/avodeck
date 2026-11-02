@@ -1,6 +1,6 @@
 // Screen 9b, Reading by transcript (ADR 0028): the entries, what the browser reports as seen, the Word copy.
 // Under both pack sets.
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
@@ -41,14 +41,15 @@ interface Seen {
 let outline: Schemas["TranscriptOutline"] = { status: "ready", sections: [] };
 
 function mockTranscript(
-  status: "ready" | "preparing" | "failed",
+  status: "ready" | "preparing" | "failed" | "idle",
   entries = [entry(1), entry(2, { folded: true })],
   picture_pages: number[] = [],
   unread_pages: number[] = [],
+  extra: Record<string, unknown> = {},
 ): Seen {
   const log: Seen = { seen: [], downloads: 0, bodies: [], outlines: 0, retries: 0 };
   server.use(
-    http.get(`${C}/transcript/entries`, () => json({ status, total: entries.length, entries, picture_pages, unread_pages })),
+    http.get(`${C}/transcript/entries`, () => json({ status, total: entries.length, entries, picture_pages, unread_pages, ...extra })),
     http.post(`${C}/transcript/retry`, () => {
       log.retries += 1;
       return json({ status: "preparing" }, 202);
@@ -113,9 +114,78 @@ describe.each([
   test("says the record is being prepared and offers no download yet", async () => {
     mockReader(pack);
     mockTranscript("preparing", []);
-    renderAt(PATH);
+    const { user } = renderAt(PATH);
     expect(await screen.findByText("We're getting the record ready to read. This can take a minute.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Download a copy" }));
     expect(screen.getByRole("button", { name: "Download as Word" })).toBeDisabled();
+  });
+
+  test("while preparing it shows a spinner and how many pages are done", async () => {
+    mockReader(pack);
+    mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 900, waiting_for: "entries" });
+    renderAt(PATH);
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("Preparing page 20 of 900");
+    expect(screen.getByRole("progressbar", { name: "Preparing page 20 of 900" })).toHaveAttribute("aria-valuenow", "20");
+    expect(status.querySelector(".av-spinner")).not.toBeNull();
+  });
+
+  test("with no page count it shows how long it has been working, then says it is slow and offers Try again", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    try {
+      mockReader(pack);
+      mockTranscript("preparing", [], [], [], { prepared_pages: 0, total_pages: 0, waiting_for: "entries" });
+      renderAt(PATH);
+      await screen.findByRole("status");
+      await act(async () => {
+        vi.setSystemTime(Date.now() + 80_000);
+        vi.advanceTimersByTime(1000);
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("Working for 1 min 20 s");
+      expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+      await act(async () => {
+        vi.setSystemTime(Date.now() + 120_000);
+        vi.advanceTimersByTime(1000);
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("This is taking longer than usual.");
+      expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("pages still waiting to be read by Avodeck, with the pipeline running: spinner and a count", async () => {
+    mockReader(pack);
+    mockTranscript("idle", [], [], [], { extracted_pages: 140, total_pages: 900, waiting_for: "pipeline", pipeline_running: true });
+    renderAt(PATH);
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("Avodeck has read 140 of 900 pages");
+    expect(status.querySelector(".av-spinner")).not.toBeNull();
+  });
+
+  test("pages waiting and nothing running: says so plainly, links on, and shows no spinner", async () => {
+    mockReader(pack);
+    mockTranscript("idle", [], [], [], { extracted_pages: 140, total_pages: 900, waiting_for: "pipeline", pipeline_running: false });
+    renderAt(PATH);
+    expect(await screen.findByText("Some pages haven't been read by Avodeck yet (760 of 900).")).toBeVisible();
+    expect(screen.getByRole("link", { name: "See how far it got" })).toHaveAttribute("href", `/cases/${CASE_ID}/preparing`);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  test("someone who cannot start the work is told to ask the named expert, with no spinner", async () => {
+    mockReader(pack);
+    mockTranscript("idle", [], [], [], { can_prepare: false, waiting_for: "entries" });
+    renderAt(PATH);
+    expect(await screen.findByText("This record has not been prepared yet. Ask the named expert to open it, and it will be ready to read.")).toBeVisible();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  test("the intro line is shown once", async () => {
+    mockReader(pack);
+    mockTranscript("ready");
+    renderAt(PATH);
+    await screen.findByLabelText("Entry on page 11");
+    expect(screen.getAllByText(/Every entry in date order/)).toHaveLength(1);
   });
 
   test("offers to try again when the record could not be prepared", async () => {
@@ -146,6 +216,7 @@ describe.each([
     mockReader(pack);
     const log = mockTranscript("ready");
     const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Download a copy" }));
     await user.click(await screen.findByRole("button", { name: "Download as Word" }));
     expect(await screen.findByText("Your Word file has been downloaded.")).toBeVisible();
     expect(log.downloads).toBe(1);
@@ -219,6 +290,7 @@ describe.each([
     mockReader(pack);
     const log = mockTranscript("ready");
     const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Download a copy" }));
     await user.click(await screen.findByRole("button", { name: "Download as Word" }));
     expect(await screen.findByText("Your Word file has been downloaded.")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Download as PDF" }));
@@ -232,6 +304,7 @@ describe.each([
     mockTranscript("ready");
     server.use(http.get(`${C}/transcript/download/:job`, () => new Promise<Response>(() => undefined)));
     const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Download a copy" }));
     await user.click(await screen.findByRole("button", { name: "Download as PDF" }));
     const busy = await screen.findAllByRole("button", { name: "Preparing your file" });
     expect(busy).toHaveLength(2);
@@ -242,7 +315,8 @@ describe.each([
     mockReader(pack);
     server.use(http.get(`${C}/progress`, () => json({ read: 0, total: 40 })));
     mockTranscript("ready");
-    renderAt(PATH);
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Download a copy" }));
     expect(await screen.findByRole("button", { name: "Download as Word" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Download as PDF" })).toBeEnabled();
   });
