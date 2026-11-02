@@ -1,4 +1,4 @@
-"""Which `Origin` may send the API a request with cookies: the allow-list entry, or the same dev machine by another name.
+"""Which Origin may send the API a request with cookies: the allow-list entry, or the same dev machine by another name.
 
 Hosts are compared as parsed parts (scheme, host, port), not as text, so a look-alike never matches.
 """

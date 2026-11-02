@@ -49,9 +49,7 @@ def pack() -> MergedPack:
 
 
 @pytest.mark.parametrize(("born", "written"), WRITTEN)
-def test_a_known_date_of_birth_does_not_survive_in_any_written_form(
-    pack: MergedPack, born: date, written: str
-) -> None:
+def test_a_known_date_of_birth_does_not_survive_in_any_written_form(pack: MergedPack, born: date, written: str) -> None:
     out = pii.strip(f"Seen today. Born {written}. Review in six weeks.", pack=pack, dates_of_birth=[born])
     assert written.lower() not in out.text.lower(), "a date of birth survived stripping"
     assert "Review in six weeks" in out.text
@@ -64,7 +62,7 @@ def test_a_word_that_only_looks_like_a_month_is_not_taken_for_one(pack: MergedPa
 
 
 def test_a_different_day_of_the_same_month_is_an_event_date_and_stays(pack: MergedPack) -> None:
-    out = pii.strip("Seen 4 March 1950.", pack=pack, dates_of_birth=[MARCH_3])
+    out = pii.strip("Seen 4 March 1950.", pack=pack, dates_of_birth=[MARCH_3])  # noqa: B005
     assert "4 March 1950" in out.text
 
 
