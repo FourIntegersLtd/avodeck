@@ -1,6 +1,6 @@
 # 0028 The records transcript, and reading by transcript
 
-Date: 2026-10-30 · Status: accepted · Decided by: the founder (plan "lazy-mapping-waterfall", item 5) · Builds on: rules 1, 2, 3 and 6, ADR 0026
+Date: 2026-10-30 · Status: accepted (partly superseded by 0035: the file before reading, PDF, sections) · Decided by: the founder (plan "lazy-mapping-waterfall", item 5) · Builds on: rules 1, 2, 3 and 6, ADR 0026
 
 **Problem.** An expert reads 1,000 to 4,000 pages, many of them handwritten or printed from a records system in a way that is hard to follow page by page. They also read the same story many times across pages (a consultation split over two pages, results spread through the bundle). A page-by-page reader is faithful to the bundle but slow. The experts asked for the bundle's own words, laid out entry by entry in date order, that they can read like a chronology.
 
