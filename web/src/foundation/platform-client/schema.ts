@@ -12849,13 +12849,33 @@ export interface components {
         };
         /** TranscriptList */
         TranscriptList: {
+            /**
+             * Can Prepare
+             * @default true
+             */
+            can_prepare: boolean;
             /** Entries */
             entries: components["schemas"]["TranscriptEntryOut"][];
+            /**
+             * Extracted Pages
+             * @default 0
+             */
+            extracted_pages: number;
             /**
              * Picture Pages
              * @default []
              */
             picture_pages: number[];
+            /**
+             * Pipeline Running
+             * @default false
+             */
+            pipeline_running: boolean;
+            /**
+             * Prepared Pages
+             * @default 0
+             */
+            prepared_pages: number;
             /**
              * Status
              * @enum {string}
@@ -12864,10 +12884,17 @@ export interface components {
             /** Total */
             total: number;
             /**
+             * Total Pages
+             * @default 0
+             */
+            total_pages: number;
+            /**
              * Unread Pages
              * @default []
              */
             unread_pages: number[];
+            /** Waiting For */
+            waiting_for?: ("pipeline" | "entries") | null;
         };
         /**
          * TranscriptOutline

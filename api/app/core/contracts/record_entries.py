@@ -12,7 +12,11 @@ OCR words, behind the blind-read gate.
 - `entries_status(conn, case_id)`: `idle` (not ready, nothing queued), `preparing` (the job is queued or
   running), `ready`, or `failed` (the job failed; ask again).
 - `request_entries(conn, case_id)`: queues the job that reads entries for a case that has none. Safe to call
-  again: it queues nothing while one is waiting or when the case is ready.
+  again: it queues nothing while one is waiting, when the case is ready, or while pages are still waiting to be
+  extracted by the pipeline (the entries job could do nothing for them; it would only run again and again).
+- `entries_progress(conn, case_id)`: how many pages there are, how many the pipeline has extracted, and how many
+  have had their entries read (or failed); counts only.
+- `pipeline_running(conn, case_id)`: a bundle-processing job is queued, running or paused for the case.
 """
 
 from __future__ import annotations
@@ -100,8 +104,43 @@ async def entries_status(conn: AsyncConnection, case_id: uuid.UUID) -> EntriesSt
     return "failed" if row is not None and row[0] == "failed" else "idle"
 
 
+@dataclass(frozen=True)
+class EntriesProgress:
+    total: int
+    extracted: int
+    entries_done: int
+
+
+async def entries_progress(conn: AsyncConnection, case_id: uuid.UUID) -> EntriesProgress:
+    cur = await conn.execute(
+        "select count(*), count(a.extracted_at),"
+        " count(*) filter (where a.entries_extracted_at is not null or a.entries_failed_at is not null)"
+        " from app.pages p left join app.page_analysis a on a.page_id = p.id"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined",
+        (case_id,),
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    return EntriesProgress(row[0], row[1], row[2])
+
+
+PIPELINE_JOBS = ("process_bundle", "process_pages", "reprocess_case", "scan_document")
+
+
+async def pipeline_running(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
+    cur = await conn.execute(
+        "select 1 from app.jobs where case_id = %s and kind = any(%s) and status in ('queued', 'running', 'paused')"
+        " limit 1",
+        (case_id, list(PIPELINE_JOBS)),
+    )
+    return await cur.fetchone() is not None
+
+
 async def request_entries(conn: AsyncConnection, case_id: uuid.UUID) -> uuid.UUID | None:
     """Queues the entries job unless the case is ready or one is already waiting; returns its job id."""
     if await entries_status(conn, case_id) in ("ready", "preparing"):
         return None
+    progress = await entries_progress(conn, case_id)
+    if progress.extracted < progress.total:
+        return None  # pages still wait on the pipeline; an entries job now would finish at once and be asked again
     return await registry.enqueue(conn, case_id, EXTRACT_ENTRIES)
