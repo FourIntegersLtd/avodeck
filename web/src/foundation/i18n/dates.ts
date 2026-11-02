@@ -64,17 +64,21 @@ function isoOf(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
+const isDay = (value: string) => DAY.test(value.slice(0, 10)) && !Number.isNaN(Date.parse(value.slice(0, 10)));
+
 /** Whole days from `a` to `b` (negative when `b` is earlier). Daylight saving never changes the answer. */
 export function daysBetween(a: string, b: string): number {
   return Math.round((utcMidnight(b) - utcMidnight(a)) / 86_400_000);
 }
 
 export function addDays(value: string, days: number): string {
+  if (!isDay(value)) return value;
   return isoOf(utcMidnight(value) + days * 86_400_000);
 }
 
 /** Months added, clamped to the last day of the month: 31 Jan + 1 month = 28 Feb (29 in a leap year). */
 export function addMonths(value: string, months: number): string {
+  if (!isDay(value)) return value;
   const [y, m, d] = value.slice(0, 10).split("-").map(Number);
   const total = y! * 12 + (m! - 1) + months;
   const year = Math.floor(total / 12);

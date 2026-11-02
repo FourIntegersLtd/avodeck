@@ -44,10 +44,7 @@ export function periodRange(start: string | null | undefined, end: string | null
   return w("read.period_range", { from: fmt(start), to: fmt(end) });
 }
 
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-/** "2024-05-15" as "15 May 2024"; fixed, so it does not depend on the pack's locale. */
+/** "2024-05-15" as "15 May 2024" in the base locale; empty when there is no date. */
 export function longDate(iso: string | null | undefined): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
-  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : "";
+  return /^\d{4}-\d{2}-\d{2}/.test(iso ?? "") ? formatDay(iso!.slice(0, 10), undefined, "long") : "";
 }

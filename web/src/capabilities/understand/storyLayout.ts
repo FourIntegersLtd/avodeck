@@ -2,6 +2,7 @@
 // link is the server's; here we group, rank and pack what it sent so nothing overlaps.
 import type { Schemas } from "../../foundation/platform-client";
 import { axisIso, statusOf } from "./shared";
+import { DEFAULT_LOCALE } from "../../foundation/i18n/dates";
 
 type Event = Schemas["Event"];
 
@@ -138,7 +139,7 @@ export const AXIS_CHAR_PX = 0.62 * 17;
 const AXIS_PAD = 16; // the label's own side padding
 const AXIS_GAP = 12; // space kept clear after a label
 
-const MONTH_LABEL = (year: boolean) => new Intl.DateTimeFormat("en-GB", { month: "short", ...(year ? { year: "numeric" } : {}), timeZone: "UTC" });
+const MONTH_LABEL = (year: boolean) => new Intl.DateTimeFormat(DEFAULT_LOCALE, { month: "short", ...(year ? { year: "numeric" } : {}), timeZone: "UTC" });
 const labelNeed = (label: string) => label.length * AXIS_CHAR_PX + AXIS_PAD + AXIS_GAP;
 
 /**

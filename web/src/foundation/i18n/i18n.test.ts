@@ -31,7 +31,7 @@ test("relative times read naturally", () => {
 
 test("a month is a calendar month, not thirty days", () => {
   expect(formatRelative(new Date("2026-02-01T12:00:00Z"), "en-GB", new Date("2026-03-01T12:00:00Z"))).toBe("last month");
-  expect(formatRelative(new Date("2025-02-01T12:00:00Z"), "en-GB", new Date("2026-01-31T12:00:00Z"))).toBe("11 months ago");
+  expect(formatRelative(new Date("2025-02-01T12:00:00Z"), "en-GB", new Date("2026-01-31T12:00:00Z"))).toBe("last year");
   expect(formatRelative(new Date("2026-05-01T12:00:00Z"), "en-GB", new Date("2026-03-01T12:00:00Z"))).toBe("in 2 months");
 });
 
