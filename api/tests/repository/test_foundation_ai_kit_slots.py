@@ -225,3 +225,24 @@ async def test_round_robin_fairness_the_longer_waiting_job_goes_first(
         await kit._wait_for_slot(conn, job_new)
     new_row = await _pending_row(admin, job_new)
     assert new_row is not None and new_row[1] is not None
+
+
+async def test_a_failed_jobs_waiting_slot_does_not_block_a_live_job(
+    worker_db: Database, admin: psycopg.Connection, seed: Seed, case: uuid.UUID
+) -> None:
+    dead, live = seed.job(case), seed.job(case)
+    admin.execute("update app.jobs set status = 'running' where id in (%s, %s)", (dead, live))
+    admin.execute("update app.jobs set status = 'failed', last_granted_at = now() - interval '1 hour' where id = %s", (dead,))
+    admin.execute(
+        "insert into app.ai_request_slots (job_id, case_id, requested_at) values (%s, %s, now() - interval '5 minutes')",
+        (dead, case),
+    )
+    admin.commit()
+
+    kit = AiKit(cell(), object())  # type: ignore[arg-type]
+    kit.settings = type(kit.settings)(**{**kit.settings.__dict__, "bedrock_rpm_limit": 5})
+
+    async with worker_db.job(case) as conn:
+        await kit._wait_for_slot(conn, live)  # would loop forever behind the dead job's row
+    row = await _pending_row(admin, live)
+    assert row is not None and row[1] is not None
