@@ -225,6 +225,36 @@ test("a refused citation stops the autosave, says which in plain words, and save
   await waitFor(() => expect(sent).toHaveLength(2));
 });
 
+test("a failed save schedules one retry, and leaving the screen cancels it", async () => {
+  const { sent, record } = serve("launch", { workspace: workspace("launch", { opinion: opinionOut({ body: "Start", version: 4 }) }) });
+  server.use(http.put("/v1/cases/:caseId/questions/:q/opinion", async ({ request }) => (await record(request), apiError(500, "server_error"))));
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  // Follow every five-second timer: each must have fired or been cleared once the screen is gone.
+  const waiting = new Set<unknown>();
+  const realSet = window.setTimeout;
+  const realClear = window.clearTimeout;
+  const setSpy = vi.spyOn(window, "setTimeout").mockImplementation(((fn: () => void, ms?: number, ...rest: unknown[]) => {
+    if (ms !== 5000) return realSet(fn, ms, ...rest);
+    const id = realSet(() => (waiting.delete(id), fn()), ms);
+    waiting.add(id);
+    return id;
+  }) as typeof window.setTimeout);
+  const clearSpy = vi.spyOn(window, "clearTimeout").mockImplementation(((id?: number) => (waiting.delete(id), realClear(id))) as typeof window.clearTimeout);
+  const { unmount } = renderAt(url);
+  const box = await screen.findByLabelText(M["write.opinion.editor"]!);
+  fireEvent.change(box, { target: { value: "Start more" } });
+  await act(async () => { await vi.advanceTimersByTimeAsync(5100); });
+  await waitFor(() => expect(sent).toHaveLength(1));
+  expect(await screen.findByText(M["write.opinion.save_failed"]!)).toBeInTheDocument();
+  unmount();
+  const leaked = waiting.size;
+  setSpy.mockRestore();
+  clearSpy.mockRestore();
+  expect(leaked).toBe(0);
+  await act(async () => { await vi.advanceTimersByTimeAsync(20000); });
+  expect(sent).toHaveLength(1);
+});
+
 test("a citation whose fact changed since you cited it says so, and one click cites the fact as it is now", async () => {
   const old = { fact_id: FACT_1, page_id: "93333333-3333-4333-8333-333333333333", quote_verbatim: "bleeding for three weeks" };
   const opinion = opinionOut({ body: "See [[cite:1]].", citation_refs: [old], changed_citations: [1], stale: true, version: 2 });
