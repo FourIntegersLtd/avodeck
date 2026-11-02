@@ -1,7 +1,7 @@
 {
   "kind": "answer",
   "request": {
-    "subject": "939624c52252b2c56fb57580d8e52c319c05c9778729c75b1e2e00220f0fff46",
+    "subject": "acabe7f6b0425f90346995f42ba94d97dc9b55370f6882e023849c55d570c835",
     "task_id": "T-07b"
   },
   "response": {
@@ -12,6 +12,13 @@
           "actions_requested_of_clinician": [],
           "availability_evidence": [],
           "entries": [
+            {
+              "author_role": null,
+              "first_word_id": "p1w9",
+              "kind": "consultation",
+              "last_word_id": "p1w13",
+              "specialty": null
+            },
             {
               "author_role": null,
               "first_word_id": "p1w20",
@@ -25,9 +32,31 @@
               "kind": "consultation",
               "last_word_id": "p1w27",
               "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w33",
+              "kind": "consultation",
+              "last_word_id": "p1w37",
+              "specialty": null
             }
           ],
           "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "1992-03-12"
+              },
+              "kind": "consultation",
+              "value": "rash both shins - ?eczema",
+              "word_ids": [
+                "p1w9",
+                "p1w10",
+                "p1w11",
+                "p1w12",
+                "p1w13"
+              ]
+            },
             {
               "clinician_role": null,
               "fields": {
@@ -52,6 +81,21 @@
                 "p1w26",
                 "p1w27"
               ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "1993-01-07"
+              },
+              "kind": "consultation",
+              "value": "moving away - wants records",
+              "word_ids": [
+                "p1w33",
+                "p1w34",
+                "p1w35",
+                "p1w36",
+                "p1w37"
+              ]
             }
           ],
           "printed_dates": [
@@ -64,7 +108,7 @@
           "references_out": [],
           "source_type": "primary_care_record"
         },
-        "output_tokens": 128
+        "output_tokens": 341
       }
     ]
   }

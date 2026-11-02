@@ -188,7 +188,7 @@ def test_planted_wrong_answers_are_retried_and_then_need_a_person(
             (bundle.case_id,),
         ).fetchall()
     )
-    assert rows[701] is True and rows[113] is False
+    assert rows[702] is True and rows[113] is False
     needing = sorted(n for n, flag in rows.items() if flag)
     assert len(needing) <= 9, f"pages needing a person: {needing}"
 

@@ -1,36 +1,29 @@
 {
   "kind": "answer",
   "request": {
-    "subject": "b303d6df526123428d8e60a2fcf627d17cffb2499302cfe1af1b2ceb5e67e77a",
+    "subject": "2be8fd099119c274ac6b52e90b9ac4eadd7d561d771c3d2f5f75044f9cb5c454",
     "task_id": "T-07b"
   },
   "response": {
     "responses": [
       {
-        "input_tokens": 698,
+        "input_tokens": 725,
         "output": {
           "actions_requested_of_clinician": [],
           "availability_evidence": [],
           "entries": [
             {
               "author_role": null,
-              "first_word_id": "p1w76",
+              "first_word_id": "p1w98",
               "kind": "consultation",
-              "last_word_id": "p1w83",
+              "last_word_id": "p1w105",
               "specialty": null
             },
             {
               "author_role": null,
-              "first_word_id": "p1w99",
+              "first_word_id": "p1w139",
               "kind": "consultation",
-              "last_word_id": "p1w102",
-              "specialty": null
-            },
-            {
-              "author_role": null,
-              "first_word_id": "p1w127",
-              "kind": "consultation",
-              "last_word_id": "p1w132",
+              "last_word_id": "p1w144",
               "specialty": null
             }
           ],
@@ -38,81 +31,84 @@
             {
               "clinician_role": null,
               "fields": {
-                "date": "2024-10-22"
+                "date": "2024-10-22",
+                "setting": "inpatient"
               },
               "kind": "consultation",
               "value": "Settled night. Pain 2/10. Obs stable NEWS 1.",
               "word_ids": [
-                "p1w76",
-                "p1w77",
-                "p1w78",
-                "p1w79",
-                "p1w80",
-                "p1w81",
-                "p1w82",
-                "p1w83"
+                "p1w98",
+                "p1w99",
+                "p1w100",
+                "p1w101",
+                "p1w102",
+                "p1w103",
+                "p1w104",
+                "p1w105"
               ]
             },
             {
               "clinician_role": null,
               "fields": {
-                "date": "2024-10-22"
+                "date": "2024-10-22",
+                "setting": "inpatient"
               },
               "kind": "consultation",
               "value": "Settled night. Pain 2/10. Obs stable NEWS 1.",
               "word_ids": [
-                "p1w76",
-                "p1w77",
-                "p1w78",
-                "p1w79",
-                "p1w80",
-                "p1w81",
-                "p1w82",
-                "p1w83"
+                "p1w98",
+                "p1w99",
+                "p1w100",
+                "p1w101",
+                "p1w102",
+                "p1w103",
+                "p1w104",
+                "p1w105"
               ]
             },
             {
               "clinician_role": null,
               "fields": {
-                "date": "2024-10-23"
+                "date": "2024-10-23",
+                "setting": "inpatient"
               },
               "kind": "consultation",
               "value": "Nauseated overnight, ondansetron given with effect.",
               "word_ids": [
-                "p1w127",
-                "p1w128",
-                "p1w129",
-                "p1w130",
-                "p1w131",
-                "p1w132"
+                "p1w139",
+                "p1w140",
+                "p1w141",
+                "p1w142",
+                "p1w143",
+                "p1w144"
               ]
             },
             {
               "clinician_role": null,
               "fields": {
-                "date": "2024-10-23"
+                "date": "2024-10-23",
+                "setting": "inpatient"
               },
               "kind": "consultation",
               "value": "Nauseated overnight, ondansetron given with effect.",
               "word_ids": [
-                "p1w127",
-                "p1w128",
-                "p1w129",
-                "p1w130",
-                "p1w131",
-                "p1w132"
+                "p1w139",
+                "p1w140",
+                "p1w141",
+                "p1w142",
+                "p1w143",
+                "p1w144"
               ]
             },
             {
               "clinician_role": null,
               "fields": {},
               "kind": "consultation",
-              "value": "IV co-amoxiclav 1.2g tds",
+              "value": "NBM from midnight",
               "word_ids": [
-                "p1w99",
-                "p1w100",
-                "p1w101",
-                "p1w102"
+                "p1w34",
+                "p1w35",
+                "p1w36"
               ]
             }
           ],
@@ -127,7 +123,7 @@
           "references_out": [],
           "source_type": "hospital"
         },
-        "output_tokens": 323
+        "output_tokens": 406
       }
     ]
   }

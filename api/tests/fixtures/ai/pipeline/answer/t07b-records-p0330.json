@@ -1,0 +1,50 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "bfcf7fde331cf56c431fb3a87394815633ebb668ae0eb3afdc72f68d53fd3ae4",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 401,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "entries": [
+            {
+              "author_role": null,
+              "first_word_id": "p1w49",
+              "kind": "result",
+              "last_word_id": "p1w51",
+              "specialty": null
+            }
+          ],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2020-01-11",
+                "test": "US Pelvis"
+              },
+              "kind": "result",
+              "value": "Normal pelvic ultrasound.",
+              "word_ids": [
+                "p1w49",
+                "p1w50",
+                "p1w51"
+              ]
+            }
+          ],
+          "printed_dates": [
+            "2020-01-11",
+            "2020-01-12"
+          ],
+          "references_out": [],
+          "source_type": "results"
+        },
+        "output_tokens": 119
+      }
+    ]
+  }
+}

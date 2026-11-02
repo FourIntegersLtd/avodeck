@@ -55,7 +55,7 @@ from tests.support.seed import Seed
 pytestmark = pytest.mark.anyio
 
 RETRIED = 113  # first answer cites a value not in its words, the second is right
-WRONG_TWICE = 701  # both answers are wrong: the page needs a person
+WRONG_TWICE = 702  # both answers are wrong: the page needs a person
 STRUCK = 463  # an answer cites crossed-out words
 NO_FACTS = 9  # plenty of OCR words; the recorded answer already finds nothing on it
 

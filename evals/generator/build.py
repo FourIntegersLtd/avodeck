@@ -46,7 +46,7 @@ from series import westvale_series, northam_series, private_and_community, handw
 
 TOTAL_PAGES = 450          # part 1 (planted items fixed here)
 PART2_PAGES = 450          # pages 451-900: detailed records
-TARGETS = {"7": 118, "11_print": 402}      # planted item -> bundle page
+TARGETS = {"7": 118, "3": 390, "11_print": 402}      # planted item -> bundle page
 N_DUPLICATES = 37
 RNG = random.Random(2024)
 GP_RESULTS = []            # filled by gp_section; printed lab copies in part 2 use it
@@ -804,6 +804,13 @@ def main(out_root):
     middle = items[idx118 + 1:]
     head_n = sum(it.n for it in items[:idx118 + 1])
     mid_real = sum(it.n for it in middle) + len(dups)
+    # planted 3: the letter that mentions the missing colonoscopy report is pinned to its page, so the
+    # cancer-episode order below cannot move it
+    pinned3 = next((it for it in late if any(r.get("planted") == "3" for pg in it.pages for r in pg.references_out)), None)
+    if pinned3 is None:
+        raise SystemExit("planted 3: the letter naming the colonoscopy report is not in the cancer episode")
+    late.remove(pinned3)
+    mid_real += pinned3.n
     late_take = []
     for it in list(late):                       # pull cancer-episode documents forward, keeping ~30 pages for the end
         if sum(x.n for x in late) - it.n < 30:
@@ -822,6 +829,15 @@ def main(out_root):
     for extra in dups + fill_mid:
         middle.insert(rng2.randint(1, len(middle)), extra)
     head = items[:idx118 + 1] + middle
+    before3, boundary3 = 0, None
+    for i, x in enumerate(head):
+        if before3 == TARGETS["3"] - 1:
+            boundary3 = i
+            break
+        before3 += x.n
+    if boundary3 is None:
+        raise SystemExit(f"planted 3 cannot start on page {TARGETS['3']}: no document boundary there")
+    head.insert(boundary3, pinned3)
     tail = late
     need = TOTAL_PAGES - sum(x.n for x in head) - 1 - sum(x.n for x in tail)
     if need < 0:
@@ -832,6 +848,9 @@ def main(out_root):
     rng2.shuffle(tail_mix)
     items = head + [ferritin] + tail_mix
     assert sum(x.n for x in items) == TOTAL_PAGES, sum(x.n for x in items)
+    start3 = 1 + sum(x.n for x in items[:items.index(pinned3)])
+    if start3 != TARGETS["3"]:
+        raise SystemExit(f"planted 3 landed on page {start3}, not {TARGETS['3']}")
 
     # ---- part 2: pages 451-900, detailed records, appended so part-1 page numbers never move
     p2 = as_items(all_part2(GP_RESULTS))

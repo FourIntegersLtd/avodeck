@@ -1,0 +1,70 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "655ef6d0f2a502dc532551f0a423b9ce54ccb598db63c2b8e0d3d5f3071e4889",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 347,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "entries": [
+            {
+              "author_role": null,
+              "first_word_id": "p1w29",
+              "kind": "result",
+              "last_word_id": "p1w30",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w34",
+              "kind": "result",
+              "last_word_id": "p1w35",
+              "specialty": null
+            }
+          ],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2013-02-01",
+                "flag": "",
+                "test": "Cholesterol"
+              },
+              "kind": "result",
+              "value": "8.2 mmol/L",
+              "word_ids": [
+                "p1w29",
+                "p1w30"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2013-02-01",
+                "flag": "",
+                "test": "HbA1c"
+              },
+              "kind": "result",
+              "value": "36 mmol/mol",
+              "word_ids": [
+                "p1w34",
+                "p1w35"
+              ]
+            }
+          ],
+          "printed_dates": [
+            "2013-02-01"
+          ],
+          "references_out": [],
+          "source_type": "results"
+        },
+        "output_tokens": 182
+      }
+    ]
+  }
+}
