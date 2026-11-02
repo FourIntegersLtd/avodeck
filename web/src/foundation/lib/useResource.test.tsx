@@ -65,6 +65,45 @@ describe("useResource with a cache name", () => {
     await waitFor(() => expect(stale).toHaveBeenCalled());
   });
 
+  test("a failed background reload keeps the data already shown", async () => {
+    await loadOnce("probe.keep", "shown");
+    const load = vi.fn(() => Promise.reject<string>(new ApiError(500, "server_error")));
+    render(<Probe load={load} cache="probe.keep" />);
+    expect(out()).toBe("data shown");
+    act(() => latest!.reload());
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2), { timeout: 4000 }); // one try and one more
+    await act(async () => {});
+    expect(out()).toBe("data shown");
+  });
+
+  test("a change to a case drops a read of that case that was already on its way", async () => {
+    server.use(http.post("/v1/cases/case-a/notes", () => new HttpResponse(null, { status: 204 })));
+    await loadOnce("probe.inflight", "old", "case-a");
+    const slow = deferred<string>();
+    const first = render(<Probe load={() => slow.promise} k="case-a" cache="probe.inflight" />);
+    act(() => latest!.reload());
+    await unwrap(api.POST("/v1/cases/{case_id}/notes" as never, { params: { path: { case_id: "case-a" } } } as never));
+    await act(async () => slow.resolve("from before the change"));
+    first.unmount();
+    const load = vi.fn(() => Promise.resolve("after"));
+    render(<Probe load={load} k="case-a" cache="probe.inflight" />);
+    await waitFor(() => expect(load).toHaveBeenCalled());
+  });
+
+  test("a change to a case also refreshes balance and messages, which carry no case id", async () => {
+    server.use(http.post("/v1/cases/case-a/notes", () => new HttpResponse(null, { status: 204 })));
+    await loadOnce("setup/shared#Balance:found", "b");
+    await loadOnce("account/Messages#Messages:found", "m");
+    await loadOnce("foundation/lib/messages#MessagesProvider:found", "p");
+    await unwrap(api.POST("/v1/cases/{case_id}/notes" as never, { params: { path: { case_id: "case-a" } } } as never));
+    for (const name of ["setup/shared#Balance:found", "account/Messages#Messages:found", "foundation/lib/messages#MessagesProvider:found"]) {
+      const load = vi.fn(() => Promise.resolve("fresh"));
+      const view = render(<Probe load={load} cache={name} />);
+      await waitFor(() => expect(load).toHaveBeenCalled());
+      view.unmount();
+    }
+  });
+
   test("different arguments are different entries", async () => {
     await loadOnce("probe.args", "page one", 1);
     const fresh = deferred<string>();
