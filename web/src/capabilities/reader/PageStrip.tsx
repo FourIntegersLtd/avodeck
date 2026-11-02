@@ -4,7 +4,7 @@
 // ends, Enter opens the page.
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Listed } from "./bundlePages";
-import { smallPageImage } from "./pageImageCache";
+import { smallPageImage } from "../../foundation/lib/pageImageCache";
 import { stripWindow } from "./viewer";
 import { w } from "./words";
 

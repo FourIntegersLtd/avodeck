@@ -7,7 +7,7 @@ import { LinkButton, Notice, PageRef, PageViewer, StatusMark } from "../../found
 import { useHighlight } from "./highlight";
 import { QuestionToggle } from "./QuestionChip";
 import { axisIso, entryHref, statusOf, useKindWord } from "./shared";
-import { pageImage } from "./pageImage";
+import { pageImage } from "../../foundation/lib/pageImageCache";
 import { dateMark, entryLabel, entryName } from "./TimelineBoard";
 import { w } from "./words";
 

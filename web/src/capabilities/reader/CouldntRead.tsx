@@ -10,7 +10,7 @@ import { BackLink, Button, ChoicePills, DictationBar, LoadError, Loading, Notice
 import { casePath, count, sourceLabel } from "./data";
 import { PageImage } from "./PageImage";
 import { SecondReading } from "./SecondReading";
-import { forgetPage } from "./pageImageCache";
+import { forgetPage } from "../../foundation/lib/pageImageCache";
 import { uploadLaterRecords } from "./upload";
 import { w } from "./words";
 

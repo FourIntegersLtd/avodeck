@@ -13,7 +13,7 @@ import { Comments } from "./Comments";
 import { GuidanceChanged, longDate, statusOf, TextArea, useCan, useKindWord } from "./shared";
 import { w } from "./words";
 import { groupByPage, splitByVisitPage } from "./consultationEntries";
-import { pageImage } from "./pageImage";
+import { pageImage } from "../../foundation/lib/pageImageCache";
 
 type Entry = Schemas["Entry"];
 type PageMark = Schemas["PageMark"];

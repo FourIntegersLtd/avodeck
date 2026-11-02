@@ -9,7 +9,7 @@ import { api, unwrap } from "../../foundation/platform-client";
 import { Button } from "../../foundation/ui";
 import { pct } from "./data";
 import { ChevronIcon, CloseIcon, FindIcon } from "./icons";
-import { pageImage } from "./pageImageCache";
+import { pageImage } from "../../foundation/lib/pageImageCache";
 import { searchable, type SearchResult } from "./search";
 import { w } from "./words";
 

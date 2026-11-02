@@ -2,7 +2,7 @@
 // "Make it clearer" only change how it is shown: the picture and everything drawn on it sit in one box
 // that is turned as a whole, so highlights and the word picker stay over the same words (rule 2).
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { pageImage, peekPage } from "./pageImageCache";
+import { pageImage, peekPage } from "../../foundation/lib/pageImageCache";
 import { drawnSize, type Fit } from "../../foundation/ui";
 import { w } from "./words";
 
