@@ -34,6 +34,7 @@ from app.core.ai.mask import MaskedImage, is_genuine
 from app.core.config import AiSettings
 from app.core.db import Database
 from app.core.errors import ProcessingPaused
+from app.core.http_retry import backoff
 from app.core.packs import MergedPack
 
 logger = logging.getLogger("app.ai")
@@ -59,7 +60,7 @@ def backoff_delays(retries: int, base: float = 2.0, limit: float = MAX_WAIT_SECO
     """Growing waits between attempts, never more than `limit` seconds in all."""
     delays: list[float] = []
     for attempt in range(retries):
-        delay = min(base * 2**attempt, limit - sum(delays))
+        delay = min(backoff(attempt, base, limit), limit - sum(delays))
         if delay <= 0:
             break
         delays.append(delay)

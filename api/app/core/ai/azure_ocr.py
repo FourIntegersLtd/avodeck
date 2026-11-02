@@ -27,6 +27,7 @@ from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import EndpointNotAllowed, check_endpoint
 from app.core.ai.ocr import OcrFailed, OcrModel, OcrPage, OcrResult, OcrWord, word_id
 from app.core.config import AiSettings
+from app.core.http_retry import MAX_RETRY_AFTER, backoff, parse_retry_after
 
 logger = logging.getLogger("app.ai.ocr")
 
@@ -37,10 +38,7 @@ _CODE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 
 
 def _retry_after(response: httpx.Response) -> float | None:
-    try:
-        return max(float(response.headers["Retry-After"]), 0.0)
-    except (KeyError, ValueError):
-        return None
+    return parse_retry_after(response.headers.get("Retry-After"))
 
 
 class AzureOcr:
@@ -152,7 +150,7 @@ class AzureOcr:
             if attempt == self._retries:
                 logger.error("ocr service still busy (%s) after %d attempts", status, attempt + 1)
                 raise ServiceBusy(retry_after)
-            pause = max(self._base_delay * 2**attempt, retry_after or 0.0)
+            pause = max(backoff(attempt, self._base_delay, MAX_RETRY_AFTER, jitter=0.0), retry_after or 0.0)
             logger.warning("ocr service busy (%s); waiting %.0f s (attempt %d)", status, pause, attempt + 1)
             await self._sleep(pause)
         raise AssertionError("unreachable")  # pragma: no cover
