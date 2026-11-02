@@ -62,13 +62,13 @@ _H3 = ParagraphStyle(
 )
 
 
-class _Heading(Paragraph):
+class _Heading(Paragraph):  # type: ignore[misc]
     def __init__(self, text: str, style: ParagraphStyle, *, mark: tuple[str, str, int] | None = None) -> None:
         super().__init__(text, style)
         self.mark = mark
 
 
-class _PicturePage(Flowable):
+class _PicturePage(Flowable):  # type: ignore[misc]
     """One picture, fitted to the frame, with a caption; its bookmark is where the page links land."""
 
     def __init__(self, number: int, jpeg: bytes | None, caption: str, missing: str) -> None:
@@ -117,7 +117,7 @@ def _prepare(data: bytes | None) -> bytes | None:
         return None
 
 
-class _Doc(BaseDocTemplate):
+class _Doc(BaseDocTemplate):  # type: ignore[misc]
     def afterFlowable(self, flowable: Any) -> None:  # noqa: N802
         mark = getattr(flowable, "mark", None)
         if mark:
