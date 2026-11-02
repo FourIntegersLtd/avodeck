@@ -188,6 +188,8 @@ def _params(request: ModelRequest) -> dict[str, Any]:
             "toolChoice": {"tool": {"name": TOOL_NAME}},
         },
         "inferenceConfig": {"maxTokens": request.max_tokens, "temperature": request.temperature},
+        # Sonnet 5 thinks unless told not to, and thinking is billed as output (10x against the token quota).
+        "additionalModelRequestFields": {"thinking": {"type": "disabled"}},
     }
 
 
