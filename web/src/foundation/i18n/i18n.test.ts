@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { formatDay, formatDue, formatRelative, hasMessage, registerMessages, t } from ".";
+import { formatDue, formatRelative, hasMessage, registerMessages, t, formatWeekdayDate } from ".";
 
 test("interpolates parameters", () => {
   expect(t("today.greeting.morning", { name: "Dr Morgan" })).toBe("Good morning, Dr Morgan");
@@ -21,7 +21,7 @@ test("dates follow the locale's order and the person's timezone", () => {
   expect(formatDue("2026-11-30", "en-GB")).toBe("30 Nov");
   expect(formatDue("2026-11-30", "en-ZZ")).toBe("Nov 30");
   // 23:30 UTC on 13 October is already 14 October in London (BST).
-  expect(formatDay(new Date("2026-10-13T23:30:00Z"), "en-GB", "Europe/London")).toBe("Wednesday 14 October");
+  expect(formatWeekdayDate(new Date("2026-10-13T23:30:00Z"), "en-GB", "Europe/London")).toBe("Wednesday 14 October");
 });
 
 test("relative times read naturally", () => {
@@ -33,4 +33,9 @@ test("a month is a calendar month, not thirty days", () => {
   expect(formatRelative(new Date("2026-02-01T12:00:00Z"), "en-GB", new Date("2026-03-01T12:00:00Z"))).toBe("last month");
   expect(formatRelative(new Date("2025-02-01T12:00:00Z"), "en-GB", new Date("2026-01-31T12:00:00Z"))).toBe("11 months ago");
   expect(formatRelative(new Date("2026-05-01T12:00:00Z"), "en-GB", new Date("2026-03-01T12:00:00Z"))).toBe("in 2 months");
+});
+
+test("months and years are counted on the calendar, so two back is never 'last'", () => {
+  expect(formatRelative(new Date("2025-01-01T12:00:00Z"), "en-GB", new Date("2026-12-31T12:00:00Z"))).toBe("2 years ago");
+  expect(formatRelative(new Date("2026-01-31T12:00:00Z"), "en-GB", new Date("2026-03-30T12:00:00Z"))).toBe("2 months ago");
 });

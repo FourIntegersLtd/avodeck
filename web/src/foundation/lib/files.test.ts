@@ -1,9 +1,18 @@
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { bytesOf, saveBlob } from "./files";
 
-afterEach(() => vi.restoreAllMocks());
+const realCreate = URL.createObjectURL;
+const realRevoke = URL.revokeObjectURL;
+beforeEach(() => vi.useFakeTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  URL.createObjectURL = realCreate;
+  URL.revokeObjectURL = realRevoke;
+});
 
 test("bytesOf reads a blob's bytes", async () => {
+  vi.useRealTimers();
   const bytes = new Uint8Array(await bytesOf(new Blob(["abc"])));
   expect(Array.from(bytes)).toEqual([97, 98, 99]);
 });
@@ -18,6 +27,8 @@ test("saveBlob clicks a download link with the name, then lets go of the address
   });
   saveBlob(new Blob(["x"]), "case.zip");
   expect(name).toBe("case.zip");
+  expect(revoke).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(40_000);
   expect(revoke).toHaveBeenCalledWith("blob:x");
   expect(document.querySelector("a[download]")).toBeNull();
 });

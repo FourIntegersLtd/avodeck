@@ -70,3 +70,11 @@ describe("lists and numbers", () => {
     expect(formatNumber(3914, "bad locale!")).toBe("3,914");
   });
 });
+
+describe("bad input", () => {
+  test("day arithmetic hands back what it was given instead of throwing", () => {
+    expect(addDays("nonsense", 1)).toBe("nonsense");
+    expect(addMonths("", 1)).toBe("");
+    expect(addYears("2024-13-45x", 1)).toBe("2024-13-45x");
+  });
+});
