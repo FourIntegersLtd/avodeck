@@ -21,10 +21,11 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager, suppress
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any
 
-from psycopg import AsyncConnection
+from psycopg import AsyncConnection, AsyncCursor
 from psycopg.pq import TransactionStatus
 from psycopg_pool import AsyncConnectionPool
 
@@ -37,6 +38,20 @@ _PRIVILEGED_ROLES = frozenset({"postgres", "service_role", "supabase_admin", "ap
 
 class UnsafeDatabaseRole(RuntimeError):
     """The connection's role could bypass row-level security."""
+
+
+# SQL statements run in the current request (set to 0 by `RequestLog`, read for the log line and the
+# Server-Timing header). A one-item list, so statements run in child tasks are counted too. Only the
+# number is kept, never the SQL or its parameters (rule 6).
+statement_count: ContextVar[list[int]] = ContextVar("statement_count")
+
+
+class _CountingCursor(AsyncCursor[Any]):
+    async def execute(self, *args: Any, **kwargs: Any) -> Any:
+        counter = statement_count.get(None)
+        if counter is not None:
+            counter[0] += 1
+        return await super().execute(*args, **kwargs)
 
 
 @dataclass(frozen=True)
@@ -58,7 +73,7 @@ class Database:
             open=False,
             # autocommit: db.py sends BEGIN and COMMIT itself, so BEGIN shares a round trip with the
             # settings (psycopg's own BEGIN waits for its answer). Callers still get one transaction.
-            kwargs={"prepare_threshold": None, "autocommit": True},
+            kwargs={"prepare_threshold": None, "autocommit": True, "cursor_factory": _CountingCursor},
         )
 
     async def open(self) -> None:
