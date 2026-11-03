@@ -1156,6 +1156,11 @@
             "title": "Exhibits",
             "type": "array"
           },
+          "failed_pages": {
+            "default": 0,
+            "title": "Failed Pages",
+            "type": "integer"
+          },
           "foreign_language": {
             "default": [],
             "items": {
@@ -1207,6 +1212,11 @@
             },
             "title": "Quarantined",
             "type": "array"
+          },
+          "retrying": {
+            "default": false,
+            "title": "Retrying",
+            "type": "boolean"
           },
           "set_aside_count": {
             "default": 0,
@@ -37375,7 +37385,7 @@
     },
     "/v1/cases/{case_id}/transcript/retry": {
       "post": {
-        "description": "The reader asks again after the entries job failed; queues once, nothing while one is waiting.",
+        "description": "The reader asks again: the entries job after it failed, else the pages the model could not read.\nQueues once, nothing while one is waiting.",
         "operationId": "transcript_retry_v1_cases__case_id__transcript_retry_post",
         "parameters": [
           {

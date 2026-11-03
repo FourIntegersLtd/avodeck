@@ -171,6 +171,23 @@ describe.each([
     expect(screen.getByRole("menuitem", { name: "Download as Word" })).toHaveAttribute("aria-disabled", "true");
   });
 
+  test("a transcript with pages we couldn't read offers to try just those again, once per press", async () => {
+    mockReader(pack);
+    const log = mockTranscript("ready", [entry(1)], [], [7, 8, 9]);
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Try these pages again" }));
+    expect(log.retries).toBe(1);
+  });
+
+  test("no button to try those pages again when none were unreadable or this person may not start the work", async () => {
+    mockReader(pack);
+    outline = { status: "ready", coverage: { ...COVERAGE, unreadable: 0 }, sections: [sectionOf("alpha", [entry(1)] as Entries)] };
+    mockTranscript("ready", [entry(1)]);
+    renderAt(PATH);
+    await screen.findByText("Pages we couldn't read");
+    expect(screen.queryByRole("button", { name: "Try these pages again" })).toBeNull();
+  });
+
   test("while preparing it shows a spinner and how many pages are done", async () => {
     mockReader(pack);
     mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 900, waiting_for: "entries" });
