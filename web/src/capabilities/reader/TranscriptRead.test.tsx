@@ -2,6 +2,7 @@
 // Under both pack sets.
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { http, HttpResponse, json, server } from "../../test/api";
@@ -137,6 +138,7 @@ class FakeObserver {
 }
 
 beforeEach(() => {
+  forgetPages(); // a page picture kept by an earlier test would hide the request this one asserts on
   watchers = [];
   outline = { status: "ready", sections: [] };
   vi.stubGlobal("IntersectionObserver", FakeObserver);
