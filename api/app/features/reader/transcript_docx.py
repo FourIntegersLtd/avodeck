@@ -196,10 +196,16 @@ def _heading(doc: DocumentType, text: str, level: int, bookmark: tuple[str, int]
 
 
 def _entry(
-    doc: DocumentType, entry: TranscriptEntry, *, date_order: str, language: str, received: dict[int, date]
+    doc: DocumentType,
+    entry: TranscriptEntry,
+    *,
+    date_order: str,
+    language: str,
+    received: dict[int, date],
+    level: int = 4,
 ) -> None:
     parts = entry_heading(entry, date_order=date_order, language=language, received=received)
-    para = doc.add_paragraph(style="Heading 4")
+    para = doc.add_paragraph(style=f"Heading {level}")
     for i, part in enumerate(parts):
         if i:
             _run(para, ", ")
@@ -271,8 +277,8 @@ def build(
     ):
         if there:
             heading = f"{word(language, 'appendix', letter=letters[key])}  {title}"
-            appendices.append((key, f"app-{key}", heading))
-    sections = [(f"sec-{n}", f"{n}. {label_text(sec.label)}") for n, sec in numbered(layout)]
+            appendices.append((key, f"app_{key}", heading))
+    sections = [(f"sec_{n}", f"{n}. {label_text(sec.label)}") for n, sec in numbered(layout)]
 
     # Contents: a plain bold paragraph (not a heading), then one internal link per section and appendix.
     _run(doc.add_paragraph(), word(language, "contents")).bold = True
@@ -295,7 +301,9 @@ def build(
                 if month.month is not None:
                     _heading(doc, month_name(language, month.month), 3)
                 for entry in month.entries:
-                    _entry(doc, entry, date_order=date_order, language=language, received=received)
+                    # Under a month the entries are level 4; with no month heading they follow the year at level 3.
+                    level = 4 if month.month is not None else 3
+                    _entry(doc, entry, date_order=date_order, language=language, received=received, level=level)
 
     for key, anchor, heading in appendices:
         ident += 1

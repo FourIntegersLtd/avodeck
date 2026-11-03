@@ -199,6 +199,12 @@ export function TranscriptRead() {
   const [outlineFailed, setOutlineFailed] = useState(false);
   // Counts the sections opened, so a slow answer for a section the reader has left is dropped.
   const generation = useRef(0);
+  // One request for more entries at a time: a second press while one is on its way does nothing.
+  const appending = useRef(false);
+  const appendToken = useRef(0);
+  const [busyMore, setBusyMore] = useState(false);
+  const [moreFailed, setMoreFailed] = useState(false);
+  const retryMore = useRef<(() => void) | null>(null);
 
   const progress = useCallback(async () => {
     try {
@@ -212,7 +218,7 @@ export function TranscriptRead() {
 
   // "status" only learns how the preparation is going (it also starts it); "replace" opens a section; "append" adds to it.
   const load = useCallback(
-    async (offset: number, limit: number, mode: "status" | "replace" | "append", forSection?: string) => {
+    async (offset: number, limit: number, mode: "status" | "replace" | "append", forSection?: string): Promise<boolean> => {
       const mine = mode === "replace" ? ++generation.current : generation.current;
       try {
         const got = await unwrap(api.GET("/v1/cases/{case_id}/transcript/entries", { params: { path: { case_id: caseId }, query: { offset, limit } } }));
@@ -221,12 +227,14 @@ export function TranscriptRead() {
         setWait(got);
         setPicturePages(got.picture_pages);
         setUnreadPages(got.unread_pages);
-        if (mode === "status" || mine !== generation.current) return;
+        if (mode === "status" || mine !== generation.current) return true;
         entriesRef.current = mode === "replace" ? got.entries : [...entriesRef.current, ...got.entries]; // read at once by goToYear
         setEntries(entriesRef.current);
         if (mode === "replace") setEntriesFor(forSection ?? null);
+        return true;
       } catch {
         setFailed(true);
+        return false;
       }
     },
     [caseId],
@@ -268,6 +276,10 @@ export function TranscriptRead() {
     entriesRef.current = [];
     setEntries([]);
     setEntriesFor(null);
+    appendToken.current += 1; // an answer still on its way for the section left behind is dropped
+    appending.current = false;
+    setBusyMore(false);
+    setMoreFailed(false);
     const target = outline?.sections.find((s) => s.key === sectionKey);
     if (!target || status !== "ready") return;
     if (target.count === 0) {
@@ -288,25 +300,61 @@ export function TranscriptRead() {
 
   const go = useCallback((to: string | null) => setParams(to ? { section: to } : {}), [setParams]);
 
-  async function showMore(open: NonNullable<typeof section>) {
-    const have = entriesRef.current.length;
-    await load(open.offset + have, Math.min(PAGE_SIZE, open.count - have), "append");
+  // Runs one request for more entries. A second press while it runs does nothing; a failure is shown, with Try again.
+  async function append(run: (stillHere: () => boolean) => Promise<boolean>, again: () => void) {
+    if (appending.current) return;
+    appending.current = true;
+    const token = ++appendToken.current;
+    const stillHere = () => token === appendToken.current;
+    setBusyMore(true);
+    setMoreFailed(false);
+    try {
+      const ok = await run(stillHere);
+      if (!stillHere()) return;
+      retryMore.current = ok ? null : again;
+      setMoreFailed(!ok);
+    } finally {
+      if (stillHere()) {
+        appending.current = false;
+        setBusyMore(false);
+      }
+    }
+  }
+
+  function showMore(open: NonNullable<typeof section>) {
+    return append(
+      () => {
+        const have = entriesRef.current.length;
+        return load(open.offset + have, Math.min(PAGE_SIZE, open.count - have), "append");
+      },
+      () => void showMore(open),
+    );
   }
 
   // Load forward until the first entry of the year is on screen, then move the reader to its heading.
   // Jumping records nothing as read: only the entries on screen do (rule 3).
-  async function goToYear(open: NonNullable<typeof section>, year: Schemas["OutlineYear"]) {
-    const wanted = year.offset - open.offset;
-    let have = entriesRef.current.length;
-    while (have <= wanted && have < open.count) {
-      await load(open.offset + have, Math.min(JUMP_LIMIT, open.count - have), "append");
-      if (entriesRef.current.length <= have) break;
-      have = entriesRef.current.length;
-    }
-    await new Promise((r) => setTimeout(r, 0));
-    const target = document.getElementById(yearId(year.year));
-    target?.scrollIntoView({ block: "start" });
-    target?.focus({ preventScroll: true });
+  function goToYear(open: NonNullable<typeof section>, year: Schemas["OutlineYear"]) {
+    return append(
+      async (stillHere) => {
+        const mine = generation.current;
+        const left = () => !stillHere() || mine !== generation.current;
+        const wanted = year.offset - open.offset;
+        let have = entriesRef.current.length;
+        while (have <= wanted && have < open.count) {
+          if (!(await load(open.offset + have, Math.min(JUMP_LIMIT, open.count - have), "append"))) return false;
+          if (left()) return true;
+          if (entriesRef.current.length <= have) break;
+          have = entriesRef.current.length;
+        }
+        await new Promise((r) => setTimeout(r, 0));
+        if (left()) return true;
+        const target = document.getElementById(yearId(year.year));
+        target?.scrollIntoView({ block: "start" });
+        target?.focus({ preventScroll: true });
+        return true;
+      },
+      () => void goToYear(open, year),
+    );
   }
 
   // Only the reader's own press asks the server to prepare the transcript again; polling never does.
@@ -437,6 +485,9 @@ export function TranscriptRead() {
           locale={pack.locale}
           renderEntry={(entry, level) => <EntryCard entry={entry} caseId={caseId} onSeen={seen} level={level} />}
           onMore={() => void showMore(section)}
+          busy={busyMore}
+          moreFailed={moreFailed}
+          onRetryMore={() => retryMore.current?.()}
           onYear={(year) => void goToYear(section, year)}
           go={go}
         />

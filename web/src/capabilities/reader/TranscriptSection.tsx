@@ -4,7 +4,7 @@ import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { safeLocale } from "../../foundation/i18n/dates";
 import type { Schemas } from "../../foundation/platform-client";
-import { Button, LinkButton, Loading, Menu, MenuItem, MenuSection } from "../../foundation/ui";
+import { Button, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection } from "../../foundation/ui";
 import { count } from "./data";
 import { dateRange, entriesText, pagesText, sectionLabel, viewSearch, type Appendix, type Section } from "./TranscriptContents";
 import { w } from "./words";
@@ -85,11 +85,16 @@ interface Props {
   locale: string | null | undefined;
   renderEntry: (entry: Entry, level: 4 | 5) => ReactNode;
   onMore: () => void;
+  /** Entries are on their way: the button waits, so one press asks once. */
+  busy?: boolean;
+  /** The last request for more entries failed; Try again repeats it. */
+  moreFailed?: boolean;
+  onRetryMore?: () => void;
   onYear: (year: Year) => void;
   go: (key: string | null) => void;
 }
 
-export function TranscriptSection({ section, number, sections, appendices: lists, entries, locale, renderEntry, onMore, onYear, go }: Props) {
+export function TranscriptSection({ section, number, sections, appendices: lists, entries, locale, renderEntry, onMore, busy, moreFailed, onRetryMore, onYear, go }: Props) {
   const range = dateRange(section);
   const facts = range
     ? w("transcript.section_facts_dated", { entries: entriesText(section.count, locale), pages: pagesText(section.pages, locale), range })
@@ -166,8 +171,9 @@ export function TranscriptSection({ section, number, sections, appendices: lists
           </div>
         )}
         {entries === null ? <Loading /> : body}
+        {moreFailed && onRetryMore && <LoadError onRetry={onRetryMore} />}
         {entries !== null && step > 0 && (
-          <Button variant="secondary" onClick={onMore}>
+          <Button variant="secondary" busy={busy} onClick={onMore}>
             {w("transcript.show_next", { step: count(step, locale), from: count(shown + 1, locale), to: count(shown + step, locale), total: count(section.count, locale) })}
           </Button>
         )}
