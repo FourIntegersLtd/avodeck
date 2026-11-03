@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-FAILED_PAGES_SHOWN = 50
+FAILED_PAGES_SHOWN = 50  # a whole-bundle failure must not write thousands of numbers into one log line
 _HTTP_CODE = re.compile(r"http_(\d{3})")  # how the OCR client words a refusal: a status, never text
 _REQUEST_ID = re.compile(r"[A-Za-z0-9-]{8,64}")  # a vendor request id; anything else is dropped
 

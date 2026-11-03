@@ -54,13 +54,11 @@ MAX_PAGES_PER_CALL = 10
 
 
 def pages_per_call(configured: int, limit: int | None = None) -> int:
-    """Pages in one call: the configured size, held to the model provider's own `limit` when the kit gives one
-    (that limit replaces the fixed `MAX_PAGES_PER_CALL`, and a configured size above it is expected, not logged)."""
-    if limit is not None:
-        return max(1, min(configured, limit))
+    """Pages in one call: the smallest of the configured size, the model provider's own `limit` (when the kit
+    gives one) and `MAX_PAGES_PER_CALL`, which keeps a Bedrock-sized answer inside its output cap."""
     if configured > MAX_PAGES_PER_CALL:
         logger.warning("extraction batch size %d is above the output limit; using %d", configured, MAX_PAGES_PER_CALL)
-    return max(1, min(configured, MAX_PAGES_PER_CALL))
+    return max(1, min(configured, MAX_PAGES_PER_CALL, limit if limit is not None else MAX_PAGES_PER_CALL))
 
 
 PAGE_MARK = "=== PAGE {0} ==="

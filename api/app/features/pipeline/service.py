@@ -82,13 +82,14 @@ PURGE_QUARANTINED = "purge_quarantined_pages"  # the daily deletion of quarantin
 # How many pages run at once, by what the work waits on. No setting: a limit is a fact about the vendor
 # or the machine, not a choice for whoever runs the cell.
 CONCURRENCY = 3  # model calls (extraction, references, entries); the AI kit's own limits replace it
-OCR_CONCURRENCY = (
-    30  # Azure Document Intelligence S0 takes 15 submits and 50 result polls a second; 30 pages of ~5 s is ~6 and <=30
-)
+OCR_CONCURRENCY = 30  # Azure S0 allows 15 submits/s; 30 pages in flight at ~5 s each is ~6 submits/s
 STORAGE_CONCURRENCY = 20  # S3-only work (reading pictures back, writing page files): latency, not bandwidth
 DB_CONCURRENCY = 6  # database-only work: each task holds a pooled connection, and the pool has to keep spare ones
-CPU_CONCURRENCY = os.cpu_count() or 2  # JPEG encoding runs in threads, one per core
-_CPU = ThreadPoolExecutor(max_workers=CPU_CONCURRENCY, thread_name_prefix="pipeline-cpu")
+POOL_CONCURRENCY = 20  # the worker's connection pool; calls in flight never exceed it, whatever a provider allows
+CPU_CONCURRENCY = min(  # the cores this process may use (not the host's), at most 8
+    8, len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 2)
+)
+_CPU = ThreadPoolExecutor(max_workers=CPU_CONCURRENCY, thread_name_prefix="pipeline-cpu")  # JPEG and hash work
 LIMITS = convert.Limits()
 PART_OBJECT = "file"  # the one sealed object under a part's prefix
 log = logging.getLogger(__name__)
@@ -124,9 +125,10 @@ async def scan_document(ctx: JobContext) -> None:
     async with ctx.transaction() as conn:
         waiting = await repo.unscanned_documents(conn, ctx.case_id)
     for doc in waiting:
-        chunks = await _read_chunks_free(ctx, services, doc.storage_path)  # S3 with no connection held
         try:
-            result = await services.scanner.scan(_replay(chunks))  # the scanner is called with no connection held
+            # One chunk at a time, each read from S3 with no connection and opened in its own short transaction;
+            # the scanner itself is called with no connection held.
+            result = await services.scanner.scan(_chunks_free(ctx, services, doc.storage_path))
         except ScanUnavailable:
             # Fail closed (F42): nothing is recorded, so the file is not accepted; the queue retries.
             log.warning("virus scanner unreachable; the document stays unscanned")
@@ -257,24 +259,19 @@ async def _seal_all(
         return [(path, await services.crypto.encrypt(conn, ctx.case_id, data, purpose=path)) for path, data in files]
 
 
-async def _read_chunks_free(ctx: JobContext, services: PipelineServices, prefix: str) -> list[bytes]:
-    """A stored document's chunks, read from S3 with no connection held and opened in one short transaction."""
-    paths_ = sorted(await services.storage.list(prefix))
-    blobs = [await services.storage.get(path) for path in paths_]
-    async with ctx.transaction() as conn:
-        return [
-            await services.crypto.decrypt(conn, ctx.case_id, blob, purpose=path)
-            for path, blob in zip(paths_, blobs, strict=True)
-        ]
+async def _chunks_free(ctx: JobContext, services: PipelineServices, prefix: str) -> AsyncIterator[bytes]:
+    """A stored document's chunks, one at a time: read from S3 with no connection held, then opened in a
+    short transaction of its own. At most one sealed and one opened chunk are in memory at once."""
+    for path in sorted(await services.storage.list(prefix)):
+        blob = await services.storage.get(path)
+        async with ctx.transaction() as conn:
+            opened = await services.crypto.decrypt(conn, ctx.case_id, blob, purpose=path)
+        del blob
+        yield opened
 
 
 async def _read_document_free(ctx: JobContext, services: PipelineServices, prefix: str) -> bytes:
-    return b"".join(await _read_chunks_free(ctx, services, prefix))
-
-
-async def _replay(chunks: Sequence[bytes]) -> AsyncIterator[bytes]:
-    for chunk in chunks:
-        yield chunk
+    return b"".join([chunk async for chunk in _chunks_free(ctx, services, prefix)])
 
 
 Stop = Callable[[], Awaitable[bool]]
@@ -833,7 +830,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                     min(55, 40 + 15 * done // len(waiting)), step="sort", step_done=done, step_total=len(waiting)
                 )
 
-    await bounded(batches, one_batch, limits.concurrency if limits is not None else CONCURRENCY, _stop(ctx))
+    await bounded(batches, one_batch, _extract_concurrency(services), _stop(ctx))
     return len(waiting)
 
 
@@ -1092,6 +1089,12 @@ STEP_CONCURRENCY = {
 }
 
 
+def _extract_concurrency(services: PipelineServices) -> int:
+    """Calls to the model in flight at once: the provider's own limit, never more than the worker's pool."""
+    limits = getattr(services.kit, "primary_limits", None)
+    return min(limits.concurrency, POOL_CONCURRENCY) if limits is not None else CONCURRENCY
+
+
 def _pending(services: PipelineServices, step: str) -> steplog.Pending:
     """What a step has to do when it starts: (unit, to do, already done), for its start line."""
 
@@ -1123,7 +1126,8 @@ async def run_step(ctx: JobContext, services: PipelineServices, step: str) -> No
         "missing": _missing_step,
         "embed": _embed,
     }
-    async with steplog.logged_step(ctx, step, _pending(services, step), STEP_CONCURRENCY[step]):
+    concurrency = _extract_concurrency(services) if step == "sort" else STEP_CONCURRENCY[step]  # as logged
+    async with steplog.logged_step(ctx, step, _pending(services, step), concurrency):
         await stages[step](ctx, services)
 
 
