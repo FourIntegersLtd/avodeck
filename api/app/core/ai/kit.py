@@ -20,7 +20,7 @@ import asyncio
 import logging
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Any
 
@@ -187,7 +187,9 @@ class AiKit:
             response = await self._invoke_detached(request, database, case_id, job_id)
             valid = validator.is_valid(response.output)
             async with database.job(case_id) as conn:
-                await self._log(conn, task, model_id, case_id, response, "ok" if valid else "invalid_output")
+                await self._log(
+                    conn, task, response.model_id or model_id, case_id, response, "ok" if valid else "invalid_output"
+                )
             if valid:
                 return response.output
         logger.warning("task %s output did not match its schema twice", task.task_id)
@@ -204,8 +206,13 @@ class AiKit:
         for attempt in range(len(delays) + 1):
             try:
                 await self._wait_for_slot_detached(database, case_id, job_id)
-                return await self.bedrock.invoke(request)
+                return replace(await self.bedrock.invoke(request), model_id=request.model_id)
             except ServiceBusy as busy:
+                overflow = await self._try_overflow(
+                    request, lambda: self._wait_for_slot_detached(database, case_id, job_id)
+                )
+                if overflow is not None:
+                    return overflow
                 if attempt == len(delays):
                     logger.error("model service still busy after %d attempts; processing paused", attempt + 1)
                     raise ProcessingPaused("service_busy") from None
@@ -216,6 +223,25 @@ class AiKit:
                 logger.error("in-region model unavailable; processing paused, no fallback")
                 raise ProcessingPaused("model_unavailable") from None
         raise AssertionError("unreachable")  # pragma: no cover
+
+    async def _try_overflow(
+        self, request: ModelRequest, wait_for_slot: Callable[[], Awaitable[None]] | None
+    ) -> ModelResponse | None:
+        """The primary model is throttled: try each in-region overflow model once (its own quota bucket).
+        A busy or unavailable overflow model is skipped. None when none answered."""
+        for model_id in self.settings.overflow_models:
+            if model_id == request.model_id:
+                continue
+            try:
+                if wait_for_slot is not None:
+                    await wait_for_slot()
+                answer = await self.bedrock.invoke(replace(request, model_id=model_id))
+            except (ServiceBusy, ModelUnavailable) as exc:
+                logger.warning("overflow model %s skipped (%s)", model_id, type(exc).__name__)
+                continue
+            logger.warning("primary model busy; overflow model %s answered", model_id)
+            return replace(answer, model_id=model_id)
+        return None
 
     async def _wait_for_slot_detached(self, database: Database, case_id: uuid.UUID, job_id: uuid.UUID) -> None:
         """Like ``_wait_for_slot``, but opens a short-lived transaction for each poll so no
@@ -294,7 +320,9 @@ class AiKit:
         for _ in range(2):
             response = await self._invoke(request, conn, job_id)
             valid = validator.is_valid(response.output)
-            await self._log(conn, task, model_id, case_id, response, "ok" if valid else "invalid_output")
+            await self._log(
+                conn, task, response.model_id or model_id, case_id, response, "ok" if valid else "invalid_output"
+            )
             if valid:
                 return response.output
         logger.warning("task %s output did not match its schema twice", task.task_id)
@@ -318,8 +346,14 @@ class AiKit:
             try:
                 if job_id is not None and conn is not None:
                     await self._wait_for_slot(conn, job_id)
-                return await self.bedrock.invoke(request)
+                return replace(await self.bedrock.invoke(request), model_id=request.model_id)
             except ServiceBusy as busy:
+                overflow = await self._try_overflow(
+                    request,
+                    (lambda: self._wait_for_slot(conn, job_id)) if job_id is not None and conn is not None else None,
+                )
+                if overflow is not None:
+                    return overflow
                 if attempt == len(delays):
                     logger.error("model service still busy after %d attempts; processing paused", attempt + 1)
                     raise ProcessingPaused("service_busy") from None

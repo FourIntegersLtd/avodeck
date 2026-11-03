@@ -14,7 +14,7 @@ class EndpointNotAllowed(Exception):
 
 
 def check_model(settings: AiSettings, model_id: str) -> str:
-    if model_id not in settings.models.values() or not in_region_model_id(model_id):
+    if model_id not in (*settings.models.values(), *settings.overflow_models) or not in_region_model_id(model_id):
         raise ModelNotAllowed("model is not one of this cell's in-region models")
     return model_id
 

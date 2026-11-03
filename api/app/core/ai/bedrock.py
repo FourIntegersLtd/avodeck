@@ -46,6 +46,7 @@ class ModelResponse:
     output: dict[str, Any] = field(repr=False)
     input_tokens: int
     output_tokens: int
+    model_id: str | None = None  # set by the AI kit: the model that answered (it may be an overflow model)
 
 
 class ServiceBusy(Exception):
