@@ -12,6 +12,18 @@ const css = readFileSync(resolve(process.cwd(), "src/capabilities/understand/und
 // The phone rules sit in one block that starts at this marker and runs to the end of the file's next blank line.
 const start = css.indexOf("/* S11 phone board */");
 const phoneBlock = start < 0 ? "" : css.slice(start, css.indexOf("\n\n", start));
+const picAt = css.indexOf("/* S11 phone panel picture */");
+const pictureBlock = picAt < 0 ? "" : css.slice(picAt, css.indexOf("\n\n", picAt));
+
+describe("timeline entry panel picture on a phone", () => {
+  test("on a phone the picture controls are hidden and the page shows whole at its natural height", () => {
+    expect(pictureBlock).toMatch(/@media \(max-width: 720px\)/);
+    expect(pictureBlock).toMatch(/\.av-story-panel \.av-pageview__bar\s*\{[^}]*display:\s*none/);
+    expect(pictureBlock).toMatch(/\.av-story-panel \.av-pageview__paper\s*\{[^}]*max-height:\s*none/);
+    expect(pictureBlock).toMatch(/\.av-story-panel \.av-pageview__paper\s*\{[^}]*overflow:\s*visible/);
+  });
+});
+
 describe("timeline board on a phone", () => {
   test("one scroller holds the axis and every lane, inside the frame", async () => {
     inCase("launch");
