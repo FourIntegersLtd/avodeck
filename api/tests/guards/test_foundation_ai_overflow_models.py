@@ -171,8 +171,8 @@ async def test_when_every_model_is_busy_the_existing_back_off_runs_on_the_primar
         await kit_for(model, sleeps)._invoke(request_for())
     assert paused.value.reason == "service_busy"
     assert sleeps == backoff_delays(4, 2.0)
-    attempts = len(sleeps) + 1
-    assert model.asked == [PRIMARY, OVER_A, OVER_B] * attempts
+    # Overflow models are tried once, after the first busy answer; later attempts back off on the primary.
+    assert model.asked == [PRIMARY, OVER_A, OVER_B] + [PRIMARY] * len(sleeps)
 
 
 async def test_an_unavailable_primary_pauses_without_trying_overflow_models() -> None:
@@ -236,3 +236,62 @@ async def test_a_call_through_a_connection_logs_the_overflow_model_that_answered
         "select model_id, input_tokens, output_tokens, outcome from app.ai_calls where case_id = %s", (case_id,)
     ).fetchall()
     assert rows == [(OVER_A, 90, 4, "ok")]
+
+
+def test_overflow_ids_are_deduplicated_in_order_and_primary_models_dropped() -> None:
+    opus = CELL_ENV["BEDROCK_OPUS_MODEL_ID"]
+    env = cell_env(BEDROCK_OVERFLOW_MODEL_IDS=f"{OVER_A},{OVER_A},{PRIMARY},{opus},{OVER_B},{OVER_A}")
+    assert ai_settings(env).overflow_models == (OVER_A, OVER_B)
+
+
+async def test_a_fully_throttled_call_asks_each_overflow_model_once() -> None:
+    model = PerModelBedrock({PRIMARY: ServiceBusy(), OVER_A: ServiceBusy(), OVER_B: ServiceBusy()})
+    with pytest.raises(ProcessingPaused):
+        await kit_for(model, [])._invoke(request_for())
+    assert model.asked.count(OVER_A) == 1
+    assert model.asked.count(OVER_B) == 1
+    assert model.asked.count(PRIMARY) == len(backoff_delays(4, 2.0)) + 1
+
+
+def _granted_slots(admin: psycopg.Connection, job_id: uuid.UUID) -> int:
+    row = admin.execute(
+        "select count(*) from app.ai_request_slots where job_id = %s and granted_at is not null", (job_id,)
+    ).fetchone()
+    assert row is not None
+    return int(row[0])
+
+
+async def test_each_overflow_call_takes_its_own_request_slot_on_the_detached_path(
+    worker_db: Database, admin: psycopg.Connection, seed: Seed, pack: MergedPack, case: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    _, case_id = case
+    job_id = seed.job(case_id)
+    model = PerModelBedrock({PRIMARY: ServiceBusy(), OVER_A: response({"labels": ["a"]})})
+    await kit_for(model, []).run_detached(worker_db, case_id, TASK, pack=pack, text="x", subject="t", job_id=job_id)
+    assert _granted_slots(admin, job_id) == 2  # the primary call and the overflow call
+
+
+async def test_each_overflow_call_takes_its_own_request_slot_on_the_connection_path(
+    worker_db: Database, admin: psycopg.Connection, seed: Seed, case: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    _, case_id = case
+    job_id = seed.job(case_id)
+    model = PerModelBedrock({PRIMARY: ServiceBusy(), OVER_A: response({"labels": ["a"]})})
+    async with worker_db.job(case_id) as conn:
+        out = await kit_for(model, [])._invoke(request_for(), conn, job_id)
+    assert out.model_id == OVER_A
+    assert _granted_slots(admin, job_id) == 2
+
+
+async def test_a_fully_throttled_call_takes_one_plus_overflow_plus_retries_slots(
+    worker_db: Database, admin: psycopg.Connection, seed: Seed, case: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    _, case_id = case
+    job_id = seed.job(case_id)
+    model = PerModelBedrock({PRIMARY: ServiceBusy(), OVER_A: ServiceBusy(), OVER_B: ServiceBusy()})
+    kit = kit_for(model, [])
+    kit.settings = type(kit.settings)(**{**kit.settings.__dict__, "bedrock_rpm_limit": 50})
+    with pytest.raises(ProcessingPaused):
+        async with worker_db.job(case_id) as conn:
+            await kit._invoke(request_for(), conn, job_id)
+    assert _granted_slots(admin, job_id) == 1 + 2 + len(backoff_delays(4, 2.0))
