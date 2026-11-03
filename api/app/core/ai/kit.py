@@ -255,7 +255,7 @@ class AiKit:
             response = await self._answer(request, task, provider, wait)
             provider = self._same_provider(provider, response)
             valid = validator.is_valid(response.output)
-            self._log_validation(task, model_id, response, valid, attempt)
+            self._log_validation(task, model_id, response, valid, attempt, validator, request.max_tokens)
             async with database.job(case_id) as conn:
                 await self._log(
                     conn, task, response.model_id or model_id, case_id, response, "ok" if valid else "invalid_output"
@@ -323,7 +323,7 @@ class AiKit:
             response = await self._answer(request, task, provider, wait)
             provider = self._same_provider(provider, response)
             valid = validator.is_valid(response.output)
-            self._log_validation(task, model_id, response, valid, attempt)
+            self._log_validation(task, model_id, response, valid, attempt, validator, request.max_tokens)
             await self._log(
                 conn, task, response.model_id or model_id, case_id, response, "ok" if valid else "invalid_output"
             )
@@ -339,17 +339,39 @@ class AiKit:
         direct = response.model_id is not None and response.model_id in self.settings.direct_models.values()
         return provider if provider is not None or direct or self.direct is None else "bedrock"
 
-    def _log_validation(self, task: AiTask, model_id: str, response: ModelResponse, valid: bool, attempt: int) -> None:
-        """Only a wrong answer is logged here (the call itself is logged by its client): who answered, which try."""
+    def _log_validation(
+        self,
+        task: AiTask,
+        model_id: str,
+        response: ModelResponse,
+        valid: bool,
+        attempt: int,
+        validator: Any,
+        max_tokens: int,
+    ) -> None:
+        """Only a wrong answer is logged here (the call itself is logged by its client): who answered, which try,
+        and why. The why is the schema's own path and keyword (never the answer, its keys or any value, rule 6),
+        plus the answer's size against the limit, so a cut-off answer can be told from a wrong shape."""
         if valid:
             return
         direct = response.model_id is not None and response.model_id in self.settings.direct_models.values()
+        errors = []
+        for error in validator.iter_errors(response.output):
+            path = ".".join("*" if isinstance(part, int) else str(part) for part in error.schema_path)
+            errors.append(f"{type(error.kind).__name__}:{path}")
+            if len(errors) == 3:
+                break
         logger.warning(
-            "model answer rejected: provider=%s model=%s task=%s outcome=invalid_output schema_attempt=%d/2",
+            "model answer rejected: provider=%s model=%s task=%s outcome=invalid_output schema_attempt=%d/2"
+            " out_tokens=%d max_tokens=%d top_level_fields=%d errors=%s",
             "anthropic" if direct else "bedrock",
             response.model_id or model_id,
             task.task_id,
             attempt + 1,
+            response.output_tokens,
+            max_tokens,
+            len(response.output),
+            ",".join(errors) or "-",
         )
 
     async def _cost_guard(self, conn: AsyncConnection, case_id: uuid.UUID) -> None:
