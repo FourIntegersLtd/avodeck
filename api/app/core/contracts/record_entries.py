@@ -33,7 +33,7 @@ from typing import Literal
 
 from psycopg import AsyncConnection
 
-from app.core.jobs import registry
+from app.core.jobs import BATCH_PRIORITY, INTERACTIVE_PRIORITY, registry
 
 EXTRACT_ENTRIES = "extract_entries"
 RETRY_UNREAD = "retry_unread_pages"
@@ -177,9 +177,39 @@ async def request_unread_retry(conn: AsyncConnection, case_id: uuid.UUID) -> uui
     await conn.execute("select pg_advisory_xact_lock(hashtext(%s))", (f"retry_unread_pages:{case_id}",))
     if await retryable_unread_pages(conn, case_id) == 0:
         return None
-    if await entries_status(conn, case_id) == "preparing" or await pipeline_running(conn, case_id):
+    if await pipeline_running(conn, case_id):
+        return None
+    paused = await _paused_retry(conn, case_id)
+    if paused is not None:
+        # A pause that is not resumable (the cost guard, the key service) never ends by itself: a press hands the
+        # same job back to the queue, never a second job. If the pause comes back, the summary says so again.
+        await _hand_back(conn, paused)
+        return paused
+    if await entries_status(conn, case_id) == "preparing":
         return None
     return await registry.enqueue(conn, case_id, RETRY_UNREAD)
+
+
+async def _paused_retry(conn: AsyncConnection, case_id: uuid.UUID) -> uuid.UUID | None:
+    """The case's latest entries job, when it is a retry of the unread pages and is paused."""
+    cur = await conn.execute(
+        "select id, kind, status from app.jobs where case_id = %s and kind = any(%s) order by created_at desc limit 1",
+        (case_id, [EXTRACT_ENTRIES, RETRY_UNREAD]),
+    )
+    row = await cur.fetchone()
+    return row[0] if row is not None and row[1] == RETRY_UNREAD and row[2] == "paused" else None
+
+
+async def _hand_back(conn: AsyncConnection, job_id: uuid.UUID) -> bool:
+    """paused -> queue through `app.resume_paused_job()` (migration 0133); False when it was not paused, is already
+    handed back, or the case is on hold."""
+    found = registry.kinds[RETRY_UNREAD]
+    cur = await conn.execute(
+        "select app.resume_paused_job(%s, %s, %s, %s)",
+        (job_id, registry.queue, INTERACTIVE_PRIORITY if found.interactive else BATCH_PRIORITY, found.changes_case),
+    )
+    row = await cur.fetchone()
+    return bool(row and row[0])
 
 
 async def retry_waiting(conn: AsyncConnection, case_id: uuid.UUID) -> bool:

@@ -1505,6 +1505,7 @@ class RetryProgress:
     total: int  # the pages the run took: read since it began, failed again, and still waiting
     done: int
     failed: int  # failed again since the run began
+    pause_reason: str | None = None  # why it is held back, as a fixed code: `cost_guard` or `other`; None unless paused
 
 
 async def retry_progress(conn: AsyncConnection, case_id: uuid.UUID) -> RetryProgress | None:
@@ -1513,7 +1514,7 @@ async def retry_progress(conn: AsyncConnection, case_id: uuid.UUID) -> RetryProg
     since the job was queued is done, one that failed again since is failed, one still failed from before is
     waiting. None when no run has been made, or the last one ended more than `RETRY_RESULT_SECONDS` ago."""
     cur = await conn.execute(
-        "select id, status, created_at from app.jobs"
+        "select id, status, created_at, error_code from app.jobs"
         " where case_id = %s and kind = %s"
         " and (status in ('queued', 'running', 'paused') or finished_at > now() - make_interval(secs => %s))"
         " order by created_at desc limit 1",
@@ -1533,12 +1534,16 @@ async def retry_progress(conn: AsyncConnection, case_id: uuid.UUID) -> RetryProg
         {"since": job[2], "job": job[0], "case": case_id},
     )
     done, failed, waiting = await cur.fetchone() or (0, 0, 0)
+    # A paused run handed back by "Try again" (code `resuming`) is waiting for the worker: it counts as running.
+    handed_back = job[1] == "paused" and job[3] == "resuming"
+    paused = job[1] == "paused" and not handed_back
     return RetryProgress(
-        running=job[1] in ("queued", "running"),
-        paused=job[1] == "paused",
+        running=job[1] in ("queued", "running") or handed_back,
+        paused=paused,
         total=done + failed + waiting,
         done=done,
         failed=failed,
+        pause_reason=("cost_guard" if job[3] == "cost_guard" else "other") if paused else None,
     )
 
 

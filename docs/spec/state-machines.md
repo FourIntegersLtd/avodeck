@@ -120,6 +120,8 @@ A job paused because the reading service is busy or unreachable (`service_busy`,
 
 Avodeck support may do the two person-driven moves (`POST /v1/support/jobs/{job_id}/resume` and `/requeue`, permissions.md "Avodeck staff"; `app.support_job_action()`, migration 0035): **support resume** hands a paused job back to the queue and the worker makes the paused → running move when it picks it up (refused while the case is on hold, 409 `case_on_hold`; any status but paused is 409 `job_not_paused`); **support requeue** is failed → queued with `attempts` set back to 0 (any status but failed is 409 `job_not_failed`). What the job was (status, error code, attempts) is kept in `job_support_actions`; the job's own `error_code` stays until the worker picks it up.
 
+The person who reads the pages may also hand back a paused **retry of the unread pages** (`retry_unread_pages`) with "Try again" (`POST /v1/cases/{id}/transcript/retry`, action `page.read`; `app.resume_paused_job()`, migration 0133): the job stays `paused` with `error_code = 'resuming'` and its queue row is brought forward (else one is deferred), and the worker makes the paused → running move when it picks it up; a repeat press while it waits changes nothing, and nothing happens while the case is on hold. If the cost guard pauses it again, `error_code` is `cost_guard` again.
+
 Every step is idempotent, so retrying from the start is always safe. Finished steps are recorded in `job_steps` and skipped on retry; a job whose worker stopped sending heartbeats is put back on the queue (F6).
 
 ## Upload (`uploads.status`)

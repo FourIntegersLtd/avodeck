@@ -147,6 +147,7 @@ class RetryProgress(BaseModel):
     total: int  # the pages in the run
     done: int  # read well since the run began
     failed: int  # could not be read again
+    pause_reason: Literal["cost_guard", "other"] | None = None  # why a paused run is held back: a fixed code
 
 
 class BundleSummary(BaseModel):

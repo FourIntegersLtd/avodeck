@@ -147,7 +147,17 @@ export function BundleReady() {
     <div className="av-page">
       <h1>{w(notProcessed > 0 && !retrying ? "bundle.title_partial" : "bundle.title")}</h1>
       {retrying && <RetryNotice retry={s.retry ?? null} locale={locale} />}
-      {paused && <Notice tone="info"><p>{w("bundle.retry_paused")}</p></Notice>}
+      {paused && (
+        <Notice tone="info">
+          <p>{w(run?.pause_reason === "cost_guard" ? "bundle.retry_paused_cost_guard" : "bundle.retry_paused")}</p>
+          {can(item, "page.read") && (
+            <>
+              {retryError && <p role="alert" className="av-field__error">{w("bundle.try_again_error")}</p>}
+              <Button busy={again.busy} disabled={again.busy} onClick={() => void tryAgain()}>{w("bundle.try_again")}</Button>
+            </>
+          )}
+        </Notice>
+      )}
       {!retrying && !paused && s.retry && notProcessed === 0 && <Notice tone="info"><p>{w("bundle.retry_all_done")}</p></Notice>}
       {!retrying && !paused && notProcessed > 0 && (
         <Notice tone="warning">

@@ -47,16 +47,29 @@ interface WaitProps {
   /** Determinate progress, when the server can count: the line and the numbers. */
   counted?: { label: string; value: number; max: number };
   onRetry?: () => void;
+  /** Held back and not moving: no spinner or clock, and the way out is offered at once. */
+  paused?: boolean;
   /** Where to look when it is slow and there is nothing to retry. */
   progressTo?: string;
 }
 
 /** A spinner with honest progress: a count when the server has one, else how long it has been working. */
-function WaitNotice({ words, counted, onRetry, progressTo }: WaitProps) {
+function WaitNotice({ words, counted, onRetry, progressTo, paused }: WaitProps) {
   const ms = useElapsed(counted?.value ?? 0);
   const seconds = Math.floor(ms / 1000);
   const elapsed = seconds >= 60 ? w("transcript.working_for", { minutes: Math.floor(seconds / 60), seconds: seconds % 60 }) : w("transcript.working_for_seconds", { seconds });
   const slow = ms >= SLOW_AFTER_MS;
+  if (paused) {
+    // Nothing is moving and it will not start by itself: no spinner, no clock, and the way out at once.
+    return (
+      <Notice tone="info">
+        <div className="rd-wait__text">
+          <p>{words}</p>
+          {onRetry && <Button variant="secondary" onClick={onRetry}>{w("transcript.try_again")}</Button>}
+        </div>
+      </Notice>
+    );
+  }
   return (
     <Notice tone="info">
       <div className="rd-wait">
@@ -473,9 +486,10 @@ export function TranscriptRead() {
         : undefined;
     return (
       <WaitNotice
-        words={w(retryPaused ? "transcript.retry_paused" : retryRunning ? "transcript.retrying" : "transcript.preparing")}
+        words={w(retryPaused ? (retryInfo.retry?.pause_reason === "cost_guard" ? "transcript.retry_paused_cost_guard" : "transcript.retry_paused") : retryRunning ? "transcript.retrying" : "transcript.preparing")}
+        paused={retryPaused}
         counted={retryCount ?? (all > 0 && done > 0 ? { label: w("transcript.preparing_page", { done: count(done, pack.locale), total: count(all, pack.locale) }), value: done, max: all } : undefined)}
-        onRetry={status === "idle" && wait?.can_prepare !== false ? () => void retry() : undefined}
+        onRetry={(status === "idle" || retryPaused) && wait?.can_prepare !== false ? () => void retry() : undefined}
         progressTo={`/cases/${caseId}/preparing`}
       />
     );
