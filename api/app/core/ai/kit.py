@@ -67,6 +67,7 @@ class AiTask:
     system: str = field(repr=False)
     schema: Mapping[str, Any] = field(repr=False)
     max_tokens: int = 4096  # the model's default; a task may ask for more (e.g. a multi-page batch)
+    mends_labels: bool = False  # a batch answer keeps going when one label is off its list (`mend_labels`)
 
 
 class InvalidOutput(Exception):
@@ -381,6 +382,8 @@ class AiKit:
         """The answer and whether it matches the schema, once any off-list labels are mended (`mend_labels`)."""
         if validator.is_valid(response.output):
             return response, True
+        if not task.mends_labels:
+            return response, False
         mended, places = mend_labels(response.output, validator)
         if not places or not validator.is_valid(mended):
             return response, False

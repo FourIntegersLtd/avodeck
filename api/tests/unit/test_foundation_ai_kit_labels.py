@@ -144,10 +144,18 @@ class _Conn:
         return None
 
 
-async def run(*answers: dict[str, Any]) -> tuple[dict[str, Any], ScriptedBedrock]:
+async def run(*answers: dict[str, Any], mends: bool = True) -> tuple[dict[str, Any], ScriptedBedrock]:
     bedrock = ScriptedBedrock([answered(a) for a in answers])
     kit = AiKit(cell(), bedrock)
-    t = AiTask(task_id="T-test", prompt_version="v1", model="sonnet", system="s", schema=SCHEMA, max_tokens=4096)
+    t = AiTask(
+        task_id="T-test",
+        prompt_version="v1",
+        model="sonnet",
+        system="s",
+        schema=SCHEMA,
+        max_tokens=4096,
+        mends_labels=mends,
+    )
     return await kit.run(_Conn(), t, pack=PACK, text="synthetic text"), bedrock  # type: ignore[arg-type]
 
 
@@ -166,3 +174,8 @@ async def test_the_kit_keeps_an_answer_whose_only_fault_is_an_off_list_label_wit
 async def test_the_kit_still_rejects_an_answer_with_any_other_fault() -> None:
     with pytest.raises(InvalidOutput):
         await run({"pages": "[{}]"}, {"pages": [{"page_no": 1}]})
+
+
+async def test_a_task_that_did_not_ask_for_mending_asks_again_and_then_rejects_an_off_list_label() -> None:
+    with pytest.raises(InvalidOutput):
+        await run({"pages": [page(source_type="ward_round")]}, {"pages": [page(source_type="ward_round")]}, mends=False)
