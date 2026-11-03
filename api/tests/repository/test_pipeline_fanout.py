@@ -22,7 +22,10 @@ from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
 
-WORDS = "select count(distinct page_id) from app.ocr_words where case_id = %s"
+WORDS = (
+    "select count(distinct w.page_id) from app.ocr_words w"
+    " join app.cases c on c.bundle_id = w.bundle_id where c.id = %s"
+)
 
 
 @pytest.fixture
@@ -35,7 +38,13 @@ async def scanned(
     storage: CaseFileStorage,  # noqa: F811
 ) -> AsyncIterator[World]:
     async with world(
-        admin=admin, api_db=api_db, worker_dsn=worker_dsn, auth_env=auth_env, seed=seed, storage=storage
+        admin=admin,
+        api_db=api_db,
+        worker_dsn=worker_dsn,
+        auth_env=auth_env,
+        seed=seed,
+        storage=storage,
+        until_ocr=service.OCR_CONCURRENCY,
     ) as w:
         yield w
 
@@ -49,8 +58,13 @@ def test_each_kind_of_wait_has_its_own_limit_and_the_default_is_unchanged() -> N
 
 async def test_splitting_puts_no_page_picture_while_holding_a_connection(scanned: World) -> None:
     await service.run_step(scanned.ctx, scanned.services, "split")
-    assert scanned.count("select count(*) from app.pages p join app.cases c on c.bundle_id = p.bundle_id"
-                         " where c.id = %s and p.image_path is not null") == PAGES
+    assert (
+        scanned.count(
+            "select count(*) from app.pages p join app.cases c on c.bundle_id = p.bundle_id"
+            " where c.id = %s and p.image_path is not null"
+        )
+        == PAGES
+    )
     assert scanned.store_watch.violations == []
     assert 3 < scanned.store_watch.peak <= service.STORAGE_CONCURRENCY
 
@@ -85,9 +99,7 @@ async def test_a_second_run_asks_ocr_for_nothing_more(scanned: World) -> None:
     assert scanned.ocr_watch.peak == 0
 
 
-async def test_one_summary_line_is_logged_for_every_step_run(
-    scanned: World, caplog: pytest.LogCaptureFixture
-) -> None:
+async def test_one_summary_line_is_logged_for_every_step_run(scanned: World, caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO)
     await service.run_step(scanned.ctx, scanned.services, "split")
     text = [r.getMessage() for r in caplog.records if "event=end" in r.getMessage()]

@@ -111,9 +111,7 @@ def test_no_exception_message_or_page_text_reaches_a_record(caplog: pytest.LogCa
     r.page_failed(3, OcrFailed(f"{NAME} {NHS}"), "failed")
     r.page_failed(5, FakeResponseError(500, f"{NAME} {NHS}"), "failed")  # an id that is not an id is dropped
     r.end(outcome="failed", error=OcrFailed(f"{NAME} {NHS}"))
-    text = "\n".join(
-        r.getMessage() + (str(r.exc_info[1]) if r.exc_info else "") + str(r.args) for r in caplog.records
-    )
+    text = "\n".join(r.getMessage() + (str(r.exc_info[1]) if r.exc_info else "") + str(r.args) for r in caplog.records)
     for secret in (NAME, "Testpatient", "943", "5919"):
         assert secret not in text
     assert "OcrFailed" in text

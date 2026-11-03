@@ -47,10 +47,11 @@ def scanned_document(count: int = PAGES) -> bytes:
 class Watch:
     """In-flight count, its peak, and every call made while the task held a database connection."""
 
-    def __init__(self) -> None:
+    def __init__(self, until: int = 0) -> None:
         self.in_flight = 0
         self.peak = 0
         self.violations: list[str] = []
+        self.until = until  # hold each call until this many are in flight at once (so the ramp-up is not timing)
 
     @contextlib.asynccontextmanager
     async def call(self, what: str) -> AsyncIterator[None]:
@@ -59,6 +60,10 @@ class Watch:
         self.in_flight += 1
         self.peak = max(self.peak, self.in_flight)
         try:
+            waited = 0.0
+            while self.until and self.peak < self.until and waited < 10:
+                await asyncio.sleep(0.01)
+                waited += 0.01
             await asyncio.sleep(0.02)
             yield
         finally:
@@ -129,6 +134,7 @@ async def world(
     seed: Seed,
     storage: CaseFileStorage,
     failing: Mapping[int, Exception] | None = None,
+    until_ocr: int = 0,
 ) -> AsyncIterator[World]:
     from app.features.pipeline import service
 
@@ -145,7 +151,7 @@ async def world(
         case_id=case_id,
         ocr_store=None,
     ) as h:
-        ocr_watch, store_watch = Watch(), Watch()
+        ocr_watch, store_watch = Watch(until=until_ocr), Watch()
         ocr = FakeOcr(ocr_watch, failing)
         services = dataclasses.replace(current(), ocr=ocr, storage=WatchedStore(storage, store_watch))
         live = h.worker_db.job

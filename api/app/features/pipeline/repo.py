@@ -879,6 +879,15 @@ async def page_numbers(conn: AsyncConnection, case_id: uuid.UUID) -> set[int]:
     return {int(r[0]) for r in await cur.fetchall()}
 
 
+async def page_numbers_by_id(conn: AsyncConnection, case_id: uuid.UUID) -> dict[uuid.UUID, int]:
+    """Each page's number in the bundle, for logs that name pages by number (never by text)."""
+    cur = await conn.execute(
+        "select id, bundle_page_no from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (case_id,),
+    )
+    return {r[0]: int(r[1]) for r in await cur.fetchall()}
+
+
 @dataclass(frozen=True)
 class NewMissing:
     id: uuid.UUID

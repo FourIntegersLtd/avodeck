@@ -27,8 +27,11 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
+import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
@@ -64,8 +67,9 @@ from app.features.pipeline import (
     paths,
     quarantine,
     repo,
+    steplog,
 )
-from app.features.pipeline.render import render
+from app.features.pipeline.render import Pictures, encode, rasterise
 from app.features.pipeline.straighten import quarter_turn
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, turned, typed, usable_text_layer
@@ -75,7 +79,16 @@ REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page a
 EXTRACT_ENTRIES = "extract_entries"  # read entries only, for a case extracted before entries existed (ADR 0028)
 REPAIR_FACT_DATES = "repair_fact_dates"  # fill event_date from printed words when extraction left it null
 PURGE_QUARANTINED = "purge_quarantined_pages"  # the daily deletion of quarantined pages' images and text
-CONCURRENCY = 3  # pages read or sent to a model at once
+# How many pages run at once, by what the work waits on. No setting: a limit is a fact about the vendor
+# or the machine, not a choice for whoever runs the cell.
+CONCURRENCY = 3  # model calls (extraction, references, entries); the AI kit's own limits replace it
+OCR_CONCURRENCY = (
+    30  # Azure Document Intelligence S0 takes 15 submits and 50 result polls a second; 30 pages of ~5 s is ~6 and <=30
+)
+STORAGE_CONCURRENCY = 20  # S3-only work (reading pictures back, writing page files): latency, not bandwidth
+DB_CONCURRENCY = 6  # database-only work: each task holds a pooled connection, and the pool has to keep spare ones
+CPU_CONCURRENCY = os.cpu_count() or 2  # JPEG encoding runs in threads, one per core
+_CPU = ThreadPoolExecutor(max_workers=CPU_CONCURRENCY, thread_name_prefix="pipeline-cpu")
 LIMITS = convert.Limits()
 PART_OBJECT = "file"  # the one sealed object under a part's prefix
 log = logging.getLogger(__name__)
@@ -111,13 +124,14 @@ async def scan_document(ctx: JobContext) -> None:
     async with ctx.transaction() as conn:
         waiting = await repo.unscanned_documents(conn, ctx.case_id)
     for doc in waiting:
+        chunks = await _read_chunks_free(ctx, services, doc.storage_path)  # S3 with no connection held
+        try:
+            result = await services.scanner.scan(_replay(chunks))  # the scanner is called with no connection held
+        except ScanUnavailable:
+            # Fail closed (F42): nothing is recorded, so the file is not accepted; the queue retries.
+            log.warning("virus scanner unreachable; the document stays unscanned")
+            raise
         async with ctx.transaction() as conn:
-            try:
-                result = await services.scanner.scan(_chunks(conn, services, ctx.case_id, doc.storage_path))
-            except ScanUnavailable:
-                # Fail closed (F42): nothing is recorded, so the file is not accepted; the queue retries.
-                log.warning("virus scanner unreachable; the document stays unscanned")
-                raise
             added = await repo.record_scan(conn, ctx.case_id, doc.id, result.clean, result.signature)
             if added and not result.clean:
                 await audit.record(conn, action="document.infected", target=f"document:{doc.id}", case_id=ctx.case_id)
@@ -132,11 +146,10 @@ def _pages_of(found: convert.Unpacked) -> list[bytes]:
 
 
 async def _unpack(
-    conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, doc: repo.Document
+    conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, doc: repo.Document, data: bytes
 ) -> list[bytes]:
     """Cuts one document into pages; the files inside an email or a zip become documents of their
     own (cut on the next round) and files that cannot be paged become exhibits (F36)."""
-    data = await _read_document(conn, services, case_id, doc.storage_path)
     found = convert.unpack(data, doc.filename, LIMITS)
     if found.members and await repo.part_depth(conn, doc.id) >= LIMITS.max_depth:
         found = convert.Unpacked(found.media_type, exhibit=True)
@@ -178,9 +191,10 @@ async def _split(ctx: JobContext, services: PipelineServices) -> None:
         if not documents:
             break
         for doc in documents:
+            data = await _read_document_free(ctx, services, doc.storage_path)  # S3 with no connection held
             async with ctx.transaction() as conn:
                 try:
-                    pages = await _unpack(conn, services, ctx.case_id, doc)
+                    pages = await _unpack(conn, services, ctx.case_id, doc, data)
                 except (pikepdf.PasswordError, pikepdf.PdfError) as error:  # F2: this file stops, the rest go on
                     log.warning("document could not be opened: %s", type(error).__name__)  # class only, no text
                     reason = "locked" if isinstance(error, pikepdf.PasswordError) else "damaged"
@@ -192,41 +206,99 @@ async def _split(ctx: JobContext, services: PipelineServices) -> None:
                 await repo.link_splits(conn, ctx.case_id)
     async with ctx.transaction() as conn:
         waiting = await repo.pages_without_image(conn, ctx.case_id)
-    stop = _stop(ctx)
-    for n, page in enumerate(waiting, start=1):
-        if await stop():
-            raise ProcessingPaused("cancelled")
-        async with ctx.transaction() as conn:
+    locks: dict[uuid.UUID, asyncio.Lock] = {}
+    finished = 0
+
+    async def pages_of(page: repo.PageRow) -> list[bytes]:
+        """The document's one-page PDFs: from this run's cache, else read back from S3 (once per document)."""
+        async with locks.setdefault(page.document_id, asyncio.Lock()):
             if page.document_id not in cache:
-                prefix, filename = await repo.document_file(conn, page.document_id)
-                data = await _read_document(conn, services, ctx.case_id, prefix)
+                async with ctx.transaction() as conn:
+                    prefix, filename = await repo.document_file(conn, page.document_id)
+                data = await _read_document_free(ctx, services, prefix)
                 cache[page.document_id] = _pages_of(convert.unpack(data, filename, LIMITS))
-            page_pdf = cache[page.document_id][page.bundle_page_no - page.first_page_no]
-            pictures = render(page_pdf, page.rotation)
-            await _put_sealed(conn, services, ctx.case_id, paths.page_pdf_path(ctx.case_id, page.id), page_pdf)
-            await _put_sealed(
-                conn, services, ctx.case_id, paths.thumbnail_path(ctx.case_id, page.id), pictures.thumbnail
-            )
-            image_path = paths.page_image_path(ctx.case_id, page.id)
-            await _put_sealed(conn, services, ctx.case_id, image_path, pictures.image)
+            return cache[page.document_id]
+
+    async def make(page: repo.PageRow) -> None:
+        nonlocal finished
+        page_pdf = (await pages_of(page))[page.bundle_page_no - page.first_page_no]
+        pictures = await _pictures(page_pdf, page.rotation)
+        image_path = paths.page_image_path(ctx.case_id, page.id)
+        thumbnail_path = paths.thumbnail_path(ctx.case_id, page.id)
+        page_path = paths.page_pdf_path(ctx.case_id, page.id)
+        sealed = await _seal_all(
+            ctx,
+            services,
+            [(page_path, page_pdf), (thumbnail_path, pictures.thumbnail), (image_path, pictures.image)],
+        )
+        for path, blob in sealed:  # S3 with no connection held
+            await services.storage.put(path, blob)
+        async with ctx.transaction() as conn:
             await repo.set_image(conn, page.id, image_path)
-        if n % 25 == 0:
-            await ctx.progress(min(30, 30 * n // len(waiting)), step="split")
+        finished += 1
+        if finished % 25 == 0:
+            await ctx.progress(min(30, 30 * finished // len(waiting)), step="split")
+
+    await bounded(waiting, make, STORAGE_CONCURRENCY, _stop(ctx), label=lambda page: page.bundle_page_no)
+
+
+async def _pictures(page_pdf: bytes, rotation: int) -> Pictures:
+    """The page picture and thumbnail. PDFium is not thread-safe, so the page is drawn here on the
+    loop's thread; the JPEG encoding, which is most of the work, runs in a worker thread."""
+    image = rasterise(page_pdf, rotation)
+    return await asyncio.get_running_loop().run_in_executor(_CPU, encode, image)
+
+
+async def _seal_all(
+    ctx: JobContext, services: PipelineServices, files: Sequence[tuple[str, bytes]]
+) -> list[tuple[str, bytes]]:
+    """Encrypts each file in one short transaction (the key is cached; no storage call is made inside)."""
+    async with ctx.transaction() as conn:
+        return [(path, await services.crypto.encrypt(conn, ctx.case_id, data, purpose=path)) for path, data in files]
+
+
+async def _read_chunks_free(ctx: JobContext, services: PipelineServices, prefix: str) -> list[bytes]:
+    """A stored document's chunks, read from S3 with no connection held and opened in one short transaction."""
+    paths_ = sorted(await services.storage.list(prefix))
+    blobs = [await services.storage.get(path) for path in paths_]
+    async with ctx.transaction() as conn:
+        return [
+            await services.crypto.decrypt(conn, ctx.case_id, blob, purpose=path)
+            for path, blob in zip(paths_, blobs, strict=True)
+        ]
+
+
+async def _read_document_free(ctx: JobContext, services: PipelineServices, prefix: str) -> bytes:
+    return b"".join(await _read_chunks_free(ctx, services, prefix))
+
+
+async def _replay(chunks: Sequence[bytes]) -> AsyncIterator[bytes]:
+    for chunk in chunks:
+        yield chunk
 
 
 Stop = Callable[[], Awaitable[bool]]
 
 
 async def bounded[T](
-    items: Sequence[T], work: Callable[[T], Awaitable[None]], limit: int = CONCURRENCY, stop: Stop | None = None
+    items: Sequence[T],
+    work: Callable[[T], Awaitable[None]],
+    limit: int = CONCURRENCY,
+    stop: Stop | None = None,
+    *,
+    label: Callable[[T], int | None] | None = None,
 ) -> None:
     """Run `work` on every item, at most `limit` at once; the first error stops the rest.
 
     With `stop`, it is asked before each item starts: once it says yes, no new item starts, items
     already running finish, and the job pauses with reason `cancelled`.
+
+    With `label` (the item's page number), the step being logged (`steplog`) is told how long each page
+    took and which page failed with what; the error itself still stops the rest.
     """
     gate = asyncio.Semaphore(limit)
     stopped = False
+    run = steplog.current() if label is not None else None
 
     async def one(item: T) -> None:
         nonlocal stopped
@@ -234,7 +306,19 @@ async def bounded[T](
             if stopped or (stop is not None and await stop()):
                 stopped = True
                 return
-            await work(item)
+            if run is None or label is None:
+                await work(item)
+                return
+            started = time.perf_counter()
+            try:
+                await work(item)
+            except Exception as exc:
+                page = label(item)
+                if not run.has_failed(page):
+                    outcome = "paused" if isinstance(exc, ProcessingPaused) else "failed"
+                    run.page_failed(page, exc, outcome, (time.perf_counter() - started) * 1000)
+                raise
+            run.page_ok(label(item), (time.perf_counter() - started) * 1000)
 
     tasks = [asyncio.create_task(one(item)) for item in items]
     try:
@@ -332,8 +416,11 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
     async with ctx.transaction() as conn:
         waiting = await repo.pages_without_words(conn, ctx.case_id)
         spoken = services.packs.for_case(await repo.case_codes(conn, ctx.case_id)).language
+        numbers = await repo.page_numbers_by_id(conn, ctx.case_id)
+    run = steplog.current()
 
     async def read(page_id: uuid.UUID) -> None:
+        # Short transaction to read, no connection while S3 or Azure answers, short transaction to write.
         async with ctx.transaction() as conn:
             state = await repo.reading_state(conn, page_id)
             before = await _opened_words(conn, services, ctx.case_id, page_id)
@@ -342,7 +429,12 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                 typing = await services.crypto.decrypt(
                     conn, ctx.case_id, state.typed, purpose=transcription_purpose(page_id)
                 )
-            page_pdf = None if typing is not None else await _page_pdf(conn, services, ctx.case_id, page_id)
+        page_pdf = None
+        if typing is None:
+            path = paths.page_pdf_path(ctx.case_id, page_id)
+            blob = await services.storage.get(path)
+            async with ctx.transaction() as conn:
+                page_pdf = await services.crypto.decrypt(conn, ctx.case_id, blob, purpose=path)
         straightened = False
         if page_pdf is None:
             page, source = typed((typing or b"").decode()), "expert"
@@ -354,9 +446,13 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                     raise ProcessingPaused("model_unavailable")
                 try:
                     found = (await services.ocr.analyse(page_pdf, "layout")).pages[0]
-                except OcrFailed:  # F4: this page alone is marked unreadable; the rest carry on
+                except OcrFailed as exc:  # F4: this page alone is marked unreadable; the rest carry on
+                    if run is not None:
+                        run.page_failed(numbers.get(page_id), exc, "failed")
                     found = OcrPage(number=1, width=1.0, height=1.0, words=())
-                except ServiceBusy:  # F5: back-off spent; the job waits and is retried later
+                except ServiceBusy as exc:  # F5: back-off spent; the job waits and is retried later
+                    if run is not None:
+                        run.page_failed(numbers.get(page_id), exc, "paused")
                     raise ProcessingPaused("service_busy") from None
                 source = "ocr"
             turn = state.rotation
@@ -365,6 +461,14 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                 straightened = turn != 0
             page = turned(found, turn)
         reading = assess(page, source)
+        if straightened and page_pdf is not None:
+            pictures = await _pictures(page_pdf, turn)
+            thumbnail_path = paths.thumbnail_path(ctx.case_id, page_id)
+            image_path = paths.page_image_path(ctx.case_id, page_id)
+            for path, blob in await _seal_all(
+                ctx, services, [(thumbnail_path, pictures.thumbnail), (image_path, pictures.image)]
+            ):
+                await services.storage.put(path, blob)  # S3 with no connection held
         async with ctx.transaction() as conn:
             rows: list[repo.WordRow] = []
             for n, word in enumerate(page.words, start=1):
@@ -387,13 +491,6 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                     )
                 )
             if straightened and page_pdf is not None:
-                pictures = render(page_pdf, turn)
-                await _put_sealed(
-                    conn, services, ctx.case_id, paths.thumbnail_path(ctx.case_id, page_id), pictures.thumbnail
-                )
-                await _put_sealed(
-                    conn, services, ctx.case_id, paths.page_image_path(ctx.case_id, page_id), pictures.image
-                )
                 await repo.set_straightened(conn, page_id, turn)
             await repo.store_words(
                 conn,
@@ -409,7 +506,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
             if before:
                 await _settle(conn, ctx.case_id, page_id, before, page, placed=source != "expert")
 
-    await bounded(waiting, read, stop=_stop(ctx))
+    await bounded(waiting, read, OCR_CONCURRENCY, _stop(ctx), label=lambda page_id: numbers.get(page_id))
 
     async def name_language(page_id: uuid.UUID) -> None:
         async with ctx.transaction() as conn:
@@ -428,7 +525,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
 
     async with ctx.transaction() as conn:
         unnamed = await repo.pages_without_language(conn, ctx.case_id, language.MIN_WORDS)
-    await bounded(unnamed, name_language, stop=_stop(ctx))
+    await bounded(unnamed, name_language, DB_CONCURRENCY, _stop(ctx))
 
 
 async def _ask(
@@ -735,7 +832,7 @@ async def _suggest_quarantine(ctx: JobContext, services: PipelineServices) -> No
             ]
         found[page_id] = quarantine.identifiers(extract.plain_text(ordered), pack)
 
-    await bounded(candidates, one, stop=_stop(ctx))
+    await bounded(candidates, one, DB_CONCURRENCY, _stop(ctx))
     flagged = quarantine.suggest({p: found[p] for p in candidates}, quarantine.known(who.dates_of_birth))
     if flagged:
         async with ctx.transaction() as conn:
@@ -765,18 +862,20 @@ async def _duplicates(ctx: JobContext, services: PipelineServices) -> None:
     async with ctx.transaction() as conn:
         unhashed = await repo.pages_to_hash(conn, ctx.case_id)
         pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
+        numbers = await repo.page_numbers_by_id(conn, ctx.case_id)
 
     async def hash_one(page_id: uuid.UUID) -> None:
+        path = paths.thumbnail_path(ctx.case_id, page_id)
+        blob = await services.storage.get(path)  # S3 with no connection held
         async with ctx.transaction() as conn:
             words = await _compared_words(conn, services, ctx.case_id, page_id)
-            path = paths.thumbnail_path(ctx.case_id, page_id)
-            thumbnail = await services.crypto.decrypt(conn, ctx.case_id, await services.storage.get(path), purpose=path)
-            typed = sum(1 for w in words if not w.handwritten)
-            await repo.store_hashes(
-                conn, page_id, duplicates.picture_hash(thumbnail), duplicates.word_hash(words), typed
-            )
+            thumbnail = await services.crypto.decrypt(conn, ctx.case_id, blob, purpose=path)
+        picture = await asyncio.get_running_loop().run_in_executor(_CPU, duplicates.picture_hash, thumbnail)
+        typed = sum(1 for w in words if not w.handwritten)
+        async with ctx.transaction() as conn:
+            await repo.store_hashes(conn, page_id, picture, duplicates.word_hash(words), typed)
 
-    await bounded(unhashed, hash_one, stop=_stop(ctx))
+    await bounded(unhashed, hash_one, STORAGE_CONCURRENCY, _stop(ctx), label=lambda page_id: numbers.get(page_id))
     async with ctx.transaction() as conn:
         states = await repo.copy_states(conn, ctx.case_id)
     new: set[object] = {s.page_id for s in states if not s.checked}
@@ -794,7 +893,7 @@ async def _duplicates(ctx: JobContext, services: PipelineServices) -> None:
         async with ctx.transaction() as conn:
             words[page_id] = await _compared_words(conn, services, ctx.case_id, page_id)
 
-    await bounded(sorted({p.page_id for pair in pairs for p in pair}, key=str), load)  # type: ignore[arg-type]
+    await bounded(sorted({p.page_id for pair in pairs for p in pair}, key=str), load, DB_CONCURRENCY)  # type: ignore[arg-type]
     same = [
         (a.page_id, b.page_id) for a, b in pairs if duplicates.same_content(words[a.page_id], words[b.page_id], pack)
     ]
@@ -888,7 +987,7 @@ async def _missing(ctx: JobContext, services: PipelineServices) -> None:
         async with ctx.transaction() as conn:
             await repo.add_missing(conn, ctx.case_id, page_id, items)
 
-    await bounded(waiting, one, stop=_stop(ctx))
+    await bounded(waiting, one, CONCURRENCY, _stop(ctx), label=lambda item: item[1])
 
 
 async def _missing_step(ctx: JobContext, services: PipelineServices) -> None:
@@ -931,7 +1030,7 @@ async def _embed(ctx: JobContext, services: PipelineServices) -> None:
     for start in range(0, len(waiting), embed.BATCH):
         chunk = waiting[start : start + embed.BATCH]
         texts.clear()
-        await bounded(chunk, read, stop=_stop(ctx))
+        await bounded(chunk, read, DB_CONCURRENCY, _stop(ctx))
         ready = [page_id for page_id in chunk if page_id in texts]
         vectors = await embed.embed_batches(embedder, [texts[page_id] for page_id in ready])
         async with ctx.transaction() as conn:
@@ -952,21 +1051,59 @@ async def _ready(ctx: JobContext, services: PipelineServices) -> None:
         )
 
 
-async def process_bundle(ctx: JobContext) -> None:
-    services = current()
+STEP_CONCURRENCY = {
+    "split": STORAGE_CONCURRENCY,
+    "ocr": OCR_CONCURRENCY,
+    "sort": CONCURRENCY,
+    "duplicates": STORAGE_CONCURRENCY,
+    "missing": CONCURRENCY,
+    "embed": DB_CONCURRENCY,
+}
+
+
+def _pending(services: PipelineServices, step: str) -> steplog.Pending:
+    """What a step has to do when it starts: (unit, to do, already done), for its start line."""
+
+    async def count(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[str, int, int]:
+        if step == "split":
+            return "documents", len(await repo.clean_unsplit(conn, case_id)), 0
+        waiting: dict[str, Callable[[AsyncConnection, uuid.UUID], Awaitable[Sequence[object]]]] = {
+            "ocr": repo.pages_without_words,
+            "sort": repo.pages_to_extract,
+            "duplicates": repo.pages_to_hash,
+            "missing": repo.pages_to_match,
+        }
+        if step == "embed":
+            todo = len(await repo.pages_to_embed(conn, case_id, services.embedder.model))
+        else:
+            todo = len(await waiting[step](conn, case_id))
+        return "pages", todo, max(0, len(await repo.page_numbers(conn, case_id)) - todo)
+
+    return count
+
+
+async def run_step(ctx: JobContext, services: PipelineServices, step: str) -> None:
+    """One step of the bundle job, with its start and end lines (steplog)."""
     stages: dict[str, Callable[[JobContext, PipelineServices], Awaitable[None]]] = {
         "split": _split,
         "ocr": _read_words,
         "sort": _sort,
         "duplicates": _duplicates,
         "missing": _missing_step,
+        "embed": _embed,
     }
+    async with steplog.logged_step(ctx, step, _pending(services, step), STEP_CONCURRENCY[step]):
+        await stages[step](ctx, services)
+
+
+async def process_bundle(ctx: JobContext) -> None:
+    services = current()
     starts = {"split": 0, "ocr": 30, "sort": 40, "duplicates": 55, "missing": 70}
     for step in STEPS:
         await ctx.progress(starts[step], step=step)
-        await stages[step](ctx, services)
+        await run_step(ctx, services, step)
         await ctx.step(step, _noop)
-    await _embed(ctx, services)
+    await run_step(ctx, services, "embed")
     await _ready(ctx, services)
     await ctx.progress(100, step=STEPS[-1])
 
@@ -1083,7 +1220,7 @@ async def repair_fact_dates(ctx: JobContext) -> None:
         if done == total or done % 50 == 0:
             await ctx.progress(min(99, 100 * done // total), step="repair")
 
-    await bounded(list(by_page.items()), one_page, stop=_stop(ctx))
+    await bounded(list(by_page.items()), one_page, DB_CONCURRENCY, _stop(ctx))
     await ctx.progress(100, step="repair")
 
 
