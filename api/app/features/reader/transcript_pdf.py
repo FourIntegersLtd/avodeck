@@ -139,6 +139,7 @@ def build_pdf(
     date_order: str,
     language: str,
     received: dict[int, date],
+    prepared_on: date | None = None,
 ) -> bytes:
     """`pictures` are (page number, image bytes) in page order; a page with no picture shows a "not available" line."""
     story: list[Flowable] = [

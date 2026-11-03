@@ -28,7 +28,9 @@ def entry_heading(entry: TranscriptEntry, *, date_order: str, language: str, rec
     return parts
 
 
-def build(layout: Layout, *, date_order: str, language: str, received: dict[int, date]) -> bytes:
+def build(
+    layout: Layout, *, date_order: str, language: str, received: dict[int, date], prepared_on: date | None = None
+) -> bytes:
     """`received` maps a page number to the date its letter was received, for letters only."""
     doc = Document()
     doc.add_heading(word(language, "title"), level=0)

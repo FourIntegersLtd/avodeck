@@ -223,6 +223,14 @@ async def _survey(
 
 
 @dataclass(frozen=True)
+class SectionDetail:
+    first_date: date | None
+    last_date: date | None
+    pages: int  # distinct bundle pages the section's entries come from
+    years: list[tuple[int | None, int, int]]  # (year or None, position of its first entry in the paged list, count)
+
+
+@dataclass(frozen=True)
 class Outline:
     sections: list[tuple[str, str, int, int]]  # key, label, count, offset
     total_pages: int
@@ -230,6 +238,29 @@ class Outline:
     no_entries: int
     unreadable: int
     set_aside: int
+    details: dict[str, SectionDetail] = field(default_factory=dict)  # by section key
+
+
+def _details(wanted: list[RecordEntry], sections: list[tuple[str, str]]) -> dict[str, SectionDetail]:
+    """What each section holds. Entries are already in date order inside a section, undated last, so the years
+    are runs of consecutive entries (not sorted again)."""
+    found: dict[str, list[tuple[int, RecordEntry]]] = {}
+    for position, (e, (key, _)) in enumerate(zip(wanted, sections, strict=True)):
+        found.setdefault(key, []).append((position, e))
+    out: dict[str, SectionDetail] = {}
+    for key, members in found.items():
+        dated = [e.event_date for _, e in members if e.event_date is not None]
+        years: list[tuple[int | None, int, int]] = []
+        for position, e in members:
+            year = e.event_date.year if e.event_date is not None else None
+            if years and years[-1][0] == year:
+                years[-1] = (year, years[-1][1], years[-1][2] + 1)
+            else:
+                years.append((year, position, 1))
+        out[key] = SectionDetail(
+            min(dated, default=None), max(dated, default=None), len({e.page_id for _, e in members}), years
+        )
+    return out
 
 
 async def outline(conn: AsyncConnection, library: PackLibrary, case_id: uuid.UUID) -> Outline:
@@ -245,7 +276,7 @@ async def outline(conn: AsyncConnection, library: PackLibrary, case_id: uuid.UUI
             sections.append((key, label, 1, position))
     return Outline(
         sections, len(got.listing_pages), len({e.page_id for e in got.wanted}), len(got.picture), len(got.unread),
-        got.set_aside,
+        got.set_aside, _details(got.wanted, got.sections),
     )  # fmt: skip
 
 

@@ -31,6 +31,32 @@ _WORDS: dict[str, dict[str, str]] = {
         "pictures": "Pictures of the pages",
         "see_picture": "See page {number}",
         "picture_missing": "Picture not available",
+        "about": "About this transcript",
+        "purpose": (
+            "This transcript sets out the words printed on every page of the records, arranged by section and "
+            "then by date, oldest first. Each entry gives the bundle page it comes from."
+        ),
+        "how_to_use": (
+            "Page numbers are the bundle's page numbers. Select a page number to see the picture of that page."
+        ),
+        "holds": "What each section holds",
+        "col_number": "No.",
+        "col_section": "Section",
+        "col_entries": "Entries",
+        "col_pages": "Pages",
+        "col_from": "From",
+        "col_to": "To",
+        "cov_total": "Pages in the bundle",
+        "cov_with": "Pages with entries",
+        "cov_none": "Pages with no entries",
+        "cov_unread": "Pages the computer couldn't read",
+        "cov_set_aside": "Pages set aside (copies, replaced or held back)",
+        "appendix": "Appendix {letter}",
+        "page_x_of_y": "Page {page} of {total}",
+        "prepared": "Prepared on {date}",
+        "bundle_pages": "{count} pages in the bundle",
+        "not_checked_short": "Not checked by the expert",
+        "months": "January,February,March,April,May,June,July,August,September,October,November,December",
     },
 }
 
@@ -38,6 +64,10 @@ _WORDS: dict[str, dict[str, str]] = {
 def word(language: str, key: str, **values: object) -> str:
     table = _WORDS.get(language.split("-")[0].lower(), _WORDS["en"])
     return table[key].format(**values)
+
+
+def month_name(language: str, month: int) -> str:
+    return word(language, "months").split(",")[month - 1]
 
 
 def label_text(label: str) -> str:
