@@ -70,7 +70,7 @@ def test_anthropic_switches_the_primary_and_the_constants_apply() -> None:
     assert settings.allowed_hosts - {"api.anthropic.com"} == cell().allowed_hosts
     # Each provider has its own limits; nothing is shared and Bedrock's stay exactly what they were.
     assert settings.limits["anthropic"] == ProviderLimits(
-        rpm=1000, pages_per_call=5, max_output_tokens=8000, concurrency=200
+        rpm=1000, pages_per_call=5, max_output_tokens=32000, concurrency=50, widest_output_tokens=64000
     )
     assert settings.limits["bedrock"] == cell().limits["bedrock"] == ProviderLimits(5, 10, 16000, 3)
     assert settings.primary_limits == settings.limits["anthropic"]
@@ -146,7 +146,7 @@ def test_anthropic_gives_the_kit_both_clients_each_on_its_own_endpoint(caplog: p
     assert kit.primary_limits == kit.settings.limits["anthropic"]
     assert "AI primary is the direct API: dummy data only (ADR 0036)" in caplog.text
     for expected in (
-        "primary=anthropic rpm=1000 pages_per_call=5 max_output_tokens=8000 concurrency=200",
+        "primary=anthropic rpm=1000 pages_per_call=5 max_output_tokens=32000 concurrency=50",
         "fallback=bedrock rpm=5 pages_per_call=10 max_output_tokens=16000 concurrency=3",
     ):
         assert expected in caplog.text, expected

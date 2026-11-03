@@ -219,6 +219,8 @@ const WORDS = {
   "transcript.downloaded_pdf": "Your PDF has been downloaded.",
   "transcript.file_note": "The file is a copy. Downloading it doesn't count as reading.",
   "transcript.download_menu": "Download a copy",
+  "transcript.retry_paused": "Trying again has paused for now. Please check back in a little while.",
+  "transcript.retry_progress": "Trying again: {{done}} of {{total}} pages ({{percent}}%)",
   "transcript.preparing_page": "Preparing page {{done}} of {{total}}",
   "transcript.working_for": "Working for {{minutes}} min {{seconds}} s",
   "transcript.working_for_seconds": "Working for {{seconds}} s",

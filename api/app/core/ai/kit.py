@@ -74,6 +74,12 @@ class InvalidOutput(Exception):
     """The model's output did not match the task's schema twice."""
 
 
+class OutputTruncated(InvalidOutput):
+    """The answer used the whole output cap, so it is cut off (invalid JSON), not wrong. Asking again with the
+    same cap fails the same way, so the kit gives up at once: the caller asks for less (a smaller group) or more
+    room."""
+
+
 class TooLargeForFallback(Exception):
     """The direct API failed and the request is too big for Bedrock to answer. The caller re-splits it
     into calls of `pages_per_call` pages (Bedrock's own limit) and asks again."""
@@ -308,6 +314,9 @@ class AiKit:
                 )
             if valid:
                 return response.output
+            if response.output_tokens >= request.max_tokens:
+                logger.warning("task %s answer was cut off at max_tokens=%d", task.task_id, request.max_tokens)
+                raise OutputTruncated(task.task_id)
         logger.warning("task %s output did not match its schema twice", task.task_id)
         raise InvalidOutput(task.task_id)
 
@@ -375,6 +384,9 @@ class AiKit:
             )
             if valid:
                 return response.output
+            if response.output_tokens >= request.max_tokens:
+                logger.warning("task %s answer was cut off at max_tokens=%d", task.task_id, request.max_tokens)
+                raise OutputTruncated(task.task_id)
         logger.warning("task %s output did not match its schema twice", task.task_id)
         raise InvalidOutput(task.task_id)
 

@@ -32,7 +32,7 @@ import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import Any
 
@@ -44,7 +44,7 @@ from app.core.ai import embed, pii, provenance
 from app.core.ai.answers import page_subject, reference_subject
 from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import model_for
-from app.core.ai.kit import InvalidOutput, TooLargeForFallback
+from app.core.ai.kit import InvalidOutput, OutputTruncated, TooLargeForFallback
 from app.core.ai.ocr import OcrFailed, OcrPage
 from app.core.contracts.fact_dates import case_anchor, latest_printed_date
 from app.core.contracts.fact_flags import flag_for_recheck
@@ -537,9 +537,12 @@ async def _ask(
     text: str,
     subject: str,
     provider: str | None = None,
+    *,
+    cut_off_raises: bool = False,
 ) -> dict[str, Any] | None:
     """One model call (a page or a batch of pages). Uses ``run_detached`` so no pool connection
-    is held during slot waits or the model call itself. `provider="bedrock"` asks Bedrock alone."""
+    is held during slot waits or the model call itself. `provider="bedrock"` asks Bedrock alone.
+    An answer cut off at the output cap returns None, or raises `OutputTruncated` with `cut_off_raises`."""
     assert services.kit is not None
     try:
         return await services.kit.run_detached(
@@ -554,6 +557,10 @@ async def _ask(
             job_id=ctx.job_id,
             provider=provider,
         )
+    except OutputTruncated:
+        if cut_off_raises:
+            raise  # the caller makes the call smaller or wider (`asking.answer_group`)
+        return None
     except InvalidOutput:
         return None
 
@@ -675,9 +682,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         answers: dict[int, Mapping[str, Any]] = {}
         asked = False
 
-        async def ask_pages(
-            group: Sequence[tuple[uuid.UUID, int]], provider: str | None = None
-        ) -> dict[int, Mapping[str, Any]]:
+        async def ask_pages(group: Sequence[tuple[uuid.UUID, int]]) -> dict[int, Mapping[str, Any]]:
             """One call for the group, asked twice if a page failed provenance. A group with no usable answer
             at all (cut off at the output limit) is split in half and each half asked again, down to single
             pages, so one oversized answer never costs the pages their extraction."""
@@ -690,27 +695,50 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 else page_subject((str(page_no), loaded[page_id].subject) for page_id, page_no in group)
             )
 
-            async def ask_group(part: Sequence[tuple[uuid.UUID, int]]) -> Mapping[str, Any] | None:
+            def subject_of(part: Sequence[tuple[uuid.UUID, int]]) -> str:
                 # A smaller group (a split, or the pages left out) keeps the same rules: a lone page its own subject.
-                part_subject = (
-                    loaded[part[0][0]].subject
-                    if len(part) == 1
-                    else (
-                        subject
-                        if len(part) == len(group)
-                        else page_subject((str(no), loaded[pid].subject) for pid, no in part)
-                    )
-                )
-                return await _ask(
-                    ctx,
-                    services,
-                    task if provider is None else bedrock_task,
-                    pack,
-                    who,
-                    extract.batch_text([(no, loaded[pid].text) for pid, no in part]),
-                    part_subject,
-                    provider,
-                )
+                if len(part) == 1:
+                    return loaded[part[0][0]].subject
+                if len(part) == len(group):
+                    return subject
+                return page_subject((str(no), loaded[pid].subject) for pid, no in part)
+
+            def text_of(part: Sequence[tuple[uuid.UUID, int]]) -> str:
+                return extract.batch_text([(no, loaded[pid].text) for pid, no in part])
+
+            async def ask_bedrock(part: Sequence[tuple[uuid.UUID, int]], fits: int) -> Mapping[str, Any] | None:
+                """The direct API failed for this part and Bedrock cannot take a call this big: only this part is
+                asked of Bedrock, in groups it can, and what the other parts already gave is kept."""
+
+                async def on_bedrock(sub: Sequence[tuple[uuid.UUID, int]]) -> Mapping[str, Any] | None:
+                    return await _ask(
+                        ctx, services, bedrock_task, pack, who, text_of(sub), subject_of(sub), "bedrock",
+                        cut_off_raises=True,
+                    )  # fmt: skip
+
+                found: dict[int, Mapping[str, Any]] = {}
+                size_ = max(1, fits)
+                for i in range(0, len(part), size_):
+                    found.update(await answer_group(part[i : i + size_], on_bedrock, refused))
+                return {"pages": list(found.values())} if found else None
+
+            async def ask_group(part: Sequence[tuple[uuid.UUID, int]]) -> Mapping[str, Any] | None:
+                text, part_subject = text_of(part), subject_of(part)
+                try:
+                    try:
+                        return await _ask(ctx, services, task, pack, who, text, part_subject, None, cut_off_raises=True)
+                    except OutputTruncated:
+                        # A page cut off on its own is asked once with the provider's wider cap (and, if it is
+                        # still cut off, given up by `answer_group`); a group is split by `answer_group`.
+                        wider = limits.widest_output_tokens
+                        if len(part) > 1 or wider <= task.max_tokens:
+                            raise
+                        return await _ask(
+                            ctx, services, replace(task, max_tokens=wider), pack, who, text, part_subject, None,
+                            cut_off_raises=True,
+                        )  # fmt: skip
+                except TooLargeForFallback as too_large:
+                    return await ask_bedrock(part, too_large.pages_per_call)
 
             def refused(page: tuple[uuid.UUID, int], answer: Mapping[str, Any]) -> bool:
                 return bool(extract.sort_facts(answer, loaded[page[0]].texts, loaded[page[0]].struck).refused)
@@ -719,13 +747,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
 
         if askable:
             asked = True
-            try:
-                answers = await ask_pages(askable)
-            except TooLargeForFallback as too_large:
-                # The direct API failed and Bedrock cannot take a call this big: ask Bedrock in groups it can.
-                fits = max(1, too_large.pages_per_call)
-                for i in range(0, len(askable), fits):
-                    answers.update(await ask_pages(askable[i : i + fits], "bedrock"))
+            answers = await ask_pages(askable)
         for page_id, page_no in batch:
             loaded_page = loaded[page_id]
             stored, size_, latest, texts = (
@@ -1152,7 +1174,7 @@ async def retry_unread_pages(ctx: JobContext) -> None:
     every verified fact are left alone. A page that fails again is left for a person, and nothing asks again."""
     services = current()
     async with ctx.transaction() as conn:
-        await repo.reset_unread(conn, ctx.case_id)
+        await repo.reset_unread(conn, ctx.case_id, ctx.job_id)
     await ctx.progress(40, step="sort")
     await _sort(ctx, services)
     await ctx.progress(100, step="sort")

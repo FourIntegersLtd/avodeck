@@ -139,6 +139,16 @@ class SortedPages(BaseModel):
     pages: list[SortedPage]
 
 
+class RetryProgress(BaseModel):
+    """How far a "Try these pages again" run has got; counts only. Counted by the server, never by the browser."""
+
+    running: bool  # the run is queued or running; false once it has ended (shown for a few minutes)
+    paused: bool = False  # the run is held back for now (nothing is moving): say so, do not keep checking
+    total: int  # the pages in the run
+    done: int  # read well since the run began
+    failed: int  # could not be read again
+
+
 class BundleSummary(BaseModel):
     pages: int
     by_source: list[SourceCount]
@@ -163,6 +173,7 @@ class BundleSummary(BaseModel):
     set_aside_count: int = 0  # confirmed or purged
     failed_pages: int = 0  # pages the model could not read; "Try these pages again" asks about just these
     retrying: bool = False  # a retry of those pages is queued or running
+    retry: RetryProgress | None = None  # the latest retry run's progress, while it runs and for a while after
 
 
 class ProvenanceChange(BaseModel):

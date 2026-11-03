@@ -75,7 +75,10 @@ const COVERAGE = { total_pages: 20, with_entries: 12, no_entries: 5, unreadable:
 
 let outline: Schemas["TranscriptOutline"] = { status: "ready", sections: [] };
 // What the bundle summary says about the pages the model could not read (the same count the retry job uses).
-let summary = { failed_pages: 0, retrying: false };
+let summary: { failed_pages: number; retrying: boolean; retry?: { running: boolean; paused: boolean; total: number; done: number; failed: number } } = {
+  failed_pages: 0,
+  retrying: false,
+};
 
 function mockTranscript(
   status: "ready" | "preparing" | "failed" | "idle",
@@ -209,6 +212,52 @@ describe.each([
     renderAt(PATH);
     expect(await screen.findByText("We're trying the pages we couldn't read again. This can take a minute.")).toBeVisible();
     expect(screen.queryByText(WAIT_WORDS)).toBeNull();
+  });
+
+  test("while those pages are tried again it shows how far the retry has got, from the server's own counts", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 530, retrying: true, retry: { running: true, paused: false, total: 650, done: 117, failed: 3 } };
+    mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 897, waiting_for: "entries" });
+    renderAt(PATH);
+    const bar = await screen.findByRole("progressbar", { name: "Trying again: 120 of 650 pages (18%)" });
+    expect(bar).toHaveAttribute("aria-valuenow", "120");
+    expect(bar).toHaveAttribute("aria-valuemax", "650");
+    expect(screen.queryByRole("progressbar", { name: "Preparing page 20 of 900" })).toBeNull();
+  });
+
+  test("the retry's bar moves on as the summary is asked again", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 530, retrying: true, retry: { running: true, paused: false, total: 650, done: 117, failed: 3 } };
+    mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 897, waiting_for: "entries" });
+    renderAt(PATH);
+    await screen.findByRole("progressbar", { name: "Trying again: 120 of 650 pages (18%)" });
+    summary = { failed_pages: 250, retrying: true, retry: { running: true, paused: false, total: 650, done: 397, failed: 3 } };
+    expect(await screen.findByRole("progressbar", { name: "Trying again: 400 of 650 pages (62%)" }, { timeout: 6000 })).toBeVisible();
+  }, 15000);
+
+  test("the bar shows on the retry's own running flag, even when the summary's retrying flag is off", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 530, retrying: false, retry: { running: true, paused: false, total: 650, done: 117, failed: 3 } };
+    mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 897, waiting_for: "entries" });
+    renderAt(PATH);
+    expect(await screen.findByRole("progressbar", { name: "Trying again: 120 of 650 pages (18%)" })).toBeVisible();
+  });
+
+  test("the retry's bar never shows 100% while the run is still going", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 1, retrying: true, retry: { running: true, paused: false, total: 650, done: 649, failed: 1 } };
+    mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 897, waiting_for: "entries" });
+    renderAt(PATH);
+    expect(await screen.findByRole("progressbar", { name: "Trying again: 650 of 650 pages (99%)" })).toBeVisible();
+  });
+
+  test("a paused retry says so in plain words instead of showing a bar", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 530, retrying: true, retry: { running: false, paused: true, total: 650, done: 117, failed: 3 } };
+    mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 897, waiting_for: "entries" });
+    renderAt(PATH);
+    expect(await screen.findByText("Trying again has paused for now. Please check back in a little while.")).toBeVisible();
+    expect(screen.queryByRole("progressbar", { name: /Trying again/ })).toBeNull();
   });
 
   test("while preparing it shows a spinner and how many pages are done", async () => {

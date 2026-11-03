@@ -8,7 +8,7 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, cx, IconTile, LinkButton, LoadError, Loading, Notice, SectionIcon, TextField, TextLink } from "../../foundation/ui";
+import { Button, cx, IconTile, LinkButton, LoadError, Loading, Notice, ProgressBar, SectionIcon, TextField, TextLink } from "../../foundation/ui";
 import { can, casePath, documentsOf, requestLabel, sourceWord } from "./data";
 import { formatDate, formatNumber, languageName, pageList } from "./format";
 import { AlertIcon, CopyIcon, MicIcon, OtherPersonIcon, PageIcon, SearchIcon } from "./icons";
@@ -17,6 +17,25 @@ import { w, wn } from "./words";
 
 const UNKNOWN_COLOUR = "#8A948E";
 const POLL_MS = 3000;
+
+/** The progress of a "Try these pages again" run, as the server counted it: pages dealt with of pages tried. */
+function RetryNotice({ retry, locale }: { retry: Schemas["RetryProgress"] | null; locale: string }) {
+  if (!retry || retry.total <= 0) return <Notice tone="info"><p>{w("bundle.trying_again")}</p></Notice>;
+  const handled = retry.done + retry.failed;
+  const label = w("bundle.retry_progress", {
+    done: formatNumber(handled, locale),
+    total: formatNumber(retry.total, locale),
+    // Never 100% until the run has finished (rounding up must not say "done" early).
+    percent: formatNumber(Math.min(99, Math.round((handled / retry.total) * 100)), locale),
+  });
+  return (
+    <Notice tone="info">
+      <p><strong>{label}</strong></p>
+      <ProgressBar value={handled} max={retry.total} label={label} />
+      {retry.failed > 0 && <p>{wn("bundle.retry_failed", retry.failed, locale)}</p>}
+    </Notice>
+  );
+}
 
 export function BundleReady() {
   const { item, pack } = useCaseFrame();
@@ -31,7 +50,10 @@ export function BundleReady() {
   }, [caseId]);
   const again = useBusy();
   const [retryError, setRetryError] = useState(false);
-  const retrying = found.data?.summary.retrying === true;
+  // The run's own flags decide when the server sent them: a paused run is not moving, so it is not asked about again.
+  const run = found.data?.summary.retry ?? null;
+  const paused = run?.paused === true;
+  const retrying = run ? run.running : found.data?.summary.retrying === true;
   const reload = found.reload;
 
   // While the pages are being tried again, the page asks for the summary until the job is done.
@@ -123,11 +145,14 @@ export function BundleReady() {
 
   return (
     <div className="av-page">
-      <h1>{w(notProcessed > 0 && !s.retrying ? "bundle.title_partial" : "bundle.title")}</h1>
-      {s.retrying && <Notice tone="info"><p>{w("bundle.trying_again")}</p></Notice>}
-      {!s.retrying && notProcessed > 0 && (
+      <h1>{w(notProcessed > 0 && !retrying ? "bundle.title_partial" : "bundle.title")}</h1>
+      {retrying && <RetryNotice retry={s.retry ?? null} locale={locale} />}
+      {paused && <Notice tone="info"><p>{w("bundle.retry_paused")}</p></Notice>}
+      {!retrying && !paused && s.retry && notProcessed === 0 && <Notice tone="info"><p>{w("bundle.retry_all_done")}</p></Notice>}
+      {!retrying && !paused && notProcessed > 0 && (
         <Notice tone="warning">
           <p><strong>{wn("bundle.not_processed", notProcessed, locale)}</strong></p>
+          {s.retry && <p>{wn("bundle.retry_left", notProcessed, locale)}</p>}
           <p>{w("bundle.not_processed_note")}</p>
           {can(item, "page.read") && (
             <>

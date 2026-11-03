@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
+from app.core.ai.kit import OutputTruncated
 from app.features.pipeline import extract
 
 Page = tuple[Any, int]  # (page id, bundle page number)
@@ -26,10 +27,19 @@ async def answer_group(
     answer stands unless it is empty, when the first one's pages are kept. A group with no answer at all is
     split in half and each half asked again, down to single pages. Pages the answer left out are then asked
     again on their own, as a smaller group.
+
+    An answer cut off at the output cap (`OutputTruncated`) is never asked again whole: it counts as no answer,
+    so the group is split in half and each half asked; a page cut off on its own is given up (the caller has
+    already tried a wider cap).
     """
     found: dict[int, Mapping[str, Any]] = {}
     for _ in range(2):
-        raw = await ask(group)
+        try:
+            raw = await ask(group)
+        except OutputTruncated:
+            if not found and len(group) == 1:
+                break  # a lone page that does not fit: asking again cannot help
+            raw = None
         got = extract.pages_of(raw) if raw is not None else {}
         if not got and found:
             break  # an empty second answer does not undo the pages the first one gave

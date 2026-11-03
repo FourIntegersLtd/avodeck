@@ -93,6 +93,7 @@ from app.features.pipeline.schemas import (
     RequestExtension,
     RequestLogged,
     RequestSent,
+    RetryProgress,
     SortedPage,
     SortedPages,
     SourceCount,
@@ -383,6 +384,10 @@ async def bundle_sorted(
     return SortedPages(pages=[SortedPage(page_id=r[0], page_no=r[1], source_type=r[2], date=r[3]) for r in rows])
 
 
+def _retry_progress(found: repo.RetryProgress | None) -> RetryProgress | None:
+    return None if found is None else RetryProgress(**vars(found))
+
+
 @pipeline_router.get("/{case_id}/bundle/summary", response_model=BundleSummary)
 async def bundle_summary(
     case_id: uuid.UUID,
@@ -423,6 +428,7 @@ async def bundle_summary(
         splits=await repo.split_count(conn, case_id),
         failed_pages=failed,
         retrying=failed > 0 and await record_entries.entries_status(conn, case_id) == "preparing",
+        retry=_retry_progress(await repo.retry_progress(conn, case_id)),
     )
 
 
