@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import date
+from datetime import date, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from psycopg import AsyncConnection
 
@@ -20,7 +21,7 @@ from app.core.contracts.availability import evidence_for_case
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ApiError
 from app.core.jobs import JobContext, JobRegistry, registry
-from app.core.packs import PackLibrary, default_library
+from app.core.packs import MergedPack, PackLibrary, default_library
 from app.core.storage import CaseFileStorage, StorageError, case_prefix, storage_settings
 from app.features.reader import repo, transcript, transcript_docx, transcript_layout, transcript_pdf
 
@@ -114,6 +115,11 @@ async def _layout(
     return layout, pack, received, coverage
 
 
+def _today(pack: MergedPack) -> date:
+    """The date the file is prepared, in the pack's timezone."""
+    return datetime.now(ZoneInfo(pack.timezone)).date()
+
+
 async def export_transcript(ctx: JobContext) -> None:
     """Builds the requester's Word copy. A job nobody asked for (`requested_by` empty) builds nothing."""
     storage, crypto = services.get_storage(), services.get_crypto()
@@ -122,7 +128,9 @@ async def export_transcript(ctx: JobContext) -> None:
         if made is None:
             return
         layout, pack, received, _ = made
-        document = transcript_docx.build(layout, date_order=pack.date_order, language=pack.language, received=received)
+        document = transcript_docx.build(
+            layout, date_order=pack.date_order, language=pack.language, received=received, prepared_on=_today(pack)
+        )
         path = transcript_path(ctx.case_id, ctx.job_id)
         await storage.put(path, await crypto.encrypt(conn, ctx.case_id, document, purpose=path))
 
@@ -155,8 +163,9 @@ async def export_transcript_pdf(ctx: JobContext) -> None:
                 (number, await _picture(conn, storage, crypto, ctx.case_id, image_path) if image_path else None)
             )
         document = transcript_pdf.build_pdf(
-            layout, pictures, date_order=pack.date_order, language=pack.language, received=received
-        )
+            layout, pictures, date_order=pack.date_order, language=pack.language, received=received,
+            prepared_on=_today(pack),
+        )  # fmt: skip
         path = transcript_path(ctx.case_id, ctx.job_id, "pdf")
         await storage.put(path, await crypto.encrypt(conn, ctx.case_id, document, purpose=path))
 

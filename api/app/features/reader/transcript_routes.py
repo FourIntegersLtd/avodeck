@@ -35,6 +35,7 @@ from app.features.reader.schemas import (
     JobOut,
     OutlineCoverage,
     OutlineSection,
+    OutlineYear,
     RetryOut,
     SeenIn,
     SeenOut,
@@ -99,6 +100,16 @@ async def transcript_entries(
     )
 
 
+def _outline_section(got: transcript.Outline, key: str, label: str, count: int, offset: int) -> OutlineSection:
+    detail = got.details.get(key)
+    if detail is None:
+        return OutlineSection(key=key, label=label, count=count, offset=offset)
+    return OutlineSection(
+        key=key, label=label, count=count, offset=offset, first_date=detail.first_date, last_date=detail.last_date,
+        pages=detail.pages, years=[OutlineYear(year=y, offset=o, count=c) for y, o, c in detail.years],
+    )  # fmt: skip
+
+
 @router.get("/transcript/outline", response_model=TranscriptOutline)
 async def transcript_outline(case_id: uuid.UUID, request: Request, access: View, conn: DbConn) -> TranscriptOutline:
     """The sections (with where each starts in the paged list) and the page coverage; counts and labels only."""
@@ -108,7 +119,7 @@ async def transcript_outline(case_id: uuid.UUID, request: Request, access: View,
     got = await transcript.outline(conn, library, case_id)
     return TranscriptOutline(
         status="ready",
-        sections=[OutlineSection(key=k, label=lb, count=c, offset=o) for k, lb, c, o in got.sections],
+        sections=[_outline_section(got, *s) for s in got.sections],
         coverage=OutlineCoverage(
             total_pages=got.total_pages,
             with_entries=got.with_entries,

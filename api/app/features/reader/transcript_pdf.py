@@ -1,7 +1,9 @@
-"""The PDF copy of the records transcript (ADR 0035): the layout as text, then a picture of every page at the back.
+"""The PDF copy of the records transcript (ADR 0035): a cover, contents, an "about" page, numbered sections by year
+and month, appendices and a picture of every page at the back.
 
-Each entry's page number links to that page's picture; sections and the pictures part are bookmarked. Pictures are
-held in memory only and never written to disk (ADR 0021).
+Every entry's page number links to that page's picture; the contents rows link to their headings; sections, years and
+appendices are bookmarked. Pictures are held in memory only and never written to disk (ADR 0021). The words are the
+few in `transcript_words`; labels come from the pack (rule 11). Nothing is logged (rule 6).
 """
 
 from __future__ import annotations
@@ -9,63 +11,131 @@ from __future__ import annotations
 import io
 from collections.abc import Iterable
 from datetime import date
+from pathlib import Path
 from typing import Any
 from xml.sax.saxutils import escape
 
 from PIL import Image
-from reportlab.lib.colors import HexColor
+from reportlab.lib.colors import HexColor, white
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
-from reportlab.platypus import BaseDocTemplate, Flowable, Frame, PageBreak, PageTemplate, Paragraph, Spacer
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen.canvas import Canvas
+from reportlab.platypus import (
+    BaseDocTemplate,
+    CondPageBreak,
+    Flowable,
+    Frame,
+    NextPageTemplate,
+    PageBreak,
+    PageTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+)
+from reportlab.platypus.tableofcontents import TableOfContents
 
+from app.features.reader.transcript import TranscriptEntry
+from app.features.reader.transcript_document import (
+    SummaryRow,
+    appendix_letters,
+    by_year,
+    numbered,
+    summary,
+)
 from app.features.reader.transcript_docx import entry_heading
 from app.features.reader.transcript_layout import Layout
-from app.features.reader.transcript_words import label_text, word
+from app.features.reader.transcript_words import month_name, show_date, word
 
 PICTURE_EDGE = 1400
 PICTURE_QUALITY = 60
 
-_GREEN = HexColor("#0F3D2C")
+_FONTS = Path(__file__).parent / "fonts"  # open fonts (SIL OFL), embedded in every file
+_SANS, _SANS_BOLD, _MONO, _SERIF, _SERIF_BOLD = "Atkinson", "Atkinson-Bold", "PlexMono", "PTSerif", "PTSerif-Bold"
+for _name, _file in (
+    (_SANS, "AtkinsonHyperlegible-Regular.ttf"),
+    (_SANS_BOLD, "AtkinsonHyperlegible-Bold.ttf"),
+    (_MONO, "IBMPlexMono-Regular.ttf"),
+    (_SERIF, "PT_Serif-Web-Regular.ttf"),
+    (_SERIF_BOLD, "PT_Serif-Web-Bold.ttf"),
+):
+    pdfmetrics.registerFont(TTFont(_name, str(_FONTS / _file)))
+pdfmetrics.registerFontFamily(_SANS, normal=_SANS, bold=_SANS_BOLD, italic=_SANS, boldItalic=_SANS_BOLD)
+pdfmetrics.registerFontFamily(_SERIF, normal=_SERIF, bold=_SERIF_BOLD, italic=_SERIF, boldItalic=_SERIF_BOLD)
+pdfmetrics.registerFontFamily(_MONO, normal=_MONO, bold=_MONO, italic=_MONO, boldItalic=_MONO)
+
+_FOREST = HexColor("#0F3D2C")
 _LINK = "#1E6B4E"
-_BODY = ParagraphStyle("body", fontName="Helvetica", fontSize=12, leading=16)
-_H1 = ParagraphStyle(
-    "h1",
-    parent=_BODY,
-    fontName="Helvetica-Bold",
-    fontSize=18,
-    leading=22,
-    textColor=_GREEN,
-    spaceBefore=12,
-    spaceAfter=6,
-)
+_INK = HexColor("#16201B")
+_SLATE = HexColor("#4F5953")
+_LINE = HexColor("#DDE3DF")
+_MINT = HexColor("#E6F2EC")
+_AMBER_FILL = HexColor("#FDF1E3")
+_AMBER_EDGE = HexColor("#E8C9A6")
+_AMBER_TEXT = HexColor("#8A3F06")
+
+_MARGIN_X = 20 * mm
+_MARGIN_Y = 22 * mm
+_GUTTER = 30 * mm
+_BAND = 60 * mm
+
+_BODY = ParagraphStyle("body", fontName=_SERIF, fontSize=10.5, leading=14.5, textColor=_INK)
+_LEAD = ParagraphStyle("lead", parent=_BODY, fontName=_SANS, fontSize=11, leading=16, spaceAfter=6)
+_H1 = ParagraphStyle("h1", fontName=_SANS_BOLD, fontSize=20, leading=26, textColor=_FOREST, spaceBefore=0, spaceAfter=6)
 _H2 = ParagraphStyle(
-    "h2",
-    parent=_BODY,
-    fontName="Helvetica-Bold",
-    fontSize=15,
-    leading=19,
-    textColor=_GREEN,
-    spaceBefore=10,
-    spaceAfter=4,
+    "h2", fontName=_SANS_BOLD, fontSize=14, leading=18, textColor=_FOREST, spaceBefore=14, spaceAfter=4
 )
-_H3 = ParagraphStyle(
-    "h3",
-    parent=_BODY,
-    fontName="Helvetica-Bold",
-    fontSize=13,
-    leading=17,
-    textColor=_GREEN,
-    spaceBefore=8,
-    spaceAfter=3,
+_H3 = ParagraphStyle("h3", fontName=_SANS_BOLD, fontSize=11, leading=14, textColor=_SLATE, spaceBefore=8, spaceAfter=2)
+_META = ParagraphStyle("meta", fontName=_SANS, fontSize=9, leading=12, textColor=_SLATE, spaceAfter=2)
+_MONO_SMALL = ParagraphStyle("mono", fontName=_MONO, fontSize=9, leading=12, textColor=_SLATE)
+_MONO_LINK = ParagraphStyle("monolink", parent=_MONO_SMALL, textColor=HexColor(_LINK))
+_CELL = ParagraphStyle("cell", fontName=_SANS, fontSize=10, leading=13, textColor=_INK)
+_CELL_HEAD = ParagraphStyle("cellhead", parent=_CELL, fontName=_SANS_BOLD, textColor=_FOREST)
+_CELL_NUM = ParagraphStyle("cellnum", parent=_CELL, fontName=_MONO, alignment=TA_RIGHT)
+_CELL_PAGE = ParagraphStyle("cellpage", parent=_MONO_LINK, alignment=TA_CENTER)
+_PANEL = ParagraphStyle("panel", fontName=_SANS, fontSize=12, leading=17, textColor=_AMBER_TEXT)
+_COVER_FACT = ParagraphStyle("coverfact", fontName=_SANS, fontSize=14, leading=20, textColor=_INK, spaceBefore=10)
+_TOC0 = ParagraphStyle(
+    "toc0", fontName=_SANS_BOLD, fontSize=11, leading=15, textColor=_FOREST, spaceBefore=5, rightIndent=22 * mm
+)
+_TOC1 = ParagraphStyle(
+    "toc1", fontName=_SANS, fontSize=9.5, leading=13, textColor=_INK, leftIndent=12, rightIndent=22 * mm
 )
 
 
 class _Heading(Paragraph):  # type: ignore[misc]
-    def __init__(self, text: str, style: ParagraphStyle, *, mark: tuple[str, str, int] | None = None) -> None:
+    """A heading that is also a bookmark and, when it has a `level`, an outline and contents entry.
+
+    `running` is the text the running header shows from here on; `rule` draws a thin mint line above."""
+
+    def __init__(
+        self,
+        text: str,
+        style: ParagraphStyle,
+        *,
+        key: str | None = None,
+        title: str = "",
+        level: int = 0,
+        toc: bool = True,
+        running: str | None = None,
+        rule: bool = False,
+    ) -> None:
         super().__init__(text, style)
-        self.mark = mark
+        self.key, self.title, self.level, self.toc, self.running, self.rule = key, title, level, toc, running, rule
+
+    def draw(self) -> None:
+        super().draw()
+        if self.rule:
+            c = self.canv
+            c.setStrokeColor(_MINT)
+            c.setLineWidth(0.75)
+            y = self.height + self.style.spaceBefore / 2
+            c.line(0, y, self.width, y)
 
 
 class _PicturePage(Flowable):  # type: ignore[misc]
@@ -85,11 +155,11 @@ class _PicturePage(Flowable):  # type: ignore[misc]
     def draw(self) -> None:
         c = self.canv
         c.bookmarkPage(f"page-{self.number}")
-        c.setFont("Helvetica", 10)
+        c.setFont(_SANS, 10)
         c.drawString(0, self.ah - 10, self.caption)
         top = self.ah - 18
         if self.jpeg is None or self.size is None:
-            c.setFont("Helvetica", 12)
+            c.setFont(_SANS, 12)
             c.drawString(0, top - 14, self.missing)
             return
         w, h = self.size
@@ -118,18 +188,174 @@ def prepare_picture(data: bytes | None) -> bytes | None:
 
 
 class _Doc(BaseDocTemplate):  # type: ignore[misc]
+    section_text = ""  # what the running header shows; set as each heading is placed
+
     def afterFlowable(self, flowable: Any) -> None:  # noqa: N802
-        mark = getattr(flowable, "mark", None)
-        if mark:
-            key, title, level = mark
-            self.canv.bookmarkPage(key)
-            self.canv.addOutlineEntry(title, key, level, 0)
+        if not isinstance(flowable, _Heading):
+            return
+        if flowable.running is not None:
+            self.section_text = flowable.running
+        if flowable.key:
+            self.canv.bookmarkPage(flowable.key)
+            self.canv.addOutlineEntry(flowable.title, flowable.key, flowable.level, 0)
+            if flowable.toc:
+                self.notify("TOCEntry", (flowable.level, escape(flowable.title), self.page, flowable.key))
 
 
-def _links(pages: list[int], language: str) -> str:
-    return ", ".join(
-        f'<a href="#page-{n}" color="{_LINK}">{escape(word(language, "page", number=n))}</a>' for n in pages
+def _numbered_canvas(language: str) -> type[Canvas]:
+    """A canvas that writes the footer once every page is known, so it can say "Page n of N" (not on the cover)."""
+
+    class NumberedCanvas(Canvas):  # type: ignore[misc]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            self._saved: list[dict[str, Any]] = []
+
+        def showPage(self) -> None:  # noqa: N802
+            self._saved.append(dict(self.__dict__))
+            self._startPage()
+
+        def save(self) -> None:
+            total = len(self._saved)
+            for state in self._saved:
+                self.__dict__.update(state)
+                if self._pageNumber > 1:
+                    self._footer(total)
+                super().showPage()
+            super().save()
+
+        def _footer(self, total: int) -> None:
+            width = A4[0]
+            self.setStrokeColor(_LINE)
+            self.setLineWidth(0.5)
+            self.line(_MARGIN_X, 15 * mm, width - _MARGIN_X, 15 * mm)
+            self.setFont(_SANS, 8.5)
+            self.setFillColor(_AMBER_TEXT)
+            self.drawString(_MARGIN_X, 10.5 * mm, word(language, "not_checked_short"))
+            self.setFillColor(_SLATE)
+            self.drawRightString(
+                width - _MARGIN_X, 10.5 * mm, word(language, "page_x_of_y", page=self._pageNumber, total=total)
+            )
+
+    return NumberedCanvas
+
+
+def _links(pages: list[int]) -> Table:
+    """Linked page numbers, ten to a row."""
+    cells = [Paragraph(f'<a href="#page-{n}" color="{_LINK}">{n}</a>', _CELL_PAGE) for n in pages]
+    rows = [cells[i : i + 10] for i in range(0, len(cells), 10)]
+    rows[-1] += [""] * (10 - len(rows[-1]))
+    return Table(rows, colWidths=[(A4[0] - 2 * _MARGIN_X) / 10] * 10, hAlign="LEFT")
+
+
+def _entry_table(
+    entry: TranscriptEntry, *, width: float, date_order: str, language: str, received: dict[int, date]
+) -> Table:
+    """One entry: page number and date in the left column, then the meta line and one row per line of the record.
+    One row per line lets a long entry carry on to the next page with nothing clipped."""
+    parts = entry_heading(entry, date_order=date_order, language=language, received=received)
+    link = f'<a href="#page-{entry.page_no}" color="{_LINK}">{escape(parts[0])}</a>'
+    gutter: list[Flowable] = [Paragraph(link, _MONO_LINK), Paragraph(escape(parts[1]), _MONO_SMALL)]
+    rows: list[list[Any]] = [[gutter, Paragraph(escape(" · ".join(parts[2:])), _META)]]
+    rows.extend(["", Paragraph(escape(line) or "&nbsp;", _BODY)] for line in entry.lines)
+    last = len(rows) - 1
+    table = Table(rows, colWidths=[_GUTTER, width - _GUTTER], hAlign="LEFT", splitByRow=1)
+    table.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 1),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+                ("TOPPADDING", (0, 0), (-1, 0), 6),
+                ("BOTTOMPADDING", (0, last), (-1, last), 6),
+                ("LINEBELOW", (0, last), (-1, last), 0.5, _LINE),
+            ]
+        )
     )
+    return table
+
+
+def _summary_table(rows: list[SummaryRow], language: str, width: float) -> Table:
+    head = [
+        Paragraph(escape(word(language, k)), _CELL_HEAD)
+        for k in ("col_number", "col_section", "col_entries", "col_pages", "col_from", "col_to")
+    ]
+    body = [
+        [
+            Paragraph(str(r.number), _CELL_NUM),
+            Paragraph(escape(r.label), _CELL),
+            Paragraph(str(r.entries), _CELL_NUM),
+            Paragraph(str(r.pages), _CELL_NUM),
+            Paragraph(escape(r.date_from), _CELL),
+            Paragraph(escape(r.date_to), _CELL),
+        ]
+        for r in rows
+    ]
+    fixed = [12 * mm, 0.0, 20 * mm, 18 * mm, 24 * mm, 24 * mm]
+    fixed[1] = width - sum(fixed)
+    table = Table([head, *body], colWidths=fixed, hAlign="LEFT", repeatRows=1)
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), _MINT),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LINEBELOW", (0, 0), (-1, -1), 0.5, _LINE),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+    return table
+
+
+def _coverage_table(layout: Layout, language: str, width: float) -> Table:
+    cov = layout.coverage
+    rows = [
+        (word(language, "cov_total"), cov.total_pages),
+        (word(language, "cov_with"), cov.with_entries),
+        (word(language, "cov_none"), cov.no_entries),
+        (word(language, "cov_unread"), cov.unreadable),
+        (word(language, "cov_set_aside"), cov.set_aside),
+    ]
+    cells = [[Paragraph(escape(label), _CELL), Paragraph(str(n), _CELL_NUM)] for label, n in rows]
+    table = Table(cells, colWidths=[width - 30 * mm, 30 * mm], hAlign="LEFT")
+    table.setStyle(
+        TableStyle(
+            [
+                ("LINEBELOW", (0, 0), (-1, -1), 0.5, _LINE),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+    return table
+
+
+def _cover_story(
+    layout: Layout, language: str, width: float, prepared_on: date | None, date_order: str
+) -> list[Flowable]:
+    panel = Table([[Paragraph(escape(word(language, "not_checked")), _PANEL)]], colWidths=[width])
+    panel.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), _AMBER_FILL),
+                ("BOX", (0, 0), (-1, -1), 0.75, _AMBER_EDGE),
+                ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+                ("TOPPADDING", (0, 0), (-1, -1), 10),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            ]
+        )
+    )
+    story: list[Flowable] = [
+        panel,
+        Paragraph(escape(word(language, "bundle_pages", count=layout.coverage.total_pages)), _COVER_FACT),
+    ]
+    if prepared_on is not None:
+        shown = show_date(prepared_on, date_order, language)
+        story.append(Paragraph(escape(word(language, "prepared", date=shown)), _COVER_FACT))
+    return story
 
 
 def build_pdf(
@@ -139,52 +365,73 @@ def build_pdf(
     date_order: str,
     language: str,
     received: dict[int, date],
+    prepared_on: date | None = None,
 ) -> bytes:
     """`pictures` are (page number, image bytes) in page order; a page with no picture shows a "not available" line."""
-    story: list[Flowable] = [
-        Paragraph(escape(word(language, "title")), _H1),
-        Paragraph(escape(word(language, "not_checked")), _BODY),
+    width = A4[0] - 2 * _MARGIN_X
+    title = word(language, "title")
+    letters = appendix_letters(layout)
+    rows = summary(layout, date_order=date_order, language=language)
+
+    def appendix(key: str, text: str, mark: str) -> _Heading:
+        heading = f"{word(language, 'appendix', letter=letters[key])}  {text}"
+        return _Heading(escape(heading), _H1, key=mark, title=heading, running=heading)
+
+    toc = TableOfContents()
+    toc.levelStyles = [_TOC0, _TOC1]
+    toc.dotsMinLevel = 0
+    story: list[Flowable] = _cover_story(layout, language, width, prepared_on, date_order)
+    story += [NextPageTemplate("body"), PageBreak()]
+
+    contents = word(language, "contents")
+    story.append(_Heading(escape(contents), _H1, key="contents", title=contents, toc=False, running=contents))
+    story += [toc, PageBreak()]
+
+    about = word(language, "about")
+    story += [
+        _Heading(escape(about), _H1, key="about", title=about, toc=False, running=about),
+        Paragraph(escape(word(language, "purpose")), _LEAD),
+        Paragraph(escape(word(language, "how_to_use")), _LEAD),
+        _Heading(escape(word(language, "coverage")), _H2, rule=True),
+        _coverage_table(layout, language, width),
+        _Heading(escape(word(language, "holds")), _H2, rule=True),
+        _summary_table(rows, language, width),
     ]
-    cov = layout.coverage
-    story.append(Paragraph(escape(word(language, "coverage")), _H2))
-    story.append(
-        Paragraph(
-            escape(
-                word(
-                    language,
-                    "coverage_line",
-                    total=cov.total_pages,
-                    with_entries=cov.with_entries,
-                    no_entries=cov.no_entries,
-                    unreadable=cov.unreadable,
-                    set_aside=cov.set_aside,
+
+    for (number, section), row in zip(numbered(layout), rows, strict=True):
+        heading = f"{number}. {row.label}"
+        stats = f"{word(language, 'col_entries')}: {row.entries} · {word(language, 'col_pages')}: {row.pages}"
+        if row.date_from:
+            stats += f" · {row.date_from} – {row.date_to}"
+        story += [
+            PageBreak(),
+            _Heading(escape(heading), _H1, key=f"sec-{number}", title=heading, running=heading),
+            Paragraph(escape(stats), _META),
+        ]
+        for y, year in enumerate(by_year(section.entries)):
+            year_text = str(year.year) if year.year is not None else word(language, "undated")
+            story += [
+                CondPageBreak(45 * mm),
+                _Heading(escape(year_text), _H2, key=f"sec-{number}-y{y}", title=year_text, level=1, rule=True),
+            ]
+            for month in year.months:
+                if month.month is not None:
+                    story += [
+                        CondPageBreak(35 * mm),
+                        Paragraph(escape(month_name(language, month.month).upper()), _H3),
+                    ]
+                story.extend(
+                    _entry_table(e, width=width, date_order=date_order, language=language, received=received)
+                    for e in month.entries
                 )
-            ),
-            _BODY,
-        )
-    )
-    for i, section in enumerate(layout.sections):
-        label = label_text(section.label)
-        story.append(_Heading(escape(label), _H1, mark=(f"section-{i}", label, 0)))
-        for entry in section.entries:
-            parts = entry_heading(entry, date_order=date_order, language=language, received=received)
-            head = f'<a href="#page-{entry.page_no}" color="{_LINK}">{escape(parts[0])}</a>'
-            if len(parts) > 1:
-                head += escape(", " + ", ".join(parts[1:]))
-            story.append(Paragraph(head, _H3))
-            story.extend(Paragraph(escape(line) or "&nbsp;", _BODY) for line in entry.lines)
+
     if layout.no_entry_pages:
-        title = word(language, "no_entry_pages")
-        story.append(_Heading(escape(title), _H1, mark=("no-entry", title, 0)))
-        story.append(Paragraph(escape(word(language, "no_entry_lead")), _BODY))
-        story.append(Paragraph(_links(layout.no_entry_pages, language), _BODY))
+        story += [PageBreak(), appendix("no_entries", word(language, "no_entry_pages"), "app-no-entries")]
+        story += [Paragraph(escape(word(language, "no_entry_lead")), _LEAD), _links(layout.no_entry_pages)]
     if layout.unread_pages:
-        title = word(language, "unread_pages")
-        story.append(_Heading(escape(title), _H1, mark=("unread", title, 0)))
-        story.append(Paragraph(_links(layout.unread_pages, language), _BODY))
-    title = word(language, "pictures")
-    story.append(_Heading(escape(title), _H1, mark=("pictures", title, 0)))
-    story.append(Spacer(1, 4))
+        story += [PageBreak(), appendix("unread", word(language, "unread_pages"), "app-unread")]
+        story.append(_links(layout.unread_pages))
+    story += [PageBreak(), appendix("pictures", word(language, "pictures"), "app-pictures"), Spacer(1, 4)]
     for number, data in pictures:
         story.append(PageBreak())
         story.append(
@@ -195,9 +442,46 @@ def build_pdf(
 
     out = io.BytesIO()
     doc = _Doc(
-        out, pagesize=A4, invariant=1, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=18 * mm, bottomMargin=18 * mm
+        out,
+        pagesize=A4,
+        invariant=1,
+        leftMargin=_MARGIN_X,
+        rightMargin=_MARGIN_X,
+        topMargin=_MARGIN_Y,
+        bottomMargin=_MARGIN_Y,
+        title=title,
     )
-    frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="f")
-    doc.addPageTemplates([PageTemplate(id="p", frames=[frame])])
-    doc.build(story)
+
+    def band(canvas: Canvas, _doc: Any) -> None:
+        canvas.saveState()
+        canvas.setFillColor(_FOREST)
+        canvas.rect(0, A4[1] - _BAND, A4[0], _BAND, stroke=0, fill=1)
+        canvas.setFillColor(white)
+        canvas.setFont(_SANS_BOLD, 28)
+        canvas.drawString(_MARGIN_X, A4[1] - _BAND / 2 - 10, title)
+        canvas.restoreState()
+
+    def running_header(canvas: Canvas, d: _Doc) -> None:
+        canvas.saveState()
+        y = A4[1] - 14 * mm
+        canvas.setFont(_SANS, 8.5)
+        canvas.setFillColor(_SLATE)
+        canvas.drawString(_MARGIN_X, y, title)
+        canvas.drawRightString(A4[0] - _MARGIN_X, y, d.section_text)
+        canvas.setStrokeColor(_LINE)
+        canvas.setLineWidth(0.5)
+        canvas.line(_MARGIN_X, y - 3 * mm, A4[0] - _MARGIN_X, y - 3 * mm)
+        canvas.restoreState()
+
+    cover_frame = Frame(
+        _MARGIN_X, _MARGIN_Y, width, A4[1] - _BAND - _MARGIN_Y - 12 * mm, id="cover", leftPadding=0, rightPadding=0
+    )
+    body_frame = Frame(_MARGIN_X, _MARGIN_Y, width, A4[1] - 2 * _MARGIN_Y, id="body", leftPadding=0, rightPadding=0)
+    doc.addPageTemplates(
+        [
+            PageTemplate(id="cover", frames=[cover_frame], onPage=band),
+            PageTemplate(id="body", frames=[body_frame], onPageEnd=running_header),
+        ]
+    )
+    doc.multiBuild(story, canvasmaker=_numbered_canvas(language))
     return out.getvalue()

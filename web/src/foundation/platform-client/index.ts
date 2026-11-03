@@ -157,6 +157,9 @@ async function send(request: Request): Promise<Response> {
     asking = null;
   });
   if (!(await asking)) return markAsked(first);
+  // Giving the code made the API issue new cookies, so the saved copy's CSRF token is stale: take the new one.
+  const token = readCookie("av_csrf");
+  if (token && !SAFE.has(spare.method)) spare.headers.set("X-CSRF-Token", token);
   const again = await globalThis.fetch(spare);
   if (!(await needsCode(again))) return again;
   prompt.nothingChanged();

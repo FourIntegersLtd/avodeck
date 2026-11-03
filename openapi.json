@@ -11861,6 +11861,18 @@
             "title": "Count",
             "type": "integer"
           },
+          "first_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Date"
+          },
           "key": {
             "title": "Key",
             "type": "string"
@@ -11869,9 +11881,34 @@
             "title": "Label",
             "type": "string"
           },
+          "last_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Date"
+          },
           "offset": {
             "title": "Offset",
             "type": "integer"
+          },
+          "pages": {
+            "default": 0,
+            "title": "Pages",
+            "type": "integer"
+          },
+          "years": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/OutlineYear"
+            },
+            "title": "Years",
+            "type": "array"
           }
         },
         "required": [
@@ -11881,6 +11918,36 @@
           "offset"
         ],
         "title": "OutlineSection",
+        "type": "object"
+      },
+      "OutlineYear": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "required": [
+          "year",
+          "offset",
+          "count"
+        ],
+        "title": "OutlineYear",
         "type": "object"
       },
       "OverEstimate": {

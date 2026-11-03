@@ -20,6 +20,22 @@ main{max-width:860px;margin:24px auto;padding:0 24px}
 .chip{display:inline-block;background:#E6F2EC;color:#0F3D2C;border-radius:999px;padding:2px 12px;font-size:15px;margin-left:8px}
 .progress{height:10px;border-radius:5px;background:#DDE3DF;flex:1 1 240px}
 .progress i{display:block;height:100%;width:38%;background:#1E6B4E;border-radius:5px}
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:16px 0}
+.tile{background:#E6F2EC;border-radius:12px;padding:14px 16px}
+.tile.warn{background:#FDF1E3}
+.tile b{display:block;font-size:30px;font-family:'IBM Plex Mono',monospace}
+.toc{list-style:none;margin:0;padding:0}
+.toc a{display:flex;gap:16px;align-items:center;min-height:56px;padding:6px 16px;margin-bottom:8px;background:#fff;border:1px solid #DDE3DF;border-radius:12px;text-decoration:none;color:#16201B}
+.toc a.warn{background:#FDF1E3;border-color:#E8C9A6}
+.toc .n{font-family:'IBM Plex Mono',monospace}
+.toc .d{margin-left:auto;color:#4F5953}
+.year{position:sticky;top:0;background:#fff;border-bottom:1px solid #DDE3DF;font-size:22px;margin:24px 0 0}
+.month{font-size:17px;color:#4F5953;margin:12px 0 0}
+.row{display:grid;grid-template-columns:96px 1fr;gap:12px;padding:20px 0;border-bottom:1px solid #DDE3DF}
+.row .gutter{font-family:'IBM Plex Mono',monospace;font-size:14px;color:#4F5953}
+.row p{font-family:Georgia,serif;font-size:18px;line-height:28px;margin:0}
+@media(max-width:700px){.row{grid-template-columns:1fr}}
+@media(min-width:900px){.tiles{grid-template-columns:repeat(4,1fr)}}
 </style>
 </head>
 <body>
@@ -32,6 +48,34 @@ main{max-width:860px;margin:24px auto;padding:0 24px}
   <a class="btn" href="#download">Download as Word</a>
 </div>
 <main>
+  <h2>Opening view</h2>
+  <!-- No entry text is shown here and nothing is recorded as read. -->
+  <h3>About this transcript</h3>
+  <p>Every printed line of the records, arranged by section and then by date, oldest first. Each entry shows the bundle page it comes from.</p>
+  <div class="tiles">
+    <div class="tile"><b>400</b>Pages in the bundle</div>
+    <div class="tile"><b>352</b>Pages with entries</div>
+    <div class="tile warn"><b>38</b>Pages with no entries</div>
+    <div class="tile warn"><b>10</b>Pages we couldn't read</div>
+  </div>
+  <h3>Contents</h3>
+  <ol class="toc">
+    <li><a href="#s1"><span class="n">1</span> First section <span class="d">1,240 entries &middot; Mar 2015 &ndash; Jun 2023 &rsaquo;</span></a></li>
+    <li><a href="#s2"><span class="n">2</span> Second section <span class="d">212 entries &middot; Jan 2016 &ndash; May 2022 &rsaquo;</span></a></li>
+    <li><a class="warn" href="#a">Appendix A &middot; Pages with no entries (38)</a></li>
+    <li><a class="warn" href="#b">Appendix B &middot; Pages we couldn't read (10)</a></li>
+  </ol>
+  <h2 id="s1">Section view</h2>
+  <p><a href="#top">&larr; Contents</a></p>
+  <h3>1. First section</h3>
+  <p>1,240 entries &middot; 212 pages &middot; Mar 2015 &ndash; Jun 2023</p>
+  <h3 class="year">2021</h3>
+  <h4 class="month">March</h4>
+  <div class="row"><div class="gutter"><a href="S09-Reader.dc.html">p. 12</a><br>3 Mar</div><div><p>Reviewed. Bowel habit unchanged. Advice given. Review in two weeks.</p></div></div>
+  <p><a class="btn sec" href="#more">Show the next 50 (51&ndash;100 of 1,240)</a></p>
+  <p><a class="btn" href="#s2">Next section: Second section &rarr;</a> <a class="btn sec" href="#top">Back to contents</a></p>
+  <hr>
+  <h2>Older single-list view (superseded)</h2>
   <p>Every entry in date order. An entry counts as read once it has been on your screen for a moment. Suggestions appear on the page itself, once you have read it.</p>
   <article class="entry seen" aria-label="Entry on page 12">
     <h2><span class="page-ref">p.12</span> 3 March 2021 &middot; Consultation <span class="chip">Doctor</span></h2>

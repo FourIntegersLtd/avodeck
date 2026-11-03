@@ -270,7 +270,7 @@ async def test_a_page_the_computer_could_not_read_is_said_so_in_the_file(
     job = await build(client, worker_db, admin, world)
     resp = await client.get(f"/v1/cases/{world['case']}/transcript/download/{job}")
     text = paragraphs(resp.content)
-    assert any(p == word("en", "unread_pages") for p in text)
+    assert any(p.endswith(word("en", "unread_pages")) for p in text)  # heading now carries "Appendix B"
     assert "2, 3" in text  # all pages, read or not
 
 

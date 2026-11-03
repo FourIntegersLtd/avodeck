@@ -2,7 +2,7 @@
 // API's error envelope (web/AGENTS.md, architecture 5.1).
 import { afterEach, expect, test, vi } from "vitest";
 import { apiError, http, HttpResponse, json, server } from "../../test/api";
-import { api, ApiError, apiOrigin, idempotencyKey, ifMatch, onSignedOut, unwrap, websocketUrl } from ".";
+import { api, ApiError, apiOrigin, idempotencyKey, ifMatch, onSignedOut, onStepUpRequired, unwrap, websocketUrl } from ".";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -77,4 +77,29 @@ test("a build with its own API origin calls that origin, over wss for a socket",
   expect(apiOrigin()).toBe("https://api.avodeck.com");
   expect(websocketUrl("/v1/cases/c1/dictation")).toBe("wss://api.avodeck.com/v1/cases/c1/dictation");
   vi.unstubAllEnvs();
+});
+
+test("a request sent again after the code was given carries the new CSRF token, not the one it first had", async () => {
+  // Giving the code makes the API issue new cookies, so the token in the saved copy of the request is stale.
+  document.cookie = "av_csrf=token-before-the-code";
+  const seen: (string | null)[] = [];
+  server.use(
+    http.post("/v1/me/sessions/revoke-all", ({ request }) => {
+      seen.push(request.headers.get("x-csrf-token"));
+      return seen.length === 1 ? apiError(403, "step_up_required") : new HttpResponse(null, { status: 204 });
+    }),
+  );
+  const stop = onStepUpRequired({
+    ask: async () => {
+      document.cookie = "av_csrf=token-after-the-code";
+      return true;
+    },
+    nothingChanged: () => undefined,
+  });
+  try {
+    await unwrap(api.POST("/v1/me/sessions/revoke-all"));
+  } finally {
+    stop();
+  }
+  expect(seen).toEqual(["token-before-the-code", "token-after-the-code"]);
 });

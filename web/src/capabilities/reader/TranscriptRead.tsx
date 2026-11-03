@@ -1,7 +1,8 @@
-// Screen 9b, Reading by transcript (ADR 0028): every entry in date order. The browser only reports how long
-// each entry was on screen; the server decides when a page counts as read, and suggestions never show here.
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+// Screen 9b, Reading by transcript (ADR 0028): every entry in date order, in chapters (the contents, a section, a list
+// of pages). The browser only reports how long each entry was on screen; the server decides when a page counts as read,
+// and suggestions never show here. Where you are lives in the address (`?section=`), so Back works.
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { humanise, t } from "../../foundation/i18n";
@@ -13,9 +14,12 @@ import { count } from "./data";
 import { smallPageImage } from "../../foundation/lib/pageImageCache";
 import { w } from "./words";
 import { saveBlob } from "../../foundation/lib/files";
+import { appendices as appendixLists, NO_ENTRIES, TranscriptContents, UNREAD } from "./TranscriptContents";
+import { PAGE_SIZE, TranscriptSection, yearId } from "./TranscriptSection";
 
 type Entry = Schemas["TranscriptEntryOut"];
-const LIMIT = 50;
+// Entries asked for in one go when the reader jumps to a year that is not loaded yet.
+const JUMP_LIMIT = 200;
 const POLL_MS = 3000;
 // Seconds' worth of milliseconds an entry must stay in view before it is reported.
 const REPORT_AFTER_MS = 400;
@@ -112,7 +116,8 @@ function PagePicture({ caseId, pageNo, onSeen }: { caseId: string; pageNo: numbe
   );
 }
 
-function EntryCard({ entry, caseId, onSeen }: { entry: Entry; caseId: string; onSeen: SeenFn }) {
+/** `level` is the heading level of the entry's own line: 5 under a month, 4 under "No date" (which has no month). */
+function EntryCard({ entry, caseId, onSeen, level }: { entry: Entry; caseId: string; onSeen: SeenFn; level: 4 | 5 }) {
   const ref = useRef<HTMLElement>(null);
   const since = useRef<number | null>(null);
   // An administrative entry is folded; it counts as seen only once the reader has unfolded it.
@@ -140,21 +145,30 @@ function EntryCard({ entry, caseId, onSeen }: { entry: Entry; caseId: string; on
       observer.disconnect();
     };
   }, [entry.id, onSeen, open]);
-  const day = entry.event_date ? formatDay(entry.event_date, undefined, "long") : w("transcript.undated");
+  const day = entry.event_date ? formatDay(entry.event_date, undefined, "short") : w("transcript.undated");
+  const Head = level === 4 ? "h4" : "h5";
+  const author = entry.author_label ? t(entry.author_label, {}, humanise(entry.author_role ?? "")) : null;
   return (
-    <article ref={ref} id={`entry-${entry.id}`} tabIndex={-1} className={`rd-entry${entry.folded ? " rd-entry--folded" : ""}`} aria-label={w("transcript.entry_label", { page: entry.page_no })}>
-      <h3 className="rd-entry__head">
-        <span className="rd-entry__page">{w("read.page_ref", { page: entry.page_no })}</span> {day} · {t(entry.kind_label, {}, humanise(entry.kind))}
-        {entry.results.map((key, i) => (
-          <span key={key} className="rd-entry__chip">{t(entry.result_labels[i] ?? key, {}, humanise(key))}</span>
+    <article ref={ref} id={`entry-${entry.id}`} tabIndex={-1} className={`rd-entry rd-entry--row${entry.folded ? " rd-entry--folded" : ""}`} aria-label={w("transcript.entry_label", { page: entry.page_no })}>
+      <div className="rd-entry__gutter">
+        <Link className="rd-entry__page" to={`/cases/${caseId}/read/${entry.page_no}`}>{w("read.page_ref", { page: entry.page_no })}</Link>
+        <span className="rd-entry__date">{day}</span>
+      </div>
+      <div className="rd-entry__body">
+        <Head className="rd-entry__head">
+          {t(entry.kind_label, {}, humanise(entry.kind))}
+          {author ? ` · ${author}` : ""}
+          {entry.results.map((key, i) => (
+            <span key={key} className="rd-entry__chip">{t(entry.result_labels[i] ?? key, {}, humanise(key))}</span>
+          ))}
+        </Head>
+        {entry.lines.map((line, i) => (
+          <p key={i} className="rd-entry__line">{line}</p>
         ))}
-      </h3>
-      {entry.lines.map((line, i) => (
-        <p key={i} className="rd-entry__line">{line}</p>
-      ))}
-      {entry.folded && !open && <Button variant="secondary" onClick={() => setOpen(true)}>{w("transcript.unfold")}</Button>}
-      <Link to={`/cases/${caseId}/read/${entry.page_no}`}>{w("transcript.see_page")}</Link>
-      {open && <PagePicture caseId={caseId} pageNo={entry.page_no} onSeen={onSeen} />}
+        {entry.folded && !open && <Button variant="secondary" onClick={() => setOpen(true)}>{w("transcript.unfold")}</Button>}
+        <Link to={`/cases/${caseId}/read/${entry.page_no}`}>{w("transcript.see_page")}</Link>
+        {open && <PagePicture caseId={caseId} pageNo={entry.page_no} onSeen={onSeen} />}
+      </div>
     </article>
   );
 }
@@ -163,8 +177,12 @@ export function TranscriptRead() {
   const { item, pack } = useCaseFrame();
   const caseId = item.id;
   const stepUp = useStepUp();
+  const [params, setParams] = useSearchParams();
+  const key = params.get("section");
+  // The entries of the open section, in the server's order, and the section they belong to.
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [total, setTotal] = useState(0);
+  const [entriesFor, setEntriesFor] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
   const [picturePages, setPicturePages] = useState<number[]>([]);
   const [unreadPages, setUnreadPages] = useState<number[]>([]);
   const [status, setStatus] = useState<Schemas["TranscriptList"]["status"] | null>(null);
@@ -178,6 +196,15 @@ export function TranscriptRead() {
   const entriesRef = useRef<Entry[]>([]);
   entriesRef.current = entries;
   const outlineAsked = useRef(false);
+  const [outlineFailed, setOutlineFailed] = useState(false);
+  // Counts the sections opened, so a slow answer for a section the reader has left is dropped.
+  const generation = useRef(0);
+  // One request for more entries at a time: a second press while one is on its way does nothing.
+  const appending = useRef(false);
+  const appendToken = useRef(0);
+  const [busyMore, setBusyMore] = useState(false);
+  const [moreFailed, setMoreFailed] = useState(false);
+  const retryMore = useRef<(() => void) | null>(null);
 
   const progress = useCallback(async () => {
     try {
@@ -189,58 +216,145 @@ export function TranscriptRead() {
     }
   }, [caseId]);
 
+  // "status" only learns how the preparation is going (it also starts it); "replace" opens a section; "append" adds to it.
   const load = useCallback(
-    async (offset: number) => {
+    async (offset: number, limit: number, mode: "status" | "replace" | "append", forSection?: string): Promise<boolean> => {
+      const mine = mode === "replace" ? ++generation.current : generation.current;
       try {
-        const got = await unwrap(api.GET("/v1/cases/{case_id}/transcript/entries", { params: { path: { case_id: caseId }, query: { offset, limit: LIMIT } } }));
+        const got = await unwrap(api.GET("/v1/cases/{case_id}/transcript/entries", { params: { path: { case_id: caseId }, query: { offset, limit } } }));
         setFailed(false);
         setStatus(got.status);
         setWait(got);
-        setTotal(got.total);
         setPicturePages(got.picture_pages);
         setUnreadPages(got.unread_pages);
-        entriesRef.current = offset === 0 ? got.entries : [...entriesRef.current, ...got.entries]; // read at once by showPosition
+        if (mode === "status" || mine !== generation.current) return true;
+        entriesRef.current = mode === "replace" ? got.entries : [...entriesRef.current, ...got.entries]; // read at once by goToYear
         setEntries(entriesRef.current);
+        if (mode === "replace") setEntriesFor(forSection ?? null);
+        return true;
       } catch {
         setFailed(true);
+        return false;
       }
     },
     [caseId],
   );
 
   useEffect(() => {
-    void load(0);
+    void load(0, 1, "status");
     void progress();
   }, [load, progress]);
 
   useEffect(() => {
     if (status !== "preparing" && !(status === "idle" && wait?.pipeline_running)) return;
-    const timer = setTimeout(() => void load(0), POLL_MS);
+    const timer = setTimeout(() => void load(0, 1, "status"), POLL_MS);
     return () => clearTimeout(timer);
-  }, [status, wait, load, entries]);
+  }, [status, wait, load]);
+
+  const fetchOutline = useCallback(() => {
+    setOutlineFailed(false);
+    void unwrap(api.GET("/v1/cases/{case_id}/transcript/outline", { params: { path: { case_id: caseId } } }))
+      .then(setOutline)
+      .catch(() => setOutlineFailed(true));
+  }, [caseId]);
 
   // The shape of the transcript (sections and coverage) is fetched once, when the transcript is ready.
   useEffect(() => {
     if (status !== "ready" || outlineAsked.current) return;
     outlineAsked.current = true;
-    void unwrap(api.GET("/v1/cases/{case_id}/transcript/outline", { params: { path: { case_id: caseId } } }))
-      .then(setOutline)
-      .catch(() => undefined);
-  }, [status, caseId]);
+    fetchOutline();
+  }, [status, fetchOutline]);
 
-  // Load entries until the one at `offset` is on screen, then move the reader to the heading of its section.
-  // Jumping records nothing as read: only the entries on screen do (rule 3).
-  async function showPosition(offset: number, key: string) {
-    let have = entriesRef.current.length;
-    while (have <= offset) {
-      await load(have);
-      if (entriesRef.current.length <= have) break;
-      have = entriesRef.current.length;
+  const sections = outline?.sections ?? [];
+  const lists = appendixLists(picturePages.length, unreadPages.length);
+  const section = key ? sections.find((s) => s.key === key) : undefined;
+  const sectionKey = section?.key;
+
+  // Opening a section brings its first entries, from the section's own place in the list (the server already
+  // keeps each section together, so the browser filters nothing).
+  useEffect(() => {
+    entriesRef.current = [];
+    setEntries([]);
+    setEntriesFor(null);
+    appendToken.current += 1; // an answer still on its way for the section left behind is dropped
+    appending.current = false;
+    setBusyMore(false);
+    setMoreFailed(false);
+    const target = outline?.sections.find((s) => s.key === sectionKey);
+    if (!target || status !== "ready") return;
+    if (target.count === 0) {
+      setEntriesFor(target.key);
+      return;
     }
-    await new Promise((r) => setTimeout(r, 0));
-    const target = document.getElementById(`section-${key}`);
-    target?.scrollIntoView({ block: "start" });
-    target?.focus();
+    void load(target.offset, Math.min(PAGE_SIZE, target.count), "replace", target.key);
+  }, [sectionKey, status, outline, reload, load]);
+
+  // Moving to another part of the transcript puts the reader at its heading.
+  const lastKey = useRef(key);
+  useEffect(() => {
+    if (lastKey.current === key) return;
+    lastKey.current = key;
+    const timer = setTimeout(() => document.getElementById("transcript-view-heading")?.focus(), 0);
+    return () => clearTimeout(timer);
+  }, [key]);
+
+  const go = useCallback((to: string | null) => setParams(to ? { section: to } : {}), [setParams]);
+
+  // Runs one request for more entries. A second press while it runs does nothing; a failure is shown, with Try again.
+  async function append(run: (stillHere: () => boolean) => Promise<boolean>, again: () => void) {
+    if (appending.current) return;
+    appending.current = true;
+    const token = ++appendToken.current;
+    const stillHere = () => token === appendToken.current;
+    setBusyMore(true);
+    setMoreFailed(false);
+    try {
+      const ok = await run(stillHere);
+      if (!stillHere()) return;
+      retryMore.current = ok ? null : again;
+      setMoreFailed(!ok);
+    } finally {
+      if (stillHere()) {
+        appending.current = false;
+        setBusyMore(false);
+      }
+    }
+  }
+
+  function showMore(open: NonNullable<typeof section>) {
+    return append(
+      () => {
+        const have = entriesRef.current.length;
+        return load(open.offset + have, Math.min(PAGE_SIZE, open.count - have), "append");
+      },
+      () => void showMore(open),
+    );
+  }
+
+  // Load forward until the first entry of the year is on screen, then move the reader to its heading.
+  // Jumping records nothing as read: only the entries on screen do (rule 3).
+  function goToYear(open: NonNullable<typeof section>, year: Schemas["OutlineYear"]) {
+    return append(
+      async (stillHere) => {
+        const mine = generation.current;
+        const left = () => !stillHere() || mine !== generation.current;
+        const wanted = year.offset - open.offset;
+        let have = entriesRef.current.length;
+        while (have <= wanted && have < open.count) {
+          if (!(await load(open.offset + have, Math.min(JUMP_LIMIT, open.count - have), "append"))) return false;
+          if (left()) return true;
+          if (entriesRef.current.length <= have) break;
+          have = entriesRef.current.length;
+        }
+        await new Promise((r) => setTimeout(r, 0));
+        if (left()) return true;
+        const target = document.getElementById(yearId(year.year));
+        target?.scrollIntoView({ block: "start" });
+        target?.focus({ preventScroll: true });
+        return true;
+      },
+      () => void goToYear(open, year),
+    );
   }
 
   // Only the reader's own press asks the server to prepare the transcript again; polling never does.
@@ -250,7 +364,7 @@ export function TranscriptRead() {
     } catch {
       /* the next load shows the state */
     }
-    await load(0);
+    await load(0, 1, "status");
   }
 
   const seen = useCallback<SeenFn>(
@@ -323,10 +437,70 @@ export function TranscriptRead() {
     );
   }
 
-  if (failed && entries.length === 0) return <LoadError onRetry={() => void load(0)} />;
+  // The part of the transcript the address names: a section, a list of pages, or (by default) the contents.
+  function view(): ReactNode {
+    if (outlineFailed) return <LoadError onRetry={fetchOutline} />;
+    if (!outline) return <Loading />;
+    const list = lists.find((l) => l.key === key);
+    if (list) {
+      return (
+        <div className="rd-appendix">
+          <Link className="rd-back" to={{ search: "" }}>{w("transcript.back_link")}</Link>
+          {list.key === NO_ENTRIES && (
+            <section aria-label={w("transcript.picture_pages")}>
+              <h2 id="transcript-view-heading" tabIndex={-1} className="rd-view-heading">{list.title}</h2>
+              <p>{w("transcript.picture_pages_lead")}</p>
+              {picturePages.map((n) => (
+                <article key={n} className="rd-entry" aria-label={w("transcript.picture_page_label", { page: n })}>
+                  <p className="rd-entry__page">{w("read.page_ref", { page: n })}</p>
+                  <PagePicture caseId={caseId} pageNo={n} onSeen={seen} />
+                </article>
+              ))}
+            </section>
+          )}
+          {list.key === UNREAD && (
+            <section aria-label={w("transcript.unread_pages")}>
+              <h2 id="transcript-view-heading" tabIndex={-1} className="rd-view-heading">{list.title}</h2>
+              {unreadPages.map((n) => (
+                <article key={n} className="rd-entry" aria-label={w("transcript.unread_page_label", { page: n })}>
+                  <p className="rd-entry__page">{w("read.page_ref", { page: n })}</p>
+                  <p>{w("transcript.unread_page_lead")}</p>
+                  <PagePicture caseId={caseId} pageNo={n} onSeen={seen} />
+                </article>
+              ))}
+            </section>
+          )}
+        </div>
+      );
+    }
+    if (section) {
+      if (failed && entriesFor !== section.key) return <LoadError onRetry={() => { setFailed(false); setReload((n) => n + 1); }} />;
+      return (
+        <TranscriptSection
+          section={section}
+          number={sections.indexOf(section) + 1}
+          sections={sections}
+          appendices={lists}
+          entries={entriesFor === section.key ? entries : null}
+          locale={pack.locale}
+          renderEntry={(entry, level) => <EntryCard entry={entry} caseId={caseId} onSeen={seen} level={level} />}
+          onMore={() => void showMore(section)}
+          busy={busyMore}
+          moreFailed={moreFailed}
+          onRetryMore={() => retryMore.current?.()}
+          onYear={(year) => void goToYear(section, year)}
+          go={go}
+        />
+      );
+    }
+    if (sections.length === 0 && lists.length === 0) return <p>{w("transcript.none")}</p>;
+    return <TranscriptContents coverage={outline.coverage ?? undefined} sections={sections} appendices={lists} locale={pack.locale} />;
+  }
+
+  if (failed && status === null) return <LoadError onRetry={() => void load(0, 1, "status")} />;
   if (status === null) return <Loading />;
   return (
-    <div className="rd-transcript">
+    <div className={`rd-transcript${section ? " rd-transcript--wide" : ""}`}>
       <header className="rd-transcript__bar">
         <h1>{w("transcript.heading")}</h1>
         <div className="rd-transcript__actions">
@@ -352,72 +526,8 @@ export function TranscriptRead() {
         <p className="rd-transcript__lead">{w("transcript.lead")}</p>
       </header>
       {message && <Notice tone="info"><p>{message}</p></Notice>}
-      {outline?.coverage && (
-        <p className="rd-transcript__coverage">
-          {w("transcript.coverage", {
-            total: outline.coverage.total_pages,
-            with_entries: outline.coverage.with_entries,
-            no_entries: outline.coverage.no_entries,
-            unreadable: outline.coverage.unreadable,
-            set_aside: outline.coverage.set_aside,
-          })}
-        </p>
-      )}
-      {outline && outline.sections.length > 0 && (
-        <nav className="rd-transcript__jump" aria-label={w("transcript.jump_to")}>
-          <p>{w("transcript.jump_to")}</p>
-          <ul>
-            {outline.sections.map((section) => (
-              <li key={section.key}>
-                <Button variant="link" onClick={() => void showPosition(section.offset, section.key)}>
-                  {t(section.label, {}, humanise(section.key))} ({section.count})
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
       {status !== "ready" && waitState()}
-      {status === "ready" && entries.length === 0 && <p>{w("transcript.none")}</p>}
-      {entries.map((entry, i) => {
-        const startsSection = entry.section && entry.section !== entries[i - 1]?.section;
-        const info = startsSection ? outline?.sections.find((s) => s.key === entry.section) : undefined;
-        return (
-          <Fragment key={entry.id}>
-            {startsSection && (
-              <h2 id={`section-${entry.section}`} tabIndex={-1} className="rd-transcript__section">
-                {t(info?.label ?? "", {}, humanise(entry.section ?? ""))}
-              </h2>
-            )}
-            <EntryCard entry={entry} caseId={caseId} onSeen={seen} />
-          </Fragment>
-        );
-      })}
-      {picturePages.length > 0 && (
-        <section aria-label={w("transcript.picture_pages")}>
-          <h2>{w("transcript.picture_pages")}</h2>
-          <p>{w("transcript.picture_pages_lead")}</p>
-          {picturePages.map((n) => (
-            <article key={n} className="rd-entry" aria-label={w("transcript.picture_page_label", { page: n })}>
-              <p className="rd-entry__page">{w("read.page_ref", { page: n })}</p>
-              <PagePicture caseId={caseId} pageNo={n} onSeen={seen} />
-            </article>
-          ))}
-        </section>
-      )}
-      {unreadPages.length > 0 && (
-        <section aria-label={w("transcript.unread_pages")}>
-          <h2>{w("transcript.unread_pages")}</h2>
-          {unreadPages.map((n) => (
-            <article key={n} className="rd-entry" aria-label={w("transcript.unread_page_label", { page: n })}>
-              <p className="rd-entry__page">{w("read.page_ref", { page: n })}</p>
-              <p>{w("transcript.unread_page_lead")}</p>
-              <PagePicture caseId={caseId} pageNo={n} onSeen={seen} />
-            </article>
-          ))}
-        </section>
-      )}
-      {entries.length < total && <Button variant="secondary" onClick={() => void load(entries.length)}>{w("transcript.more")}</Button>}
+      {status === "ready" && view()}
     </div>
   );
 }

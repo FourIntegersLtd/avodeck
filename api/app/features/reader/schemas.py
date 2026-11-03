@@ -308,11 +308,21 @@ class TranscriptFileIn(BaseModel):
     format: Literal["docx", "pdf"] = "docx"
 
 
+class OutlineYear(BaseModel):
+    year: int | None  # None: the entries with no date, always last
+    offset: int  # position of the year's first entry in the paged list (same scale as OutlineSection.offset)
+    count: int
+
+
 class OutlineSection(BaseModel):
     key: str
     label: str  # the pack's i18n key
     count: int
     offset: int  # position of the section's first entry in the paged list
+    first_date: date | None = None  # earliest dated entry in the section
+    last_date: date | None = None
+    pages: int = 0  # distinct bundle pages the section's entries come from
+    years: list[OutlineYear] = []
 
 
 class OutlineCoverage(BaseModel):
