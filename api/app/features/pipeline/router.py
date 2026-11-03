@@ -53,6 +53,7 @@ from fastapi import Depends, Request, Response
 from app.core import audit
 from app.core.ai import pii
 from app.core.auth.access import CaseAccess, require_case_access
+from app.core.contracts import record_entries
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
@@ -419,6 +420,8 @@ async def bundle_summary(
         exhibits=[_exhibit(e) for e in await repo.exhibits(conn, case_id)],
         foreign_language=[ForeignPage(page_id=p, page_no=n, language=code) for p, n, code in foreign],
         splits=await repo.split_count(conn, case_id),
+        failed_pages=await record_entries.retryable_unread_pages(conn, case_id),
+        retrying=await record_entries.retry_waiting(conn, case_id),
     )
 
 

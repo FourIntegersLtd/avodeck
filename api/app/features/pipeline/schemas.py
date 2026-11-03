@@ -161,6 +161,8 @@ class BundleSummary(BaseModel):
     quarantine_confirmed: list[QuarantinePage] = []  # confirmed pages only (left out of a request)
     suggested_count: int = 0
     set_aside_count: int = 0  # confirmed or purged
+    failed_pages: int = 0  # pages the model could not read; "Try these pages again" asks about just these
+    retrying: bool = False  # a retry of those pages is queued or running
 
 
 class ProvenanceChange(BaseModel):

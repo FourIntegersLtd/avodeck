@@ -50,6 +50,7 @@ from app.core.contracts.fact_dates import case_anchor, latest_printed_date
 from app.core.contracts.fact_flags import flag_for_recheck
 from app.core.contracts.fact_verifications import log_remaps
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcription_purpose
+from app.core.contracts.record_entries import RETRY_UNREAD
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
@@ -77,6 +78,7 @@ from app.features.pipeline.words import assess, turned, typed, usable_text_layer
 
 SCAN_DOCUMENT = "scan_document"
 REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page again
+RETRY_UNREAD_PAGES = RETRY_UNREAD  # extract again only the pages the model could not read
 EXTRACT_ENTRIES = "extract_entries"  # read entries only, for a case extracted before entries existed (ADR 0028)
 REPAIR_FACT_DATES = "repair_fact_dates"  # fill event_date from printed words when extraction left it null
 PURGE_QUARANTINED = "purge_quarantined_pages"  # the daily deletion of quarantined pages' images and text
@@ -1138,6 +1140,19 @@ async def reprocess_case(ctx: JobContext) -> None:
     services = current()
     async with ctx.transaction() as conn:
         await repo.reset_for_reprocess(conn, ctx.case_id)
+    await ctx.progress(40, step="sort")
+    await _sort(ctx, services)
+    await ctx.progress(100, step="sort")
+
+
+async def retry_unread_pages(ctx: JobContext) -> None:
+    """Extracts again only the pages the model could not read (`POST /transcript/retry`, summary button).
+
+    Their failed marker is cleared and they are extracted the way they were first; pages that read well and
+    every verified fact are left alone. A page that fails again is left for a person, and nothing asks again."""
+    services = current()
+    async with ctx.transaction() as conn:
+        await repo.reset_unread(conn, ctx.case_id)
     await ctx.progress(40, step="sort")
     await _sort(ctx, services)
     await ctx.progress(100, step="sort")

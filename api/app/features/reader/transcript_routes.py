@@ -21,6 +21,7 @@ from app.core.contracts.record_entries import (
     entries_status,
     pipeline_running,
     request_entries,
+    request_unread_retry,
 )
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
@@ -132,8 +133,10 @@ async def transcript_outline(case_id: uuid.UUID, request: Request, access: View,
 
 @router.post("/transcript/retry", status_code=202, response_model=RetryOut)
 async def transcript_retry(case_id: uuid.UUID, access: Read, conn: DbConn) -> RetryOut:
-    """The reader asks again after the entries job failed; queues once, nothing while one is waiting."""
-    await request_entries(conn, case_id)
+    """The reader asks again: the entries job after it failed, else the pages the model could not read.
+    Queues once, nothing while one is waiting."""
+    if await request_entries(conn, case_id) is None:
+        await request_unread_retry(conn, case_id)
     return RetryOut(status=await entries_status(conn, case_id))
 
 
