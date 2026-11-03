@@ -67,7 +67,7 @@ def kit_for(model: PerModelBedrock, sleeps: list[float], overflow: str = f"{OVER
     async def fake_sleep(seconds: float) -> None:
         sleeps.append(seconds)
 
-    return AiKit(cell(BEDROCK_OVERFLOW_MODEL_IDS=overflow), model, sleep=fake_sleep)  # type: ignore[arg-type]
+    return AiKit(cell(BEDROCK_OVERFLOW_MODEL_IDS=overflow), model, sleep=fake_sleep)
 
 
 def request_for(model_id: str = PRIMARY) -> ModelRequest:
