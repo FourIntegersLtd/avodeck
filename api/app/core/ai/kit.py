@@ -9,6 +9,9 @@
    and the output schema, at temperature 0.
 5. Busy service: exponential back-off, then processing pauses (F5). Model gone: processing pauses,
    with no fallback to another model or region (F24).
+   TEMPORARY, dummy data only (ADR 0036): with `AI_PRIMARY_PROVIDER=anthropic` the direct API is asked
+   first (its own slot pool and limits); a busy direct API is retried up to three times, then, or at once
+   when its model is gone or it refuses, the same request goes to Bedrock, which keeps this step as is.
 6. Output must match the schema; one retry, then `InvalidOutput`.
 7. Each call writes an `ai_calls` row: task, model, region, prompt version, tokens, outcome. Never
    the prompt or the response (rule 6).
@@ -18,9 +21,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Any
 
@@ -28,10 +32,18 @@ import jsonschema_rs
 from psycopg import AsyncConnection
 
 from app.core.ai import pii
-from app.core.ai.bedrock import BedrockClient, ModelRequest, ModelResponse, ModelUnavailable, ServiceBusy
+from app.core.ai.bedrock import (
+    CALL_ATTEMPT,
+    BedrockClient,
+    ModelRequest,
+    ModelRequestRefused,
+    ModelResponse,
+    ModelUnavailable,
+    ServiceBusy,
+)
 from app.core.ai.cell import check_endpoint, model_for
 from app.core.ai.mask import MaskedImage, is_genuine
-from app.core.config import AiSettings
+from app.core.config import AiSettings, ProviderLimits
 from app.core.db import Database
 from app.core.errors import ProcessingPaused
 from app.core.http_retry import backoff
@@ -40,6 +52,10 @@ from app.core.packs import MergedPack
 logger = logging.getLogger("app.ai")
 
 MAX_WAIT_SECONDS = 2 * 60 * 60
+SLOT_LOCK = "app.ai_request_slots"
+DIRECT_RETRIES = 3  # temporary, dummy data only (ADR 0036): busy retries on the direct API before Bedrock
+DIRECT_MAX_WAIT_SECONDS = 30.0
+_Wait = Callable[[str], Awaitable[None]]
 
 
 @dataclass(frozen=True)
@@ -54,6 +70,15 @@ class AiTask:
 
 class InvalidOutput(Exception):
     """The model's output did not match the task's schema twice."""
+
+
+class TooLargeForFallback(Exception):
+    """The direct API failed and the request is too big for Bedrock to answer. The caller re-splits it
+    into calls of `pages_per_call` pages (Bedrock's own limit) and asks again."""
+
+    def __init__(self, pages_per_call: int) -> None:
+        super().__init__("request too large for the fallback provider")
+        self.pages_per_call = pages_per_call
 
 
 def backoff_delays(retries: int, base: float = 2.0, limit: float = MAX_WAIT_SECONDS) -> list[float]:
@@ -71,8 +96,9 @@ class AiKit:
     def __init__(
         self,
         settings: AiSettings,
-        bedrock: BedrockClient,
+        bedrock: BedrockClient | None,
         *,
+        direct: BedrockClient | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         retries: int = 4,
         base_delay: float = 2.0,
@@ -80,10 +106,27 @@ class AiKit:
     ) -> None:
         self.settings = settings
         self.bedrock = bedrock
+        self.direct = direct  # temporary, dummy data only (ADR 0036): asked first when it is set
         self.sleep = sleep
         self.retries = retries
         self.base_delay = base_delay
         self.slot_poll_seconds = slot_poll_seconds
+        self._last_grants: dict[str, int] = {}  # grants in the last 60 s per provider, as the last poll saw them
+
+    @property
+    def primary_limits(self) -> ProviderLimits:
+        """The first-choice provider's own ceilings: what the pipeline sizes its calls and parallelism by."""
+        return self.settings.primary_limits
+
+    def _prepare(self, provider: str | None, task: AiTask) -> str:
+        """Check the provider choice and every client in play against the allow-list; the role's Bedrock model id."""
+        if provider not in (None, "bedrock"):
+            raise ValueError("provider must be None (primary, then fallback) or 'bedrock'")
+        if self.bedrock is not None:
+            check_endpoint(self.settings, self.bedrock.endpoint)
+        if provider is None and self.direct is not None:
+            check_endpoint(self.settings, self.direct.endpoint)
+        return model_for(self.settings, task.model)
 
     async def run(
         self,
@@ -97,18 +140,20 @@ class AiKit:
         dates_of_birth: Sequence[date] = (),
         subject: str | None = None,
         job_id: uuid.UUID | None = None,
+        provider: str | None = None,
     ) -> dict[str, Any]:
         """`subject` is what the call is about (`answers.page_subject`), so recorded answers can be found.
 
         `job_id` is the running job this call belongs to (a worker call; `None` for an interactive API
-        call): with it, the call waits its turn under the Bedrock on-demand throughput ceiling, fairly
-        across every job wanting one (`_wait_for_slot`, migration 0049)."""
-        check_endpoint(self.settings, self.bedrock.endpoint)
-        model_id = model_for(self.settings, task.model)
+        call): with it, the call waits its turn under the provider's requests-per-minute ceiling, fairly
+        across every job wanting one (`_wait_for_slot`, migrations 0049 and 0055).
+
+        `provider=None` asks the primary provider, then the fallback; `"bedrock"` asks Bedrock only."""
+        model_id = self._prepare(provider, task)
         if case_id is not None:
             await self._cost_guard(conn, case_id)
         stripped = pii.strip(text, pack=pack, names=names, dates_of_birth=dates_of_birth)
-        return await self._ask(conn, task, model_id, case_id, pack, stripped.text, subject, None, job_id)
+        return await self._ask(conn, task, model_id, case_id, pack, stripped.text, subject, None, job_id, provider)
 
     async def run_image(
         self,
@@ -123,18 +168,18 @@ class AiKit:
         dates_of_birth: Sequence[date] = (),
         subject: str | None = None,
         job_id: uuid.UUID | None = None,
+        provider: str | None = None,
     ) -> dict[str, Any]:
         """Like `run`, with a page picture whose identifiers `mask.mask_page` painted out. Raw bytes are refused."""
         if not isinstance(masked, MaskedImage):
             raise TypeError("run_image takes a MaskedImage made by mask.mask_page")
         if not is_genuine(masked):
             raise TypeError("the picture is not the one that was masked")
-        check_endpoint(self.settings, self.bedrock.endpoint)
-        model_id = model_for(self.settings, task.model)
+        model_id = self._prepare(provider, task)
         if case_id is not None:
             await self._cost_guard(conn, case_id)
         stripped = pii.strip(text, pack=pack, names=names, dates_of_birth=dates_of_birth)
-        return await self._ask(conn, task, model_id, case_id, pack, stripped.text, subject, masked, job_id)
+        return await self._ask(conn, task, model_id, case_id, pack, stripped.text, subject, masked, job_id, provider)
 
     async def run_detached(
         self,
@@ -148,16 +193,18 @@ class AiKit:
         dates_of_birth: Sequence[date] = (),
         subject: str | None = None,
         job_id: uuid.UUID,
+        provider: str | None = None,
     ) -> dict[str, Any]:
         """Like ``run``, but for worker jobs: opens short-lived transactions for each DB
-        operation so no pool connection is held during slot waits or Bedrock calls."""
-        check_endpoint(self.settings, self.bedrock.endpoint)
-        model_id = model_for(self.settings, task.model)
+        operation so no pool connection is held during slot waits or model calls."""
+        model_id = self._prepare(provider, task)
         if case_id is not None:
             async with database.job(case_id) as conn:
                 await self._cost_guard(conn, case_id)
         stripped = pii.strip(text, pack=pack, names=names, dates_of_birth=dates_of_birth)
-        return await self._ask_detached(database, case_id, task, model_id, pack, stripped.text, subject, job_id)
+        return await self._ask_detached(
+            database, case_id, task, model_id, pack, stripped.text, subject, job_id, provider
+        )
 
     async def _ask_detached(
         self,
@@ -169,6 +216,7 @@ class AiKit:
         text: str,
         subject: str | None,
         job_id: uuid.UUID,
+        provider: str | None = None,
     ) -> dict[str, Any]:
         request = ModelRequest(
             model_id=model_id,
@@ -182,89 +230,21 @@ class AiKit:
             image_sha256=None,
             image=None,
         )
+
+        async def wait(slot_provider: str) -> None:
+            await self._wait_for_slot_detached(database, case_id, job_id, slot_provider)
+
         validator = jsonschema_rs.validator_for(dict(task.schema))
-        for _ in range(2):
-            response = await self._invoke_detached(request, database, case_id, job_id)
+        for attempt in range(2):
+            response = await self._invoke(request, task, provider, wait)
             valid = validator.is_valid(response.output)
+            self._log_validation(task, model_id, response, valid, attempt)
             async with database.job(case_id) as conn:
                 await self._log(conn, task, model_id, case_id, response, "ok" if valid else "invalid_output")
             if valid:
                 return response.output
         logger.warning("task %s output did not match its schema twice", task.task_id)
         raise InvalidOutput(task.task_id)
-
-    async def _invoke_detached(
-        self,
-        request: ModelRequest,
-        database: Database,
-        case_id: uuid.UUID,
-        job_id: uuid.UUID,
-    ) -> ModelResponse:
-        delays = backoff_delays(self.retries, self.base_delay)
-        for attempt in range(len(delays) + 1):
-            try:
-                await self._wait_for_slot_detached(database, case_id, job_id)
-                return await self.bedrock.invoke(request)
-            except ServiceBusy as busy:
-                if attempt == len(delays):
-                    logger.error("model service still busy after %d attempts; processing paused", attempt + 1)
-                    raise ProcessingPaused("service_busy") from None
-                wait = max(delays[attempt], busy.retry_after or 0.0)
-                logger.warning("model service busy; waiting %.0f s (attempt %d)", wait, attempt + 1)
-                await self.sleep(wait)
-            except ModelUnavailable:
-                logger.error("in-region model unavailable; processing paused, no fallback")
-                raise ProcessingPaused("model_unavailable") from None
-        raise AssertionError("unreachable")  # pragma: no cover
-
-    async def _wait_for_slot_detached(self, database: Database, case_id: uuid.UUID, job_id: uuid.UUID) -> None:
-        """Like ``_wait_for_slot``, but opens a short-lived transaction for each poll so no
-        connection is held during the sleep between iterations."""
-        while True:
-            async with database.job(case_id) as conn:
-                await conn.execute("select pg_advisory_lock(hashtextextended('app.ai_request_slots', 0))")
-                try:
-                    cur = await conn.execute(
-                        "select id from app.ai_request_slots where job_id = %s and granted_at is null"
-                        " order by requested_at limit 1",
-                        (job_id,),
-                    )
-                    row = await cur.fetchone()
-                    if row is None:
-                        cur = await conn.execute(
-                            "insert into app.ai_request_slots (job_id, case_id, requested_at)"
-                            " select %s, case_id, now() from app.jobs where id = %s returning id",
-                            (job_id, job_id),
-                        )
-                        row = await cur.fetchone()
-                    assert row is not None
-                    slot_id = row[0]
-
-                    cur = await conn.execute(
-                        "select count(*) from app.ai_request_slots where granted_at > now() - interval '60 seconds'"
-                    )
-                    count_row = await cur.fetchone()
-                    assert count_row is not None
-                    (granted_count,) = count_row
-                    if granted_count < self.settings.bedrock_rpm_limit:
-                        cur = await conn.execute(
-                            "select s.job_id from app.ai_request_slots s join app.jobs j on j.id = s.job_id"
-                            " where s.granted_at is null"
-                            " and j.status in ('queued', 'running')"
-                            " order by j.last_granted_at is not null, j.last_granted_at, s.requested_at limit 1"
-                        )
-                        next_up = await cur.fetchone()
-                        if next_up is not None and next_up[0] == job_id:
-                            await conn.execute(
-                                "update app.ai_request_slots set granted_at = now() where id = %s", (slot_id,)
-                            )
-                            await conn.execute("update app.jobs set last_granted_at = now() where id = %s", (job_id,))
-                            return
-                    await conn.execute("update app.jobs set step = 'waiting_for_capacity' where id = %s", (job_id,))
-                finally:
-                    await conn.execute("select pg_advisory_unlock(hashtextextended('app.ai_request_slots', 0))")
-            # Connection is back in the pool here. Sleep holds nothing.
-            await self.sleep(self.slot_poll_seconds)
 
     async def _ask(
         self,
@@ -277,6 +257,7 @@ class AiKit:
         subject: str | None,
         masked: MaskedImage | None,
         job_id: uuid.UUID | None = None,
+        provider: str | None = None,
     ) -> dict[str, Any]:
         request = ModelRequest(
             model_id=model_id,
@@ -290,15 +271,37 @@ class AiKit:
             image_sha256=masked.sha256 if masked else None,
             image=masked,
         )
+        wait: _Wait | None = None
+        if job_id is not None:
+
+            async def wait_for_slot(slot_provider: str) -> None:
+                await self._wait_for_slot(conn, job_id, slot_provider)
+
+            wait = wait_for_slot
+
         validator = jsonschema_rs.validator_for(dict(task.schema))
-        for _ in range(2):
-            response = await self._invoke(request, conn, job_id)
+        for attempt in range(2):
+            response = await self._invoke(request, task, provider, wait)
             valid = validator.is_valid(response.output)
+            self._log_validation(task, model_id, response, valid, attempt)
             await self._log(conn, task, model_id, case_id, response, "ok" if valid else "invalid_output")
             if valid:
                 return response.output
         logger.warning("task %s output did not match its schema twice", task.task_id)
         raise InvalidOutput(task.task_id)
+
+    def _log_validation(self, task: AiTask, model_id: str, response: ModelResponse, valid: bool, attempt: int) -> None:
+        """Only a wrong answer is logged here (the call itself is logged by its client): who answered, which try."""
+        if valid:
+            return
+        direct = response.model_id is not None and response.model_id in self.settings.direct_models.values()
+        logger.warning(
+            "model answer rejected: provider=%s model=%s task=%s outcome=invalid_output schema_attempt=%d/2",
+            "anthropic" if direct else "bedrock",
+            response.model_id or model_id,
+            task.task_id,
+            attempt + 1,
+        )
 
     async def _cost_guard(self, conn: AsyncConnection, case_id: uuid.UUID) -> None:
         cur = await conn.execute("select tokens_used, pages from app.ai_budget(%s)", (case_id,))
@@ -311,82 +314,209 @@ class AiKit:
             raise ProcessingPaused("cost_guard")
 
     async def _invoke(
-        self, request: ModelRequest, conn: AsyncConnection | None = None, job_id: uuid.UUID | None = None
+        self, request: ModelRequest, task: AiTask, provider: str | None, wait: _Wait | None
     ) -> ModelResponse:
+        """One model answer: the direct API first when it is set and has a model for the role, then Bedrock."""
+        direct_id = self.settings.direct_models.get(task.model) if provider is None and self.direct else None
+        if direct_id is None:
+            return await self._invoke_bedrock(request, wait)
+        try:
+            return await self._invoke_direct(replace(request, model_id=direct_id), wait)
+        except (ServiceBusy, ModelUnavailable, ModelRequestRefused) as failure:
+            # Temporary, dummy data only (ADR 0036). The exception type only: its text may carry content.
+            bedrock_limits = self.settings.limits["bedrock"]
+            too_large = request.max_tokens > bedrock_limits.max_output_tokens
+            reason = {ServiceBusy: "busy_after_retries", ModelUnavailable: "unavailable"}.get(type(failure), "refused")
+            logger.warning(
+                "direct failed -> %s: provider=anthropic task=%s reason=%s %s"
+                " size_check=%s max_tokens=%d bedrock_max=%d",
+                "none" if self.bedrock is None else "bedrock",
+                request.task_id or "-",
+                reason,
+                failure.log_fields(),
+                "too_large" if too_large else "ok",
+                request.max_tokens,
+                bedrock_limits.max_output_tokens,
+            )
+            if self.bedrock is None:
+                if isinstance(failure, ServiceBusy):
+                    raise ProcessingPaused("service_busy") from None
+                if isinstance(failure, ModelUnavailable):
+                    raise ProcessingPaused("model_unavailable") from None
+                raise
+            if too_large:
+                raise TooLargeForFallback(bedrock_limits.pages_per_call) from None
+        return await self._invoke_bedrock(request, wait)
+
+    async def _invoke_direct(self, request: ModelRequest, wait: _Wait | None) -> ModelResponse:
+        """The direct API, retried while it is only busy: its per-minute token limits clear quickly, and a
+        burst must not spill onto Bedrock's small ceiling. `retry-after` is honoured up to 30 s."""
+        assert self.direct is not None
+        for attempt in range(DIRECT_RETRIES + 1):
+            try:
+                if wait is not None:
+                    await wait("anthropic")
+                # The client's one log line per attempt says which attempt this is.
+                token = CALL_ATTEMPT.set(f"{attempt + 1}/{DIRECT_RETRIES + 1}")
+                try:
+                    return await self.direct.invoke(request)
+                finally:
+                    CALL_ATTEMPT.reset(token)
+            except ServiceBusy as busy:
+                if attempt == DIRECT_RETRIES:
+                    raise
+                seconds = min(busy.retry_after or self.base_delay * 2**attempt, DIRECT_MAX_WAIT_SECONDS)
+                logger.warning(
+                    "direct retry: provider=anthropic task=%s next_attempt=%d/%d wait_s=%.0f retry_after=%s",
+                    request.task_id or "-",
+                    attempt + 2,
+                    DIRECT_RETRIES + 1,
+                    seconds,
+                    "-" if busy.retry_after is None else busy.retry_after,
+                )
+                await self.sleep(seconds)
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    async def _invoke_bedrock(self, request: ModelRequest, wait: _Wait | None) -> ModelResponse:
+        if self.bedrock is None:
+            logger.error("no in-region model client; processing paused")
+            raise ProcessingPaused("model_unavailable")
         delays = backoff_delays(self.retries, self.base_delay)
         for attempt in range(len(delays) + 1):
             try:
-                if job_id is not None and conn is not None:
-                    await self._wait_for_slot(conn, job_id)
+                if wait is not None:
+                    await wait("bedrock")
                 return await self.bedrock.invoke(request)
             except ServiceBusy as busy:
                 if attempt == len(delays):
                     logger.error("model service still busy after %d attempts; processing paused", attempt + 1)
                     raise ProcessingPaused("service_busy") from None
-                wait = max(delays[attempt], busy.retry_after or 0.0)
-                logger.warning("model service busy; waiting %.0f s (attempt %d)", wait, attempt + 1)
-                await self.sleep(wait)
+                seconds = max(delays[attempt], busy.retry_after or 0.0)
+                logger.warning("model service busy; waiting %.0f s (attempt %d)", seconds, attempt + 1)
+                await self.sleep(seconds)
             except ModelUnavailable:
                 logger.error("in-region model unavailable; processing paused, no fallback")
                 raise ProcessingPaused("model_unavailable") from None
         raise AssertionError("unreachable")  # pragma: no cover
 
-    async def _wait_for_slot(self, conn: AsyncConnection, job_id: uuid.UUID) -> None:
-        """Wait until this job may make its next Bedrock call, under the account-wide on-demand
-        throughput ceiling (`settings.bedrock_rpm_limit`, not raisable per tenant or per case).
+    async def _wait_for_slot(self, conn: AsyncConnection, job_id: uuid.UUID, provider: str = "bedrock") -> None:
+        """Wait until this job may make its next call to `provider`, under that provider's own
+        requests-per-minute ceiling (`settings.limits[provider].rpm`; for Bedrock the account-wide
+        on-demand ceiling `bedrock_rpm_limit`, not raisable per tenant or per case). Providers never
+        share a pool: each slot row says which provider it is for (migration 0055).
 
         A session-level advisory lock (not `pg_advisory_xact_lock`, used elsewhere: that variant
         cannot be released before the transaction ends, and this check must release it between
-        polls so every other waiting job gets a turn) guards the read-then-write below. Rows in
-        `app.ai_request_slots` (migration 0049) older than the ceiling's 60-second window no longer
-        count; among jobs still waiting, the one whose own last grant (`app.jobs.last_granted_at`,
-        oldest or never granted first) is longest ago goes next, so no job can starve another by
-        polling faster. While waiting, the job's `step` is set to `waiting_for_capacity`, which the
-        existing progress stream (`core/routes/jobs.py`) already shows the browser.
+        polls so every other waiting job gets a turn) guards the read-then-write in `_slot_attempt`.
+        Rows in `app.ai_request_slots` (migration 0049) older than the ceiling's 60-second window no
+        longer count; among jobs still waiting for the same provider, the one whose own last grant
+        (`app.jobs.last_granted_at`, oldest or never granted first) is longest ago goes next, so no job
+        can starve another by polling faster. `last_granted_at` is shared by both providers, a small
+        fairness effect between them that is accepted for the temporary direct primary. While waiting,
+        the job's `step` is set to `waiting_for_capacity`, which the existing progress stream
+        (`core/routes/jobs.py`) already shows the browser.
         """
+        started = time.monotonic()
+        waited = False
+        while not await self._slot_attempt(conn, job_id, provider):
+            if not waited:
+                self._log_wait(provider)
+            waited = True
+            await self.sleep(self.slot_poll_seconds)
+        self._log_slot(provider, started, waited)
+
+    async def _wait_for_slot_detached(
+        self, database: Database, case_id: uuid.UUID, job_id: uuid.UUID, provider: str = "bedrock"
+    ) -> None:
+        """Like ``_wait_for_slot``, but opens a short-lived transaction for each poll so no
+        connection is held during the sleep between iterations."""
+        started = time.monotonic()
+        waited = False
         while True:
-            await conn.execute("select pg_advisory_lock(hashtextextended('app.ai_request_slots', 0))")
-            try:
+            async with database.job(case_id) as conn:
+                if await self._slot_attempt(conn, job_id, provider):
+                    break
+            # Connection is back in the pool here. Sleep holds nothing.
+            if not waited:
+                self._log_wait(provider)
+            waited = True
+            await self.sleep(self.slot_poll_seconds)
+        self._log_slot(provider, started, waited)
+
+    def _log_wait(self, provider: str) -> None:
+        """The first poll that did not get a slot: once per wait, numbers only."""
+        logger.info(
+            "slot waiting: provider=%s grants_60s=%d limit=%d",
+            provider,
+            self._last_grants.get(provider, 0),
+            self.settings.limits[provider].rpm,
+        )
+
+    def _log_slot(self, provider: str, started: float, waited: bool) -> None:
+        """A slot granted: numbers only. INFO when the call had to wait, DEBUG when it went straight through."""
+        logger.log(
+            logging.INFO if waited else logging.DEBUG,
+            "slot granted: provider=%s waited_s=%.1f grants_60s=%d limit=%d",
+            provider,
+            time.monotonic() - started,
+            self._last_grants.get(provider, 0),
+            self.settings.limits[provider].rpm,
+        )
+
+    async def _slot_attempt(self, conn: AsyncConnection, job_id: uuid.UUID, provider: str) -> bool:
+        """One poll: queue this job for a slot of `provider` if it is not queued, grant it if the
+        provider's window has room and it is next in fair order. True when granted."""
+        lock = SLOT_LOCK if provider == "bedrock" else f"{SLOT_LOCK}:{provider}"
+        await conn.execute("select pg_advisory_lock(hashtextextended(%s, 0))", (lock,))
+        try:
+            cur = await conn.execute(
+                "select id from app.ai_request_slots where job_id = %s and provider = %s and granted_at is null"
+                " order by requested_at limit 1",
+                (job_id, provider),
+            )
+            row = await cur.fetchone()
+            if row is None:
                 cur = await conn.execute(
-                    "select id from app.ai_request_slots where job_id = %s and granted_at is null"
-                    " order by requested_at limit 1",
-                    (job_id,),
+                    "insert into app.ai_request_slots (job_id, case_id, requested_at, provider)"
+                    " select %s, case_id, now(), %s from app.jobs where id = %s returning id",
+                    (job_id, provider, job_id),
                 )
                 row = await cur.fetchone()
-                if row is None:
-                    cur = await conn.execute(
-                        "insert into app.ai_request_slots (job_id, case_id, requested_at)"
-                        " select %s, case_id, now() from app.jobs where id = %s returning id",
-                        (job_id, job_id),
-                    )
-                    row = await cur.fetchone()
-                assert row is not None  # the job row must exist: its own job is running this call
-                slot_id = row[0]
+            assert row is not None  # the job row must exist: its own job is running this call
+            slot_id = row[0]
 
+            cur = await conn.execute(
+                "select count(*) from app.ai_request_slots"
+                " where provider = %s and granted_at > now() - interval '60 seconds'",
+                (provider,),
+            )
+            count_row = await cur.fetchone()
+            assert count_row is not None
+            (granted_count,) = count_row
+            self._last_grants[provider] = granted_count
+            if granted_count < self.settings.limits[provider].rpm:
                 cur = await conn.execute(
-                    "select count(*) from app.ai_request_slots where granted_at > now() - interval '60 seconds'"
+                    "select s.job_id from app.ai_request_slots s join app.jobs j on j.id = s.job_id"
+                    " where s.granted_at is null and s.provider = %s"
+                    " and j.status in ('queued', 'running')"
+                    " order by j.last_granted_at is not null, j.last_granted_at, s.requested_at limit 1",
+                    (provider,),
                 )
-                count_row = await cur.fetchone()
-                assert count_row is not None
-                (granted_count,) = count_row
-                if granted_count < self.settings.bedrock_rpm_limit:
-                    cur = await conn.execute(
-                        "select s.job_id from app.ai_request_slots s join app.jobs j on j.id = s.job_id"
-                        " where s.granted_at is null"
-                        " and j.status in ('queued', 'running')"
-                        " order by j.last_granted_at is not null, j.last_granted_at, s.requested_at limit 1"
-                    )
-                    next_up = await cur.fetchone()
-                    if next_up is not None and next_up[0] == job_id:
-                        await conn.execute(
-                            "update app.ai_request_slots set granted_at = now() where id = %s", (slot_id,)
-                        )
-                        await conn.execute("update app.jobs set last_granted_at = now() where id = %s", (job_id,))
-                        return
-                await conn.execute("update app.jobs set step = 'waiting_for_capacity' where id = %s", (job_id,))
-            finally:
-                await conn.execute("select pg_advisory_unlock(hashtextextended('app.ai_request_slots', 0))")
-            await self.sleep(self.slot_poll_seconds)
+                next_up = await cur.fetchone()
+                if next_up is not None and next_up[0] == job_id:
+                    await conn.execute("update app.ai_request_slots set granted_at = now() where id = %s", (slot_id,))
+                    await conn.execute("update app.jobs set last_granted_at = now() where id = %s", (job_id,))
+                    return True
+            await conn.execute("update app.jobs set step = 'waiting_for_capacity' where id = %s", (job_id,))
+            logger.debug(
+                "slot waiting: provider=%s grants_60s=%d limit=%d",
+                provider,
+                granted_count,
+                self.settings.limits[provider].rpm,
+            )
+            return False
+        finally:
+            await conn.execute("select pg_advisory_unlock(hashtextextended(%s, 0))", (lock,))
 
     async def _log(
         self,
@@ -397,6 +527,8 @@ class AiKit:
         response: ModelResponse,
         outcome: str,
     ) -> None:
+        answered_directly = response.model_id is not None and response.model_id in self.settings.direct_models.values()
+        model_id = response.model_id or model_id
         await conn.execute(
             "insert into app.ai_calls (case_id, person_id, task_id, model_id, region, prompt_version,"
             " input_tokens, output_tokens, outcome) values (%s, app.current_person_id(), %s, %s, %s, %s, %s, %s, %s)",
@@ -404,7 +536,8 @@ class AiKit:
                 case_id,
                 task.task_id,
                 model_id,
-                self.settings.bedrock_region,
+                # A direct-API answer is told apart by its region (temporary, ADR 0036).
+                "anthropic-direct" if answered_directly else self.settings.bedrock_region,
                 task.prompt_version,
                 response.input_tokens,
                 response.output_tokens,
