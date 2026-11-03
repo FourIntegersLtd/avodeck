@@ -358,7 +358,7 @@ class AiKit:
         errors = []
         for error in validator.iter_errors(response.output):
             path = ".".join("*" if isinstance(part, int) else str(part) for part in error.schema_path)
-            errors.append(f"{type(error.kind).__name__}@{path}")
+            errors.append(f"{type(error.kind).__name__}:{path}")
             if len(errors) == 3:
                 break
         logger.warning(
