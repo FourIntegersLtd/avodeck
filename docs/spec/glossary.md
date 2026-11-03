@@ -12,6 +12,9 @@ Use these words in the interface. Users are GPs aged roughly 50–60 who are not
 | Make it clearer | Brightness/contrast filter, image enhancement |
 | Go to page, Pages (the page strip) | Jump to, thumbnails, navigator |
 | Fit width, Whole page | Fit to width, fit to page, viewport |
+| About this transcript, Contents, Appendix A | Overview, TOC, annex |
+| Pages with no entries | Empty pages, null pages |
+| Back to contents, Next section | Up, pagination |
 | What we found on this page | Extracted entities, AI suggestions |
 | Checked by you | Verified |
 | Please check | Unverified, pending review |
