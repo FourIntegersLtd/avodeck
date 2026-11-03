@@ -257,3 +257,7 @@
   .av-story-layout--split .av-story-board { border-radius: 0; box-shadow: none; }
 }
 @media (max-width: 1099px) { .av-story-layout--split > .av-split { display: none; } }
+
+/* S11 phone panel picture */
+/* The controls take the screen, and "Open page in Read" already shows the whole page, so the picture gets the space at full width and natural height. */
+@media (max-width: 720px) { .av-story-panel .av-pageview__bar { display: none; } .av-story-panel .av-pageview__paper { max-height: none; overflow: visible; } }
