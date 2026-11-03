@@ -48,7 +48,7 @@ class ModelResponse:
     output: dict[str, Any] = field(repr=False)
     input_tokens: int
     output_tokens: int
-    model_id: str | None = None  # the model that answered, when it is not the one the kit asked for (ADR 0036)
+    model_id: str | None = None  # the model that answered, when not the one asked for (an overflow model, ADR 0036)
 
 
 _SAFE_FIELD = re.compile(r"^[A-Za-z0-9_.-]{1,100}$")

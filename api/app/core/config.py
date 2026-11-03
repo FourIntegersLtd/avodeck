@@ -267,6 +267,9 @@ class AiSettings:
     def primary_limits(self) -> ProviderLimits:
         return self.limits[self.primary_provider]
 
+    # In-region models tried, in order, when the primary model is throttled (each has its own quota bucket).
+    overflow_models: tuple[str, ...] = ()
+
 
 def in_region_model_id(model_id: str) -> bool:
     return bool(_IN_REGION_MODEL.match(model_id))
@@ -316,6 +319,15 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
             raise ConfigError(f"{name} must be at least 1")
         return value
 
+    listed = [m.strip() for m in source.get("BEDROCK_OVERFLOW_MODEL_IDS", "").split(",") if m.strip()]
+    if not all(in_region_model_id(m) for m in listed):
+        raise ConfigError(
+            "BEDROCK_OVERFLOW_MODEL_IDS has an ID that is not an in-region model ID (no cross-region profiles or ARNs)"
+        )
+
+    primaries = {values[name] for name in MODEL_ROLES.values()}
+    overflow = tuple(dict.fromkeys(m for m in listed if m not in primaries))
+
     direct = provider == "anthropic"
     return AiSettings(
         region=values["REGION"],
@@ -333,6 +345,7 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
         primary_provider=provider,
         direct_models=MappingProxyType(dict(ANTHROPIC_DIRECT_MODELS)) if direct else MappingProxyType({}),
         anthropic_endpoint=ANTHROPIC_ENDPOINT if direct else "",
+        overflow_models=overflow,
     )
 
 
