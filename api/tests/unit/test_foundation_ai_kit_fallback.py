@@ -310,6 +310,9 @@ async def test_a_rejected_answer_logs_who_gave_it_and_which_try(caplog: pytest.L
     assert "outcome=invalid_output" in lines[0]
     assert "schema_attempt=1/2" in lines[0] and "schema_attempt=2/2" in lines[1]
     assert '"no"' not in "\n".join(_messages(caplog))
+    # why it was rejected: the schema's keyword and path, the answer's size, never a key or value of the answer
+    assert "out_tokens=1 max_tokens=" in lines[0] and "top_level_fields=1" in lines[0] and "errors=" in lines[0]
+    assert "Required@" in lines[0] or "Type@" in lines[0] or "AdditionalProperties@" in lines[0]
 
 
 async def test_a_quick_kit_keeps_the_direct_side_and_waits_out_no_retries() -> None:
