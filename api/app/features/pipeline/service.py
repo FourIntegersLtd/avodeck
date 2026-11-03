@@ -69,6 +69,7 @@ from app.features.pipeline import (
     repo,
     steplog,
 )
+from app.features.pipeline.asking import answer_group
 from app.features.pipeline.render import Pictures, encode, rasterise
 from app.features.pipeline.straighten import quarter_turn
 from app.features.pipeline.wiring import PipelineServices, current
@@ -635,11 +636,9 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
     the model in one call (one call per batch, not per page, to stay inside the account-wide Bedrock
     on-demand throughput ceiling). Returns how many pages were extracted.
 
-    Accepted tradeoff: a batch is asked at most twice, exactly as a single page used to be. When any
-    page in the batch still fails provenance (or the answer is unusable) on the first attempt, the
-    *whole batch* is asked again; a page still failing after that becomes `needs_human`. One
-    malformed page therefore costs a full second call for every page in its batch, not just itself —
-    accepted for the throughput win; no partial-batch recovery is attempted.
+    A batch is asked at most twice as a whole (`asking.answer_group`). When the answer is empty it is split
+    and asked in halves; when it leaves pages out, just those pages are asked again on their own, so a page
+    is only marked `invalid_output` after being asked about alone (or in a small group).
 
     A page with enough words but little or nothing kept (`coverage.reason_for`'s `no_facts` or
     `low_coverage`) is asked once more, on its own; the second answer replaces the first only when
@@ -688,30 +687,33 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 if len(group) == 1
                 else page_subject((str(page_no), loaded[page_id].subject) for page_id, page_no in group)
             )
-            found: dict[int, Mapping[str, Any]] = {}
-            for _ in range(2):
-                raw = await _ask(
+
+            async def ask_group(part: Sequence[tuple[uuid.UUID, int]]) -> Mapping[str, Any] | None:
+                # A smaller group (a split, or the pages left out) keeps the same rules: a lone page its own subject.
+                part_subject = (
+                    loaded[part[0][0]].subject
+                    if len(part) == 1
+                    else (
+                        subject
+                        if len(part) == len(group)
+                        else page_subject((str(no), loaded[pid].subject) for pid, no in part)
+                    )
+                )
+                return await _ask(
                     ctx,
                     services,
                     task if provider is None else bedrock_task,
                     pack,
                     who,
-                    extract.batch_text([(page_no, loaded[page_id].text) for page_id, page_no in group]),
-                    subject,
+                    extract.batch_text([(no, loaded[pid].text) for pid, no in part]),
+                    part_subject,
                     provider,
                 )
-                found = extract.pages_of(raw) if raw is not None else {}
-                if not found and len(group) > 1:
-                    half = len(group) // 2
-                    return {**await ask_pages(group[:half], provider), **await ask_pages(group[half:], provider)}
-                ok = raw is not None and all(
-                    page_no in found
-                    and not extract.sort_facts(found[page_no], loaded[page_id].texts, loaded[page_id].struck).refused
-                    for page_id, page_no in group
-                )
-                if ok:
-                    break
-            return found
+
+            def refused(page: tuple[uuid.UUID, int], answer: Mapping[str, Any]) -> bool:
+                return bool(extract.sort_facts(answer, loaded[page[0]].texts, loaded[page[0]].struck).refused)
+
+            return await answer_group(group, ask_group, refused)
 
         if askable:
             asked = True
