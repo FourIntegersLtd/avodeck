@@ -301,6 +301,32 @@ def primary_provider(env: Mapping[str, str] | None = None) -> str:
     return provider
 
 
+@dataclass(frozen=True)
+class CostGuard:
+    """The cost guard's allowance (F11, K3): a case may use `multiple` x `expected_tokens_per_page` x the larger of
+    its pages and `min_expected_pages` tokens. The same numbers the AI kit checks, readable without the cell's
+    AI endpoints (e.g. by a route that only needs to know whether a case is over its allowance)."""
+
+    multiple: int = 3
+    expected_tokens_per_page: int = 4000
+    min_expected_pages: int = 100
+
+    def allowance(self, pages: int) -> int:
+        return self.multiple * self.expected_tokens_per_page * max(pages, self.min_expected_pages)
+
+
+def cost_guard(env: Mapping[str, str] | None = None) -> CostGuard:
+    source = os.environ if env is None else env
+    defaults = CostGuard()
+    return CostGuard(
+        multiple=env_int(source, "AI_COST_GUARD_MULTIPLE", defaults.multiple, minimum=1),
+        expected_tokens_per_page=env_int(
+            source, "AI_EXPECTED_TOKENS_PER_PAGE", defaults.expected_tokens_per_page, minimum=1
+        ),
+        min_expected_pages=env_int(source, "AI_MIN_EXPECTED_PAGES", defaults.min_expected_pages, minimum=1),
+    )
+
+
 def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
     source = os.environ if env is None else env
     provider = primary_provider(source)

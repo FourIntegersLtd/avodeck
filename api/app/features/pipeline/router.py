@@ -53,6 +53,7 @@ from fastapi import Depends, Request, Response
 from app.core import audit
 from app.core.ai import pii
 from app.core.auth.access import CaseAccess, require_case_access
+from app.core.config import cost_guard
 from app.core.contracts import record_entries
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.crypto import CaseCrypto
@@ -428,7 +429,7 @@ async def bundle_summary(
         splits=await repo.split_count(conn, case_id),
         failed_pages=failed,
         retrying=failed > 0 and await record_entries.entries_status(conn, case_id) == "preparing",
-        retry=_retry_progress(await repo.retry_progress(conn, case_id)),
+        retry=_retry_progress(await repo.retry_progress(conn, case_id, cost_guard())),
     )
 
 

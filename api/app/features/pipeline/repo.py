@@ -11,6 +11,7 @@ from typing import Any
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
+from app.core.config import CostGuard
 from app.core.contracts import record_entries
 from app.features.pipeline import gaps
 
@@ -1506,6 +1507,7 @@ class RetryProgress:
     done: int
     failed: int  # failed again since the run began
     pause_reason: str | None = None  # why it is held back, as a fixed code: `cost_guard` or `other`; None unless paused
+    allowance_used_up: bool = False  # paused by the cost guard and the case is still over its allowance
 
 
 async def _waits_in_queue(conn: AsyncConnection, job: uuid.UUID) -> bool:
@@ -1514,7 +1516,9 @@ async def _waits_in_queue(conn: AsyncConnection, job: uuid.UUID) -> bool:
     return bool(row and row[0])
 
 
-async def retry_progress(conn: AsyncConnection, case_id: uuid.UUID) -> RetryProgress | None:
+async def retry_progress(
+    conn: AsyncConnection, case_id: uuid.UUID, guard: CostGuard | None = None
+) -> RetryProgress | None:
     """How far the case's latest "Try these pages again" run has got, counted over the pages that run took
     (`page_analysis.retry_job_id`), never over other pages processed meanwhile: a page whose entries were read
     since the job was queued is done, one that failed again since is failed, one still failed from before is
@@ -1544,6 +1548,12 @@ async def retry_progress(conn: AsyncConnection, case_id: uuid.UUID) -> RetryProg
     # but only while a queue row is there to be picked up (a hold placed before the pickup leaves none).
     handed_back = job[1] == "paused" and job[3] == "resuming" and await _waits_in_queue(conn, job[0])
     paused = job[1] == "paused" and not handed_back
+    over = False
+    if paused and job[3] == "cost_guard" and guard is not None:
+        # The guard's own test (`used >= allowance`): Try again cannot work while the case is still over it.
+        cur = await conn.execute("select tokens_used, pages from app.ai_budget(%s)", (case_id,))
+        budget = await cur.fetchone()
+        over = budget is not None and int(budget[0]) >= guard.allowance(int(budget[1]))
     return RetryProgress(
         running=job[1] in ("queued", "running") or handed_back,
         paused=paused,
@@ -1551,6 +1561,7 @@ async def retry_progress(conn: AsyncConnection, case_id: uuid.UUID) -> RetryProg
         done=done,
         failed=failed,
         pause_reason=("cost_guard" if job[3] == "cost_guard" else "other") if paused else None,
+        allowance_used_up=over,
     )
 
 
