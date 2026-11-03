@@ -2,6 +2,7 @@
 
 set role app_migrator;
 
-drop function if exists app.resume_paused_job(uuid, text, integer, boolean);
+drop function if exists app.job_waits_in_queue(uuid);
+drop function if exists app.resume_paused_job(uuid, text);
 
 reset role;

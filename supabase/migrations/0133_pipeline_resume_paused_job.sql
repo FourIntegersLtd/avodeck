@@ -8,10 +8,18 @@
 -- forward, else one new row is deferred with the job's lock. Never a second job, never a second waiting queue
 -- row: a repeat press while the job waits for the worker finds nothing to do. Any other status is left alone.
 -- Returns whether the job was handed back by this call.
+--
+-- The caller chooses nothing but the job: the priority is the job's own, the queue is the one jobs run on
+-- (`jobs`; any other name is refused), and the queue row is always locked like 0035's: the lock of the job's
+-- earlier queue row, else `case:<id>`, so no second job of the case runs beside it.
+--
+-- app.job_waits_in_queue(job) tells the summary whether a handed-back job still has a queue row waiting for or
+-- held by a worker (todo or doing): `resuming` with none (a hold was placed before the worker picked it up, so the
+-- worker ended the row without running the job) is not running, and Try again must come back.
 
 set role app_migrator;
 
-create function app.resume_paused_job(p_job uuid, p_queue text, p_priority integer, p_changes_case boolean)
+create function app.resume_paused_job(p_job uuid, p_queue text default 'jobs')
   returns boolean
   language plpgsql
   security definer
@@ -21,8 +29,10 @@ declare
   j app.jobs;
   v_waiting bigint;
   v_lock text;
-  v_seen boolean;
 begin
+  if p_queue is distinct from 'jobs' then
+    raise exception using errcode = '22023', message = 'unknown job queue';
+  end if;
   select * into j from app.jobs where id = p_job for update;
   if not found or j.case_id is null or not coalesce(app.can_access_case(j.case_id, 'page.read'), false) then
     return false;
@@ -49,11 +59,10 @@ begin
   if v_waiting is not null then
     update procrastinate_jobs set scheduled_at = now() where id = v_waiting;
   else
-    select true, pj.lock into v_seen, v_lock from procrastinate_jobs pj
-     where pj.args ->> 'job_id' = p_job::text order by pj.id desc limit 1;
+    select pj.lock into v_lock from procrastinate_jobs pj
+     where pj.args ->> 'job_id' = p_job::text and pj.lock is not null order by pj.id desc limit 1;
     perform procrastinate_defer_jobs_v1(array[row(
-      p_queue, 'run_job', p_priority,
-      case when p_changes_case then coalesce(case when coalesce(v_seen, false) then v_lock end, 'case:' || j.case_id::text) end,
+      p_queue, 'run_job', j.priority, coalesce(v_lock, 'case:' || j.case_id::text),
       null, jsonb_build_object('job_id', p_job, 'case_id', j.case_id), null
     )::procrastinate_job_to_defer_v1]);
   end if;
@@ -61,7 +70,24 @@ begin
 end
 $$;
 
-revoke execute on function app.resume_paused_job(uuid, text, integer, boolean) from public, app_api, app_worker;
-grant execute on function app.resume_paused_job(uuid, text, integer, boolean) to app_api;
+create function app.job_waits_in_queue(p_job uuid)
+  returns boolean
+  language sql
+  stable
+  security definer
+  set search_path = procrastinate, pg_catalog
+as $$
+  select exists (
+    select 1 from app.jobs j
+     where j.id = p_job and coalesce(app.can_access_case(j.case_id, 'page.read'), false)
+       and exists (
+         select 1 from procrastinate_jobs pj
+          where pj.args ->> 'job_id' = p_job::text and pj.status in ('todo', 'doing')
+       )
+  )
+$$;
+
+revoke execute on function app.resume_paused_job(uuid, text), app.job_waits_in_queue(uuid) from public, app_api, app_worker;
+grant execute on function app.resume_paused_job(uuid, text), app.job_waits_in_queue(uuid) to app_api;
 
 reset role;

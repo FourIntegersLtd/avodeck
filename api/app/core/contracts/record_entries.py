@@ -33,7 +33,7 @@ from typing import Literal
 
 from psycopg import AsyncConnection
 
-from app.core.jobs import BATCH_PRIORITY, INTERACTIVE_PRIORITY, registry
+from app.core.jobs import registry
 
 EXTRACT_ENTRIES = "extract_entries"
 RETRY_UNREAD = "retry_unread_pages"
@@ -202,12 +202,8 @@ async def _paused_retry(conn: AsyncConnection, case_id: uuid.UUID) -> uuid.UUID 
 
 async def _hand_back(conn: AsyncConnection, job_id: uuid.UUID) -> bool:
     """paused -> queue through `app.resume_paused_job()` (migration 0133); False when it was not paused, is already
-    handed back, or the case is on hold."""
-    found = registry.kinds[RETRY_UNREAD]
-    cur = await conn.execute(
-        "select app.resume_paused_job(%s, %s, %s, %s)",
-        (job_id, registry.queue, INTERACTIVE_PRIORITY if found.interactive else BATCH_PRIORITY, found.changes_case),
-    )
+    handed back and waiting, or the case is on hold. The database takes the priority and lock from the job."""
+    cur = await conn.execute("select app.resume_paused_job(%s, %s)", (job_id, registry.queue))
     row = await cur.fetchone()
     return bool(row and row[0])
 
