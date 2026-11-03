@@ -217,6 +217,8 @@ class AiSettings:
     cost_guard_multiple: int = 3
     bedrock_rpm_limit: int = 5
     extraction_batch_size: int = 10
+    # In-region models tried, in order, when the primary model is throttled (each has its own quota bucket).
+    overflow_models: tuple[str, ...] = ()
 
 
 def in_region_model_id(model_id: str) -> bool:
@@ -253,6 +255,15 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
             raise ConfigError(f"{name} must be at least 1")
         return value
 
+    listed = [m.strip() for m in source.get("BEDROCK_OVERFLOW_MODEL_IDS", "").split(",") if m.strip()]
+    if not all(in_region_model_id(m) for m in listed):
+        raise ConfigError(
+            "BEDROCK_OVERFLOW_MODEL_IDS has an ID that is not an in-region model ID (no cross-region profiles or ARNs)"
+        )
+
+    primaries = {values[name] for name in MODEL_ROLES.values()}
+    overflow = tuple(dict.fromkeys(m for m in listed if m not in primaries))
+
     return AiSettings(
         region=values["REGION"],
         bedrock_region=values["AWS_REGION"],
@@ -266,6 +277,7 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
         cost_guard_multiple=number("AI_COST_GUARD_MULTIPLE", 3),
         bedrock_rpm_limit=number("BEDROCK_RPM_LIMIT", 5),
         extraction_batch_size=number("AI_EXTRACTION_BATCH_SIZE", 10),
+        overflow_models=overflow,
     )
 
 
