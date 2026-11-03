@@ -86,7 +86,7 @@ def test_every_link_lands_on_a_picture_page() -> None:
     reader = PdfReader(io.BytesIO(_build()))
     picture_pages = set(range(len(reader.pages) - 4, len(reader.pages)))  # the four pictures close the file
     heading_pages = set()  # the contents rows may also land on a heading listed in the PDF outline
-    stack = [reader.outline]
+    stack: list[Any] = [reader.outline]
     while stack:
         for item in stack.pop():
             if isinstance(item, list):
