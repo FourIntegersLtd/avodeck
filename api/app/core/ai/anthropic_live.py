@@ -46,8 +46,18 @@ logger = logging.getLogger("app.ai.anthropic")
 for _sdk in ("anthropic", "httpx", "httpx2", "httpcore"):
     logging.getLogger(_sdk).setLevel(logging.WARNING)
 
-_UNAVAILABLE = frozenset({401, 403, 404})
-_SPEND_LIMIT = "enforced_spend_limit_reached"
+_UNAVAILABLE = frozenset({401, 402, 403, 404})
+# Error types and codes (never message text) for a spent balance or a spend cap: not busy, not retried.
+_OUT_OF_FUNDS = frozenset(
+    {
+        "enforced_spend_limit_reached",
+        "billing_error",
+        "credit_balance_too_low",
+        "insufficient_credit",
+        "spend_limit_reached",
+        "workspace_spend_limit_reached",
+    }
+)
 _BUSY_CODES = frozenset({"overloaded_error", "api_error", "rate_limit_error"})
 _CODE = re.compile(r"^[a-z_]{1,64}$")
 _CODE_OR_ID = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
@@ -99,6 +109,14 @@ class LiveAnthropic:
             failure = ServiceBusy().annotated(cause=type(exc).__name__)
             self._log_call(request, started, "busy", failure=failure)
             raise failure from None
+        except anthropic.APIError as exc:  # anything else the SDK raises: by class only, so the fallback takes it
+            odd: ModelCallFailure
+            if isinstance(exc, anthropic.APIResponseValidationError):
+                odd = ModelRequestRefused(type(exc).__name__).annotated(cause=type(exc).__name__)
+            else:
+                odd = ServiceBusy().annotated(cause=type(exc).__name__)
+            self._log_call(request, started, _OUTCOMES[type(odd)], failure=odd)
+            raise odd from None
         input_tokens = int(reply.usage.input_tokens)
         output_tokens = int(reply.usage.output_tokens)
         counts: dict[str, Any] = {
@@ -187,7 +205,7 @@ def _classify(exc: anthropic.APIStatusError) -> ModelCallFailure:
         "error_code": error_code,
         "request_id": _safe_id(getattr(exc, "request_id", None)),
     }
-    if _SPEND_LIMIT in (error_code, error_type):
+    if error_code in _OUT_OF_FUNDS or error_type in _OUT_OF_FUNDS:
         return ModelUnavailable(code).annotated(**fields)
     if status < 400:  # an `error` event in the middle of a stream: the status is the stream's own 200
         if code in _BUSY_CODES or error_type in _BUSY_CODES:

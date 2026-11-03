@@ -101,6 +101,7 @@ class AiKit:
         direct: BedrockClient | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         retries: int = 4,
+        direct_retries: int = DIRECT_RETRIES,
         base_delay: float = 2.0,
         slot_poll_seconds: float = 1.0,
     ) -> None:
@@ -109,9 +110,24 @@ class AiKit:
         self.direct = direct  # temporary, dummy data only (ADR 0036): asked first when it is set
         self.sleep = sleep
         self.retries = retries
+        self.direct_retries = direct_retries
         self.base_delay = base_delay
         self.slot_poll_seconds = slot_poll_seconds
         self._last_grants: dict[str, int] = {}  # grants in the last 60 s per provider, as the last poll saw them
+
+    def with_retries(self, retries: int) -> AiKit:
+        """The same kit (settings, both clients, sleep and polling) that makes `retries` busy retries on each
+        side, for a call that must not wait out a busy model service. `with_retries(0)` keeps the direct side."""
+        return AiKit(
+            self.settings,
+            self.bedrock,
+            direct=self.direct,
+            sleep=self.sleep,
+            retries=retries,
+            direct_retries=retries,
+            base_delay=self.base_delay,
+            slot_poll_seconds=self.slot_poll_seconds,
+        )
 
     @property
     def primary_limits(self) -> ProviderLimits:
@@ -237,6 +253,7 @@ class AiKit:
         validator = jsonschema_rs.validator_for(dict(task.schema))
         for attempt in range(2):
             response = await self._invoke(request, task, provider, wait)
+            provider = self._same_provider(provider, response)
             valid = validator.is_valid(response.output)
             self._log_validation(task, model_id, response, valid, attempt)
             async with database.job(case_id) as conn:
@@ -282,6 +299,7 @@ class AiKit:
         validator = jsonschema_rs.validator_for(dict(task.schema))
         for attempt in range(2):
             response = await self._invoke(request, task, provider, wait)
+            provider = self._same_provider(provider, response)
             valid = validator.is_valid(response.output)
             self._log_validation(task, model_id, response, valid, attempt)
             await self._log(conn, task, model_id, case_id, response, "ok" if valid else "invalid_output")
@@ -289,6 +307,13 @@ class AiKit:
                 return response.output
         logger.warning("task %s output did not match its schema twice", task.task_id)
         raise InvalidOutput(task.task_id)
+
+    def _same_provider(self, provider: str | None, response: ModelResponse) -> str | None:
+        """A wrong answer is asked again of the provider that gave it, never of the other: after one from
+        Bedrock the next ask is Bedrock's alone. (After a direct one it stays open, so a failed re-ask can
+        still fall back: that is a failure, not a wrong answer.)"""
+        direct = response.model_id is not None and response.model_id in self.settings.direct_models.values()
+        return provider if provider is not None or direct or self.direct is None else "bedrock"
 
     def _log_validation(self, task: AiTask, model_id: str, response: ModelResponse, valid: bool, attempt: int) -> None:
         """Only a wrong answer is logged here (the call itself is logged by its client): who answered, which try."""
@@ -341,9 +366,7 @@ class AiKit:
             if self.bedrock is None:
                 if isinstance(failure, ServiceBusy):
                     raise ProcessingPaused("service_busy") from None
-                if isinstance(failure, ModelUnavailable):
-                    raise ProcessingPaused("model_unavailable") from None
-                raise
+                raise ProcessingPaused("model_unavailable") from None  # gone, spend-capped or refused
             if too_large:
                 raise TooLargeForFallback(bedrock_limits.pages_per_call) from None
         return await self._invoke_bedrock(request, wait)
@@ -352,25 +375,25 @@ class AiKit:
         """The direct API, retried while it is only busy: its per-minute token limits clear quickly, and a
         burst must not spill onto Bedrock's small ceiling. `retry-after` is honoured up to 30 s."""
         assert self.direct is not None
-        for attempt in range(DIRECT_RETRIES + 1):
+        for attempt in range(self.direct_retries + 1):
             try:
                 if wait is not None:
                     await wait("anthropic")
                 # The client's one log line per attempt says which attempt this is.
-                token = CALL_ATTEMPT.set(f"{attempt + 1}/{DIRECT_RETRIES + 1}")
+                token = CALL_ATTEMPT.set(f"{attempt + 1}/{self.direct_retries + 1}")
                 try:
                     return await self.direct.invoke(request)
                 finally:
                     CALL_ATTEMPT.reset(token)
             except ServiceBusy as busy:
-                if attempt == DIRECT_RETRIES:
+                if attempt == self.direct_retries:
                     raise
                 seconds = min(busy.retry_after or self.base_delay * 2**attempt, DIRECT_MAX_WAIT_SECONDS)
                 logger.warning(
                     "direct retry: provider=anthropic task=%s next_attempt=%d/%d wait_s=%.0f retry_after=%s",
                     request.task_id or "-",
                     attempt + 2,
-                    DIRECT_RETRIES + 1,
+                    self.direct_retries + 1,
                     seconds,
                     "-" if busy.retry_after is None else busy.retry_after,
                 )

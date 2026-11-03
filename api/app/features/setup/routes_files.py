@@ -21,7 +21,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from psycopg.rows import dict_row
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.ai.kit import AiKit, InvalidOutput
+from app.core.ai.kit import InvalidOutput
 from app.core.crypto import SecretBox
 from app.core.errors import ApiError, ProcessingPaused
 from app.core.http import DbConn, IfMatch, etag, stale
@@ -334,7 +334,7 @@ async def suggest_sections(request: Request, conn: DbConn) -> SectionSuggestions
         raise ProcessingPaused("model_unavailable")
     pack = await _profile_pack(request, conn)
     task = ai_tasks.t02(pack)
-    quick = AiKit(kit.settings, kit.bedrock, retries=0)
+    quick = kit.with_retries(0)
     try:
         out = await quick.run(conn, task, pack=pack, text=ai_tasks.t02_text(row["headings"]))
     except InvalidOutput:

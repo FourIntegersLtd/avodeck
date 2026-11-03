@@ -44,6 +44,8 @@ Slice A reads `kit.primary_limits.pages_per_call` and `.concurrency` for batchin
 
 **Database pools.** The founder's Supabase is the free plan (Nano compute): 60 direct connections, 200 pooler clients, shared CPU. The API pool stays at 10 connections. The worker pool (`WORKER_MAX_SIZE` in `core/db.py`) is 20, so a burst of 200 direct calls does not wait for connections; API 10 plus worker 20 leaves room for Supabase's own services. These are our numbers, not Supabase's. The worker pool must be kept within Supabase's Max DB Connections and the pooler's pool size for the `app_worker` role; raise it only with a bigger compute. The queue library's own pool and the reseal command's pool are unchanged.
 
+**Known limitation (found in review, not caused by this change).** The slot counts are read under row-level security, so a job may see only the slot rows of its own case; the per-minute ceiling is then held per case, not account-wide. The vendor's own 429 handling (retry, then the fallback) absorbs the difference. Out of scope here.
+
 **How to turn it off.** Unset `AI_PRIMARY_PROVIDER` (or set it to `bedrock`) and restart. Nothing else changes: the migration is additive and the default provider of every slot row is `bedrock`.
 
 **Consequences.** Faster dummy-data runs. One more third party sees prompts, but only synthetic ones. Remove this ADR's code path, or replace it with an in-region arrangement, before the first real bundle.

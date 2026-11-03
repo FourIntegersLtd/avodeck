@@ -342,7 +342,7 @@ async def test_a_reply_the_sdk_cannot_make_sense_of_is_refused_by_class_so_the_f
         response = httpx2.Response(200, request=httpx2.Request("POST", "https://api.anthropic.com/v1/messages"))
         raise anthropic.APIResponseValidationError(response, body="patient text that must not appear")
 
-    client.client.messages.stream = broken  # type: ignore[method-assign,assignment]
+    client.client.messages.stream = broken  # type: ignore[method-assign]
     with pytest.raises(ModelRequestRefused) as caught:
         await client.invoke(request())
     assert caught.value.cause == "APIResponseValidationError"
@@ -359,7 +359,7 @@ async def test_any_other_sdk_error_is_busy_by_class_so_the_fallback_can_take_it(
     def broken(**_kwargs: Any) -> Any:
         raise anthropic.APIError("odd", httpx2.Request("POST", "https://api.anthropic.com/v1/messages"), body=None)
 
-    client.client.messages.stream = broken  # type: ignore[method-assign,assignment]
+    client.client.messages.stream = broken  # type: ignore[method-assign]
     with pytest.raises(ServiceBusy) as caught:
         await client.invoke(request())
     assert caught.value.cause == "APIError"
