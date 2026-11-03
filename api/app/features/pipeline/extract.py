@@ -170,6 +170,7 @@ def task_for(pack: MergedPack, max_tokens: int = BATCH_MAX_TOKENS) -> AiTask:
         system=_system(),
         schema=output_schema(pack),
         max_tokens=max_tokens,
+        mends_labels=True,
     )
 
 

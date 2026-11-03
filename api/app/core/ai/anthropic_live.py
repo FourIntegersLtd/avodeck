@@ -255,8 +255,8 @@ def _params(request: ModelRequest) -> dict[str, Any]:
     return {
         "model": request.model_id,
         "max_tokens": request.max_tokens,
-        # The repeated system prompt and the schema are cache breakpoints (ephemeral: 5 minutes). Haiku 5.5
-        # caches a prefix only from 512 tokens; a shorter one is simply sent whole, with no error.
+        # The repeated system prompt and the schema are cache breakpoints (ephemeral: 5 minutes). A model
+        # caches a prefix only from its minimum length; a shorter one is simply sent whole, with no error.
         "system": [{"type": "text", "text": request.system, "cache_control": {"type": "ephemeral"}}],
         "messages": [{"role": "user", "content": content}],
         "tools": [
@@ -268,6 +268,6 @@ def _params(request: ModelRequest) -> dict[str, Any]:
             }
         ],
         "tool_choice": {"type": "tool", "name": TOOL_NAME},
-        # Haiku 5.5 thinks (adaptive) unless told not to, and thinking is billed as output.
+        # Thinking may be on by default unless told not to, and thinking is billed as output.
         "thinking": {"type": "disabled"},
     }

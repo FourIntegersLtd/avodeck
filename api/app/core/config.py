@@ -200,7 +200,7 @@ _IN_REGION_MODEL = re.compile(r"^anthropic\.[a-z0-9][a-z0-9.\-]*(:\d+)?$")
 # `AI_PRIMARY_PROVIDER=anthropic` only (ADR 0036). Everything below applies only then.
 PROVIDERS = ("bedrock", "anthropic")
 ANTHROPIC_DIRECT_MODELS = {
-    "sonnet": "claude-haiku-5-5"
+    "sonnet": "claude-sonnet-4-6"
 }  # temporary, dummy data only (ADR 0036); no opus: it goes to Bedrock
 ANTHROPIC_ENDPOINT = "https://api.anthropic.com"  # temporary, dummy data only (ADR 0036)
 ANTHROPIC_HOST = "api.anthropic.com"  # temporary, dummy data only (ADR 0036): added to the allow-list in code

@@ -22,7 +22,7 @@ from tests.support.live_ai import AWS_KEYS
 
 KEY = "sk-ant-test-not-real"
 SONNET = CELL_ENV["BEDROCK_SONNET_MODEL_ID"]
-DIRECT = "claude-haiku-5-5"
+DIRECT = "claude-sonnet-4-6"
 ON = {"AI_PRIMARY_PROVIDER": "anthropic", "ANTHROPIC_API_KEY": KEY}
 
 
@@ -113,7 +113,7 @@ def test_the_hard_coded_direct_id_is_a_plain_claude_model_id_and_not_a_bedrock_o
 
     assert re.fullmatch(r"claude-[a-z0-9][a-z0-9.\-]*", DIRECT)
     assert not in_region_model_id(DIRECT)
-    assert ai_settings(cell_env(**ON)).direct_models["sonnet"] == DIRECT == "claude-haiku-5-5"
+    assert ai_settings(cell_env(**ON)).direct_models["sonnet"] == DIRECT == "claude-sonnet-4-6"
 
 
 def test_the_kit_still_resolves_the_bedrock_id_for_a_role() -> None:
