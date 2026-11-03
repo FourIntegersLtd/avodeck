@@ -255,11 +255,14 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
             raise ConfigError(f"{name} must be at least 1")
         return value
 
-    overflow = tuple(m.strip() for m in source.get("BEDROCK_OVERFLOW_MODEL_IDS", "").split(",") if m.strip())
-    if not all(in_region_model_id(m) for m in overflow):
+    listed = [m.strip() for m in source.get("BEDROCK_OVERFLOW_MODEL_IDS", "").split(",") if m.strip()]
+    if not all(in_region_model_id(m) for m in listed):
         raise ConfigError(
             "BEDROCK_OVERFLOW_MODEL_IDS has an ID that is not an in-region model ID (no cross-region profiles or ARNs)"
         )
+
+    primaries = {values[name] for name in MODEL_ROLES.values()}
+    overflow = tuple(dict.fromkeys(m for m in listed if m not in primaries))
 
     return AiSettings(
         region=values["REGION"],

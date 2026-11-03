@@ -203,16 +203,19 @@ class AiKit:
         job_id: uuid.UUID,
     ) -> ModelResponse:
         delays = backoff_delays(self.retries, self.base_delay)
+        overflow_tried = False  # overflow models are tried once per call, after the first busy answer
         for attempt in range(len(delays) + 1):
             try:
                 await self._wait_for_slot_detached(database, case_id, job_id)
                 return replace(await self.bedrock.invoke(request), model_id=request.model_id)
             except ServiceBusy as busy:
-                overflow = await self._try_overflow(
-                    request, lambda: self._wait_for_slot_detached(database, case_id, job_id)
-                )
-                if overflow is not None:
-                    return overflow
+                if not overflow_tried:
+                    overflow_tried = True
+                    overflow = await self._try_overflow(
+                        request, lambda: self._wait_for_slot_detached(database, case_id, job_id)
+                    )
+                    if overflow is not None:
+                        return overflow
                 if attempt == len(delays):
                     logger.error("model service still busy after %d attempts; processing paused", attempt + 1)
                     raise ProcessingPaused("service_busy") from None
@@ -342,18 +345,23 @@ class AiKit:
         self, request: ModelRequest, conn: AsyncConnection | None = None, job_id: uuid.UUID | None = None
     ) -> ModelResponse:
         delays = backoff_delays(self.retries, self.base_delay)
+        overflow_tried = False  # overflow models are tried once per call, after the first busy answer
         for attempt in range(len(delays) + 1):
             try:
                 if job_id is not None and conn is not None:
                     await self._wait_for_slot(conn, job_id)
                 return replace(await self.bedrock.invoke(request), model_id=request.model_id)
             except ServiceBusy as busy:
-                overflow = await self._try_overflow(
-                    request,
-                    (lambda: self._wait_for_slot(conn, job_id)) if job_id is not None and conn is not None else None,
-                )
-                if overflow is not None:
-                    return overflow
+                if not overflow_tried:
+                    overflow_tried = True
+                    overflow = await self._try_overflow(
+                        request,
+                        (lambda: self._wait_for_slot(conn, job_id))
+                        if job_id is not None and conn is not None
+                        else None,
+                    )
+                    if overflow is not None:
+                        return overflow
                 if attempt == len(delays):
                     logger.error("model service still busy after %d attempts; processing paused", attempt + 1)
                     raise ProcessingPaused("service_busy") from None
