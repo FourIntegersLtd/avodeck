@@ -38,12 +38,12 @@ function mock(pack: Schemas["CasePack"], answers: Summary[], item: Schemas["Case
 const paused = (reason: "cost_guard" | "other"): Summary => ({
   failed_pages: 530,
   retrying: true,
-  retry: { running: false, paused: true, pause_reason: reason, total: 650, done: 117, failed: 3 },
+  retry: { running: false, paused: true, pause_reason: reason, total: 650, done: 117, failed: 3, allowance_used_up: false },
 });
 const running: Summary = {
   failed_pages: 530,
   retrying: true,
-  retry: { running: true, paused: false, pause_reason: null, total: 650, done: 117, failed: 3 },
+  retry: { running: true, paused: false, pause_reason: null, total: 650, done: 117, failed: 3, allowance_used_up: false },
 };
 
 describe.each([

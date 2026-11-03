@@ -11061,6 +11061,11 @@ export interface components {
          * @description How far a "Try these pages again" run has got; counts only. Counted by the server, never by the browser.
          */
         RetryProgress: {
+            /**
+             * Allowance Used Up
+             * @default false
+             */
+            allowance_used_up: boolean;
             /** Done */
             done: number;
             /** Failed */

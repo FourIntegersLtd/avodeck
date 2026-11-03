@@ -33,7 +33,7 @@ function mock(pack: Schemas["CasePack"], answers: Summary[]) {
 const running = (done: number, failed: number, total = 650): Summary => ({
   failed_pages: total - done,
   retrying: true,
-  retry: { running: true, paused: false, total, done, failed } satisfies Retry,
+  retry: { running: true, paused: false, total, done, failed, allowance_used_up: false } satisfies Retry,
 });
 
 describe.each([
@@ -71,7 +71,7 @@ describe.each([
     const log = mock(pack, [
       running(117, 3),
       running(400, 3),
-      { failed_pages: 0, retrying: false, retry: { running: false, paused: false, total: 650, done: 650, failed: 0 } },
+      { failed_pages: 0, retrying: false, retry: { running: false, paused: false, total: 650, done: 650, failed: 0, allowance_used_up: false } },
     ]);
     renderAt(PATH);
     await screen.findByRole("progressbar", { name: "Trying again: 120 of 650 pages (18%)" });
@@ -87,7 +87,7 @@ describe.each([
       {
         failed_pages: 10,
         retrying: false,
-        retry: { running: false, paused: false, total: 650, done: 640, failed: 10 },
+        retry: { running: false, paused: false, total: 650, done: 640, failed: 10, allowance_used_up: false },
       },
     ]);
     renderAt(PATH);
@@ -105,7 +105,7 @@ describe.each([
 
   test("a paused run says so in plain words, shows no moving bar, keeps the button, and is not asked about again", async () => {
     const log = mock(pack, [
-      { failed_pages: 530, retrying: true, retry: { running: false, paused: true, total: 650, done: 117, failed: 3 } },
+      { failed_pages: 530, retrying: true, retry: { running: false, paused: true, total: 650, done: 117, failed: 3, allowance_used_up: false } },
     ]);
     renderAt(PATH);
     expect(await screen.findByText("Trying again has paused for now. Please check back in a little while.")).toBeVisible();
