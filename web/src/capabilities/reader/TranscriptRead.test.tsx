@@ -2,6 +2,7 @@
 // Under both pack sets.
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { forgetPages } from "../../foundation/lib/pageImageCache";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { http, HttpResponse, json, server } from "../../test/api";
@@ -137,6 +138,7 @@ class FakeObserver {
 }
 
 beforeEach(() => {
+  forgetPages(); // a page picture kept by an earlier test would hide the request this one asserts on
   watchers = [];
   outline = { status: "ready", sections: [] };
   vi.stubGlobal("IntersectionObserver", FakeObserver);
@@ -350,6 +352,23 @@ describe.each([
     await user.click(await screen.findByRole("button", { name: "Open the picture of page 3" }));
     expect(await screen.findByAltText("Picture of page 3")).toBeVisible();
     expect(log.seen).toEqual([{ page_no: 3, dwell_ms: 0, picture_opened: true }]);
+  });
+
+  test("the picture of a page the computer could not read is the full picture, not the small one, and links to the page", async () => {
+    mockReader(pack);
+    mockTranscript("ready", [], [], [71]);
+    const asked: string[] = [];
+    server.use(
+      http.get(`${C}/pages/71/image`, ({ request }) => {
+        asked.push(new URL(request.url).search);
+        return new HttpResponse(new Blob(["png"]), { status: 200 });
+      }),
+    );
+    const { user } = renderAt(`${PATH}?section=_unread`);
+    await user.click(await screen.findByRole("button", { name: "Open the picture of page 71" }));
+    expect(await screen.findByAltText("Picture of page 71")).toBeVisible();
+    expect(asked).toEqual([""]);
+    expect(screen.getByRole("link", { name: "See the page" })).toHaveAttribute("href", expect.stringContaining("/read/71"));
   });
 
   test("a result chip uses the pack's label key and falls back to plain words", async () => {
