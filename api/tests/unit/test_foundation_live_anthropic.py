@@ -26,7 +26,7 @@ from tests.support.live_ai import sse_events
 pytestmark = pytest.mark.anyio
 
 KEY = "sk-ant-test-not-real"
-DIRECT = "claude-haiku-5-5"
+DIRECT = "claude-sonnet-4-6"
 SCHEMA = {
     "type": "object",
     "properties": {"labels": {"type": "array", "items": {"type": "string"}}},
@@ -156,7 +156,7 @@ async def test_the_schema_is_the_only_tool_forced_and_its_input_comes_back() -> 
             ],
         }
     ]
-    # Haiku 5.5 thinks (adaptive) unless told not to; thinking is billed as output.
+    # Thinking may be on by default unless told not to; thinking is billed as output.
     # Disabled is accepted at the default effort.
     assert sent["thinking"] == {"type": "disabled"}
     for banned in ("temperature", "top_p", "top_k", "output_config", "budget_tokens"):

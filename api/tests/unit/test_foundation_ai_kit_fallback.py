@@ -30,7 +30,7 @@ pytestmark = pytest.mark.anyio
 
 SONNET = CELL_ENV["BEDROCK_SONNET_MODEL_ID"]
 OPUS = CELL_ENV["BEDROCK_OPUS_MODEL_ID"]
-DIRECT = "claude-haiku-5-5"
+DIRECT = "claude-sonnet-4-6"
 URL = "https://api.anthropic.com"
 PACK = default_library().combine(*BOTH[0].codes)
 SCHEMA = {"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"]}

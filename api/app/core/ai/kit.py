@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import time
 import uuid
@@ -79,6 +80,50 @@ class TooLargeForFallback(Exception):
     def __init__(self, pages_per_call: int) -> None:
         super().__init__("request too large for the fallback provider")
         self.pages_per_call = pages_per_call
+
+
+def _starred(path: Sequence[Any]) -> str:
+    """A place in an answer with list positions as `*`: where, never what (rule 6)."""
+    return ".".join("*" if isinstance(part, int) else str(part) for part in path)
+
+
+def mend_labels(output: Any, validator: Any) -> tuple[Any, list[str]]:
+    """`output` with every label that is off its closed list (`enum`) mended, and where each one was.
+
+    A model sometimes answers a closed list with a label the pack does not have. Where the list allows
+    "cannot tell" (null) the label becomes null; otherwise the one list item carrying it is left out, so one
+    stray label never throws away a whole answer. An item of the outermost list (a whole page of a batch) is
+    never left out: that label stays, and the schema check rejects the answer as before. Any other mismatch
+    is left alone. The given answer is not changed in place."""
+    nulls: list[list[Any]] = []
+    drops: set[tuple[Any, ...]] = set()
+    places: list[str] = []
+    for error in validator.iter_errors(output):
+        if type(error.kind).__name__ != "Enum":
+            continue
+        path = list(error.instance_path)
+        if None in error.kind.options:
+            nulls.append(path)
+        else:
+            lists = [i for i, part in enumerate(path) if isinstance(part, int)]
+            if len(lists) < 2:
+                continue
+            drops.add(tuple(path[: lists[-1] + 1]))
+        places.append(_starred(path))
+    if not places:
+        return output, []
+    mended = copy.deepcopy(output)
+    for path in nulls:
+        _at(mended, path[:-1])[path[-1]] = None
+    for item in sorted(drops, reverse=True):  # later positions first, so earlier ones keep their place
+        del _at(mended, item[:-1])[item[-1]]
+    return mended, places
+
+
+def _at(value: Any, path: Sequence[Any]) -> Any:
+    for part in path:
+        value = value[part]
+    return value
 
 
 def backoff_delays(retries: int, base: float = 2.0, limit: float = MAX_WAIT_SECONDS) -> list[float]:
@@ -254,7 +299,7 @@ class AiKit:
         for attempt in range(2):
             response = await self._answer(request, task, provider, wait)
             provider = self._same_provider(provider, response)
-            valid = validator.is_valid(response.output)
+            response, valid = self._checked(task, response, validator)
             self._log_validation(task, model_id, response, valid, attempt, validator, request.max_tokens)
             async with database.job(case_id) as conn:
                 await self._log(
@@ -322,7 +367,7 @@ class AiKit:
         for attempt in range(2):
             response = await self._answer(request, task, provider, wait)
             provider = self._same_provider(provider, response)
-            valid = validator.is_valid(response.output)
+            response, valid = self._checked(task, response, validator)
             self._log_validation(task, model_id, response, valid, attempt, validator, request.max_tokens)
             await self._log(
                 conn, task, response.model_id or model_id, case_id, response, "ok" if valid else "invalid_output"
@@ -331,6 +376,21 @@ class AiKit:
                 return response.output
         logger.warning("task %s output did not match its schema twice", task.task_id)
         raise InvalidOutput(task.task_id)
+
+    def _checked(self, task: AiTask, response: ModelResponse, validator: Any) -> tuple[ModelResponse, bool]:
+        """The answer and whether it matches the schema, once any off-list labels are mended (`mend_labels`)."""
+        if validator.is_valid(response.output):
+            return response, True
+        mended, places = mend_labels(response.output, validator)
+        if not places or not validator.is_valid(mended):
+            return response, False
+        logger.warning(
+            "task %s answer had off-list labels count=%d at=%s",
+            task.task_id,
+            len(places),
+            ",".join(sorted(set(places))),
+        )
+        return replace(response, output=mended), True
 
     def _same_provider(self, provider: str | None, response: ModelResponse) -> str | None:
         """A wrong answer is asked again of the provider that gave it, never of the other: after one from

@@ -112,6 +112,7 @@ def test_the_answer_given_is_never_changed_in_place() -> None:
 
 
 def test_any_other_mismatch_is_left_for_the_schema_check_to_reject() -> None:
+    wrong: dict[str, Any]
     for wrong in ({"pages": "[{}]"}, {"pages": [{"page_no": 1}]}, {"pages": [page(page_no="one")]}, {"pages": []}):
         mended, places = mend_labels(wrong, VALIDATOR)
         assert (mended, places) == (wrong, [])
