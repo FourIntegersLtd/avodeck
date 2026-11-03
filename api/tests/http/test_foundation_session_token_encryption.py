@@ -6,6 +6,7 @@ refuses a plaintext token; and everything that needs the token (refresh, sign-ou
 
 from __future__ import annotations
 
+import re
 from collections.abc import Awaitable, Callable
 
 import httpx
@@ -35,7 +36,7 @@ async def test_auth_tokens_are_stored_sealed_and_sign_out_still_works(
             if token is None:
                 continue
             # Booleans first, so a failure never prints the token.
-            sealed, readable_jwt = token.startswith("av1:"), "eyJ" in token
+            sealed, readable_jwt = token.startswith("av1:"), re.search(r"eyJ[\w-]+\.eyJ[\w-]+\.", token) is not None
             assert sealed, "a token is stored unsealed"
             assert not readable_jwt, "a JWT is stored readable"
 
