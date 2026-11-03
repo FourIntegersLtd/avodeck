@@ -7,8 +7,8 @@ import uuid
 from datetime import date
 
 from docx import Document
-from docx.oxml.ns import qn
 from docx.document import Document as DocumentType
+from docx.oxml.ns import qn
 
 from app.features.reader.transcript import TranscriptEntry
 from app.features.reader.transcript_docx import build
