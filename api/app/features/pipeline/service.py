@@ -529,11 +529,19 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
 
 
 async def _ask(
-    ctx: JobContext, services: PipelineServices, task: Any, pack: Any, who: Any, text: str, subject: str
+    ctx: JobContext,
+    services: PipelineServices,
+    task: Any,
+    pack: Any,
+    who: Any,
+    text: str,
+    subject: str,
+    provider: str | None = None,
 ) -> dict[str, Any] | None:
     """One model call (a page or a batch of pages). Uses ``run_detached`` so no pool connection
-    is held during slot waits or the Bedrock call itself."""
+    is held during slot waits or the model call itself. `provider="bedrock"` asks Bedrock alone."""
     assert services.kit is not None
+    only = {} if provider is None else {"provider": provider}  # a kit without the keyword is never given it
     try:
         return await services.kit.run_detached(
             ctx.database,
@@ -545,6 +553,7 @@ async def _ask(
             dates_of_birth=who.dates_of_birth,
             subject=subject,
             job_id=ctx.job_id,
+            **only,
         )
     except InvalidOutput:
         return None
@@ -625,6 +634,13 @@ def _entries_of(
     return entries, sorted_entries.rejected
 
 
+def _too_large_for_fallback(exc: Exception) -> int | None:
+    """The fallback provider's own pages-per-call when `exc` is the kit's `TooLargeForFallback`, else None.
+    Matched by name and attribute so this slice does not import the kit's exception class."""
+    size = getattr(exc, "pages_per_call", None)
+    return size if type(exc).__name__ == "TooLargeForFallback" and isinstance(size, int) and size >= 1 else None
+
+
 async def _extract(ctx: JobContext, services: PipelineServices) -> int:
     """Extracts every page waiting for it, in batches of up to `extract.pages_per_call` pages sent to
     the model in one call (one call per batch, not per page, to stay inside the account-wide Bedrock
@@ -649,9 +665,13 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         who = await services.identity(conn, ctx.case_id)
     if services.kit is None:
         raise ProcessingPaused("model_unavailable")
-    task = extract.task_for(pack)
+    limits = getattr(services.kit, "primary_limits", None)  # the model provider's own ceilings, when the kit has them
+    task = extract.task_for(pack, limits.max_output_tokens if limits is not None else extract.BATCH_MAX_TOKENS)
+    bedrock_task = extract.task_for(pack)  # a re-split call goes to Bedrock, whose answer limit is the default
     model_id = model_for(services.kit.settings, task.model)
-    size = extract.pages_per_call(services.kit.settings.extraction_batch_size)
+    size = extract.pages_per_call(
+        services.kit.settings.extraction_batch_size, limits.pages_per_call if limits is not None else None
+    )
     batches = [waiting[i : i + size] for i in range(0, len(waiting), size)]
     done = 0
 
@@ -667,7 +687,9 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         answers: dict[int, Mapping[str, Any]] = {}
         asked = False
 
-        async def ask_pages(group: Sequence[tuple[uuid.UUID, int]]) -> dict[int, Mapping[str, Any]]:
+        async def ask_pages(
+            group: Sequence[tuple[uuid.UUID, int]], provider: str | None = None
+        ) -> dict[int, Mapping[str, Any]]:
             """One call for the group, asked twice if a page failed provenance. A group with no usable answer
             at all (cut off at the output limit) is split in half and each half asked again, down to single
             pages, so one oversized answer never costs the pages their extraction."""
@@ -684,16 +706,17 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 raw = await _ask(
                     ctx,
                     services,
-                    task,
+                    task if provider is None else bedrock_task,
                     pack,
                     who,
                     extract.batch_text([(page_no, loaded[page_id].text) for page_id, page_no in group]),
                     subject,
+                    provider,
                 )
                 found = extract.pages_of(raw) if raw is not None else {}
                 if not found and len(group) > 1:
                     half = len(group) // 2
-                    return {**await ask_pages(group[:half]), **await ask_pages(group[half:])}
+                    return {**await ask_pages(group[:half], provider), **await ask_pages(group[half:], provider)}
                 ok = raw is not None and all(
                     page_no in found
                     and not extract.sort_facts(found[page_no], loaded[page_id].texts, loaded[page_id].struck).refused
@@ -705,7 +728,15 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
 
         if askable:
             asked = True
-            answers = await ask_pages(askable)
+            try:
+                answers = await ask_pages(askable)
+            except Exception as exc:
+                fits = _too_large_for_fallback(exc)
+                if fits is None:
+                    raise
+                # The direct API failed and Bedrock cannot take a call this big: ask Bedrock in groups it can.
+                for i in range(0, len(askable), fits):
+                    answers.update(await ask_pages(askable[i : i + fits], "bedrock"))
         for page_id, page_no in batch:
             loaded_page = loaded[page_id]
             stored, size_, latest, texts = (
@@ -802,7 +833,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                     min(55, 40 + 15 * done // len(waiting)), step="sort", step_done=done, step_total=len(waiting)
                 )
 
-    await bounded(batches, one_batch, stop=_stop(ctx))
+    await bounded(batches, one_batch, limits.concurrency if limits is not None else CONCURRENCY, _stop(ctx))
     return len(waiting)
 
 

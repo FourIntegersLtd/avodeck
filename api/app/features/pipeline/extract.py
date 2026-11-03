@@ -53,7 +53,11 @@ BATCH_MAX_TOKENS = 16000
 MAX_PAGES_PER_CALL = 10
 
 
-def pages_per_call(configured: int) -> int:
+def pages_per_call(configured: int, limit: int | None = None) -> int:
+    """Pages in one call: the configured size, held to the model provider's own `limit` when the kit gives one
+    (that limit replaces the fixed `MAX_PAGES_PER_CALL`, and a configured size above it is expected, not logged)."""
+    if limit is not None:
+        return max(1, min(configured, limit))
     if configured > MAX_PAGES_PER_CALL:
         logger.warning("extraction batch size %d is above the output limit; using %d", configured, MAX_PAGES_PER_CALL)
     return max(1, min(configured, MAX_PAGES_PER_CALL))
@@ -160,14 +164,14 @@ def output_schema(pack: MergedPack) -> dict[str, Any]:
     }
 
 
-def task_for(pack: MergedPack) -> AiTask:
+def task_for(pack: MergedPack, max_tokens: int = BATCH_MAX_TOKENS) -> AiTask:
     return AiTask(
         task_id=TASK_ID,
         prompt_version=PROMPT_VERSION,
         model=MODEL_ROLE,
         system=_system(),
         schema=output_schema(pack),
-        max_tokens=BATCH_MAX_TOKENS,
+        max_tokens=max_tokens,
     )
 
 

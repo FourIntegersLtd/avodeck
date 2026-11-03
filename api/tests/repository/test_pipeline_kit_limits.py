@@ -190,4 +190,3 @@ def test_a_kit_limit_replaces_the_fixed_batch_size_without_a_warning(caplog: pyt
     assert extract.pages_per_call(3, 5) == 3
     assert extract.pages_per_call(10) == extract.MAX_PAGES_PER_CALL
     assert [r for r in caplog.records if r.levelname == "WARNING" and "5" in r.getMessage()] == []
-
