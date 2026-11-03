@@ -214,10 +214,16 @@ class ProviderLimits:
     pages_per_call: int  # pages the pipeline puts in one call
     max_output_tokens: int  # the largest answer a call to this provider may ask for
     concurrency: int  # calls in flight at once
+    widest_output_tokens: int = 0  # the wider answer a page cut off alone may ask for once; 0 = no wider ask
 
 
 # temporary, dummy data only (ADR 0036): many small calls in parallel, not a few big ones
-ANTHROPIC_LIMITS = ProviderLimits(rpm=1000, pages_per_call=5, max_output_tokens=8000, concurrency=200)
+# A dense page's answer was cut off at 8000 tokens (the JSON ends mid-way and fails its schema). The direct
+# client always streams (`anthropic_live`), so the SDK's large-`max_tokens` refusal does not apply: the cap is
+# 32000, and a page cut off even on its own is asked once more with 64000 (the model's own ceiling).
+ANTHROPIC_LIMITS = ProviderLimits(
+    rpm=1000, pages_per_call=5, max_output_tokens=32000, concurrency=200, widest_output_tokens=64000
+)
 BEDROCK_MAX_OUTPUT_TOKENS = 16000
 BEDROCK_CONCURRENCY = 3
 

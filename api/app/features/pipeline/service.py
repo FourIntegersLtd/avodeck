@@ -32,7 +32,7 @@ import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import Any
 
@@ -44,7 +44,7 @@ from app.core.ai import embed, pii, provenance
 from app.core.ai.answers import page_subject, reference_subject
 from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import model_for
-from app.core.ai.kit import InvalidOutput, TooLargeForFallback
+from app.core.ai.kit import InvalidOutput, OutputTruncated, TooLargeForFallback
 from app.core.ai.ocr import OcrFailed, OcrPage
 from app.core.contracts.fact_dates import case_anchor, latest_printed_date
 from app.core.contracts.fact_flags import flag_for_recheck
@@ -537,9 +537,12 @@ async def _ask(
     text: str,
     subject: str,
     provider: str | None = None,
+    *,
+    cut_off_raises: bool = False,
 ) -> dict[str, Any] | None:
     """One model call (a page or a batch of pages). Uses ``run_detached`` so no pool connection
-    is held during slot waits or the model call itself. `provider="bedrock"` asks Bedrock alone."""
+    is held during slot waits or the model call itself. `provider="bedrock"` asks Bedrock alone.
+    An answer cut off at the output cap returns None, or raises `OutputTruncated` with `cut_off_raises`."""
     assert services.kit is not None
     try:
         return await services.kit.run_detached(
@@ -554,6 +557,10 @@ async def _ask(
             job_id=ctx.job_id,
             provider=provider,
         )
+    except OutputTruncated:
+        if cut_off_raises:
+            raise  # the caller makes the call smaller or wider (`asking.answer_group`)
+        return None
     except InvalidOutput:
         return None
 
@@ -701,16 +708,21 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                         else page_subject((str(no), loaded[pid].subject) for pid, no in part)
                     )
                 )
-                return await _ask(
-                    ctx,
-                    services,
-                    task if provider is None else bedrock_task,
-                    pack,
-                    who,
-                    extract.batch_text([(no, loaded[pid].text) for pid, no in part]),
-                    part_subject,
-                    provider,
-                )
+                text = extract.batch_text([(no, loaded[pid].text) for pid, no in part])
+                chosen = task if provider is None else bedrock_task
+                try:
+                    return await _ask(
+                        ctx, services, chosen, pack, who, text, part_subject, provider, cut_off_raises=True
+                    )
+                except OutputTruncated:
+                    # A page cut off on its own is asked once with the provider's wider cap; a group is split by
+                    # `answer_group`. No wider cap (Bedrock, or none configured): the page is given up.
+                    wider = limits.widest_output_tokens if provider is None else 0
+                    if len(part) > 1 or wider <= chosen.max_tokens:
+                        raise
+                    return await _ask(
+                        ctx, services, replace(chosen, max_tokens=wider), pack, who, text, part_subject, provider
+                    )
 
             def refused(page: tuple[uuid.UUID, int], answer: Mapping[str, Any]) -> bool:
                 return bool(extract.sort_facts(answer, loaded[page[0]].texts, loaded[page[0]].struck).refused)
