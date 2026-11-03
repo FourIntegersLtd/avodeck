@@ -11065,6 +11065,11 @@ export interface components {
             done: number;
             /** Failed */
             failed: number;
+            /**
+             * Paused
+             * @default false
+             */
+            paused: boolean;
             /** Running */
             running: boolean;
             /** Total */

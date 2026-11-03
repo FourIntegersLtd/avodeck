@@ -221,8 +221,10 @@ class ProviderLimits:
 # A dense page's answer was cut off at 8000 tokens (the JSON ends mid-way and fails its schema). The direct
 # client always streams (`anthropic_live`), so the SDK's large-`max_tokens` refusal does not apply: the cap is
 # 32000, and a page cut off even on its own is asked once more with 64000 (the model's own ceiling).
+# The API reserves each call's max_tokens against the per-minute output allowance when it admits the call, so
+# concurrency x cap (50 x 32000 = 1.6M) is kept at the old 200 x 8000.
 ANTHROPIC_LIMITS = ProviderLimits(
-    rpm=1000, pages_per_call=5, max_output_tokens=32000, concurrency=200, widest_output_tokens=64000
+    rpm=1000, pages_per_call=5, max_output_tokens=32000, concurrency=50, widest_output_tokens=64000
 )
 BEDROCK_MAX_OUTPUT_TOKENS = 16000
 BEDROCK_CONCURRENCY = 3

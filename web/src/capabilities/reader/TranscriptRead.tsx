@@ -258,6 +258,10 @@ export function TranscriptRead() {
     }
   }, [caseId]);
 
+  // The run's own flags decide when the server sent them; a paused run is not moving, so it is not asked about again.
+  const retryRunning = retryInfo.retry ? retryInfo.retry.running : retryInfo.retrying;
+  const retryPaused = retryInfo.retry?.paused === true;
+
   useEffect(() => {
     void load(0, 1, "status");
     void progress();
@@ -272,10 +276,10 @@ export function TranscriptRead() {
     if (status !== "preparing" && !(status === "idle" && wait?.pipeline_running)) return;
     const timer = setTimeout(() => {
       void load(0, 1, "status");
-      if (retryInfo.retrying) void retryPages(); // the retry's own counts, from the server
+      if (retryRunning) void retryPages(); // the retry's own counts, from the server
     }, POLL_MS);
     return () => clearTimeout(timer);
-  }, [status, wait, load, retryInfo.retrying, retryPages]);
+  }, [status, wait, load, retryRunning, retryPages]);
 
   const fetchOutline = useCallback(() => {
     setOutlineFailed(false);
@@ -456,19 +460,20 @@ export function TranscriptRead() {
     }
     if (status === "idle" && wait?.can_prepare === false) return <Notice tone="info"><p>{w("transcript.ask_expert")}</p></Notice>;
     const done = wait?.prepared_pages ?? 0;
-    const run = retryInfo.retrying ? retryInfo.retry : null;
+    const run = retryRunning ? retryInfo.retry : null;
     const handled = run ? run.done + run.failed : 0;
     const retryCount =
       run && run.total > 0
         ? {
-            label: w("transcript.retry_progress", { done: count(handled, pack.locale), total: count(run.total, pack.locale), percent: count(Math.round((handled / run.total) * 100), pack.locale) }),
+            // Never 100% until the run has finished.
+            label: w("transcript.retry_progress", { done: count(handled, pack.locale), total: count(run.total, pack.locale), percent: count(Math.min(99, Math.round((handled / run.total) * 100)), pack.locale) }),
             value: handled,
             max: run.total,
           }
         : undefined;
     return (
       <WaitNotice
-        words={w(retryInfo.retrying ? "transcript.retrying" : "transcript.preparing")}
+        words={w(retryPaused ? "transcript.retry_paused" : retryRunning ? "transcript.retrying" : "transcript.preparing")}
         counted={retryCount ?? (all > 0 && done > 0 ? { label: w("transcript.preparing_page", { done: count(done, pack.locale), total: count(all, pack.locale) }), value: done, max: all } : undefined)}
         onRetry={status === "idle" && wait?.can_prepare !== false ? () => void retry() : undefined}
         progressTo={`/cases/${caseId}/preparing`}

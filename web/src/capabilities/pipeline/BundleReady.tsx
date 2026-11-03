@@ -25,7 +25,8 @@ function RetryNotice({ retry, locale }: { retry: Schemas["RetryProgress"] | null
   const label = w("bundle.retry_progress", {
     done: formatNumber(handled, locale),
     total: formatNumber(retry.total, locale),
-    percent: formatNumber(Math.round((handled / retry.total) * 100), locale),
+    // Never 100% until the run has finished (rounding up must not say "done" early).
+    percent: formatNumber(Math.min(99, Math.round((handled / retry.total) * 100)), locale),
   });
   return (
     <Notice tone="info">
@@ -49,7 +50,10 @@ export function BundleReady() {
   }, [caseId]);
   const again = useBusy();
   const [retryError, setRetryError] = useState(false);
-  const retrying = found.data?.summary.retrying === true || found.data?.summary.retry?.running === true;
+  // The run's own flags decide when the server sent them: a paused run is not moving, so it is not asked about again.
+  const run = found.data?.summary.retry ?? null;
+  const paused = run?.paused === true;
+  const retrying = run ? run.running : found.data?.summary.retrying === true;
   const reload = found.reload;
 
   // While the pages are being tried again, the page asks for the summary until the job is done.
@@ -143,8 +147,9 @@ export function BundleReady() {
     <div className="av-page">
       <h1>{w(notProcessed > 0 && !retrying ? "bundle.title_partial" : "bundle.title")}</h1>
       {retrying && <RetryNotice retry={s.retry ?? null} locale={locale} />}
-      {!retrying && s.retry && notProcessed === 0 && <Notice tone="info"><p>{w("bundle.retry_all_done")}</p></Notice>}
-      {!retrying && notProcessed > 0 && (
+      {paused && <Notice tone="info"><p>{w("bundle.retry_paused")}</p></Notice>}
+      {!retrying && !paused && s.retry && notProcessed === 0 && <Notice tone="info"><p>{w("bundle.retry_all_done")}</p></Notice>}
+      {!retrying && !paused && notProcessed > 0 && (
         <Notice tone="warning">
           <p><strong>{wn("bundle.not_processed", notProcessed, locale)}</strong></p>
           {s.retry && <p>{wn("bundle.retry_left", notProcessed, locale)}</p>}
