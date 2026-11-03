@@ -11,7 +11,7 @@ import { useStepUp } from "../../foundation/lib/stepUp";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, ProgressBar, Spinner } from "../../foundation/ui";
 import { count } from "./data";
-import { smallPageImage } from "../../foundation/lib/pageImageCache";
+import { pageImage } from "../../foundation/lib/pageImageCache";
 import { w } from "./words";
 import { saveBlob } from "../../foundation/lib/files";
 import { appendices as appendixLists, NO_ENTRIES, TranscriptContents, UNREAD } from "./TranscriptContents";
@@ -94,20 +94,27 @@ function onScreen(hit: IntersectionObserverEntry): boolean {
   return screenHeight > 0 && hit.intersectionRect.height >= MOST * screenHeight;
 }
 
-/** The small picture of a page, opened by the reader; opening it is reported (the way a page with no entries is read). */
+/** The picture of a page, opened by the reader (the full picture: a page the computer could not read is often faint or handwritten, and a small one is blurry); opening it is reported (the way a page with no entries is read). */
 function PagePicture({ caseId, pageNo, onSeen }: { caseId: string; pageNo: number; onSeen: SeenFn }) {
   const [src, setSrc] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   async function open() {
     try {
-      setSrc(await smallPageImage(caseId, pageNo));
+      setSrc(await pageImage(caseId, pageNo));
       setFailed(false);
       onSeen({ page_no: pageNo, picture_opened: true });
     } catch {
       setFailed(true);
     }
   }
-  if (src) return <img className="rd-entry__picture" src={src} alt={w("transcript.picture_alt", { page: pageNo })} />;
+  if (src) {
+    return (
+      <>
+        <img className="rd-entry__picture" src={src} alt={w("transcript.picture_alt", { page: pageNo })} />
+        <p><Link to={`/cases/${caseId}/read/${pageNo}`}>{w("transcript.see_page")}</Link></p>
+      </>
+    );
+  }
   return (
     <>
       <Button variant="secondary" onClick={() => void open()}>{w("transcript.open_picture", { page: pageNo })}</Button>
