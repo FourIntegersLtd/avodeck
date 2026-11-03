@@ -151,12 +151,14 @@ async def request_entries(conn: AsyncConnection, case_id: uuid.UUID) -> uuid.UUI
 
 
 async def retryable_unread_page_ids(conn: AsyncConnection, case_id: uuid.UUID) -> list[uuid.UUID]:
-    """Pages whose answer failed after the model was asked about them alone: extracted, entries failed,
-    not set aside, not copies."""
+    """The one definition of the pages that can be tried again, used by the retry job, the bundle summary and
+    the transcript button: the model failed on them (whatever the label), they have words to read, they are
+    not set aside and not copies. The failed marker stays until a later extraction succeeds, so a retry that
+    itself fails leaves them here."""
     cur = await conn.execute(
         "select p.id from app.page_analysis a join app.pages p on p.id = a.page_id"
-        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and a.extracted_at is not null"
-        " and a.entries_extracted_at is null and a.entries_failed_at is not null and a.reason = 'invalid_output'"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and a.entries_extracted_at is null and a.entries_failed_at is not null and p.text_source is not null"
         " and not p.quarantined and p.duplicate_of_page_id is null"
         " order by p.bundle_page_no",
         (case_id,),
@@ -170,7 +172,9 @@ async def retryable_unread_pages(conn: AsyncConnection, case_id: uuid.UUID) -> i
 
 async def request_unread_retry(conn: AsyncConnection, case_id: uuid.UUID) -> uuid.UUID | None:
     """Queues the job that asks again about the unread pages only; nothing queued when there are none, when one
-    is waiting, or while the pipeline runs (it would meet the same pages)."""
+    is waiting, or while the pipeline runs (it would meet the same pages). Presses are taken one at a time per
+    case, so two at once queue one job."""
+    await conn.execute("select pg_advisory_xact_lock(hashtext(%s))", (f"retry_unread_pages:{case_id}",))
     if await retryable_unread_pages(conn, case_id) == 0:
         return None
     if await entries_status(conn, case_id) == "preparing" or await pipeline_running(conn, case_id):

@@ -1479,16 +1479,16 @@ async def reset_for_reprocess(conn: AsyncConnection, case_id: uuid.UUID) -> int:
 
 async def reset_unread(conn: AsyncConnection, case_id: uuid.UUID) -> int:
     """Pages the model could not read are made ready to be extracted again: their unverified suggestions are
-    superseded (rejected) and their failed marker cleared. Verified and edited facts and every other page are
-    left as they are."""
+    superseded (rejected) and they are marked as waiting to be extracted. Their failed marker stays until an
+    extraction succeeds, so a retry that fails leaves them retryable. Verified and edited facts and every other
+    page are left as they are."""
     ids = await record_entries.retryable_unread_page_ids(conn, case_id)
     if ids:
         await conn.execute(
             "update app.facts set status = 'rejected' where page_id = any(%s) and status = 'suggested'", (ids,)
         )
         await conn.execute(
-            "update app.page_analysis set extracted_at = null, entries_failed_at = null, updated_at = now()"
-            " where page_id = any(%s)",
+            "update app.page_analysis set extracted_at = null, updated_at = now() where page_id = any(%s)",
             (ids,),
         )
     return len(ids)

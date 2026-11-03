@@ -85,7 +85,7 @@ export function TranscriptContents({ coverage, sections, appendices: lists, loca
             ))}
           </dl>
         )}
-        {coverage && coverage.unreadable > 0 && onRetryUnread && (
+        {onRetryUnread && (
           <div className="rd-tiles__note">
             <p>{w("transcript.try_unread_lead")}</p>
             <Button variant="secondary" onClick={onRetryUnread}>{w("transcript.try_unread")}</Button>

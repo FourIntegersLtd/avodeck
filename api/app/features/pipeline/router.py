@@ -399,6 +399,7 @@ async def bundle_summary(
     suggested = [_quarantine(q) for q in held if q.status == "suggested"]
     set_aside = [_quarantine(q) for q in held if q.status in ("confirmed", "purged")]
     unopened = [_document(d) for d in docs if d.unreadable_reason]
+    failed = await record_entries.retryable_unread_pages(conn, case_id)
     return BundleSummary(
         pages=sum(n for _, n in sources),
         by_source=[SourceCount(source_type=k, pages=n) for k, n in sources],
@@ -420,8 +421,8 @@ async def bundle_summary(
         exhibits=[_exhibit(e) for e in await repo.exhibits(conn, case_id)],
         foreign_language=[ForeignPage(page_id=p, page_no=n, language=code) for p, n, code in foreign],
         splits=await repo.split_count(conn, case_id),
-        failed_pages=await record_entries.retryable_unread_pages(conn, case_id),
-        retrying=await record_entries.retry_waiting(conn, case_id),
+        failed_pages=failed,
+        retrying=failed > 0 and await record_entries.entries_status(conn, case_id) == "preparing",
     )
 
 

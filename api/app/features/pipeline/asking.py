@@ -23,13 +23,17 @@ async def answer_group(
     """The answers for the group's pages, by page number.
 
     The group is asked twice at most when a page is missing or `refused` (failed provenance); the second
-    answer stands. A group with no answer at all is split in half and each half asked again, down to single
-    pages. Pages the answer left out are then asked again on their own, as a smaller group.
+    answer stands unless it is empty, when the first one's pages are kept. A group with no answer at all is
+    split in half and each half asked again, down to single pages. Pages the answer left out are then asked
+    again on their own, as a smaller group.
     """
     found: dict[int, Mapping[str, Any]] = {}
     for _ in range(2):
         raw = await ask(group)
-        found = extract.pages_of(raw) if raw is not None else {}
+        got = extract.pages_of(raw) if raw is not None else {}
+        if not got and found:
+            break  # an empty second answer does not undo the pages the first one gave
+        found = got
         if not found and len(group) > 1:
             half = len(group) // 2
             return {**await answer_group(group[:half], ask, refused), **await answer_group(group[half:], ask, refused)}
