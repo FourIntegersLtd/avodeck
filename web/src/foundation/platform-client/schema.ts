@@ -3572,7 +3572,7 @@ export interface paths {
         put?: never;
         /**
          * Transcript Retry
-         * @description The reader asks again: the entries job after it failed, else the pages the model could not read.
+         * @description The reader asks again: the pages the model could not read first, else the entries job after it failed.
          *     Queues once, nothing while one is waiting.
          */
         post: operations["transcript_retry_v1_cases__case_id__transcript_retry_post"];
