@@ -11065,6 +11065,8 @@ export interface components {
             done: number;
             /** Failed */
             failed: number;
+            /** Pause Reason */
+            pause_reason?: ("cost_guard" | "other") | null;
             /**
              * Paused
              * @default false

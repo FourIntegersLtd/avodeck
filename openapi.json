@@ -15861,6 +15861,21 @@
             "title": "Failed",
             "type": "integer"
           },
+          "pause_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cost_guard",
+                  "other"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Reason"
+          },
           "paused": {
             "default": false,
             "title": "Paused",
