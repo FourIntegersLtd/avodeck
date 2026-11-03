@@ -177,5 +177,5 @@ async def test_the_retry_job_marks_the_pages_it_takes(worker_dsn: str, admin: ps
     left = page(seed, admin, case, doc, 2, read="1 hour", failed=None)  # read well: not retryable
     async with worker_database(worker_dsn) as worker, worker.job(case) as conn:  # the worker takes the pages
         assert await repo.reset_unread(conn, case, run) == 1
-    marks = dict(admin.execute("select page_id, retry_job_id from app.page_analysis").fetchall())
+    marks: dict[Any, Any] = dict(admin.execute("select page_id, retry_job_id from app.page_analysis").fetchall())
     assert marks[taken] == run and marks[left] is None

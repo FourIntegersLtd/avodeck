@@ -122,9 +122,9 @@ async def run(
         AI_EXTRACTION_BATCH_SIZE="10",
         BEDROCK_RPM_LIMIT="1000",
     )
-    kit = AiKit(settings, bedrock, direct=direct, sleep=no_sleep)  # type: ignore[arg-type]
+    kit = AiKit(settings, bedrock, direct=direct, sleep=no_sleep)
     async with ready as h:
-        with pipeline.wiring.use(dataclasses.replace(current(), kit=kit)):  # type: ignore[arg-type]
+        with pipeline.wiring.use(dataclasses.replace(current(), kit=kit)):
             await h.upload(document)
             finished = await h.drain()
         return direct, bedrock, h, finished
