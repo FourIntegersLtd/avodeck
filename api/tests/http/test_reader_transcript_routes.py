@@ -456,9 +456,15 @@ async def test_the_outline_gives_sections_with_offsets_and_page_coverage(
     body = resp.json()
     assert body["status"] == "ready"
     assert body["sections"] == [
-        {"key": "clinic", "label": "t.clinic", "count": 2, "offset": 0},
-        {"key": "rest", "label": "t.rest", "count": 1, "offset": 2},
-    ]
+        {
+            "key": "clinic", "label": "t.clinic", "count": 2, "offset": 0, "first_date": None, "last_date": None,
+            "pages": 2, "years": [{"year": None, "offset": 0, "count": 2}],
+        },
+        {
+            "key": "rest", "label": "t.rest", "count": 1, "offset": 2, "first_date": None, "last_date": None,
+            "pages": 1, "years": [{"year": None, "offset": 2, "count": 1}],
+        },
+    ]  # fmt: skip
     assert body["coverage"] == {"total_pages": 4, "with_entries": 3, "no_entries": 1, "unreadable": 0, "set_aside": 1}
 
 
