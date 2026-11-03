@@ -15861,6 +15861,11 @@
             "title": "Failed",
             "type": "integer"
           },
+          "paused": {
+            "default": false,
+            "title": "Paused",
+            "type": "boolean"
+          },
           "running": {
             "title": "Running",
             "type": "boolean"

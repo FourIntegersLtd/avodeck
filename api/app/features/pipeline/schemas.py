@@ -143,6 +143,7 @@ class RetryProgress(BaseModel):
     """How far a "Try these pages again" run has got; counts only. Counted by the server, never by the browser."""
 
     running: bool  # the run is queued or running; false once it has ended (shown for a few minutes)
+    paused: bool = False  # the run is held back for now (nothing is moving): say so, do not keep checking
     total: int  # the pages in the run
     done: int  # read well since the run began
     failed: int  # could not be read again

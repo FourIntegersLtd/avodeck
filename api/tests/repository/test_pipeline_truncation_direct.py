@@ -39,7 +39,13 @@ class Client:
     answer would need more tokens than the request's cap, when it reports the whole cap used (cut off)."""
 
     def __init__(
-        self, words: dict[int, Any], needs: Needs, *, endpoint: str, model_id: str | None, unavailable: int | None = None
+        self,
+        words: dict[int, Any],
+        needs: Needs,
+        *,
+        endpoint: str,
+        model_id: str | None,
+        unavailable: int | None = None,
     ) -> None:
         self.words = words
         self.needs = needs

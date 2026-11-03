@@ -21,6 +21,7 @@ from app.features.pipeline import repo
 from tests.support.db import scope_for
 from tests.support.packs import LAUNCH
 from tests.support.seed import Seed
+from tests.support.uploads import worker_database
 
 pytestmark = pytest.mark.anyio
 
@@ -169,12 +170,12 @@ async def test_a_run_finished_long_ago_is_forgotten_and_only_the_latest_run_coun
     assert (got.running, got.total) == (True, 1)
 
 
-async def test_the_retry_job_marks_the_pages_it_takes(api_db: Database, admin: psycopg.Connection, seed: Seed) -> None:
-    expert, case, doc = case_of(seed)
+async def test_the_retry_job_marks_the_pages_it_takes(worker_dsn: str, admin: psycopg.Connection, seed: Seed) -> None:
+    _, case, doc = case_of(seed)
     run = job(admin, case)
     taken = page(seed, admin, case, doc, 1, read=None, failed="1 hour")
     left = page(seed, admin, case, doc, 2, read="1 hour", failed=None)  # read well: not retryable
-    async with api_db.request(scope_for(expert)) as conn:
+    async with worker_database(worker_dsn) as worker, worker.job(case) as conn:  # the worker takes the pages
         assert await repo.reset_unread(conn, case, run) == 1
     marks = dict(admin.execute("select page_id, retry_job_id from app.page_analysis").fetchall())
     assert marks[taken] == run and marks[left] is None
