@@ -141,15 +141,15 @@ def test_contents_gives_the_page_where_each_heading_is() -> None:
     reader = PdfReader(io.BytesIO(_build()))
     texts = _texts(reader)
     assert "Contents" in texts[1]
-    contents = texts[1].splitlines()
+    contents = texts[1].splitlines()  # pypdf prints a row's dots and page number just before its words
     for heading, row in (
         ("1. First part", "First part"),
         ("Appendix A  Pages with no entries", "Appendix A"),
         ("Appendix B  Pages the computer couldn't read", "Appendix B"),
         ("Appendix C  Pictures of the pages", "Appendix C"),
     ):
-        line = next(ln for ln in contents if row in ln)
-        listed = int(re.search(r"(\d+)\s*$", line).group(1))  # type: ignore[union-attr]
+        at = next(i for i, ln in enumerate(contents) if row in ln)
+        listed = int(re.search(r"(\d+)\s*$", contents[at - 1]).group(1))  # type: ignore[union-attr]
         probe = heading.replace("  ", " ")
         found = next(i for i in range(2, len(texts)) if probe in " ".join(texts[i].split()))
         assert listed == found + 1, heading
