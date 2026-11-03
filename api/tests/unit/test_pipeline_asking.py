@@ -77,3 +77,18 @@ async def test_a_refused_page_has_the_batch_asked_a_second_time_and_no_more() ->
 
     found = await answer_group(pages(1, 2, 3), ask, refused)
     assert sorted(found) == [1, 2, 3] and len(ask.calls) == 2
+
+
+async def test_pages_the_first_answer_gave_are_kept_when_the_second_whole_batch_answer_is_empty() -> None:
+    whole: list[dict[str, Any] | None] = [{"pages": [{"page_no": 1}, {"page_no": 2}]}, None]
+    calls: list[list[int]] = []
+
+    async def ask(group: Sequence[Page]) -> dict[str, Any] | None:
+        calls.append([n for _, n in group])
+        if len(group) == 4:
+            return whole.pop(0)
+        return {"pages": [{"page_no": n} for _, n in group]}
+
+    found = await answer_group(pages(1, 2, 3, 4), ask, never_refused)
+    assert sorted(found) == [1, 2, 3, 4]
+    assert calls == [[1, 2, 3, 4], [1, 2, 3, 4], [3, 4]], "the pages already answered are not asked again"
