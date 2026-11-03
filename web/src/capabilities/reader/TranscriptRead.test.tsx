@@ -260,6 +260,35 @@ describe.each([
     expect(screen.queryByRole("progressbar", { name: /Trying again/ })).toBeNull();
   });
 
+  test("a retry paused for the processing allowance says so and offers Try again at once, not after a wait", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 530, retrying: true, retry: { running: false, paused: true, pause_reason: "cost_guard", total: 650, done: 117, failed: 3 } };
+    const log = mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 897, waiting_for: "entries", can_prepare: true });
+    const { user } = renderAt(PATH);
+    expect(await screen.findByText("This case has used up its processing allowance for now.")).toBeVisible();
+    expect(screen.queryByText("Trying again has paused for now. Please check back in a little while.")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(log.retries).toBe(1));
+  });
+
+  test("a retry paused for another reason gives the general line and still offers Try again", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 530, retrying: true, retry: { running: false, paused: true, pause_reason: "other", total: 650, done: 117, failed: 3 } };
+    mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 897, waiting_for: "entries", can_prepare: true });
+    renderAt(PATH);
+    expect(await screen.findByText("Trying again has paused for now. Please check back in a little while.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
+  });
+
+  test("a person who may not start the work sees why it paused but no Try again", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 530, retrying: true, retry: { running: false, paused: true, pause_reason: "cost_guard", total: 650, done: 117, failed: 3 } };
+    mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 897, waiting_for: "entries", can_prepare: false });
+    renderAt(PATH);
+    expect(await screen.findByText("This case has used up its processing allowance for now.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
   test("while preparing it shows a spinner and how many pages are done", async () => {
     mockReader(pack);
     mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 900, waiting_for: "entries" });

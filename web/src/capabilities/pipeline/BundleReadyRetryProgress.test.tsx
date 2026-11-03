@@ -103,14 +103,14 @@ describe.each([
     expect(await screen.findByRole("progressbar", { name: "Trying again: 650 of 650 pages (99%)" })).toBeVisible();
   });
 
-  test("a paused run says so in plain words, shows no moving bar and no button, and is not asked about again", async () => {
+  test("a paused run says so in plain words, shows no moving bar, keeps the button, and is not asked about again", async () => {
     const log = mock(pack, [
       { failed_pages: 530, retrying: true, retry: { running: false, paused: true, total: 650, done: 117, failed: 3 } },
     ]);
     renderAt(PATH);
     expect(await screen.findByText("Trying again has paused for now. Please check back in a little while.")).toBeVisible();
     expect(screen.queryByRole("progressbar")).toBeNull();
-    expect(screen.queryByRole("button", { name: BUTTON })).toBeNull();
+    expect(screen.getByRole("button", { name: BUTTON })).toBeVisible(); // a pause that never ends by itself must not be a dead end
     await new Promise((resolve) => setTimeout(resolve, 3600));
     expect(log.summaries).toBe(1);
   }, 10000);
