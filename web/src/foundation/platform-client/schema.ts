@@ -9635,12 +9635,35 @@ export interface components {
         OutlineSection: {
             /** Count */
             count: number;
+            /** First Date */
+            first_date?: string | null;
             /** Key */
             key: string;
             /** Label */
             label: string;
+            /** Last Date */
+            last_date?: string | null;
             /** Offset */
             offset: number;
+            /**
+             * Pages
+             * @default 0
+             */
+            pages: number;
+            /**
+             * Years
+             * @default []
+             */
+            years: components["schemas"]["OutlineYear"][];
+        };
+        /** OutlineYear */
+        OutlineYear: {
+            /** Count */
+            count: number;
+            /** Offset */
+            offset: number;
+            /** Year */
+            year: number | null;
         };
         /** OverEstimate */
         OverEstimate: {
