@@ -196,6 +196,32 @@ ENDPOINTS = ("BEDROCK_ENDPOINT", "AZURE_DI_ENDPOINT", "AZURE_SPEECH_ENDPOINT")
 _IN_REGION_MODEL = re.compile(r"^anthropic\.[a-z0-9][a-z0-9.\-]*(:\d+)?$")
 
 
+# The direct Anthropic API as the primary model provider. Sets rule 5 aside knowingly, behind
+# `AI_PRIMARY_PROVIDER=anthropic` only (ADR 0036). Everything below applies only then.
+PROVIDERS = ("bedrock", "anthropic")
+ANTHROPIC_DIRECT_MODELS = {
+    "sonnet": "claude-haiku-5-5"
+}  # temporary, dummy data only (ADR 0036); no opus: it goes to Bedrock
+ANTHROPIC_ENDPOINT = "https://api.anthropic.com"  # temporary, dummy data only (ADR 0036)
+ANTHROPIC_HOST = "api.anthropic.com"  # temporary, dummy data only (ADR 0036): added to the allow-list in code
+
+
+@dataclass(frozen=True)
+class ProviderLimits:
+    """One model provider's own ceilings. Providers never share a pool (ADR 0036)."""
+
+    rpm: int  # requests per minute (the slot scheduler's ceiling for this provider)
+    pages_per_call: int  # pages the pipeline puts in one call
+    max_output_tokens: int  # the largest answer a call to this provider may ask for
+    concurrency: int  # calls in flight at once
+
+
+# temporary, dummy data only (ADR 0036): many small calls in parallel, not a few big ones
+ANTHROPIC_LIMITS = ProviderLimits(rpm=1000, pages_per_call=5, max_output_tokens=8000, concurrency=200)
+BEDROCK_MAX_OUTPUT_TOKENS = 16000
+BEDROCK_CONCURRENCY = 3
+
+
 @dataclass(frozen=True)
 class AiSettings:
     """The cell's AI services. Every value comes from the cell config; nothing is written in code.
@@ -217,6 +243,30 @@ class AiSettings:
     cost_guard_multiple: int = 3
     bedrock_rpm_limit: int = 5
     extraction_batch_size: int = 10
+    # Temporary, dummy data only (ADR 0036). The defaults are today's behaviour: Bedrock only.
+    primary_provider: str = "bedrock"
+    direct_models: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    anthropic_endpoint: str = ""
+
+    @property
+    def limits(self) -> Mapping[str, ProviderLimits]:
+        """Each provider's own limits. `anthropic` is present only while it is the primary (ADR 0036)."""
+        found = {
+            "bedrock": ProviderLimits(
+                rpm=self.bedrock_rpm_limit,
+                pages_per_call=self.extraction_batch_size,
+                max_output_tokens=BEDROCK_MAX_OUTPUT_TOKENS,
+                concurrency=BEDROCK_CONCURRENCY,
+            )
+        }
+        if self.primary_provider == "anthropic":
+            found["anthropic"] = ANTHROPIC_LIMITS
+        return MappingProxyType(found)
+
+    @property
+    def primary_limits(self) -> ProviderLimits:
+        return self.limits[self.primary_provider]
+
     # In-region models tried, in order, when the primary model is throttled (each has its own quota bucket).
     overflow_models: tuple[str, ...] = ()
 
@@ -230,8 +280,22 @@ def endpoint_allowed(url: str, allowed_hosts: frozenset[str]) -> bool:
     return parts.scheme in ("https", "wss") and parts.hostname is not None and parts.hostname in allowed_hosts
 
 
+def primary_provider(env: Mapping[str, str] | None = None) -> str:
+    """`AI_PRIMARY_PROVIDER`: `bedrock` (unset, the default) or `anthropic` (needs `ANTHROPIC_API_KEY`; ADR 0036).
+
+    Only the key's presence is read here; its value is never stored in the settings."""
+    source = os.environ if env is None else env
+    provider = source.get("AI_PRIMARY_PROVIDER", "").strip() or "bedrock"
+    if provider not in PROVIDERS:
+        raise ConfigError("AI_PRIMARY_PROVIDER must be bedrock or anthropic")
+    if provider == "anthropic" and not source.get("ANTHROPIC_API_KEY", "").strip():
+        raise ConfigError("AI_PRIMARY_PROVIDER=anthropic needs ANTHROPIC_API_KEY")
+    return provider
+
+
 def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
     source = os.environ if env is None else env
+    provider = primary_provider(source)
     names = ("REGION", "AWS_REGION", *MODEL_ROLES.values(), *ENDPOINTS, "AI_ENDPOINT_ALLOW_LIST")
     values = {name: source.get(name, "").strip() for name in names}
     missing = [name for name, value in values.items() if not value]
@@ -264,6 +328,7 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
     primaries = {values[name] for name in MODEL_ROLES.values()}
     overflow = tuple(dict.fromkeys(m for m in listed if m not in primaries))
 
+    direct = provider == "anthropic"
     return AiSettings(
         region=values["REGION"],
         bedrock_region=values["AWS_REGION"],
@@ -271,12 +336,15 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
         bedrock_endpoint=values["BEDROCK_ENDPOINT"],
         ocr_endpoint=values["AZURE_DI_ENDPOINT"],
         speech_endpoint=values["AZURE_SPEECH_ENDPOINT"],
-        allowed_hosts=hosts,
+        allowed_hosts=hosts | {ANTHROPIC_HOST} if direct else hosts,
         expected_tokens_per_page=number("AI_EXPECTED_TOKENS_PER_PAGE", 4000),
         min_expected_pages=number("AI_MIN_EXPECTED_PAGES", 100),
         cost_guard_multiple=number("AI_COST_GUARD_MULTIPLE", 3),
         bedrock_rpm_limit=number("BEDROCK_RPM_LIMIT", 5),
         extraction_batch_size=number("AI_EXTRACTION_BATCH_SIZE", 10),
+        primary_provider=provider,
+        direct_models=MappingProxyType(dict(ANTHROPIC_DIRECT_MODELS)) if direct else MappingProxyType({}),
+        anthropic_endpoint=ANTHROPIC_ENDPOINT if direct else "",
         overflow_models=overflow,
     )
 

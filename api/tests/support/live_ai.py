@@ -132,3 +132,87 @@ def converse_response(output: dict[str, Any], *, input_tokens: int = 120, output
 
 
 AWS_KEYS = {"AWS_ACCESS_KEY_ID": "AKIATESTNOTREAL00000", "AWS_SECRET_ACCESS_KEY": "test-secret-not-real"}
+
+
+def sse_events(message: dict[str, Any], *, fail_with: dict[str, Any] | None = None) -> bytes:
+    """A Messages API message as the server-sent events of a streamed reply.
+
+    `fail_with` ends the stream with an `error` event (after the status was already 200) instead of finishing.
+    The tool input (or text) goes out in small `partial_json` / `text_delta` pieces, as the API sends it.
+    """
+    import json as _json
+
+    def event(name: str, data: dict[str, Any]) -> str:
+        return f"event: {name}\ndata: {_json.dumps(data)}\n\n"
+
+    usage = dict(message["usage"])
+    out = [
+        event(
+            "message_start",
+            {
+                "type": "message_start",
+                "message": {
+                    **{k: v for k, v in message.items() if k not in ("content", "stop_reason")},
+                    "content": [],
+                    "stop_reason": None,
+                    "usage": {**usage, "output_tokens": 1},
+                },
+            },
+        )
+    ]
+    for index, block in enumerate(message["content"]):
+        if block["type"] == "tool_use":
+            out.append(
+                event(
+                    "content_block_start",
+                    {"type": "content_block_start", "index": index, "content_block": {**block, "input": {}}},
+                )
+            )
+            raw = _json.dumps(block["input"])
+            for at in range(0, len(raw), 40):
+                out.append(
+                    event(
+                        "content_block_delta",
+                        {
+                            "type": "content_block_delta",
+                            "index": index,
+                            "delta": {"type": "input_json_delta", "partial_json": raw[at : at + 40]},
+                        },
+                    )
+                )
+        else:
+            out.append(
+                event(
+                    "content_block_start",
+                    {"type": "content_block_start", "index": index, "content_block": {"type": "text", "text": ""}},
+                )
+            )
+            out.append(
+                event(
+                    "content_block_delta",
+                    {
+                        "type": "content_block_delta",
+                        "index": index,
+                        "delta": {"type": "text_delta", "text": block["text"]},
+                    },
+                )
+            )
+        if fail_with is not None and index == 0:
+            out.append(event("error", fail_with))
+            return "".join(out).encode()
+        out.append(event("content_block_stop", {"type": "content_block_stop", "index": index}))
+    if fail_with is not None:
+        out.append(event("error", fail_with))
+        return "".join(out).encode()
+    out.append(
+        event(
+            "message_delta",
+            {
+                "type": "message_delta",
+                "delta": {"stop_reason": message["stop_reason"], "stop_sequence": None},
+                "usage": {"output_tokens": usage["output_tokens"]},
+            },
+        )
+    )
+    out.append(event("message_stop", {"type": "message_stop"}))
+    return "".join(out).encode()

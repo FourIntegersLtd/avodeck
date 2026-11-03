@@ -8,9 +8,11 @@ is sent.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field, fields
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, Self, runtime_checkable
 
 from app.core.ai.cell import check_endpoint, check_model
 from app.core.ai.recordings import FixtureStore
@@ -46,10 +48,56 @@ class ModelResponse:
     output: dict[str, Any] = field(repr=False)
     input_tokens: int
     output_tokens: int
-    model_id: str | None = None  # set by the AI kit: the model that answered (it may be an overflow model)
+    model_id: str | None = None  # the model that answered, when not the one asked for (an overflow model, ADR 0036)
 
 
-class ServiceBusy(Exception):
+_SAFE_FIELD = re.compile(r"^[A-Za-z0-9_.-]{1,100}$")
+
+# "2/4" while a kit makes a direct attempt, so the client's one log line can say which attempt it was
+# (ADR 0036). Set by `kit.AiKit` right before the call; empty for every other caller.
+CALL_ATTEMPT: ContextVar[str | None] = ContextVar("ai_call_attempt", default=None)
+
+
+class ModelCallFailure(Exception):
+    """A model call that did not give an answer. Carries only typed, vetted facts for the logs: the HTTP
+    status, the vendor's error type and code, its request ID and the underlying exception class. Never
+    the message or the body, which can echo the input (rule 6)."""
+
+    status: int | None = None
+    error_type: str | None = None
+    error_code: str | None = None
+    request_id: str | None = None
+    cause: str | None = None
+
+    def annotated(
+        self,
+        *,
+        status: int | None = None,
+        error_type: str | None = None,
+        error_code: str | None = None,
+        request_id: str | None = None,
+        cause: str | None = None,
+    ) -> Self:
+        def safe(value: str | None) -> str | None:
+            return value if value is not None and _SAFE_FIELD.match(value) else None
+
+        self.status = status
+        self.error_type = safe(error_type)
+        self.error_code = safe(error_code)
+        self.request_id = safe(request_id)
+        self.cause = safe(cause)
+        return self
+
+    def log_fields(self) -> str:
+        """`key=value` pairs naming the failure for a log line: class, cause, status, error type, code, request ID."""
+        return (
+            f"error_class={type(self).__name__} cause={self.cause or '-'} status={self.status or '-'}"
+            f" error_type={self.error_type or '-'} error_code={self.error_code or '-'}"
+            f" request_id={self.request_id or '-'}"
+        )
+
+
+class ServiceBusy(ModelCallFailure):
     """Throttled or a temporary outage (429/5xx). `retry_after` in seconds when the service says."""
 
     def __init__(self, retry_after: float | None = None) -> None:
@@ -57,8 +105,12 @@ class ServiceBusy(Exception):
         self.retry_after = retry_after
 
 
-class ModelUnavailable(Exception):
+class ModelUnavailable(ModelCallFailure):
     """The in-region model is gone or withdrawn (F24). Never retried elsewhere."""
+
+
+class ModelRequestRefused(ModelCallFailure):
+    """The model service refused the request for another reason. The message is the error code only."""
 
 
 @runtime_checkable
@@ -93,7 +145,10 @@ class RecordedBedrock:
 
     def record(self, request: ModelRequest, response: ModelResponse, name: str | None = None) -> None:
         check_model(self.settings, request.model_id)
-        self.store.record(self.kind, _request_record(request), asdict(response), name)
+        recorded = asdict(response)
+        if recorded["model_id"] is None:
+            del recorded["model_id"]  # keeps every recording made before this field existed
+        self.store.record(self.kind, _request_record(request), recorded, name)
 
     async def invoke(self, request: ModelRequest) -> ModelResponse:
         check_model(self.settings, request.model_id)

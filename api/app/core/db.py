@@ -34,6 +34,12 @@ from psycopg_pool import AsyncConnectionPool
 # Connections kept open and ready, so a request after a quiet spell does not wait for a new one.
 DEFAULT_MIN_SIZE = 4
 
+DEFAULT_MAX_SIZE = 10  # the API's pool
+
+# ours, not Supabase's: free plan (Nano) allows 60 direct connections; API 10 + worker 20 leaves room for
+# Supabase's own services. Raise only with a bigger compute.
+WORKER_MAX_SIZE = 20
+
 # Roles that must never run the app, even if a misconfigured URL points at them.
 _PRIVILEGED_ROLES = frozenset({"postgres", "service_role", "supabase_admin", "app_migrator"})
 
@@ -66,7 +72,7 @@ class RequestScope:
 
 
 class Database:
-    def __init__(self, dsn: str, *, min_size: int | None = None, max_size: int = 10) -> None:
+    def __init__(self, dsn: str, *, min_size: int | None = None, max_size: int = DEFAULT_MAX_SIZE) -> None:
         # prepare_threshold=None: Supavisor transaction mode cannot keep prepared statements.
         self._pool = AsyncConnectionPool(
             dsn,
