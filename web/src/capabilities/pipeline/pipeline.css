@@ -41,6 +41,9 @@
 
 /* 08 */
 .pl-ready { display: flex; flex-wrap: wrap; gap: var(--space-7); align-items: stretch; }
+/* Notices above the cards keep the cards' own gap, and stack with a gap when more than one shows. */
+.av-notice + .pl-ready { margin-top: var(--space-7); }
+.av-notice + .av-notice { margin-top: var(--space-4); }
 .pl-sources { flex: 0 1 420px; padding: var(--space-6); border-radius: 20px; display: flex; align-items: center; }
 .pl-stack { width: 100%; }
 .pl-stack__drawing { display: block; width: 100%; max-width: 420px; height: auto; }
