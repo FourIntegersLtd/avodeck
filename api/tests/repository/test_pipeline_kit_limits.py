@@ -33,6 +33,7 @@ from tests.support.seed import Seed
 pytestmark = pytest.mark.anyio
 
 PAGES = 12
+POOL = 20  # the worker's connection pool; calls in flight never exceed it
 
 
 @dataclasses.dataclass(frozen=True)
@@ -114,8 +115,9 @@ async def run(
     limits: Limits,
     *,
     primary_fails_above: int | None = None,
+    pages: int = PAGES,
 ) -> tuple[LimitedKit, Harness, dict[str, str]]:
-    document = text_pdf([_wordy_lines(8) for _ in range(PAGES)])
+    document = text_pdf([_wordy_lines(8) for _ in range(pages)])
     words = {n: embedded_words(p).words for n, p in enumerate(split_pages(document), start=1)}
     opened = await _open(
         LAUNCH,
@@ -190,3 +192,20 @@ def test_a_kit_limit_replaces_the_fixed_batch_size_without_a_warning(caplog: pyt
     assert extract.pages_per_call(3, 5) == 3
     assert extract.pages_per_call(10) == extract.MAX_PAGES_PER_CALL
     assert [r for r in caplog.records if r.levelname == "WARNING" and "5" in r.getMessage()] == []
+
+
+def test_a_bedrock_sized_limit_keeps_the_fixed_ten_page_cap(caplog: pytest.LogCaptureFixture) -> None:
+    assert extract.pages_per_call(20, 10) == 10  # Bedrock as primary, size 20 configured: 16,000 tokens out
+    assert extract.pages_per_call(20, 50) == extract.MAX_PAGES_PER_CALL
+    assert extract.pages_per_call(10, 5) == 5
+
+
+async def test_calls_in_flight_never_exceed_the_worker_pool_and_the_step_log_says_so(
+    opened_args: tuple[Any, ...], caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level("INFO")
+    kit, _, _ = await run(*opened_args, Limits(1000, 1, 8000, 200), pages=30)
+    assert len(kit.calls) == 30
+    assert kit.peak == POOL
+    starts = [r.getMessage() for r in caplog.get_records("call") if "step=sort event=start" in r.getMessage()]
+    assert starts and f"concurrency={POOL}" in starts[0]
