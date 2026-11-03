@@ -75,7 +75,7 @@ const COVERAGE = { total_pages: 20, with_entries: 12, no_entries: 5, unreadable:
 
 let outline: Schemas["TranscriptOutline"] = { status: "ready", sections: [] };
 // What the bundle summary says about the pages the model could not read (the same count the retry job uses).
-let summary: { failed_pages: number; retrying: boolean; retry?: { running: boolean; paused: boolean; total: number; done: number; failed: number } } = {
+let summary: { failed_pages: number; retrying: boolean; retry?: { running: boolean; paused: boolean; pause_reason?: "cost_guard" | "other" | null; total: number; done: number; failed: number } } = {
   failed_pages: 0,
   retrying: false,
 };
