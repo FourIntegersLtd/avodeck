@@ -14,6 +14,9 @@ class EndpointNotAllowed(Exception):
 
 
 def check_model(settings: AiSettings, model_id: str) -> str:
+    # Temporary, dummy data only (ADR 0036): the direct API's IDs, and only while it is the primary provider.
+    if settings.primary_provider == "anthropic" and model_id in settings.direct_models.values():
+        return model_id
     if model_id not in (*settings.models.values(), *settings.overflow_models) or not in_region_model_id(model_id):
         raise ModelNotAllowed("model is not one of this cell's in-region models")
     return model_id

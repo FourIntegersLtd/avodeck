@@ -25,10 +25,12 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
-from app.core.ai.bedrock import ModelRequest, ModelResponse, ModelUnavailable, ServiceBusy
+from app.core.ai.bedrock import ModelRequest, ModelRequestRefused, ModelResponse, ModelUnavailable, ServiceBusy
 from app.core.ai.cell import check_endpoint, check_model
 from app.core.config import AiSettings
 from app.core.http_retry import parse_retry_after
+
+__all__ = ["TOOL_NAME", "AwsCredentials", "LiveBedrock", "ModelRequestRefused"]
 
 logger = logging.getLogger("app.ai.bedrock")
 
@@ -49,10 +51,6 @@ _BUSY = frozenset(
     }
 )
 _GONE = frozenset({"ResourceNotFoundException", "AccessDeniedException"})
-
-
-class ModelRequestRefused(Exception):
-    """Bedrock refused the request for another reason. The message is the error code only."""
 
 
 @dataclass(frozen=True)
