@@ -7,17 +7,16 @@ knowingly set aside only behind that switch.
 
 from __future__ import annotations
 
-import dataclasses
 from pathlib import Path
 
 import pytest
 
+from app.core.ai.anthropic_live import LiveAnthropic
 from app.core.ai.bedrock import RecordedBedrock
 from app.core.ai.bedrock_live import LiveBedrock
 from app.core.ai.cell import ModelNotAllowed, check_model, model_for
 from app.core.ai.clients import live_or_recorded
-from app.core.ai.fallback import FallbackClient
-from app.core.config import ConfigError, ai_settings
+from app.core.config import ConfigError, ProviderLimits, ai_settings
 from tests.support.ai import CELL_ENV, cell, cell_env
 from tests.support.live_ai import AWS_KEYS
 
@@ -32,8 +31,10 @@ def test_with_nothing_set_the_settings_are_exactly_todays() -> None:
     assert settings.primary_provider == "bedrock"
     assert dict(settings.direct_models) == {}
     assert settings.anthropic_endpoint == ""
-    assert settings.pipeline_concurrency == 3
-    assert settings.rpm_limit == settings.bedrock_rpm_limit == 5
+    assert dict(settings.limits) == {
+        "bedrock": ProviderLimits(rpm=5, pages_per_call=10, max_output_tokens=16000, concurrency=3)
+    }
+    assert settings.primary_limits == settings.limits["bedrock"]
     assert settings.allowed_hosts == frozenset(CELL_ENV["AI_ENDPOINT_ALLOW_LIST"].split(","))
 
 
@@ -67,9 +68,13 @@ def test_anthropic_switches_the_primary_and_the_constants_apply() -> None:
     assert settings.anthropic_endpoint == "https://api.anthropic.com"
     assert "api.anthropic.com" in settings.allowed_hosts
     assert settings.allowed_hosts - {"api.anthropic.com"} == cell().allowed_hosts
-    assert settings.anthropic_rpm_limit == 30 and settings.rpm_limit == 30
-    assert settings.bedrock_rpm_limit == 5
-    assert settings.pipeline_concurrency == 8
+    # Each provider has its own limits; nothing is shared and Bedrock's stay exactly what they were.
+    assert settings.limits["anthropic"] == ProviderLimits(
+        rpm=1000, pages_per_call=5, max_output_tokens=8000, concurrency=200
+    )
+    assert settings.limits["bedrock"] == cell().limits["bedrock"] == ProviderLimits(5, 10, 16000, 3)
+    assert settings.primary_limits == settings.limits["anthropic"]
+    assert settings.bedrock_rpm_limit == 5 and settings.extraction_batch_size == 10
     assert settings.models == cell().models  # Bedrock's in-region roles are untouched
 
 
@@ -79,7 +84,7 @@ def test_switching_back_to_bedrock_restores_everything() -> None:
 
 def test_the_key_itself_is_never_stored_in_the_settings() -> None:
     settings = ai_settings(cell_env(**ON))
-    assert KEY not in repr(settings) and KEY not in repr(dataclasses.asdict(settings))
+    assert KEY not in repr(settings) and KEY not in repr(vars(settings))
 
 
 def test_bedrock_variables_are_still_required_with_the_switch() -> None:
@@ -123,22 +128,39 @@ def test_bedrock_primary_gives_the_same_clients_as_before(tmp_path: Path) -> Non
     assert live_or_recorded(cell_env()).bedrock is None
 
 
-def test_anthropic_puts_the_direct_client_first_over_the_existing_bedrock_client(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+def test_bedrock_limits_follow_their_own_variables_and_never_the_directs() -> None:
+    settings = ai_settings(cell_env(**ON, BEDROCK_RPM_LIMIT="7", AI_EXTRACTION_BATCH_SIZE="4"))
+    assert settings.limits["bedrock"].rpm == 7 and settings.limits["bedrock"].pages_per_call == 4
+    assert settings.limits["anthropic"].rpm == 1000 and settings.limits["anthropic"].pages_per_call == 5
+
+
+def test_anthropic_gives_the_kit_both_clients_each_on_its_own_endpoint(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level("WARNING")
     clients = live_or_recorded(cell_env(**ON, **AWS_KEYS))
-    assert isinstance(clients.bedrock, FallbackClient)
-    assert clients.bedrock.endpoint == "https://api.anthropic.com"
-    assert isinstance(clients.bedrock.backup, LiveBedrock)
-    assert clients.kit is not None and clients.kit.bedrock is clients.bedrock
+    assert isinstance(clients.direct, LiveAnthropic) and clients.direct.endpoint == "https://api.anthropic.com"
+    assert isinstance(clients.bedrock, LiveBedrock), (
+        "Bedrock stays a plain Bedrock client: the kit does the falling back"
+    )
+    kit = clients.kit
+    assert kit is not None and kit.direct is clients.direct and kit.bedrock is clients.bedrock
+    assert kit.primary_limits == kit.settings.limits["anthropic"]
     assert "AI primary is the direct API: dummy data only (ADR 0036)" in caplog.text
+    for expected in (
+        "primary=anthropic rpm=1000 pages_per_call=5 max_output_tokens=8000 concurrency=200",
+        "fallback=bedrock rpm=5 pages_per_call=10 max_output_tokens=16000 concurrency=3",
+    ):
+        assert expected in caplog.text, expected
     assert KEY not in caplog.text
 
 
-def test_anthropic_alone_has_no_backup_and_recordings_become_the_backup(tmp_path: Path) -> None:
-    clients = live_or_recorded(cell_env(**ON))
-    assert isinstance(clients.bedrock, FallbackClient) and clients.bedrock.backup is None
+def test_with_bedrock_primary_there_is_no_direct_client_at_all() -> None:
+    clients = live_or_recorded(cell_env(**AWS_KEYS, ANTHROPIC_API_KEY=KEY))
+    assert clients.direct is None and clients.kit is not None and clients.kit.direct is None
+    assert clients.kit.primary_limits == cell().limits["bedrock"]
+
+
+def test_anthropic_alone_still_makes_a_kit_and_recordings_become_the_bedrock_side(tmp_path: Path) -> None:
+    alone = live_or_recorded(cell_env(**ON))
+    assert alone.bedrock is None and alone.kit is not None and alone.kit.bedrock is None
     recorded = live_or_recorded(cell_env(**ON, AI_RECORDINGS_DIR=str(tmp_path)))
-    assert isinstance(recorded.bedrock, FallbackClient)
-    assert isinstance(recorded.bedrock.backup, RecordedBedrock)
+    assert isinstance(recorded.bedrock, RecordedBedrock) and isinstance(recorded.direct, LiveAnthropic)
