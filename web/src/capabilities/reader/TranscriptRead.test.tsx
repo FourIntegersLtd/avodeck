@@ -1,6 +1,6 @@
 // Screen 9b, Reading by transcript (ADR 0028): the entries, what the browser reports as seen, the Word copy.
 // Under both pack sets.
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
@@ -11,6 +11,7 @@ import { mockReader } from "./testing";
 import "./index";
 
 const PATH = `/cases/${CASE_ID}/read/transcript`;
+const SECTION = `${PATH}?section=alpha`;
 const C = `/v1/cases/${CASE_ID}`;
 
 const entry = (n: number, over: Record<string, unknown> = {}) => ({
@@ -31,12 +32,45 @@ const entry = (n: number, over: Record<string, unknown> = {}) => ({
 });
 
 interface Seen {
+  /** Every entries request, as its offset and limit. */
+  requests: Array<{ offset: number; limit: number }>;
   seen: unknown[];
   downloads: number;
   bodies: unknown[];
   outlines: number;
   retries: number;
 }
+
+type Entries = ReturnType<typeof entry>[];
+type OutlineSection = Schemas["OutlineSection"];
+
+/** The years of a section's entries, as the server counts them: runs of the same year, no date last. */
+function yearsOf(entries: Entries, offset = 0): OutlineSection["years"] {
+  const years: OutlineSection["years"] = [];
+  entries.forEach((e, i) => {
+    const year = e.event_date ? Number(String(e.event_date).slice(0, 4)) : null;
+    const last = years[years.length - 1];
+    if (last && last.year === year) last.count += 1;
+    else years.push({ year, offset: offset + i, count: 1 });
+  });
+  return years;
+}
+
+function sectionOf(key: string, entries: Entries, offset = 0): OutlineSection {
+  const dates = entries.map((e) => e.event_date).filter(Boolean) as string[];
+  return {
+    key,
+    label: `zz.section.${key}`,
+    count: entries.length,
+    offset,
+    pages: new Set(entries.map((e) => e.page_no)).size,
+    first_date: dates.length ? dates.reduce((a, b) => (a < b ? a : b)) : null,
+    last_date: dates.length ? dates.reduce((a, b) => (a > b ? a : b)) : null,
+    years: yearsOf(entries, offset),
+  };
+}
+
+const COVERAGE = { total_pages: 20, with_entries: 12, no_entries: 5, unreadable: 3, set_aside: 2 };
 
 let outline: Schemas["TranscriptOutline"] = { status: "ready", sections: [] };
 
@@ -47,9 +81,17 @@ function mockTranscript(
   unread_pages: number[] = [],
   extra: Record<string, unknown> = {},
 ): Seen {
-  const log: Seen = { seen: [], downloads: 0, bodies: [], outlines: 0, retries: 0 };
+  const log: Seen = { requests: [], seen: [], downloads: 0, bodies: [], outlines: 0, retries: 0 };
+  // Most tests below open section "alpha"; unless a test set its own outline, it holds all of these entries.
+  if (outline.sections.length === 0 && entries.length > 0) outline = { status: "ready", coverage: COVERAGE, sections: [sectionOf("alpha", entries)] };
   server.use(
-    http.get(`${C}/transcript/entries`, () => json({ status, total: entries.length, entries, picture_pages, unread_pages, ...extra })),
+    http.get(`${C}/transcript/entries`, ({ request }) => {
+      const query = new URL(request.url).searchParams;
+      const offset = Number(query.get("offset") ?? 0);
+      const limit = Number(query.get("limit") ?? 50);
+      log.requests.push({ offset, limit });
+      return json({ status, total: entries.length, entries: entries.slice(offset, offset + limit), picture_pages, unread_pages, ...extra });
+    }),
     http.post(`${C}/transcript/retry`, () => {
       log.retries += 1;
       return json({ status: "preparing" }, 202);
@@ -109,7 +151,7 @@ describe.each([
   test("lists the entries with a way back to page by page, and has no violations", async () => {
     mockReader(pack);
     mockTranscript("ready");
-    const { container } = renderAt(PATH);
+    const { container } = renderAt(SECTION);
     expect(await screen.findByRole("heading", { level: 1, name: "Read by transcript" })).toBeVisible();
     expect(await screen.findByLabelText("Entry on page 11")).toBeVisible();
     expect(screen.getByText("line 1")).toBeVisible();
@@ -214,7 +256,7 @@ describe.each([
   test("the intro line is shown once", async () => {
     mockReader(pack);
     mockTranscript("ready");
-    renderAt(PATH);
+    renderAt(SECTION);
     await screen.findByLabelText("Entry on page 11");
     expect(screen.getAllByText(/Every entry in date order/)).toHaveLength(1);
   });
@@ -238,7 +280,7 @@ describe.each([
   test("a page the computer could not read says so and offers its picture", async () => {
     mockReader(pack);
     mockTranscript("ready", [entry(1)], [], [7]);
-    renderAt(PATH);
+    renderAt(`${PATH}?section=_unread`);
     expect(await screen.findByText("This page couldn't be read by the computer; look at the picture.")).toBeVisible();
     expect(screen.getByRole("button", { name: "Open the picture of page 7" })).toBeVisible();
   });
@@ -264,7 +306,7 @@ describe.each([
   test("a tall entry that fills the screen counts as seen though little of it is in view by ratio", async () => {
     mockReader(pack);
     const log = mockTranscript("ready", [entry(1)]);
-    renderAt(PATH);
+    renderAt(SECTION);
     await screen.findByLabelText("Entry on page 11");
     const now = vi.spyOn(Date, "now");
     now.mockReturnValue(1000);
@@ -278,7 +320,7 @@ describe.each([
   test("an entry only a little in view is not reported", async () => {
     mockReader(pack);
     const log = mockTranscript("ready", [entry(1)]);
-    renderAt(PATH);
+    renderAt(SECTION);
     await screen.findByLabelText("Entry on page 11");
     const now = vi.spyOn(Date, "now");
     now.mockReturnValue(1000);
@@ -292,7 +334,7 @@ describe.each([
   test("a folded entry is not watched until it is unfolded", async () => {
     mockReader(pack);
     mockTranscript("ready", [entry(2, { folded: true })]);
-    const { user } = renderAt(PATH);
+    const { user } = renderAt(SECTION);
     await screen.findByLabelText("Entry on page 12");
     expect(watchers).toHaveLength(0);
     await user.click(screen.getByRole("button", { name: "Show this entry" }));
@@ -304,7 +346,7 @@ describe.each([
     mockReader(pack);
     const log = mockTranscript("ready", [], [3]);
     server.use(http.get(`${C}/pages/3/image`, () => new HttpResponse(new Blob(["png"]), { status: 200 })));
-    const { user } = renderAt(PATH);
+    const { user } = renderAt(`${PATH}?section=_no_entries`);
     await user.click(await screen.findByRole("button", { name: "Open the picture of page 3" }));
     expect(await screen.findByAltText("Picture of page 3")).toBeVisible();
     expect(log.seen).toEqual([{ page_no: 3, dwell_ms: 0, picture_opened: true }]);
@@ -313,7 +355,7 @@ describe.each([
   test("a result chip uses the pack's label key and falls back to plain words", async () => {
     mockReader(pack);
     mockTranscript("ready", [entry(1, { results: ["zz_level"], result_labels: ["zz.result.level"] })]);
-    renderAt(PATH);
+    renderAt(SECTION);
     expect(await screen.findByText("Zz level")).toBeVisible();
   });
 
@@ -357,79 +399,153 @@ describe.each([
   });
 
   describe("sections", () => {
-    const sectioned = () => [
-      entry(1, { section: "alpha" }),
-      entry(2, { section: "alpha" }),
-      entry(3, { section: "beta" }),
-    ];
+    const alpha = [entry(1, { event_date: "2019-03-01" }), entry(2, { event_date: "2019-07-02" }), entry(3, { event_date: "2021-01-05" }), entry(4, { event_date: null })];
+    const beta = [entry(5, { event_date: "2022-06-01" })];
+    const sectioned = () => [...alpha, ...beta];
     const withOutline = () => {
-      outline = {
-        status: "ready",
-        coverage: { total_pages: 20, with_entries: 12, no_entries: 5, unreadable: 3, set_aside: 2 },
-        sections: [
-          { key: "alpha", label: "zz.section.alpha", count: 2, offset: 0 },
-          { key: "beta", label: "zz.section.beta", count: 1, offset: 2 },
-        ],
-      };
+      outline = { status: "ready", coverage: COVERAGE, sections: [sectionOf("alpha", alpha), sectionOf("beta", beta, alpha.length)] };
     };
 
-    test("shows the coverage line and a Jump to list with a count per section", async () => {
+    test("the opening view shows the four numbers and a contents row per section, never an entry or a read", async () => {
       mockReader(pack);
       withOutline();
-      mockTranscript("ready", sectioned());
-      renderAt(PATH);
-      expect(
-        await screen.findByText(
-          "20 pages: 12 with entries, 5 with no entries, 3 the computer couldn't read. 2 pages set aside (copies, replaced or held back) are not included.",
-        ),
-      ).toBeVisible();
-      expect(screen.getByText("Jump to")).toBeVisible();
-      expect(screen.getByRole("button", { name: /Alpha.*2/ })).toBeVisible();
-      expect(screen.getByRole("button", { name: /Beta.*1/ })).toBeVisible();
-    });
-
-    test("a section heading appears above the first entry of each section only", async () => {
-      mockReader(pack);
-      withOutline();
-      mockTranscript("ready", sectioned());
+      const log = mockTranscript("ready", sectioned(), [3], [7]);
       const { container } = renderAt(PATH);
-      await screen.findByLabelText("Entry on page 11");
-      expect(container.querySelectorAll("h2#section-alpha")).toHaveLength(1);
-      expect(container.querySelectorAll("h2#section-beta")).toHaveLength(1);
-      expect(container.querySelector("h2#section-alpha")?.textContent).toBe("Alpha");
-      expect(container.querySelector("#entry-00000000-0000-0000-0000-000000000003")).not.toBeNull();
+      expect(await screen.findByRole("heading", { level: 2, name: "About this transcript" })).toBeVisible();
+      const tile = (label: string) => screen.getByText(label, { selector: "dt" }).closest("div") as HTMLElement;
+      expect(tile("Pages in the bundle")).toHaveTextContent("20");
+      expect(tile("Pages with entries")).toHaveTextContent("12");
+      expect(tile("Pages with no entries")).toHaveTextContent("5");
+      expect(tile("Pages we couldn't read")).toHaveTextContent("3");
+      expect(screen.getByText("2 pages set aside (copies, replaced or held back) are not included.")).toBeVisible();
+      expect(screen.getByRole("heading", { level: 2, name: "Contents" })).toBeVisible();
+      const alphaRow = screen.getByRole("link", { name: /Alpha/ });
+      expect(alphaRow).toHaveTextContent("4 entries");
+      expect(alphaRow).toHaveTextContent("Mar 2019 – Jan 2021");
+      expect(screen.getByRole("link", { name: /Beta/ })).toHaveTextContent("1 entry");
+      expect(screen.queryByLabelText(/Entry on page/)).toBeNull();
+      expect(screen.queryByText("line 1")).toBeNull();
+      expect(screen.queryByText("Jump to")).toBeNull();
+      expect(log.seen).toEqual([]);
+      expect(log.requests.every((r) => r.limit === 1)).toBe(true);
+      expect(await axeViolations(container)).toEqual([]);
     });
 
-    test("jumping to a section records no read; the outline is fetched once", async () => {
+    test("a contents row opens its section from the section's own offset and puts it in the address", async () => {
       mockReader(pack);
       withOutline();
       const log = mockTranscript("ready", sectioned());
-      const { user } = renderAt(PATH);
-      await user.click(await screen.findByRole("button", { name: /Beta/ }));
-      expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+      const { user, router, container } = renderAt(PATH);
+      await user.click(await screen.findByRole("link", { name: /Beta/ }));
+      expect(await screen.findByLabelText("Entry on page 15")).toBeVisible();
+      expect(router.state.location.search).toBe("?section=beta");
+      expect(log.requests).toContainEqual({ offset: 4, limit: 1 });
+      expect(screen.getByRole("heading", { level: 2, name: "2. Beta" })).toBeVisible();
+      expect(screen.queryByLabelText("Entry on page 11")).toBeNull();
       expect(log.seen).toEqual([]);
-      expect(log.outlines).toBe(1);
+      expect(await axeViolations(container)).toEqual([]);
     });
 
-    test("a section whose entries are not loaded yet loads more until it is", async () => {
+    test("a section shows its figures, then years and months as headings, and no date last", async () => {
       mockReader(pack);
-      outline = { status: "ready", sections: [{ key: "beta", label: "zz.section.beta", count: 1, offset: 2 }] };
-      const all = sectioned();
+      withOutline();
+      mockTranscript("ready", sectioned());
+      renderAt(`${PATH}?section=alpha`);
+      expect(await screen.findByRole("heading", { level: 2, name: "1. Alpha" })).toBeVisible();
+      expect(screen.getByText(/4 entries · 4 pages · Mar 2019 – Jan 2021/)).toBeVisible();
+      expect(screen.getByRole("link", { name: /Contents/ })).toHaveAttribute("href", expect.stringContaining(`/read/transcript`));
+      const years = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+      expect(years).toEqual(["2019", "2021", "No date"]);
+      expect(screen.getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual(expect.arrayContaining(["March", "July", "January"]));
+    });
+
+    test("Show the next 50 asks for the next entries of this section from where it left off", async () => {
+      mockReader(pack);
+      const many = Array.from({ length: 120 }, (_, i) => entry(i + 1, { id: `00000000-0000-0000-0000-${String(i + 1).padStart(12, "0")}`, page_no: 100 + i, event_date: "2020-01-02" }));
+      outline = { status: "ready", coverage: COVERAGE, sections: [sectionOf("alpha", many as Entries)] };
+      const log = mockTranscript("ready", many as Entries);
+      const { user } = renderAt(SECTION);
+      await screen.findByLabelText("Entry on page 100");
+      expect(log.requests).toContainEqual({ offset: 0, limit: 50 });
+      await user.click(screen.getByRole("button", { name: "Show the next 50 (51–100 of 120)" }));
+      expect(await screen.findByLabelText("Entry on page 150")).toBeVisible();
+      expect(log.requests).toContainEqual({ offset: 50, limit: 50 });
+      await user.click(screen.getByRole("button", { name: "Show the next 20 (101–120 of 120)" }));
+      expect(await screen.findByLabelText("Entry on page 219")).toBeVisible();
+      expect(log.requests).toContainEqual({ offset: 100, limit: 20 });
+      expect(screen.queryByRole("button", { name: /Show the next/ })).toBeNull();
+    });
+
+    test("a year not loaded yet loads forward, then scrolls to its heading and records no read", async () => {
+      mockReader(pack);
+      const early = Array.from({ length: 60 }, (_, i) => entry(i + 1, { id: `00000000-0000-0000-0000-${String(i + 1).padStart(12, "0")}`, page_no: 100 + i, event_date: "2019-05-05" }));
+      const late = [entry(70, { page_no: 300, event_date: "2023-02-02" })];
+      const all = [...early, ...late] as Entries;
+      outline = { status: "ready", coverage: COVERAGE, sections: [sectionOf("alpha", all)] };
       const log = mockTranscript("ready", all);
-      const offsets: number[] = [];
-      server.use(
-        http.get(`${C}/transcript/entries`, ({ request }) => {
-          const offset = Number(new URL(request.url).searchParams.get("offset"));
-          offsets.push(offset);
-          const page = offset === 0 ? all.slice(0, 2) : all.slice(offset);
-          return json({ status: "ready", total: all.length, entries: page, picture_pages: [], unread_pages: [] });
-        }),
-      );
-      const { user } = renderAt(PATH);
-      await user.click(await screen.findByRole("button", { name: /Beta/ }));
-      await waitFor(() => expect(offsets).toContain(2));
+      const { user } = renderAt(SECTION);
+      await screen.findByLabelText("Entry on page 100");
+      expect(screen.queryByLabelText("Entry on page 300")).toBeNull();
+      (Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear();
+      await user.click(within(screen.getByRole("group", { name: "Jump to a year" })).getByRole("button", { name: "2023" }));
+      expect(await screen.findByLabelText("Entry on page 300")).toBeVisible();
+      expect(log.requests).toContainEqual({ offset: 50, limit: 11 });
       await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
+      const scrolled = (Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mock.contexts.at(-1) as HTMLElement;
+      expect(scrolled.textContent).toBe("2023");
       expect(log.seen).toEqual([]);
+    });
+
+    test("Next section opens the following section, and the last one leads on to the first appendix", async () => {
+      mockReader(pack);
+      withOutline();
+      mockTranscript("ready", sectioned(), [3]);
+      const { user, router } = renderAt(`${PATH}?section=alpha`);
+      await user.click(await screen.findByRole("link", { name: /Next section: Beta/ }));
+      expect(await screen.findByRole("heading", { level: 2, name: "2. Beta" })).toBeVisible();
+      expect(router.state.location.search).toBe("?section=beta");
+      expect(screen.getByRole("link", { name: /Next section: Appendix A · Pages with no entries/ })).toBeVisible();
+    });
+
+    test("appendix rows show only when there are such pages, and open their pages", async () => {
+      mockReader(pack);
+      withOutline();
+      mockTranscript("ready", sectioned());
+      const first = renderAt(PATH);
+      await screen.findByRole("link", { name: /Alpha/ });
+      expect(screen.queryByRole("link", { name: /Appendix/ })).toBeNull();
+      first.unmount();
+
+      mockTranscript("ready", sectioned(), [3], [7, 8]);
+      const { user, router } = renderAt(PATH);
+      expect(await screen.findByRole("link", { name: "Appendix A · Pages with no entries (1)" })).toBeVisible();
+      await user.click(screen.getByRole("link", { name: "Appendix B · Pages we couldn't read (2)" }));
+      expect(router.state.location.search).toBe("?section=_unread");
+      expect(await screen.findByRole("button", { name: "Open the picture of page 7" })).toBeVisible();
+      expect(screen.getByRole("link", { name: "← Contents" })).toBeVisible();
+    });
+
+    test("the sections' contents are within reach beside the section, with the current one marked", async () => {
+      mockReader(pack);
+      withOutline();
+      mockTranscript("ready", sectioned());
+      renderAt(`${PATH}?section=beta`);
+      const nav = await screen.findByRole("navigation", { name: "Contents" });
+      expect(nav.querySelector("[aria-current=true]")).toHaveTextContent(/Beta/);
+      expect(nav.querySelectorAll("[aria-current=true]")).toHaveLength(1);
+    });
+
+    test("the section and appendix views have no violations", async () => {
+      mockReader(pack);
+      withOutline();
+      mockTranscript("ready", sectioned(), [3], [7]);
+      const section = renderAt(`${PATH}?section=alpha`);
+      await section.findByLabelText("Entry on page 11");
+      expect(await axeViolations(section.container)).toEqual([]);
+      section.unmount();
+      const appendix = renderAt(`${PATH}?section=_no_entries`);
+      await appendix.findByRole("button", { name: "Open the picture of page 3" });
+      expect(await axeViolations(appendix.container)).toEqual([]);
     });
   });
 });
