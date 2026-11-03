@@ -40,6 +40,13 @@ const paused = (reason: "cost_guard" | "other"): Summary => ({
   retrying: true,
   retry: { running: false, paused: true, pause_reason: reason, total: 650, done: 117, failed: 3, allowance_used_up: false },
 });
+const USED_UP = "This case has used up its processing allowance. Please contact support.";
+// The server says the case is still over its allowance: the flag is spread in, so this reads as the API will send it.
+const usedUp: Summary = {
+  failed_pages: 530,
+  retrying: true,
+  retry: { running: false, paused: true, pause_reason: "cost_guard", total: 650, done: 117, failed: 3, ...{ allowance_used_up: true } },
+};
 const running: Summary = {
   failed_pages: 530,
   retrying: true,
@@ -57,6 +64,22 @@ describe.each([
     expect(screen.queryByText(GENERIC)).toBeNull();
     expect(screen.getByRole("button", { name: BUTTON })).toBeVisible();
     expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
+  test("while the case is still over its allowance it says so and offers no button that cannot work", async () => {
+    mock(pack, [usedUp]);
+    renderAt(PATH);
+    expect(await screen.findByText(USED_UP)).toBeVisible();
+    expect(screen.queryByText(ALLOWANCE)).toBeNull();
+    expect(screen.queryByText(GENERIC)).toBeNull();
+    expect(screen.queryByRole("button", { name: BUTTON })).toBeNull();
+  });
+
+  test("once the allowance has room again the button is back", async () => {
+    mock(pack, [paused("cost_guard")]);
+    renderAt(PATH);
+    expect(await screen.findByRole("button", { name: BUTTON })).toBeVisible();
+    expect(screen.queryByText(USED_UP)).toBeNull();
   });
 
   test("any other pause gives the general line, and the button stays", async () => {

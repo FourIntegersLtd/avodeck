@@ -271,6 +271,16 @@ describe.each([
     await waitFor(() => expect(log.retries).toBe(1));
   });
 
+  test("a retry paused while the case is still over its allowance says so and offers no Try again", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 530, retrying: true, retry: { running: false, paused: true, pause_reason: "cost_guard", total: 650, done: 117, failed: 3, ...{ allowance_used_up: true } } };
+    mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 897, waiting_for: "entries", can_prepare: true });
+    renderAt(PATH);
+    expect(await screen.findByText("This case has used up its processing allowance. Please contact support.")).toBeVisible();
+    expect(screen.queryByText("This case has used up its processing allowance for now.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
   test("a retry paused for another reason gives the general line and still offers Try again", async () => {
     mockReader(pack);
     summary = { failed_pages: 530, retrying: true, retry: { running: false, paused: true, pause_reason: "other", total: 650, done: 117, failed: 3 } };
