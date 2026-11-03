@@ -200,6 +200,8 @@ const WORDS = {
   "transcript.unread_page_lead": "This page couldn't be read by the computer; look at the picture.",
   "transcript.unread_page_label": "Page {{page}}, couldn't be read by the computer",
   "transcript.try_again": "Try again",
+  "transcript.try_unread": "Try these pages again",
+  "transcript.try_unread_lead": "The computer couldn't read these pages. Trying again asks about just those pages and leaves everything else as it is.",
   "transcript.none": "No entries to show yet.",
   "transcript.more": "Show more entries",
   "transcript.see_page": "See the page",

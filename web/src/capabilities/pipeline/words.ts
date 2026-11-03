@@ -58,6 +58,13 @@ const WORDS = {
   "preparing.meanwhile": "Meanwhile, check what you've been asked",
 
   "bundle.title": "Your bundle is ready",
+  "bundle.title_partial": "Your bundle is partly ready",
+  "bundle.not_processed_one": "1 page wasn't processed.",
+  "bundle.not_processed_other": "{{n}} pages weren't processed.",
+  "bundle.not_processed_note": "The computer couldn't make sense of them. This is not a problem with your files.",
+  "bundle.try_again": "Try these pages again",
+  "bundle.trying_again": "Trying those pages again. This can take a few minutes.",
+  "bundle.try_again_error": "We couldn't start that just now. Please try again.",
   "bundle.sources": "Where the pages came from",
   "bundle.source_unknown": "Not sorted yet",
   "bundle.source_pages_one": "{{n}} page",

@@ -1,6 +1,6 @@
 // Screen 08, Your bundle is ready: the API's bundle summary, with the pack's source words and colours,
 // a card for each thing the expert should know, the files table and one main action.
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { humanise } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useBusy } from "../../foundation/lib/useBusy";
@@ -16,6 +16,7 @@ import { SourceStack } from "./SourceStack";
 import { w, wn } from "./words";
 
 const UNKNOWN_COLOUR = "#8A948E";
+const POLL_MS = 3000;
 
 export function BundleReady() {
   const { item, pack } = useCaseFrame();
@@ -28,6 +29,29 @@ export function BundleReady() {
     ]);
     return { summary, missing: missing.still_missing ?? [] };
   }, [caseId]);
+  const again = useBusy();
+  const [retryError, setRetryError] = useState(false);
+  const retrying = found.data?.summary.retrying === true;
+  const reload = found.reload;
+
+  // While the pages are being tried again, the page asks for the summary until the job is done.
+  useEffect(() => {
+    if (!retrying) return;
+    const timer = setTimeout(reload, POLL_MS);
+    return () => clearTimeout(timer);
+  }, [retrying, found.data, reload]);
+
+  async function tryAgain() {
+    setRetryError(false);
+    await again.run(async () => {
+      try {
+        await unwrap(api.POST("/v1/cases/{case_id}/transcript/retry", casePath(caseId)));
+        found.reload();
+      } catch {
+        setRetryError(true);
+      }
+    });
+  }
 
   if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
   if (!found.data) return <div className="av-page"><Loading /></div>;
@@ -85,6 +109,7 @@ export function BundleReady() {
     );
   }
 
+  const notProcessed = s.failed_pages;
   const last = Math.max(s.pages, ...s.versions.map((v) => v.last_page_no ?? 0));
   const suggested = s.quarantine_suggestions ?? [];
   const setAside = s.quarantined ?? [];
@@ -98,7 +123,20 @@ export function BundleReady() {
 
   return (
     <div className="av-page">
-      <h1>{w("bundle.title")}</h1>
+      <h1>{w(notProcessed > 0 && !s.retrying ? "bundle.title_partial" : "bundle.title")}</h1>
+      {s.retrying && <Notice tone="info"><p>{w("bundle.trying_again")}</p></Notice>}
+      {!s.retrying && notProcessed > 0 && (
+        <Notice tone="warning">
+          <p><strong>{wn("bundle.not_processed", notProcessed, locale)}</strong></p>
+          <p>{w("bundle.not_processed_note")}</p>
+          {can(item, "page.read") && (
+            <>
+              {retryError && <p role="alert" className="av-field__error">{w("bundle.try_again_error")}</p>}
+              <Button busy={again.busy} disabled={again.busy} onClick={() => void tryAgain()}>{w("bundle.try_again")}</Button>
+            </>
+          )}
+        </Notice>
+      )}
       <div className="pl-ready">
         <section className="av-card pl-sources">
           <SourceBar pack={pack} bySource={s.by_source} />

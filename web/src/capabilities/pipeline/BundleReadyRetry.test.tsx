@@ -59,7 +59,8 @@ describe.each([
     renderAt(PATH);
     await screen.findByText("650 pages weren't processed.");
     const list = screen.getByRole("list", { name: "Where the pages came from" });
-    expect(within(list).getByText("Not sorted yet").closest("li")).toHaveTextContent("650");
+    const row = within(list).getAllByRole("listitem").find((li) => li.textContent?.includes("Not sorted yet"));
+    expect(row).toHaveTextContent("650");
   });
 
   test("the main button asks again once, shows it is trying, and the page refreshes when it is done", async () => {

@@ -371,6 +371,8 @@ export function TranscriptRead() {
     } catch {
       /* the next load shows the state */
     }
+    outlineAsked.current = false; // the shape of the transcript is fetched again once it is ready again
+    setOutline(null);
     await load(0, 1, "status");
   }
 
@@ -501,7 +503,7 @@ export function TranscriptRead() {
       );
     }
     if (sections.length === 0 && lists.length === 0) return <p>{w("transcript.none")}</p>;
-    return <TranscriptContents coverage={outline.coverage ?? undefined} sections={sections} appendices={lists} locale={pack.locale} />;
+    return <TranscriptContents coverage={outline.coverage ?? undefined} sections={sections} appendices={lists} locale={pack.locale} onRetryUnread={wait?.can_prepare !== false ? () => void retry() : undefined} />;
   }
 
   if (failed && status === null) return <LoadError onRetry={() => void load(0, 1, "status")} />;
