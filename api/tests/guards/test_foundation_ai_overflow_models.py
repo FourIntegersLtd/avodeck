@@ -291,7 +291,7 @@ async def test_a_fully_throttled_call_takes_one_plus_overflow_plus_retries_slots
     model = PerModelBedrock({PRIMARY: ServiceBusy(), OVER_A: ServiceBusy(), OVER_B: ServiceBusy()})
     kit = kit_for(model, [])
     kit.settings = type(kit.settings)(**{**kit.settings.__dict__, "bedrock_rpm_limit": 50})
-    with pytest.raises(ProcessingPaused):
-        async with worker_db.job(case_id) as conn:
+    async with worker_db.job(case_id) as conn:  # the raise is caught inside, so the slot rows commit
+        with pytest.raises(ProcessingPaused):
             await kit._invoke(request_for(), conn, job_id)
     assert _granted_slots(admin, job_id) == 1 + 2 + len(backoff_delays(4, 2.0))
