@@ -44,7 +44,7 @@ from app.core.ai import embed, pii, provenance
 from app.core.ai.answers import page_subject, reference_subject
 from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import model_for
-from app.core.ai.kit import InvalidOutput
+from app.core.ai.kit import InvalidOutput, TooLargeForFallback
 from app.core.ai.ocr import OcrFailed, OcrPage
 from app.core.contracts.fact_dates import case_anchor, latest_printed_date
 from app.core.contracts.fact_flags import flag_for_recheck
@@ -538,7 +538,6 @@ async def _ask(
     """One model call (a page or a batch of pages). Uses ``run_detached`` so no pool connection
     is held during slot waits or the model call itself. `provider="bedrock"` asks Bedrock alone."""
     assert services.kit is not None
-    only = {} if provider is None else {"provider": provider}  # a kit without the keyword is never given it
     try:
         return await services.kit.run_detached(
             ctx.database,
@@ -550,7 +549,7 @@ async def _ask(
             dates_of_birth=who.dates_of_birth,
             subject=subject,
             job_id=ctx.job_id,
-            **only,
+            provider=provider,
         )
     except InvalidOutput:
         return None
@@ -631,13 +630,6 @@ def _entries_of(
     return entries, sorted_entries.rejected
 
 
-def _too_large_for_fallback(exc: Exception) -> int | None:
-    """The fallback provider's own pages-per-call when `exc` is the kit's `TooLargeForFallback`, else None.
-    Matched by name and attribute so this slice does not import the kit's exception class."""
-    size = getattr(exc, "pages_per_call", None)
-    return size if type(exc).__name__ == "TooLargeForFallback" and isinstance(size, int) and size >= 1 else None
-
-
 async def _extract(ctx: JobContext, services: PipelineServices) -> int:
     """Extracts every page waiting for it, in batches of up to `extract.pages_per_call` pages sent to
     the model in one call (one call per batch, not per page, to stay inside the account-wide Bedrock
@@ -662,13 +654,11 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         who = await services.identity(conn, ctx.case_id)
     if services.kit is None:
         raise ProcessingPaused("model_unavailable")
-    limits = getattr(services.kit, "primary_limits", None)  # the model provider's own ceilings, when the kit has them
-    task = extract.task_for(pack, limits.max_output_tokens if limits is not None else extract.BATCH_MAX_TOKENS)
+    limits = services.kit.primary_limits  # the first-choice provider's own ceilings
+    task = extract.task_for(pack, limits.max_output_tokens)
     bedrock_task = extract.task_for(pack)  # a re-split call goes to Bedrock, whose answer limit is the default
     model_id = model_for(services.kit.settings, task.model)
-    size = extract.pages_per_call(
-        services.kit.settings.extraction_batch_size, limits.pages_per_call if limits is not None else None
-    )
+    size = extract.pages_per_call(services.kit.settings.extraction_batch_size, limits.pages_per_call)
     batches = [waiting[i : i + size] for i in range(0, len(waiting), size)]
     done = 0
 
@@ -727,11 +717,9 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
             asked = True
             try:
                 answers = await ask_pages(askable)
-            except Exception as exc:
-                fits = _too_large_for_fallback(exc)
-                if fits is None:
-                    raise
+            except TooLargeForFallback as too_large:
                 # The direct API failed and Bedrock cannot take a call this big: ask Bedrock in groups it can.
+                fits = max(1, too_large.pages_per_call)
                 for i in range(0, len(askable), fits):
                     answers.update(await ask_pages(askable[i : i + fits], "bedrock"))
         for page_id, page_no in batch:
@@ -1091,8 +1079,7 @@ STEP_CONCURRENCY = {
 
 def _extract_concurrency(services: PipelineServices) -> int:
     """Calls to the model in flight at once: the provider's own limit, never more than the worker's pool."""
-    limits = getattr(services.kit, "primary_limits", None)
-    return min(limits.concurrency, POOL_CONCURRENCY) if limits is not None else CONCURRENCY
+    return min(services.kit.primary_limits.concurrency, POOL_CONCURRENCY) if services.kit is not None else CONCURRENCY
 
 
 def _pending(services: PipelineServices, step: str) -> steplog.Pending:

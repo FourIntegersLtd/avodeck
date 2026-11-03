@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import AsyncIterator
+from typing import Literal
 
 import psycopg
 import pytest
@@ -27,7 +28,9 @@ def fields(line: str) -> dict[str, str]:
     return dict(re.findall(r"(\w+)=(\S*)", line))
 
 
-def step_lines(caplog: pytest.LogCaptureFixture, when: str = "call") -> list[dict[str, str]]:
+def step_lines(
+    caplog: pytest.LogCaptureFixture, when: Literal["setup", "call", "teardown"] = "call"
+) -> list[dict[str, str]]:
     return [fields(r.getMessage()) for r in caplog.get_records(when) if r.getMessage().startswith("pipeline step=")]
 
 

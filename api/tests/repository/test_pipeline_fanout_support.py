@@ -208,7 +208,7 @@ async def world(
                     open_now[0] -= 1
                     holding.reset(token)
 
-        h.worker_db.job = tracked  # type: ignore[method-assign]
+        h.worker_db.job = tracked  # type: ignore[method-assign,assignment]
         ctx = JobContext(h.worker_db, uuid.uuid4(), case_id, "process_bundle", 1)
         await h.upload(scanned_document())
         with pipeline.wiring.use(services):
