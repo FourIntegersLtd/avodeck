@@ -1494,6 +1494,45 @@ async def reset_unread(conn: AsyncConnection, case_id: uuid.UUID) -> int:
     return len(ids)
 
 
+RETRY_RESULT_SECONDS = 600  # how long a finished retry run's result is still shown
+
+
+@dataclass(frozen=True)
+class RetryProgress:
+    running: bool
+    total: int  # the pages in the run: read since it began, failed again, and still waiting
+    done: int
+    failed: int  # failed again since the run began
+
+
+async def retry_progress(conn: AsyncConnection, case_id: uuid.UUID) -> RetryProgress | None:
+    """How far the case's latest "Try these pages again" run has got, counted from the pages' own markers (no
+    table of its own): a page whose entries were read since the job was queued is done, one that failed again
+    since is failed, one still failed from before is waiting. None when no run has been made, or the last one
+    ended more than `RETRY_RESULT_SECONDS` ago."""
+    cur = await conn.execute(
+        "select status in ('queued', 'running', 'paused'), created_at from app.jobs"
+        " where case_id = %s and kind = %s"
+        " and (status in ('queued', 'running', 'paused') or finished_at > now() - make_interval(secs => %s))"
+        " order by created_at desc limit 1",
+        (case_id, record_entries.RETRY_UNREAD, RETRY_RESULT_SECONDS),
+    )
+    job = await cur.fetchone()
+    if job is None:
+        return None
+    cur = await conn.execute(
+        "select count(*) filter (where a.entries_extracted_at >= %(since)s),"
+        " count(*) filter (where a.entries_extracted_at is null and a.entries_failed_at >= %(since)s),"
+        " count(*) filter (where a.entries_extracted_at is null and a.entries_failed_at < %(since)s)"
+        " from app.page_analysis a join app.pages p on p.id = a.page_id"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %(case)s)"
+        " and p.text_source is not null and not p.quarantined and p.duplicate_of_page_id is null",
+        {"since": job[1], "case": case_id},
+    )
+    done, failed, waiting = await cur.fetchone() or (0, 0, 0)
+    return RetryProgress(running=job[0], total=done + failed + waiting, done=done, failed=failed)
+
+
 # Pages that are not this person's record (increment 11b) ------------------------------------------
 
 
