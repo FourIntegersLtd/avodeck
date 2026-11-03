@@ -1,6 +1,6 @@
 // Screen 9b, Reading by transcript (ADR 0028): the entries, what the browser reports as seen, the Word copy.
 // Under both pack sets.
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
@@ -412,7 +412,7 @@ describe.each([
       const log = mockTranscript("ready", sectioned(), [3], [7]);
       const { container } = renderAt(PATH);
       expect(await screen.findByRole("heading", { level: 2, name: "About this transcript" })).toBeVisible();
-      const tile = (label: string) => screen.getByText(label).closest("div") as HTMLElement;
+      const tile = (label: string) => screen.getByText(label, { selector: "dt" }).closest("div") as HTMLElement;
       expect(tile("Pages in the bundle")).toHaveTextContent("20");
       expect(tile("Pages with entries")).toHaveTextContent("12");
       expect(tile("Pages with no entries")).toHaveTextContent("5");
@@ -487,7 +487,7 @@ describe.each([
       await screen.findByLabelText("Entry on page 100");
       expect(screen.queryByLabelText("Entry on page 300")).toBeNull();
       (Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear();
-      await user.click(screen.getByRole("button", { name: "2023" }));
+      await user.click(within(screen.getByRole("group", { name: "Jump to a year" })).getByRole("button", { name: "2023" }));
       expect(await screen.findByLabelText("Entry on page 300")).toBeVisible();
       expect(log.requests).toContainEqual({ offset: 50, limit: 11 });
       await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
