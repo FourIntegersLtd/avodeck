@@ -1,6 +1,6 @@
 // Screen 9b, Reading by transcript (ADR 0028): the entries, what the browser reports as seen, the Word copy.
 // Under both pack sets.
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
@@ -474,6 +474,104 @@ describe.each([
       expect(await screen.findByLabelText("Entry on page 219")).toBeVisible();
       expect(log.requests).toContainEqual({ offset: 100, limit: 20 });
       expect(screen.queryByRole("button", { name: /Show the next/ })).toBeNull();
+    });
+
+    const manyEntries = (count: number) =>
+      Array.from({ length: count }, (_, i) => entry(i + 1, { id: `00000000-0000-0000-0000-${String(i + 1).padStart(12, "0")}`, page_no: 100 + i, event_date: "2020-01-02" })) as Entries;
+
+    test("two quick presses of Show the next 50 ask once and add each entry once", async () => {
+      mockReader(pack);
+      const many = manyEntries(120);
+      outline = { status: "ready", coverage: COVERAGE, sections: [sectionOf("alpha", many)] };
+      const log = mockTranscript("ready", many);
+      renderAt(SECTION);
+      await screen.findByLabelText("Entry on page 100");
+      const button = screen.getByRole("button", { name: "Show the next 50 (51–100 of 120)" });
+      fireEvent.click(button);
+      fireEvent.click(button);
+      expect(await screen.findByLabelText("Entry on page 149")).toBeVisible();
+      await new Promise((r) => setTimeout(r, 50));
+      expect(log.requests.filter((r) => r.offset === 50)).toHaveLength(1);
+      expect(log.requests.filter((r) => r.offset === 100)).toHaveLength(0);
+      expect(screen.getAllByLabelText("Entry on page 149")).toHaveLength(1);
+      expect(screen.getAllByRole("article")).toHaveLength(100);
+    });
+
+    test("a failed Show the next 50 says so and offers Try again, which loads the same entries", async () => {
+      mockReader(pack);
+      const many = manyEntries(120);
+      outline = { status: "ready", coverage: COVERAGE, sections: [sectionOf("alpha", many)] };
+      mockTranscript("ready", many);
+      let down = true;
+      server.use(
+        http.get(`${C}/transcript/entries`, ({ request }) => {
+          const offset = Number(new URL(request.url).searchParams.get("offset") ?? 0);
+          if (offset === 50 && down) return HttpResponse.json({ detail: "x" }, { status: 500 });
+          return undefined;
+        }),
+      );
+      const { user } = renderAt(SECTION);
+      await screen.findByLabelText("Entry on page 100");
+      await user.click(screen.getByRole("button", { name: "Show the next 50 (51–100 of 120)" }));
+      const retry = await screen.findByRole("button", { name: "Try again" });
+      expect(screen.getByLabelText("Entry on page 100")).toBeVisible();
+      down = false;
+      await user.click(retry);
+      expect(await screen.findByLabelText("Entry on page 149")).toBeVisible();
+      expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    });
+
+    test("a failed jump to a year says so and offers Try again", async () => {
+      mockReader(pack);
+      const early = manyEntries(60);
+      const late = [entry(70, { page_no: 300, event_date: "2023-02-02" })];
+      const all = [...early, ...late] as Entries;
+      outline = { status: "ready", coverage: COVERAGE, sections: [sectionOf("alpha", all)] };
+      mockTranscript("ready", all);
+      let down = true;
+      server.use(
+        http.get(`${C}/transcript/entries`, ({ request }) => {
+          const offset = Number(new URL(request.url).searchParams.get("offset") ?? 0);
+          if (offset === 50 && down) return HttpResponse.json({ detail: "x" }, { status: 500 });
+          return undefined;
+        }),
+      );
+      const { user } = renderAt(SECTION);
+      await screen.findByLabelText("Entry on page 100");
+      await user.click(within(screen.getByRole("group", { name: "Jump to a year" })).getByRole("button", { name: "2023" }));
+      const retry = await screen.findByRole("button", { name: "Try again" });
+      down = false;
+      await user.click(retry);
+      expect(await screen.findByLabelText("Entry on page 300")).toBeVisible();
+    });
+
+    test("a year jump still loading when another section is opened does not scroll the new section", async () => {
+      mockReader(pack);
+      const early = manyEntries(60);
+      const late = [entry(70, { page_no: 300, event_date: "2023-02-02" })];
+      const alpha = [...early, ...late] as Entries;
+      const beta = [entry(80, { page_no: 400, event_date: "2023-06-06" })] as Entries;
+      outline = { status: "ready", coverage: COVERAGE, sections: [sectionOf("alpha", alpha), sectionOf("beta", beta, alpha.length)] };
+      mockTranscript("ready", [...alpha, ...beta]);
+      let release: () => void = () => {};
+      const gate = new Promise<void>((r) => (release = r));
+      server.use(
+        http.get(`${C}/transcript/entries`, async ({ request }) => {
+          const offset = Number(new URL(request.url).searchParams.get("offset") ?? 0);
+          if (offset !== 50) return undefined;
+          await gate;
+          return undefined;
+        }),
+      );
+      const { user } = renderAt(SECTION);
+      await screen.findByLabelText("Entry on page 100");
+      await user.click(within(screen.getByRole("group", { name: "Jump to a year" })).getByRole("button", { name: "2023" }));
+      await user.click(screen.getByRole("link", { name: /Next section: Beta/ }));
+      await screen.findByLabelText("Entry on page 400");
+      (Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear();
+      release();
+      await new Promise((r) => setTimeout(r, 100));
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
     });
 
     test("a year not loaded yet loads forward, then scrolls to its heading and records no read", async () => {

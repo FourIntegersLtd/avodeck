@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import re
 import uuid
 from datetime import date
 
@@ -170,3 +171,21 @@ def test_undated_entries_sit_under_no_date() -> None:
     doc = Document(io.BytesIO(build(lay, date_order="DMY", language="en", received={})))
     heads = [p.text for p in doc.paragraphs if p.style is not None and p.style.name.startswith("Heading")]
     assert "No date" in heads
+
+
+def test_bookmark_names_use_only_letters_digits_and_underscore() -> None:
+    doc = _doc()
+    names = [*_bookmarks(doc), *_anchors(doc)]
+    assert names
+    assert all(re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", n) for n in names)
+    assert {"sec_1", "app_no_entries"} <= set(names)
+
+
+def test_undated_entries_are_one_level_below_their_no_date_heading() -> None:
+    entry = TranscriptEntry(**{**_entry(3).__dict__, "event_date": None})
+    lay = Layout([Section("a", "transcript.section.first_part", [entry])], [], [], Coverage(3, 1, 0, 0, 0))
+    doc = Document(io.BytesIO(build(lay, date_order="DMY", language="en", received={})))
+    levels = [p.style.name for p in doc.paragraphs if p.style is not None and p.style.name.startswith("Heading")]
+    start = levels.index("Heading 2")
+    assert levels[start : start + 2] == ["Heading 2", "Heading 3"]
+    assert "Heading 4" not in levels
