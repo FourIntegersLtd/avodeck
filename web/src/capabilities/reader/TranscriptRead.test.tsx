@@ -352,6 +352,23 @@ describe.each([
     expect(log.seen).toEqual([{ page_no: 3, dwell_ms: 0, picture_opened: true }]);
   });
 
+  test("the picture of a page the computer could not read is the full picture, not the small one, and links to the page", async () => {
+    mockReader(pack);
+    mockTranscript("ready", [], [], [71]);
+    const asked: string[] = [];
+    server.use(
+      http.get(`${C}/pages/71/image`, ({ request }) => {
+        asked.push(new URL(request.url).search);
+        return new HttpResponse(new Blob(["png"]), { status: 200 });
+      }),
+    );
+    const { user } = renderAt(`${PATH}?section=_unread`);
+    await user.click(await screen.findByRole("button", { name: "Open the picture of page 71" }));
+    expect(await screen.findByAltText("Picture of page 71")).toBeVisible();
+    expect(asked).toEqual([""]);
+    expect(screen.getByRole("link", { name: "See the page" })).toHaveAttribute("href", expect.stringContaining("/read/71"));
+  });
+
   test("a result chip uses the pack's label key and falls back to plain words", async () => {
     mockReader(pack);
     mockTranscript("ready", [entry(1, { results: ["zz_level"], result_labels: ["zz.result.level"] })]);
