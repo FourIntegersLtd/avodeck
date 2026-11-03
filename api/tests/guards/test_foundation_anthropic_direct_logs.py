@@ -31,7 +31,7 @@ def assert_clean(text: str) -> None:
 
 def _request() -> ModelRequest:
     return ModelRequest(
-        model_id="claude-haiku-5-5",
+        model_id="claude-sonnet-4-6",
         system=f"Label the page for {NAME}.",
         context={"subject": NAME},
         text=f"{NAME} {spaced(NUMBER)}",
@@ -53,7 +53,7 @@ async def test_the_direct_client_logs_tokens_and_status_never_prompts_answers_or
         "id": "msg_1",
         "type": "message",
         "role": "assistant",
-        "model": "claude-haiku-5-5",
+        "model": "claude-sonnet-4-6",
         "content": [
             {"type": "tool_use", "id": "t1", "name": "record_output", "input": {"who": NAME, "number": NUMBER}}
         ],
@@ -124,7 +124,7 @@ async def test_a_failing_call_logs_its_class_status_error_type_and_request_id_an
     line = _line(caplog)
     for expected in (
         "provider=anthropic",
-        "model=claude-haiku-5-5",
+        "model=claude-sonnet-4-6",
         "outcome=busy",
         "error_class=ServiceBusy",
         "status=429",
@@ -166,7 +166,7 @@ async def test_a_good_call_logs_its_request_id_tokens_and_cache_counts(caplog: p
         "id": "msg_1",
         "type": "message",
         "role": "assistant",
-        "model": "claude-haiku-5-5",
+        "model": "claude-sonnet-4-6",
         "content": [{"type": "tool_use", "id": "t1", "name": "record_output", "input": {"who": NAME}}],
         "stop_reason": "tool_use",
         "stop_sequence": None,
