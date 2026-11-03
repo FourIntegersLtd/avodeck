@@ -305,3 +305,61 @@ async def test_cache_token_counts_are_logged_as_numbers_and_nothing_else(caplog:
     text = "\n".join(r.getMessage() for r in caplog.records)
     assert "3071" in text and "517" in text
     assert "line one" not in text and "Label each line" not in text
+
+
+@pytest.mark.parametrize(
+    ("status", "body"),
+    [
+        (402, error_body("billing_error")),
+        (400, error_body("billing_error")),
+        (400, error_body("invalid_request_error", "credit_balance_too_low")),
+        (400, error_body("invalid_request_error", "spend_limit_reached")),
+    ],
+)
+async def test_an_empty_balance_or_a_spend_cap_is_unavailable_by_type_and_code_only(
+    status: int, body: dict[str, Any]
+) -> None:
+    client, _ = live(reply(status, body))
+    with pytest.raises(ModelUnavailable):
+        await client.invoke(request())
+
+
+async def test_a_plain_bad_request_stays_a_refusal() -> None:
+    client, _ = live(reply(400, error_body("invalid_request_error")))
+    with pytest.raises(ModelRequestRefused):
+        await client.invoke(request())
+
+
+async def test_a_reply_the_sdk_cannot_make_sense_of_is_refused_by_class_so_the_fallback_can_take_it(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import anthropic
+
+    caplog.set_level("DEBUG")
+    client, _ = live(streamed(message({"labels": ["a"]})))
+
+    def broken(**_kwargs: Any) -> Any:
+        response = httpx2.Response(200, request=httpx2.Request("POST", "https://api.anthropic.com/v1/messages"))
+        raise anthropic.APIResponseValidationError(response, body="patient text that must not appear")
+
+    client.client.messages.stream = broken  # type: ignore[method-assign,assignment]
+    with pytest.raises(ModelRequestRefused) as caught:
+        await client.invoke(request())
+    assert caught.value.cause == "APIResponseValidationError"
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "APIResponseValidationError" in text and "outcome=refused" in text
+    assert "patient text that must not appear" not in text
+
+
+async def test_any_other_sdk_error_is_busy_by_class_so_the_fallback_can_take_it() -> None:
+    import anthropic
+
+    client, _ = live(streamed(message({"labels": ["a"]})))
+
+    def broken(**_kwargs: Any) -> Any:
+        raise anthropic.APIError("odd", httpx2.Request("POST", "https://api.anthropic.com/v1/messages"), body=None)
+
+    client.client.messages.stream = broken  # type: ignore[method-assign,assignment]
+    with pytest.raises(ServiceBusy) as caught:
+        await client.invoke(request())
+    assert caught.value.cause == "APIError"

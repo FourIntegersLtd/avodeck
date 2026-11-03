@@ -194,11 +194,12 @@ async def test_with_no_bedrock_a_still_busy_direct_api_pauses_after_its_retries(
     assert caught.value.reason == "service_busy" and len(rig.direct.requests) == 4
 
 
-async def test_with_no_bedrock_a_refusal_comes_through_as_a_refusal() -> None:
+async def test_with_no_bedrock_a_refusal_pauses_processing_as_model_unavailable() -> None:
     rig = Rig([ModelRequestRefused("refusal")])
     rig.kit.bedrock = None
-    with pytest.raises(ModelRequestRefused):
+    with pytest.raises(ProcessingPaused) as caught:
         await rig.run()
+    assert caught.value.reason == "model_unavailable"
 
 
 async def test_a_direct_endpoint_off_the_allow_list_is_refused_before_anything_is_sent() -> None:
@@ -309,3 +310,46 @@ async def test_a_rejected_answer_logs_who_gave_it_and_which_try(caplog: pytest.L
     assert "outcome=invalid_output" in lines[0]
     assert "schema_attempt=1/2" in lines[0] and "schema_attempt=2/2" in lines[1]
     assert '"no"' not in "\n".join(_messages(caplog))
+
+
+async def test_a_quick_kit_keeps_the_direct_side_and_waits_out_no_retries() -> None:
+    rig = Rig([answered()])
+    rig.kit.bedrock = None
+    quick = rig.kit.with_retries(0)
+    assert quick.direct is rig.direct and quick.settings is rig.kit.settings and quick.retries == 0
+    assert quick.direct_retries == 0
+    assert await quick.run(rig.conn, task(), pack=PACK, text="synthetic text") == {"ok": True}  # type: ignore[arg-type]
+    assert len(rig.direct.requests) == 1 and rig.sleeps == []
+
+
+async def test_a_quick_kit_gives_up_on_a_busy_direct_api_at_once_instead_of_retrying() -> None:
+    rig = Rig([ServiceBusy(5.0), answered()])
+    rig.kit.bedrock = None
+    quick = rig.kit.with_retries(0)
+    with pytest.raises(ProcessingPaused) as caught:
+        await quick.run(rig.conn, task(), pack=PACK, text="synthetic text")  # type: ignore[arg-type]
+    assert caught.value.reason == "service_busy"
+    assert len(rig.direct.requests) == 1 and rig.sleeps == []
+
+
+async def test_a_quick_kit_with_bedrock_behind_it_falls_back_without_waiting() -> None:
+    rig = Rig([ServiceBusy(5.0)])
+    quick = rig.kit.with_retries(0)
+    assert await quick.run(rig.conn, task(), pack=PACK, text="synthetic text") == {"ok": True}  # type: ignore[arg-type]
+    assert len(rig.direct.requests) == 1 and len(rig.bedrock.requests) == 1 and rig.sleeps == []
+
+
+async def test_a_kit_made_with_fewer_direct_retries_makes_only_those() -> None:
+    rig = Rig([ServiceBusy(1.0)])
+    rig.kit.direct_retries = 1
+    await rig.run()
+    assert len(rig.direct.requests) == 2 and rig.sleeps == [1.0]
+
+
+async def test_a_wrong_answer_from_bedrock_after_a_fallback_is_asked_again_of_bedrock_not_the_direct_api() -> None:
+    wrong = ModelResponse(output={"ok": "no"}, input_tokens=1, output_tokens=1)
+    rig = Rig([ServiceBusy(1.0)], [wrong, answered(None)])
+    assert await rig.run() == {"ok": True}
+    assert len(rig.direct.requests) == 4, "the first call and three retries, and no more"
+    assert len(rig.bedrock.requests) == 2
+    assert [c[-1] for c in rig.conn.logged] == ["invalid_output", "ok"]
