@@ -1213,6 +1213,16 @@
             "title": "Quarantined",
             "type": "array"
           },
+          "retry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetryProgress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "retrying": {
             "default": false,
             "title": "Retrying",
@@ -15838,6 +15848,35 @@
           "status"
         ],
         "title": "RetryOut",
+        "type": "object"
+      },
+      "RetryProgress": {
+        "description": "How far a \"Try these pages again\" run has got; counts only. Counted by the server, never by the browser.",
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "running",
+          "total",
+          "done",
+          "failed"
+        ],
+        "title": "RetryProgress",
         "type": "object"
       },
       "Role": {

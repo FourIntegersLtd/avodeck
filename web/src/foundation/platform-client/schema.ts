@@ -5669,6 +5669,7 @@ export interface components {
              * @default []
              */
             quarantined: components["schemas"]["QuarantinePage"][];
+            retry?: components["schemas"]["RetryProgress"] | null;
             /**
              * Retrying
              * @default false
@@ -11054,6 +11055,20 @@ export interface components {
              * @enum {string}
              */
             status: "idle" | "preparing" | "ready" | "failed";
+        };
+        /**
+         * RetryProgress
+         * @description How far a "Try these pages again" run has got; counts only. Counted by the server, never by the browser.
+         */
+        RetryProgress: {
+            /** Done */
+            done: number;
+            /** Failed */
+            failed: number;
+            /** Running */
+            running: boolean;
+            /** Total */
+            total: number;
         };
         /** Role */
         Role: {
