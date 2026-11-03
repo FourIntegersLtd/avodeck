@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { humanise, t } from "../../foundation/i18n";
 import { formatDay } from "../../foundation/i18n/dates";
 import type { Schemas } from "../../foundation/platform-client";
+import { Button } from "../../foundation/ui";
 import { count } from "./data";
 import { w } from "./words";
 
@@ -56,9 +57,11 @@ interface Props {
   sections: Section[];
   appendices: Appendix[];
   locale: string | null | undefined;
+  /** Asks again about the pages the computer could not read; left out when this person may not start the work. */
+  onRetryUnread?: () => void;
 }
 
-export function TranscriptContents({ coverage, sections, appendices: lists, locale }: Props) {
+export function TranscriptContents({ coverage, sections, appendices: lists, locale, onRetryUnread }: Props) {
   const tiles = coverage
     ? [
         { label: w("transcript.tiles.total"), n: coverage.total_pages, tone: "mint" },
@@ -81,6 +84,12 @@ export function TranscriptContents({ coverage, sections, appendices: lists, loca
               </div>
             ))}
           </dl>
+        )}
+        {onRetryUnread && (
+          <div className="rd-tiles__note">
+            <p>{w("transcript.try_unread_lead")}</p>
+            <Button variant="secondary" onClick={onRetryUnread}>{w("transcript.try_unread")}</Button>
+          </div>
         )}
         {coverage && coverage.set_aside > 0 && <p className="rd-tiles__note">{w("transcript.set_aside_note", { count: coverage.set_aside, shown: count(coverage.set_aside, locale) })}</p>}
       </section>

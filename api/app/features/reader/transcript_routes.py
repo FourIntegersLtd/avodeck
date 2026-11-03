@@ -21,6 +21,9 @@ from app.core.contracts.record_entries import (
     entries_status,
     pipeline_running,
     request_entries,
+    request_unread_retry,
+    retry_waiting,
+    retryable_unread_pages,
 )
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
@@ -67,14 +70,17 @@ async def transcript_entries(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> TranscriptList:
-    if not await entries_ready(conn, case_id):
+    can_prepare = "page.read" in access.allowed_actions  # others do not start the work
+    retrying = await retry_waiting(conn, case_id)  # pages are being tried again: wait for them, not ready yet
+    if retrying or not await entries_ready(conn, case_id):
         status = await entries_status(conn, case_id)
-        can_prepare = "page.read" in access.allowed_actions  # others do not start the work
         # A failed job is not queued again by a poll; the reader asks again (`/transcript/retry`).
         if status == "idle" and can_prepare:
             await request_entries(conn, case_id)  # queues once, and not while pages await the pipeline
             status = await entries_status(conn, case_id)
         progress = await entries_progress(conn, case_id)
+        # Pages reset for a retry wait for the retry, not for the pipeline (also when the retry itself failed).
+        own_wait = retrying or (status == "failed" and await retryable_unread_pages(conn, case_id) > 0)
         return TranscriptList(
             status=status,
             total=0,
@@ -82,7 +88,7 @@ async def transcript_entries(
             prepared_pages=progress.entries_done,
             total_pages=progress.total,
             extracted_pages=progress.extracted,
-            waiting_for="pipeline" if progress.extracted < progress.total else "entries",
+            waiting_for="entries" if own_wait or progress.extracted >= progress.total else "pipeline",
             pipeline_running=await pipeline_running(conn, case_id),
             can_prepare=can_prepare,
         )
@@ -97,6 +103,7 @@ async def transcript_entries(
         entries=[
             TranscriptEntryOut(**{f: getattr(e, f) for f in TranscriptEntryOut.model_fields}) for e in got.entries
         ],
+        can_prepare=can_prepare,
     )
 
 
@@ -132,8 +139,10 @@ async def transcript_outline(case_id: uuid.UUID, request: Request, access: View,
 
 @router.post("/transcript/retry", status_code=202, response_model=RetryOut)
 async def transcript_retry(case_id: uuid.UUID, access: Read, conn: DbConn) -> RetryOut:
-    """The reader asks again after the entries job failed; queues once, nothing while one is waiting."""
-    await request_entries(conn, case_id)
+    """The reader asks again: the pages the model could not read first, else the entries job after it failed.
+    Queues once, nothing while one is waiting."""
+    if await request_unread_retry(conn, case_id) is None:
+        await request_entries(conn, case_id)
     return RetryOut(status=await entries_status(conn, case_id))
 
 

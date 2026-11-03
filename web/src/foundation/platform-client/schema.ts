@@ -3572,7 +3572,8 @@ export interface paths {
         put?: never;
         /**
          * Transcript Retry
-         * @description The reader asks again after the entries job failed; queues once, nothing while one is waiting.
+         * @description The reader asks again: the pages the model could not read first, else the entries job after it failed.
+         *     Queues once, nothing while one is waiting.
          */
         post: operations["transcript_retry_v1_cases__case_id__transcript_retry_post"];
         delete?: never;
@@ -5633,6 +5634,11 @@ export interface components {
              */
             exhibits: components["schemas"]["Exhibit"][];
             /**
+             * Failed Pages
+             * @default 0
+             */
+            failed_pages: number;
+            /**
              * Foreign Language
              * @default []
              */
@@ -5663,6 +5669,11 @@ export interface components {
              * @default []
              */
             quarantined: components["schemas"]["QuarantinePage"][];
+            /**
+             * Retrying
+             * @default false
+             */
+            retrying: boolean;
             /**
              * Set Aside Count
              * @default 0

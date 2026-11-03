@@ -194,6 +194,8 @@ export function TranscriptRead() {
   const [unreadPages, setUnreadPages] = useState<number[]>([]);
   const [status, setStatus] = useState<Schemas["TranscriptList"]["status"] | null>(null);
   const [wait, setWait] = useState<Schemas["TranscriptList"] | null>(null);
+  // The pages the retry would try (the bundle summary's count: one definition for the job, the summary and this button).
+  const [retryInfo, setRetryInfo] = useState({ failed_pages: 0, retrying: false });
   const [failed, setFailed] = useState(false);
   const [read, setRead] = useState<number | null>(null);
   const [pagesTotal, setPagesTotal] = useState(0);
@@ -247,10 +249,24 @@ export function TranscriptRead() {
     [caseId],
   );
 
+  const retryPages = useCallback(async () => {
+    try {
+      const s = await unwrap(api.GET("/v1/cases/{case_id}/bundle/summary", { params: { path: { case_id: caseId } } }));
+      setRetryInfo({ failed_pages: s.failed_pages, retrying: s.retrying });
+    } catch {
+      /* no button and no "trying again" words; the transcript still reads */
+    }
+  }, [caseId]);
+
   useEffect(() => {
     void load(0, 1, "status");
     void progress();
   }, [load, progress]);
+
+  // Learned when the transcript changes state (not on every poll): ready shows the button, preparing the words.
+  useEffect(() => {
+    if (status !== null) void retryPages();
+  }, [status, retryPages]);
 
   useEffect(() => {
     if (status !== "preparing" && !(status === "idle" && wait?.pipeline_running)) return;
@@ -371,7 +387,10 @@ export function TranscriptRead() {
     } catch {
       /* the next load shows the state */
     }
+    outlineAsked.current = false; // the shape of the transcript is fetched again once it is ready again
+    setOutline(null);
     await load(0, 1, "status");
+    await retryPages();
   }
 
   const seen = useCallback<SeenFn>(
@@ -436,7 +455,7 @@ export function TranscriptRead() {
     const done = wait?.prepared_pages ?? 0;
     return (
       <WaitNotice
-        words={w("transcript.preparing")}
+        words={w(retryInfo.retrying ? "transcript.retrying" : "transcript.preparing")}
         counted={all > 0 && done > 0 ? { label: w("transcript.preparing_page", { done: count(done, pack.locale), total: count(all, pack.locale) }), value: done, max: all } : undefined}
         onRetry={status === "idle" && wait?.can_prepare !== false ? () => void retry() : undefined}
         progressTo={`/cases/${caseId}/preparing`}
@@ -501,7 +520,7 @@ export function TranscriptRead() {
       );
     }
     if (sections.length === 0 && lists.length === 0) return <p>{w("transcript.none")}</p>;
-    return <TranscriptContents coverage={outline.coverage ?? undefined} sections={sections} appendices={lists} locale={pack.locale} />;
+    return <TranscriptContents coverage={outline.coverage ?? undefined} sections={sections} appendices={lists} locale={pack.locale} onRetryUnread={retryInfo.failed_pages > 0 && wait?.can_prepare === true ? () => void retry() : undefined} />;
   }
 
   if (failed && status === null) return <LoadError onRetry={() => void load(0, 1, "status")} />;

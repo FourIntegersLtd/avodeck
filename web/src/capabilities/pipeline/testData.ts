@@ -12,6 +12,7 @@ export const EXPERT_ACTIONS = [
   "case.upload",
   "fact.verify",
   "page.quarantine",
+  "page.read",
   "page.review_duplicate",
   "request.draft",
 ];

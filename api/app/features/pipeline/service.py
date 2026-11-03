@@ -50,6 +50,7 @@ from app.core.contracts.fact_dates import case_anchor, latest_printed_date
 from app.core.contracts.fact_flags import flag_for_recheck
 from app.core.contracts.fact_verifications import log_remaps
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcription_purpose
+from app.core.contracts.record_entries import RETRY_UNREAD
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
@@ -69,6 +70,7 @@ from app.features.pipeline import (
     repo,
     steplog,
 )
+from app.features.pipeline.asking import answer_group
 from app.features.pipeline.render import Pictures, encode, rasterise
 from app.features.pipeline.straighten import quarter_turn
 from app.features.pipeline.wiring import PipelineServices, current
@@ -76,6 +78,7 @@ from app.features.pipeline.words import assess, turned, typed, usable_text_layer
 
 SCAN_DOCUMENT = "scan_document"
 REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page again
+RETRY_UNREAD_PAGES = RETRY_UNREAD  # extract again only the pages the model could not read
 EXTRACT_ENTRIES = "extract_entries"  # read entries only, for a case extracted before entries existed (ADR 0028)
 REPAIR_FACT_DATES = "repair_fact_dates"  # fill event_date from printed words when extraction left it null
 PURGE_QUARANTINED = "purge_quarantined_pages"  # the daily deletion of quarantined pages' images and text
@@ -635,11 +638,9 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
     the model in one call (one call per batch, not per page, to stay inside the account-wide Bedrock
     on-demand throughput ceiling). Returns how many pages were extracted.
 
-    Accepted tradeoff: a batch is asked at most twice, exactly as a single page used to be. When any
-    page in the batch still fails provenance (or the answer is unusable) on the first attempt, the
-    *whole batch* is asked again; a page still failing after that becomes `needs_human`. One
-    malformed page therefore costs a full second call for every page in its batch, not just itself —
-    accepted for the throughput win; no partial-batch recovery is attempted.
+    A batch is asked at most twice as a whole (`asking.answer_group`). When the answer is empty it is split
+    and asked in halves; when it leaves pages out, just those pages are asked again on their own, so a page
+    is only marked `invalid_output` after being asked about alone (or in a small group).
 
     A page with enough words but little or nothing kept (`coverage.reason_for`'s `no_facts` or
     `low_coverage`) is asked once more, on its own; the second answer replaces the first only when
@@ -688,30 +689,33 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 if len(group) == 1
                 else page_subject((str(page_no), loaded[page_id].subject) for page_id, page_no in group)
             )
-            found: dict[int, Mapping[str, Any]] = {}
-            for _ in range(2):
-                raw = await _ask(
+
+            async def ask_group(part: Sequence[tuple[uuid.UUID, int]]) -> Mapping[str, Any] | None:
+                # A smaller group (a split, or the pages left out) keeps the same rules: a lone page its own subject.
+                part_subject = (
+                    loaded[part[0][0]].subject
+                    if len(part) == 1
+                    else (
+                        subject
+                        if len(part) == len(group)
+                        else page_subject((str(no), loaded[pid].subject) for pid, no in part)
+                    )
+                )
+                return await _ask(
                     ctx,
                     services,
                     task if provider is None else bedrock_task,
                     pack,
                     who,
-                    extract.batch_text([(page_no, loaded[page_id].text) for page_id, page_no in group]),
-                    subject,
+                    extract.batch_text([(no, loaded[pid].text) for pid, no in part]),
+                    part_subject,
                     provider,
                 )
-                found = extract.pages_of(raw) if raw is not None else {}
-                if not found and len(group) > 1:
-                    half = len(group) // 2
-                    return {**await ask_pages(group[:half], provider), **await ask_pages(group[half:], provider)}
-                ok = raw is not None and all(
-                    page_no in found
-                    and not extract.sort_facts(found[page_no], loaded[page_id].texts, loaded[page_id].struck).refused
-                    for page_id, page_no in group
-                )
-                if ok:
-                    break
-            return found
+
+            def refused(page: tuple[uuid.UUID, int], answer: Mapping[str, Any]) -> bool:
+                return bool(extract.sort_facts(answer, loaded[page[0]].texts, loaded[page[0]].struck).refused)
+
+            return await answer_group(group, ask_group, refused)
 
         if askable:
             asked = True
@@ -1136,6 +1140,19 @@ async def reprocess_case(ctx: JobContext) -> None:
     services = current()
     async with ctx.transaction() as conn:
         await repo.reset_for_reprocess(conn, ctx.case_id)
+    await ctx.progress(40, step="sort")
+    await _sort(ctx, services)
+    await ctx.progress(100, step="sort")
+
+
+async def retry_unread_pages(ctx: JobContext) -> None:
+    """Extracts again only the pages the model could not read (`POST /transcript/retry`, summary button).
+
+    Their failed marker is cleared and they are extracted the way they were first; pages that read well and
+    every verified fact are left alone. A page that fails again is left for a person, and nothing asks again."""
+    services = current()
+    async with ctx.transaction() as conn:
+        await repo.reset_unread(conn, ctx.case_id)
     await ctx.progress(40, step="sort")
     await _sort(ctx, services)
     await ctx.progress(100, step="sort")

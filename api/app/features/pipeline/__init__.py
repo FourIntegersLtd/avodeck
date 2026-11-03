@@ -25,6 +25,7 @@ from app.features.pipeline.service import (
     PURGE_QUARANTINED,
     REPAIR_FACT_DATES,
     REPROCESS_CASE,
+    RETRY_UNREAD_PAGES,
     SCAN_DOCUMENT,
     extract_entries,
     process_bundle,
@@ -33,6 +34,7 @@ from app.features.pipeline.service import (
     queue_pages,
     repair_fact_dates,
     reprocess_case,
+    retry_unread_pages,
     scan_document,
 )
 
@@ -46,6 +48,7 @@ def register(registry: jobs.JobRegistry) -> None:
     registry.kind(REPROCESS_CASE)(reprocess_case)
     registry.kind(REPAIR_FACT_DATES)(repair_fact_dates)
     registry.kind(EXTRACT_ENTRIES)(extract_entries)
+    registry.kind(RETRY_UNREAD_PAGES)(retry_unread_pages)
     registry.schedule(PURGE_QUARANTINED)(purge_quarantined)
 
 

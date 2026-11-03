@@ -74,6 +74,8 @@ function sectionOf(key: string, entries: Entries, offset = 0): OutlineSection {
 const COVERAGE = { total_pages: 20, with_entries: 12, no_entries: 5, unreadable: 3, set_aside: 2 };
 
 let outline: Schemas["TranscriptOutline"] = { status: "ready", sections: [] };
+// What the bundle summary says about the pages the model could not read (the same count the retry job uses).
+let summary = { failed_pages: 0, retrying: false };
 
 function mockTranscript(
   status: "ready" | "preparing" | "failed" | "idle",
@@ -93,6 +95,7 @@ function mockTranscript(
       log.requests.push({ offset, limit });
       return json({ status, total: entries.length, entries: entries.slice(offset, offset + limit), picture_pages, unread_pages, ...extra });
     }),
+    http.get(`${C}/bundle/summary`, () => json(summary)),
     http.post(`${C}/transcript/retry`, () => {
       log.retries += 1;
       return json({ status: "preparing" }, 202);
@@ -141,6 +144,7 @@ beforeEach(() => {
   forgetPages(); // a page picture kept by an earlier test would hide the request this one asserts on
   watchers = [];
   outline = { status: "ready", sections: [] };
+  summary = { failed_pages: 0, retrying: false };
   vi.stubGlobal("IntersectionObserver", FakeObserver);
   Element.prototype.scrollIntoView = vi.fn();
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:docx"), revokeObjectURL: vi.fn() }));
@@ -169,6 +173,42 @@ describe.each([
     expect(await screen.findByText("We're getting the record ready to read. This can take a minute.")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Download a copy" }));
     expect(screen.getByRole("menuitem", { name: "Download as Word" })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  test("a transcript with pages that can be tried again offers to try just those, once per press", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 3, retrying: false };
+    const log = mockTranscript("ready", [entry(1)], [], [7, 8, 9], { can_prepare: true });
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Try these pages again" }));
+    expect(log.retries).toBe(1);
+  });
+
+  test("the button follows the pages the retry would try, not the pages listed as unreadable", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 0, retrying: false }; // the unreadable pages are copies or set aside: a press would queue nothing
+    mockTranscript("ready", [entry(1)], [], [7, 8, 9], { can_prepare: true });
+    renderAt(PATH);
+    await screen.findByText("Pages we couldn't read");
+    expect(screen.queryByRole("button", { name: "Try these pages again" })).toBeNull();
+  });
+
+  test("no button to try those pages again for a person who may not start the work", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 3, retrying: false };
+    mockTranscript("ready", [entry(1)], [], [7, 8, 9], { can_prepare: false });
+    renderAt(PATH);
+    await screen.findByText("Pages we couldn't read");
+    expect(screen.queryByRole("button", { name: "Try these pages again" })).toBeNull();
+  });
+
+  test("while those pages are tried again it says so, rather than looking like a fresh start", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 3, retrying: true };
+    mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 897, waiting_for: "entries" });
+    renderAt(PATH);
+    expect(await screen.findByText("We're trying the pages we couldn't read again. This can take a minute.")).toBeVisible();
+    expect(screen.queryByText(WAIT_WORDS)).toBeNull();
   });
 
   test("while preparing it shows a spinner and how many pages are done", async () => {
