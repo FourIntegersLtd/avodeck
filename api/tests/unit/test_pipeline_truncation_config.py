@@ -17,3 +17,8 @@ def test_a_provider_without_a_wider_cap_asks_no_wider() -> None:
     from app.core.config import ProviderLimits
 
     assert ProviderLimits(rpm=1, pages_per_call=1, max_output_tokens=1, concurrency=1).widest_output_tokens == 0
+
+
+def test_the_output_tokens_reserved_at_once_stay_near_the_old_limit() -> None:
+    # The direct API reserves each call's max_tokens against a per-minute output allowance when it admits the call.
+    assert ANTHROPIC_LIMITS.concurrency * ANTHROPIC_LIMITS.max_output_tokens <= 1_600_000
