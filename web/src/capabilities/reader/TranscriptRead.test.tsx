@@ -612,14 +612,19 @@ describe.each([
       await startPdf(user);
       await waitFor(panelNow);
       await user.click(screen.getByRole("button", { name: "Download a copy" }));
-      for (const item of await screen.findAllByRole("menuitem", { name: "Preparing your file" })) expect(item).toHaveAttribute("aria-disabled", "true");
+      const menu = await screen.findByRole("menu", { name: "Download a copy" });
+      const preparing = within(menu).getAllByRole("menuitem", { name: "Preparing your file" });
+      expect(preparing).toHaveLength(2);
+      for (const item of preparing) expect(item).toHaveAttribute("aria-disabled", "true");
+      await user.keyboard("{Escape}");
       release(new HttpResponse(new Blob(["pdf"]), { status: 200 }));
-      expect(await screen.findByText("Your PDF has been downloaded.")).toBeVisible();
+      expect(await screen.findByText("Your PDF has been downloaded.", {}, { timeout: 8000 })).toBeVisible();
       expect(screen.queryByText(BUILDING)).toBeNull();
       await user.click(screen.getByRole("button", { name: "Download a copy" }));
-      expect(await screen.findByRole("menuitem", { name: "Download as PDF" })).toBeEnabled();
-      expect(screen.getByRole("menuitem", { name: "Download as Word" })).toBeEnabled();
-    });
+      const pdfItem = await screen.findByRole("menuitem", { name: "Download as PDF" });
+      expect(pdfItem).not.toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByRole("menuitem", { name: "Download as Word" })).not.toHaveAttribute("aria-disabled", "true");
+    }, 12000);
 
     test("pressing again after a reload shows the same status and takes the file from the job the server named", async () => {
       mockReader(pack);

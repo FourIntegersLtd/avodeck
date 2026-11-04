@@ -462,6 +462,7 @@ export function TranscriptRead() {
           setMessage(w(format === "pdf" ? "transcript.downloaded_pdf" : "transcript.downloaded"));
           return;
         } catch (err) {
+          if (err instanceof ApiError && err.code === "build_failed") throw err;
           if ((err as { status?: number }).status !== 409) throw err;
           await new Promise((r) => setTimeout(r, POLL_MS));
         }
