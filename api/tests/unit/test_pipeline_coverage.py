@@ -85,3 +85,44 @@ def test_a_fact_citing_an_unknown_word_id_is_ignored_not_a_crash() -> None:
     fact = {"word_ids": ["not-on-page", *[f"w{i}" for i in range(15)]]}
     # 15 known words covered out of 40 is below MIN_COVERAGE, and the unknown id must not crash it.
     assert coverage.reason_for(ordered=ordered, struck=set(), kept=[fact], entries=[]) == "low_coverage"
+
+
+# --- how much of the page the entries cover (2a, 2e) ---
+
+
+def test_entry_coverage_is_the_share_of_countable_words_inside_entries() -> None:
+    ordered = words(100)
+    assert coverage.entry_coverage(ordered=ordered, struck=set(), entries=[entry(1, 60)]) == 0.6
+    assert coverage.entry_coverage(ordered=ordered, struck=set(), entries=[entry(1, 30), entry(31, 50)]) == 0.5
+    assert coverage.entry_coverage(ordered=ordered, struck=set(), entries=[]) == 0.0
+
+
+def test_entry_coverage_leaves_out_crossed_out_words_and_punctuation() -> None:
+    ordered = [*words(8), ("p0", "-"), ("p1", "."), ("s0", "crossed"), ("s1", "words")]
+    covered = coverage.entry_coverage(ordered=ordered, struck={"s0", "s1"}, entries=[entry(1, 4)])
+    assert covered == 0.5, "4 of the 8 countable words"
+    assert coverage.entry_coverage(ordered=[("p0", "-")], struck=set(), entries=[]) == 1.0, "nothing to cover"
+
+
+def test_a_page_with_enough_words_and_few_inside_entries_is_asked_again() -> None:
+    assert coverage.MIN_ENTRY_COVERAGE == 0.8
+    ordered = words(100)
+    assert coverage.entry_reason(ordered=ordered, struck=set(), entries=[entry(1, 79)]) == "low_entry_coverage"
+    assert coverage.entry_reason(ordered=ordered, struck=set(), entries=[entry(1, 80)]) is None
+    assert coverage.entry_reason(ordered=ordered, struck=set(), entries=[entry(1, 100)]) is None
+
+
+def test_the_floor_is_a_parameter_so_the_same_coverage_passes_or_fails_with_it() -> None:
+    ordered = words(100)
+    got = [entry(1, 85)]
+    assert coverage.entry_reason(ordered=ordered, struck=set(), entries=got, floor=0.8) is None
+    assert coverage.entry_reason(ordered=ordered, struck=set(), entries=got, floor=0.9) == "low_entry_coverage"
+
+
+def test_a_page_with_enough_words_and_no_entries_is_asked_again() -> None:
+    assert coverage.entry_reason(ordered=words(40), struck=set(), entries=[]) == "low_entry_coverage"
+
+
+def test_a_short_page_or_an_unusable_answer_is_never_asked_again_for_entries() -> None:
+    assert coverage.entry_reason(ordered=words(39), struck=set(), entries=[]) is None
+    assert coverage.entry_reason(ordered=words(100), struck=set(), entries=None) is None

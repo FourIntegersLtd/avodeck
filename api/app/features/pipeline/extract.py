@@ -23,9 +23,10 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import difflib
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -35,12 +36,14 @@ from app.core.ai import provenance
 from app.core.ai.kit import AiTask
 from app.core.contracts.document_words import box as box  # used here as `extract.box`
 from app.core.packs import MergedPack
-from app.features.pipeline import dates
+from app.features.pipeline import date_repair, dates
 
 TASK_ID = "T-07b"
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "2026-11-01.1"  # batched, multi-page prompt (page-keyed output, see output_schema)
+PROMPT_VERSION = (
+    "2026-11-04.1"  # entries cover every word; batched, multi-page prompt (page-keyed output, see output_schema)
+)
 MODEL_ROLE = "sonnet"
 AVAILABILITY = ("received", "filed", "seen", "sent_to_clinician")
 _FIELD_TYPES = {"date": ["string", "null"], "string": ["string", "null"], "boolean": ["boolean", "null"]}
@@ -299,12 +302,15 @@ def sort_entries(output: Mapping[str, Any] | None, positions: Mapping[str, int],
     """The entries worth keeping, in page order, and how many were dropped.
 
     An entry is kept when its kind, author role and specialty are in the pack, both ends are words on the
-    page (`positions`: word id to its number, from 1), the first is not after the last, and it does not
-    overlap an entry already kept. Nothing about a dropped entry is logged but the count."""
+    page (`positions`: word id to its number, from 1) and the first is not after the last. An entry that
+    overlaps the one before it is trimmed to start at the word after it, so the earlier entry keeps its
+    words and the later one keeps the rest; one with nothing left is dropped. Nothing about a dropped entry
+    is logged but the count."""
     kinds = {k["key"] for k in pack.entry_kinds()}
     roles = {r["key"] for r in pack.author_roles()}
     specialties = {s["key"] for s in pack.entry_specialties()}
-    kept: list[Entry] = []
+    word_at = {n: word_id for word_id, n in positions.items()}
+    valid: list[tuple[int, int, Mapping[str, Any]]] = []
     rejected = 0
     for item in (output or {}).get("entries", []):
         first, last = positions.get(item.get("first_word_id")), positions.get(item.get("last_word_id"))
@@ -316,38 +322,170 @@ def sort_entries(output: Mapping[str, Any] | None, positions: Mapping[str, int],
             and first <= last
             and (role is None or role in roles)
             and (specialty is None or specialty in specialties)
-            and not any(first <= e.last_n and e.first_n <= last for e in kept)
         )
         if not ok:
             rejected += 1
             continue
         assert first is not None and last is not None
+        valid.append((first, last, item))
+    kept: list[Entry] = []
+    reached = 0  # the last word number an entry already kept covers
+    for first, last, item in sorted(valid, key=lambda v: (v[0], v[1])):
+        first = max(first, reached + 1)
+        if first > last:
+            rejected += 1
+            continue
+        reached = last
         kept.append(
             Entry(
                 kind=str(item["kind"]),
-                first_word_id=str(item["first_word_id"]),
+                first_word_id=word_at[first],
                 last_word_id=str(item["last_word_id"]),
                 first_n=first,
                 last_n=last,
-                author_role=role,
-                specialty=specialty,
+                author_role=item.get("author_role"),
+                specialty=item.get("specialty"),
             )
         )
-    return SortedEntries(kept=sorted(kept, key=lambda e: e.first_n), rejected=rejected)
+    return SortedEntries(kept=kept, rejected=rejected)
+
+
+def _without_births(found: Sequence[dates.Printed], births: Collection[dt.date]) -> list[dates.Printed]:
+    return [d for d in found if not dates.is_birth(d, births)]
+
+
+def _choose(found: Sequence[dates.Printed]) -> dt.date | None:
+    """The one date that reads a single way, when exactly one distinct such date is printed."""
+    readable = {d.value for d in found if not d.ambiguous}
+    return next(iter(readable)) if len(readable) == 1 else None
+
+
+def _on_first_line(
+    found: Sequence[dates.Printed], inside: Sequence[tuple[str, str]], lines: Mapping[str, int] | None
+) -> list[dates.Printed]:
+    """The dates that start on the entry's first printed line (none without line positions)."""
+    if lines is None or not inside or inside[0][0] not in lines:
+        return []
+    first_line = lines[inside[0][0]]
+    return [d for d in found if lines.get(d.word_ids[0]) == first_line]
+
+
+def _starts_page(entry: Entry, page_size: int | None) -> bool:
+    """Whether the entry holds the page's first word, and so its header (known only with the page's size)."""
+    return page_size is not None and entry.first_n == 1
+
+
+def _only_in_footer(
+    chosen: dt.date,
+    found: Sequence[dates.Printed],
+    entry: Entry,
+    ordered: Sequence[tuple[str, str]],
+    lines: Mapping[str, int] | None,
+    page_size: int | None,
+) -> bool:
+    """Whether an entry that reaches the page's end, and has lines of its own before the last, takes `chosen`
+    only from the page's last printed line: that line may be a footer, not the entry's own date."""
+    if lines is None or page_size is None or entry.last_n < page_size or not ordered:
+        return False
+    last_line, first_line = lines.get(ordered[-1][0]), lines.get(entry.first_word_id)
+    if last_line is None or first_line is None or first_line == last_line:
+        return False
+    sources = [d for d in found if d.value == chosen]
+    return bool(sources) and all(lines.get(w) == last_line for d in sources for w in d.word_ids)
 
 
 def entry_date(
-    entry: Entry, ordered: Sequence[tuple[str, str]], struck: set[str], pack: MergedPack
+    entry: Entry,
+    ordered: Sequence[tuple[str, str]],
+    struck: set[str],
+    pack: MergedPack,
+    dates_of_birth: Collection[dt.date] = (),
+    lines: Mapping[str, int] | None = None,
+    page_size: int | None = None,
 ) -> tuple[Any, str | None]:
-    """An entry's date from the dates printed inside its words: one readable date is used, a date that reads
-    more than one way is left for the reader to check, and none gives no date."""
+    """An entry's date from the dates printed inside its words, by these rules in order:
+
+    1. a known date of birth is never an entry's date;
+    2. exactly one distinct date that reads a single way is used;
+    3. else exactly one such date on the entry's first printed line is used;
+    4. else, when dates were printed but none can be chosen, the reader is asked to check (`please_check`);
+    5. else the entry has no date.
+
+    Nothing is guessed: a date that reads more than one way (a two-digit year) is never chosen, and while
+    one is printed anywhere in the entry no other date is chosen either (rules 2 and 3 do not apply).
+
+    With `page_size` (the page's word count) page furniture is guarded, since entries cover every word: the
+    entry holding the page's first word may hold a header, so rule 3 is not used for it; and a date taken only
+    from the last printed line by an entry that reaches the page's end, and has lines before it, may be a
+    footer, so it is not chosen. Both leave the entry to `please_check`."""
     inside = [
         (w, t) for n, (w, t) in enumerate(ordered, start=1) if entry.first_n <= n <= entry.last_n and w not in struck
     ]
-    found = dates.find(inside, pack)
-    readable = {d.value for d in found if not d.ambiguous}
-    if len(readable) == 1 and len(found) == 1:
-        return readable.pop(), dates.PRINTED
-    if found and not readable:
-        return None, dates.PLEASE_CHECK
-    return None, None
+    found = _without_births(dates.find(inside, pack), set(dates_of_birth))
+    chosen = None
+    if not any(d.ambiguous for d in found):
+        chosen = _choose(found)
+        if chosen is None and not _starts_page(entry, page_size):
+            chosen = _choose(_on_first_line(found, inside, lines))
+        if chosen is not None and _only_in_footer(chosen, found, entry, ordered, lines, page_size):
+            chosen = None
+    if chosen is not None:
+        return chosen, dates.PRINTED
+    return (None, dates.PLEASE_CHECK) if found else (None, None)
+
+
+def repair_entry_date(
+    entry: Entry,
+    ordered: Sequence[tuple[str, str]],
+    struck: set[str],
+    lines: Mapping[str, int],
+    pack: MergedPack,
+    *,
+    dates_of_birth: Collection[dt.date],
+    anchor: dt.date,
+    page_size: int | None = None,
+    page_entries: Sequence[Entry] = (),
+) -> tuple[Any, str | None]:
+    """The repair pass for an entry that has no date: the rules of `entry_date`, then a two-digit year read in
+    the century before `anchor` (`printed_century`), then the date on the line directly above the entry
+    (`line_above`). A known date of birth is never used, and a date inside any of `page_entries` (the page's
+    entries) is never borrowed from the line above. With no date chosen the basis is `please_check` when
+    dates were printed, else None. `page_size` guards page furniture as in `entry_date`."""
+    births = set(dates_of_birth)
+    when, basis = entry_date(entry, ordered, struck, pack, births, lines, page_size)
+    if when is not None:
+        return when, basis
+    inside = [
+        (w, t) for n, (w, t) in enumerate(ordered, start=1) if entry.first_n <= n <= entry.last_n and w not in struck
+    ]
+    found = _without_births(dates.find(inside, pack), births)
+    short = [d for d in found if d.ambiguous]
+    if short:
+        # a short year is read only on the first printed line, or anywhere when it is the only kind of date
+        first_line = [] if _starts_page(entry, page_size) else _on_first_line(short, inside, lines)
+        candidates = first_line or (short if len(short) == len(found) else [])
+        read = {
+            c
+            for d in candidates
+            for c in [
+                dates.century_from_ambiguous_text(" ".join(t for w, t in inside if w in d.word_ids), pack, anchor)
+            ]
+            if c is not None and c not in births
+        }
+        if len(read) == 1:
+            return read.pop(), dates.PRINTED_CENTURY
+    if found:  # dates were printed but none can be chosen: the reader checks; nothing above is borrowed
+        return when, basis
+    above, above_basis, _ = date_repair.line_above_of(
+        [entry.first_word_id],
+        ordered,
+        struck,
+        lines,
+        pack,
+        anchor=anchor,
+        skip=births,
+        blocked=[(e.first_n, e.last_n) for e in page_entries],
+    )
+    if above is not None:
+        return above, above_basis
+    return when, basis

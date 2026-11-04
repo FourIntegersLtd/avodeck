@@ -415,7 +415,8 @@ async def _settle(
 async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
     async with ctx.transaction() as conn:
         waiting = await repo.pages_without_words(conn, ctx.case_id)
-        spoken = services.packs.for_case(await repo.case_codes(conn, ctx.case_id)).language
+        case_pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
+        spoken, locale = case_pack.language, case_pack.locale
         numbers = await repo.page_numbers_by_id(conn, ctx.case_id)
     run = steplog.current()
 
@@ -445,7 +446,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                 if services.ocr is None:
                     raise ProcessingPaused("model_unavailable")
                 try:
-                    found = (await services.ocr.analyse(page_pdf, "layout")).pages[0]
+                    found = (await services.ocr.analyse(page_pdf, "layout", locale=locale)).pages[0]
                 except OcrFailed as exc:  # F4: this page alone is marked unreadable; the rest carry on
                     if run is not None:
                         run.page_failed(numbers.get(page_id), exc, "failed")
@@ -618,14 +619,20 @@ async def _load_page(
 
 
 def _entries_of(
-    output: dict[str, Any] | None, ordered: list[tuple[str, str]], struck: set[str], pack: Any
+    output: Mapping[str, Any] | None,
+    ordered: list[tuple[str, str]],
+    struck: set[str],
+    pack: Any,
+    dates_of_birth: Sequence[date] = (),
+    lines: Mapping[str, int] | None = None,
 ) -> tuple[list[repo.NewEntry], int]:
-    """The page's entries that pass provenance, each dated from the dates printed inside it, and the count dropped."""
+    """The page's entries that pass provenance (overlaps trimmed), each dated from the dates printed inside it
+    (never a known date of birth), and the count dropped."""
     positions = {word_id: n for n, (word_id, _) in enumerate(ordered, start=1)}
     sorted_entries = extract.sort_entries(output, positions, pack)
     entries = []
     for e in sorted_entries.kept:
-        when, basis = extract.entry_date(e, ordered, struck, pack)
+        when, basis = extract.entry_date(e, ordered, struck, pack, dates_of_birth, lines, len(ordered))
         entries.append(
             repo.NewEntry(
                 kind=e.kind,
@@ -667,6 +674,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
     bedrock_task = extract.task_for(pack)  # a re-split call goes to Bedrock, whose answer limit is the default
     model_id = model_for(services.kit.settings, task.model)
     size = extract.pages_per_call(services.kit.settings.extraction_batch_size, limits.pages_per_call)
+    entry_floor = services.kit.settings.entry_coverage_floor
     batches = [waiting[i : i + size] for i in range(0, len(waiting), size)]
     done = 0
 
@@ -775,25 +783,41 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 max((y for w in stored for y in w.polygon[1::2]), default=1.0) or 1.0,
             )
             evidence = extract.sort_evidence(output, ordered, struck, pack)
+            lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
             entries: list[Any] | None
-            entries, entries_rejected = _entries_of(output, ordered, struck, pack)
+            entries, entries_rejected = _entries_of(output, ordered, struck, pack, who.dates_of_birth, lines)
             if stored and output is None:
                 entries = None  # no usable answer: not "no entries"; the page is left for a person
             if reason is None and stored and output is not None:
                 reason = coverage.reason_for(ordered=ordered, struck=struck, kept=kept, entries=entries)
-            if reason in ("no_facts", "low_coverage"):  # enough words, little to show: ask once more, on its own
+            thin_entries = (
+                reason is None
+                and entries is not None
+                and coverage.entry_reason(
+                    ordered=ordered,
+                    struck=struck,
+                    entries=entries,
+                    floor=entry_floor,
+                )
+                is not None
+            )
+            if reason in ("no_facts", "low_coverage") or thin_entries:  # little to show: ask once more, on its own
                 again_text = extract.batch_text([(page_no, loaded_page.text)])
                 again_raw = await _ask(ctx, services, task, pack, who, again_text, loaded_page.subject)
                 again = extract.pages_of(again_raw).get(page_no) if again_raw is not None else None
                 if again is not None:
                     again_result = extract.sort_facts(again, texts, struck)
-                    if not again_result.refused and len(again_result.kept) > len(kept):
+                    again_entries, again_rejected = _entries_of(again, ordered, struck, pack, who.dates_of_birth, lines)
+                    more_facts = len(again_result.kept) > len(kept)
+                    wider = len(again_result.kept) >= len(kept) and coverage.entry_coverage(
+                        ordered=ordered, struck=struck, entries=again_entries
+                    ) > coverage.entry_coverage(ordered=ordered, struck=struck, entries=entries or [])
+                    if not again_result.refused and (more_facts or (thin_entries and wider)):
                         output, kept = dict(again), again_result.kept
                         evidence = extract.sort_evidence(output, ordered, struck, pack)
-                        entries, entries_rejected = _entries_of(output, ordered, struck, pack)
+                        entries, entries_rejected = again_entries, again_rejected
                         reason = coverage.reason_for(ordered=ordered, struck=struck, kept=kept, entries=entries)
             facts = []
-            lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
             anchor = dates.bundle_anchor(
                 [*found, *([dates.Printed((), latest, None, False)] if latest is not None else [])]
             )
@@ -1210,7 +1234,8 @@ async def extract_entries(ctx: JobContext) -> None:
         )
         answer = extract.pages_of(raw).get(1) if raw is not None else None
         output = dict(answer) if answer is not None else None
-        entries, rejected = _entries_of(output, loaded.ordered, loaded.struck, pack)
+        lines = dates.line_numbers([(w.word_id, w.polygon) for w in loaded.stored])
+        entries, rejected = _entries_of(output, loaded.ordered, loaded.struck, pack, who.dates_of_birth, lines)
         async with ctx.transaction() as conn:
             if loaded.stored and output is None:
                 await repo.leave_entries_for_person(conn, page_id)
@@ -1227,29 +1252,35 @@ async def extract_entries(ctx: JobContext) -> None:
 
 
 async def repair_fact_dates(ctx: JobContext) -> None:
-    """Sets `event_date` on facts that have none, using the same printed-word rules as extraction."""
+    """Sets `event_date` on facts and entries that have none, using the same printed-word rules as extraction.
+
+    An entry that already has a date is never touched. A known date of birth is never used as an entry's date."""
     services = current()
     async with ctx.transaction() as conn:
         pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
         rows = await repo.undated_facts(conn, ctx.case_id)
+        entry_rows = await repo.undated_entries(conn, ctx.case_id)
         anchor = await case_anchor(conn, ctx.case_id)
-    if not rows:
+        who = await services.identity(conn, ctx.case_id)
+    if not rows and not entry_rows:
         await ctx.progress(100, step="repair")
         return
-    by_page: dict[uuid.UUID, list[repo.UndatedFact]] = {}
+    by_page: dict[uuid.UUID, tuple[list[repo.UndatedFact], list[repo.UndatedEntry]]] = {}
     for row in rows:
-        by_page.setdefault(row.page_id, []).append(row)
+        by_page.setdefault(row.page_id, ([], []))[0].append(row)
+    for entry_row in entry_rows:
+        by_page.setdefault(entry_row.page_id, ([], []))[1].append(entry_row)
     done = 0
     repaired = 0
-    total = len(rows)
+    total = len(rows) + len(entry_rows)
 
-    async def one_page(item: tuple[uuid.UUID, list[repo.UndatedFact]]) -> None:
+    async def one_page(item: tuple[uuid.UUID, tuple[list[repo.UndatedFact], list[repo.UndatedEntry]]]) -> None:
         nonlocal done, repaired
-        page_id, facts = item
+        page_id, (facts, undated) = item
         async with ctx.transaction() as conn:
             stored = await repo.words_of(conn, page_id)
             if not stored:
-                done += len(facts)
+                done += len(facts) + len(undated)
                 return
             texts = {
                 w.word_id: (
@@ -1259,9 +1290,17 @@ async def repair_fact_dates(ctx: JobContext) -> None:
                 ).decode()
                 for w in stored
             }
+            ranges = await repo.entry_ranges(conn, page_id)
         ordered = [(w.word_id, texts[w.word_id]) for w in stored]
         struck = {w.word_id for w in stored if w.struck}
         lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
+        page_entries = [
+            extract.Entry(
+                "", ordered[min(a, len(ordered)) - 1][0], ordered[min(b, len(ordered)) - 1][0], a, b, None, None
+            )
+            for a, b in ranges
+            if a <= len(ordered)
+        ]
         async with ctx.transaction() as conn:
             for fact in facts:
                 when, basis, extra = date_repair.resolve_dated(
@@ -1279,7 +1318,26 @@ async def repair_fact_dates(ctx: JobContext) -> None:
                     cited = date_repair.cited_with(fact.word_ids, extra, ordered) if extra else None
                     if await repo.set_fact_event_date(conn, ctx.case_id, fact.fact_id, when, basis, cited):
                         repaired += 1
-        done += len(facts)
+            for row in undated:
+                if row.first_n > len(ordered):
+                    continue
+                first, last = ordered[row.first_n - 1][0], ordered[min(row.last_n, len(ordered)) - 1][0]
+                entry = extract.Entry(row.kind, first, last, row.first_n, row.last_n, None, None)
+                when, basis = extract.repair_entry_date(
+                    entry,
+                    ordered,
+                    struck,
+                    lines,
+                    pack,
+                    dates_of_birth=who.dates_of_birth,
+                    anchor=anchor,
+                    page_size=len(ordered),
+                    page_entries=page_entries,
+                )
+                if when is not None and basis is not None and basis != dates.PLEASE_CHECK:
+                    if await repo.set_entry_event_date(conn, row.entry_id, when, basis):
+                        repaired += 1
+        done += len(facts) + len(undated)
         if done == total or done % 50 == 0:
             await ctx.progress(min(99, 100 * done // total), step="repair")
 

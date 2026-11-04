@@ -151,9 +151,11 @@ class CountingOcr:
         self.inner = inner
         self.endpoint = inner.endpoint
         self.sent: list[str] = []
+        self.locales: list[str | None] = []  # the language hint each call carried
 
     async def analyse(self, document: bytes, model: OcrModel = "layout", *, locale: str | None = None) -> OcrResult:
         self.sent.append(hashlib.sha256(document).hexdigest())
+        self.locales.append(locale)
         return await self.inner.analyse(document, model)
 
 
@@ -338,6 +340,7 @@ async def harness(
     embedder: Any = None,
     wired_identity: bool = False,
     batch_size: str = "1",
+    settings: Mapping[str, str] | None = None,
 ) -> AsyncIterator[Harness]:
     """The pipeline wired to stand-ins, its job kinds on a registry of their own."""
     from app.core.packs import default_library
@@ -366,7 +369,10 @@ async def harness(
         # The production rpm ceiling (its own pacing is covered by test_foundation_ai_kit_slots.py)
         # is raised here so a page's extra "ask once more" call for a near-empty answer never makes
         # one of these tests wait out real throttling.
-        kit=AiKit(cell(AI_EXTRACTION_BATCH_SIZE=batch_size, BEDROCK_RPM_LIMIT="1000"), BatchedT07b(bedrock)),
+        kit=AiKit(
+            cell(**{"AI_EXTRACTION_BATCH_SIZE": batch_size, "BEDROCK_RPM_LIMIT": "1000", **(settings or {})}),
+            BatchedT07b(bedrock),
+        ),
         packs=default_library(),
         registry=registry,
         identity=wiring_module.identity_with(crypto) if wired_identity else identity,

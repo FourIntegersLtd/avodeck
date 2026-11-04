@@ -1889,6 +1889,47 @@ async def undated_facts(conn: AsyncConnection, case_id: uuid.UUID) -> list[Undat
     ]
 
 
+@dataclass(frozen=True)
+class UndatedEntry:
+    entry_id: uuid.UUID
+    page_id: uuid.UUID
+    kind: str
+    first_n: int
+    last_n: int
+
+
+async def undated_entries(conn: AsyncConnection, case_id: uuid.UUID) -> list[UndatedEntry]:
+    """The case's entries that have no date yet (the repair job's work), page by page."""
+    cur = await conn.execute(
+        "select e.id, e.page_id, e.kind, e.first_n, e.last_n from app.record_entries e"
+        " join app.cases c on c.bundle_id = e.bundle_id"
+        " where c.id = %s and e.event_date is null order by e.page_id, e.first_n",
+        (case_id,),
+    )
+    return [
+        UndatedEntry(uuid.UUID(str(r[0])), uuid.UUID(str(r[1])), str(r[2]), int(r[3]), int(r[4]))
+        for r in await cur.fetchall()
+    ]
+
+
+async def entry_ranges(conn: AsyncConnection, page_id: uuid.UUID) -> list[tuple[int, int]]:
+    """The word-number ranges `(first_n, last_n)` of every entry on the page, dated or not."""
+    cur = await conn.execute(
+        "select first_n, last_n from app.record_entries where page_id = %s order by first_n", (page_id,)
+    )
+    return [(int(r[0]), int(r[1])) for r in await cur.fetchall()]
+
+
+async def set_entry_event_date(conn: AsyncConnection, entry_id: uuid.UUID, when: dt.date, basis: str) -> bool:
+    """Dates an entry that has none; an entry that already has a date is never changed."""
+    cur = await conn.execute(
+        "update app.record_entries set event_date = %s, date_basis = %s where id = %s and event_date is null"
+        " returning id",
+        (when, basis, entry_id),
+    )
+    return (await cur.fetchone()) is not None
+
+
 async def set_fact_event_date(
     conn: AsyncConnection,
     case_id: uuid.UUID,

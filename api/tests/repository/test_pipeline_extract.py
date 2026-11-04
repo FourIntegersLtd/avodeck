@@ -15,7 +15,7 @@ import datetime as dt
 import re
 import uuid
 from collections import Counter
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -89,6 +89,7 @@ async def _open(
     names: list[str] | None = None,
     dates_of_birth: list[dt.date] | None = None,
     batch_size: str = "1",
+    settings: Mapping[str, str] | None = None,
 ) -> Any:
     expert = seed.person()
     case_id = seed.case(seed.org(members={expert: "owner"}), expert, packs=combo.case_row())
@@ -106,6 +107,7 @@ async def _open(
         names=names or [],
         dates_of_birth=dates_of_birth or [],
         batch_size=batch_size,
+        settings=settings,
     )
 
 
@@ -550,7 +552,15 @@ async def test_a_full_batch_is_not_asked_again_for_an_empty_page(
             "references_out": [],
             "availability_evidence": [],
             "actions_requested_of_clinician": [],
-            "entries": [],
+            "entries": [
+                {
+                    "kind": pack.entry_kinds()[0]["key"],
+                    "first_word_id": words[0].id,
+                    "last_word_id": words[-1].id,
+                    "author_role": None,
+                    "specialty": None,
+                }
+            ],
         }
 
     def empty() -> dict[str, Any]:
