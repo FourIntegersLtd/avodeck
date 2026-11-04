@@ -239,3 +239,14 @@ async def test_the_review_columns_change_only_with_the_page_action_and_hashes_on
         "select duplicate_status, duplicate_version, phash from app.page_analysis where page_id = %s", (page_id,)
     ).fetchone()
     assert row == ("kept", 1, 1)
+
+
+async def test_every_pair_found_on_the_recorded_pages_is_in_the_expected_list(subset: Harness) -> None:
+    """Precision 1.0 against `expected/duplicates.json`: a page set aside is only ever a planted copy of its
+    planted original. (The committed recordings are the 18-page subset; the full list is the reference.)"""
+    pages = by_number(subset)
+    ids = {p["id"]: n for n, p in pages.items()}
+    found = {(n, ids[p["duplicate_of_page_id"]]) for n, p in pages.items() if p["duplicate_of_page_id"]}
+    planted = {(int(d["page"]), int(d["copy_of_page"])) for d in expected("duplicates.json")}
+    assert found, "no copy was found at all"
+    assert found <= planted, f"not planted: {sorted(found - planted)}"

@@ -151,9 +151,11 @@ class CountingOcr:
         self.inner = inner
         self.endpoint = inner.endpoint
         self.sent: list[str] = []
+        self.locales: list[str | None] = []  # the language hint each call carried
 
     async def analyse(self, document: bytes, model: OcrModel = "layout", *, locale: str | None = None) -> OcrResult:
         self.sent.append(hashlib.sha256(document).hexdigest())
+        self.locales.append(locale)
         return await self.inner.analyse(document, model)
 
 

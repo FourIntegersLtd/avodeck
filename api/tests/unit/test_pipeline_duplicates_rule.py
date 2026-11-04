@@ -184,3 +184,24 @@ def test_each_copy_points_at_the_earliest_page_that_is_not_a_copy() -> None:
     assert found == {"c": "a", "e": "a"}
     assert duplicates.originals([("a", "d")], numbers, copy_of={}, new={"d"}, kept={"d"}) == {}
     assert duplicates.originals([("a", "b")], numbers, copy_of={"b": "a"}, new=set(), kept=set()) == {}
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.codes[0])
+def test_only_separators_between_two_digits_are_set_aside(combo: Combo) -> None:
+    pack = pack_of(combo)
+    # (page words lose edge punctuation before they are compared, so the leading cases are checked on the rule)
+    assert duplicates._number("-2") != duplicates._number(".2")
+    assert duplicates._number("2-") != duplicates._number("2.")
+    assert duplicates._number("1,500") != duplicates._number("1.500"), "a comma is not a point"
+    assert duplicates._number("142/88") == duplicates._number("142.88") == duplicates._number("142-88")
+    base = [*LETTER, "dose", "1,500", "mg"]
+    assert not duplicates.same_content(page(base), page([*LETTER, "dose", "1.500", "mg"]), pack), "1,500 is not 1.500"
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.codes[0])
+def test_a_number_the_reader_split_in_two_is_the_same_number(combo: Combo) -> None:
+    pack = pack_of(combo)
+    whole_number = [*LETTER, "reference", "999.447", "filed"]
+    split = [*LETTER, "reference", "999", "447", "filed"]
+    assert duplicates.same_content(page(whole_number), page(split), pack)
+    assert not duplicates.same_content(page(whole_number), page([*LETTER, "reference", "999", "448", "filed"]), pack)

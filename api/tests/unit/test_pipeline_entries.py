@@ -244,7 +244,7 @@ def test_the_repair_reads_a_two_digit_year_in_the_century_before_the_bundle_anch
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
 def test_the_repair_uses_the_dates_rules_one_to_three_before_the_century_rule(combo: Combo) -> None:
     pack = pack_of(combo)
-    ordered, lines = laid_out([f"Date of birth {DOB_TEXT} seen 27-Sep-2018 12.5.86"])
+    ordered, lines = laid_out([f"Date of birth {DOB_TEXT} seen 27-Sep-2018 by the nurse"])
     got = extract.repair_entry_date(whole(ordered), ordered, set(), lines, pack, dates_of_birth=[DOB], anchor=ANCHOR)
     assert got == (SEEN, dates.PRINTED)
 
@@ -273,3 +273,38 @@ def test_the_repair_never_takes_a_birth_date_or_a_date_below(combo: Combo) -> No
         None,
         None,
     )
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
+def test_a_two_digit_year_anywhere_stops_the_printed_rules(combo: Combo) -> None:
+    """A card headed `12.5.86` with a later `27-Sep-2018` in its text is not dated 2018: a short year that
+    reads more than one way means nothing else in the entry is trusted to be the entry's date."""
+    pack = pack_of(combo)
+    ordered, lines = laid_out(["Card opened 12.5.86 for the patient", "Seen 27-Sep-2018 by the nurse"])
+    assert extract.entry_date(whole(ordered), ordered, set(), pack, lines=lines) == (None, dates.PLEASE_CHECK)
+    assert extract.entry_date(whole(ordered), ordered, set(), pack) == (None, dates.PLEASE_CHECK)
+    below, lines = laid_out(["Seen 27-Sep-2018 by the nurse", "Card opened 12.5.86 for the patient"])
+    assert extract.entry_date(whole(below), below, set(), pack, lines=lines) == (None, dates.PLEASE_CHECK)
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
+def test_the_repair_reads_the_first_lines_short_year_before_a_later_full_date(combo: Combo) -> None:
+    pack = pack_of(combo)
+    want = read_in(pack, dt.date(1986, 5, 12), dt.date(1986, 12, 5))
+    ordered, lines = laid_out(["Card opened 12.5.86 for the patient", "Seen 27-Sep-2018 by the nurse"])
+    got = extract.repair_entry_date(whole(ordered), ordered, set(), lines, pack, dates_of_birth=[], anchor=ANCHOR)
+    assert got == (want, dates.PRINTED_CENTURY)
+    below, lines = laid_out(["Seen 27-Sep-2018 by the nurse", "Card opened 12.5.86 for the patient"])
+    got = extract.repair_entry_date(whole(below), below, set(), lines, pack, dates_of_birth=[], anchor=ANCHOR)
+    assert got == (None, dates.PLEASE_CHECK), "a short year that is not on the first line is left to the reader"
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
+def test_the_repair_does_not_look_above_an_entry_that_printed_dates_it_could_not_choose(combo: Combo) -> None:
+    pack = pack_of(combo)
+    ordered, lines = laid_out(
+        ["Seen 03-Aug-2018", "Collected 27-Sep-2018 Reported 28-Sep-2018 for the lab", "result below the range"]
+    )
+    entry_ = whole(ordered, first=first_word_of_line(lines, 2))
+    got = extract.repair_entry_date(entry_, ordered, set(), lines, pack, dates_of_birth=[], anchor=ANCHOR)
+    assert got == (None, dates.PLEASE_CHECK)
