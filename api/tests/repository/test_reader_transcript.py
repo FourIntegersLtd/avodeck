@@ -225,16 +225,34 @@ async def test_a_page_with_no_entries_lists_all_its_words_for_the_file(
     assert screen.picture_words == {}  # the screen lists the page by number; only the files print its words
 
 
-async def test_the_listing_counts_the_words_it_read_on_each_page_it_prints(
+async def test_a_page_the_computer_could_not_read_but_that_has_words_prints_them_under_its_number(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    built = await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("smudged words",))], failed=True)
+    await drop_entries(aconn, built, 0)
+    await add_page(aconn, CRYPTO, world["case"], doc, 2, [Spec("zz_session", ("fine",))])
+    async with api_db.request(scope_for(world["expert"])) as conn:
+        got = await transcript.entries(conn, CRYPTO, LIBRARY, world["case"], offset=0, limit=10, full=True)
+        screen = await transcript.entries(conn, CRYPTO, LIBRARY, world["case"], offset=0, limit=10)
+    assert got.unread_pages == [1] and got.picture_pages == []
+    assert got.picture_words == {1: ["smudged words"]}
+    assert screen.picture_words == {}
+
+
+async def test_the_words_read_are_counted_from_the_stored_words_of_every_page_apart_from_what_is_printed(
     api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
 ) -> None:
     await loose_page(aconn, world["case"])
     doc = await add_document(aconn, world["case"])
     bare = await add_page(aconn, CRYPTO, world["case"], doc, 2, [Spec("zz_session", ("one two three",))])
     await drop_entries(aconn, bare, 0)
+    lost = await add_page(aconn, CRYPTO, world["case"], doc, 3, [Spec("zz_session", ("four five",))], failed=True)
+    await drop_entries(aconn, lost, 0)
+    await add_page(aconn, CRYPTO, world["case"], doc, 4, [Spec("zz_session", ("a copy",))], duplicate_of=bare.page_id)
     async with api_db.request(scope_for(world["expert"])) as conn:
-        got = await transcript.entries(conn, CRYPTO, LIBRARY, world["case"], offset=0, limit=10, full=True)
-    assert got.words_by_page == {1: 17, 2: 3}
+        got = await transcript.page_word_counts(conn, CRYPTO, world["case"])
+    assert got == {1: 17, 2: 3, 3: 2}  # the copy is not in the transcript
 
 
 async def place_words(aconn: psycopg.AsyncConnection, page_id: uuid.UUID, at: dict[int, tuple[float, float]]) -> None:

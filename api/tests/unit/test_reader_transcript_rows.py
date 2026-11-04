@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import math
+
 from app.features.reader.transcript import rows
 
 
@@ -38,3 +40,15 @@ def test_a_word_with_no_box_keeps_its_place_on_a_line_of_its_own() -> None:
 
 def test_nothing_gives_no_rows() -> None:
     assert rows([]) == []
+
+
+def test_two_lines_of_ten_words_scanned_one_degree_tilted_stay_two_rows() -> None:
+    """Word height 25, lines 35 apart, each word 120 further along and 1 degree higher: a word is compared with
+    the row as it has run so far, so the slope never splits a line, while the two lines stay apart."""
+    slope = math.tan(math.radians(1))
+    boxes = [
+        (f"L{line}w{i + 1}", box(120.0 * i, 100.0 + 35.0 * line - slope * 120.0 * i, 100.0, 25.0))
+        for line in (0, 1)
+        for i in range(10)
+    ]
+    assert rows(boxes) == [[f"L0w{i}" for i in range(1, 11)], [f"L1w{i}" for i in range(1, 11)]]

@@ -508,3 +508,63 @@ async def test_the_cover_counts_the_whole_bundle_and_every_word_read_is_a_word_p
     assert cov.total_pages + cov.set_aside == cov.bundle_pages
     assert cov.words_read == cov.words_printed == 8  # 5 on page 1 and 3 on page 3; the copy's two are not in it
     assert seen[0].picture_words == {3: ["no entry here"]}
+
+
+async def test_the_words_of_a_page_the_computer_could_not_read_are_printed_and_counted(
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    crypto: CaseCrypto,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("fine note",))])
+    smudged = await add_page(
+        aconn, crypto, world["case"], doc, 2, [Spec("zz_session", ("smudged words here",))], failed=True
+    )
+    await aconn.execute("delete from app.record_entries where id = %s", (smudged.entry_ids[0],))
+    seen: list[Any] = []
+    real = transcript_pdf.build_pdf
+
+    def build_pdf(lay: Any, pictures: Any, **kw: Any) -> bytes:
+        seen.append(lay)
+        return real(lay, pictures, **kw)
+
+    monkeypatch.setattr(transcript_pdf, "build_pdf", build_pdf)
+    client = await client_for(world["expert"])
+    job = await build(client, worker_db, admin, world, "pdf")
+    got = await client.get(f"/v1/cases/{world['case']}/transcript/download/{job}")
+    cov = seen[0].coverage
+    assert cov.words_read == cov.words_printed == 5  # two on page 1, three on the page that could not be read
+    assert seen[0].unread_pages == [2] and seen[0].picture_words == {2: ["smudged words here"]}
+    pages = pypdf.PdfReader(io.BytesIO(got.content)).pages
+    assert "smudged words here" in " ".join(" ".join((p.extract_text() or "") for p in pages).split())
+
+
+async def test_a_file_that_leaves_out_words_the_computer_read_is_never_built(
+    client_for: Any,
+    worker_db: Database,
+    aconn: psycopg.AsyncConnection,
+    crypto: CaseCrypto,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("fine note",))])
+    bare = await add_page(aconn, crypto, world["case"], doc, 2, [Spec("zz_session", ("never printed",))])
+    await aconn.execute("delete from app.record_entries where id = %s", (bare.entry_ids[0],))
+    real = transcript_jobs.transcript.entries
+
+    async def forgetful(*a: Any, **kw: Any) -> Any:
+        got = await real(*a, **kw)
+        got.picture_words.clear()  # the words of the page with no entries are not handed on
+        return got
+
+    monkeypatch.setattr(transcript_jobs.transcript, "entries", forgetful)
+    client = await client_for(world["expert"])
+    resp = await client.post(f"/v1/cases/{world['case']}/transcript/download", json={"format": "docx"})
+    job = uuid.UUID(resp.json()["job_id"])
+    with pytest.raises(ValueError):
+        await run_job(worker_db, job, world["case"], "docx")
