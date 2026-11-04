@@ -1,7 +1,9 @@
 """Slice B job: `export_transcript` builds the Word and PDF copies of the records transcript (ADR 0028).
 
-The files hold every entry, in the pack's sections and date order, with names and dates of birth
-stripped (rule 7). It is stored sealed under the case key and handed over once, to the person who asked
+The files hold every entry, in the pack's sections and date order, exactly as written (founder decision of
+2026-11-04, ADR 0035: the expert's own copy, sent to no AI, so rule 7 does not apply), and every word the computer
+read on the pages, once; a file that would drop or repeat a word is never built. It is stored sealed under the case
+key and handed over once, to the person who asked
 (the route in `transcript_routes`); slice H's daily run removes a copy nobody took (`EXPORT_KEEP_DAYS`).
 Logs carry exception types only and never a word of the record (rule 6).
 """
@@ -85,12 +87,16 @@ async def _layout(
     everything: list[transcript.TranscriptEntry] = []
     pictures: list[int] = []
     unread: list[int] = []
+    picture_words: dict[int, list[str]] = {}
+    words_by_page: dict[int, int] = {}
     while True:
         got = await transcript.entries(
             conn, crypto, library, ctx.case_id, offset=len(everything), limit=PAGE, full=True
         )
         everything += got.entries
         pictures, unread = got.picture_pages, got.unread_pages
+        picture_words.update(got.picture_words)
+        words_by_page.update(got.words_by_page)  # a page is the same on every call that lists it
         if not got.entries or len(everything) >= got.total:
             break
     total, set_aside = await repo.page_counts(conn, ctx.case_id)
@@ -100,9 +106,12 @@ async def _layout(
         no_entries=len(pictures),
         unreadable=len(unread),
         set_aside=set_aside,
+        bundle_pages=total + set_aside,
+        words_read=sum(words_by_page.values()),
+        words_printed=transcript_layout.printed_words(everything, picture_words),
     )
     layout = transcript_layout.arrange(
-        everything, pack, no_entry_pages=pictures, unread_pages=unread, coverage=coverage
+        everything, pack, no_entry_pages=pictures, unread_pages=unread, coverage=coverage, picture_words=picture_words
     )
     letter = pack.letter_entry_kind()
     received: dict[int, date] = {}

@@ -2,8 +2,11 @@
 decision that a page has been read by reading its entries.
 
 An entry is the words of one run on a page (`record_entries`, slice A), set out in the printed lines, with the
-expert's corrections in place and every name and date of birth of the case stripped (rule 7). It carries
-no fact and no suggestion (rule 3). Nothing here is logged (rule 6).
+expert's corrections in place. The record prints exactly as written, names and dates of birth included (founder
+decision of 2026-11-04, ADR 0035): this is the named expert's own copy and it goes to no AI, and rule 7 covers
+only text sent to an AI. Words that lie in no entry (a header, a footer, words between entries) travel with the
+nearest entry as `before` and `after`, so every word the computer read is printed once. It carries no fact and
+no suggestion (rule 3). Nothing here is logged (rule 6).
 
 `record_seen` stores what the reader reported (`transcript_views`, append-only). The server decides: a
 page is read when each of its entries has been seen for `SEEN_MS` in all, or, for a page with no
@@ -21,8 +24,6 @@ from typing import Any
 
 from psycopg import AsyncConnection
 
-from app.core.ai import pii
-from app.core.contracts.case_identity import identity_for
 from app.core.contracts.document_words import apply_corrections, current_corrections, word_purpose
 from app.core.contracts.facts import citable_facts
 from app.core.contracts.reading import PageReads
@@ -37,27 +38,38 @@ SEEN_MS = 1500
 FOLD_WORDS = 8
 
 
-def line_numbers(boxes: Iterable[tuple[str, Sequence[float]]]) -> dict[str, int]:
-    """Which printed line each word is on, from its box (`x1,y1,x2,y2,...`) in reading order: a word starts a
-    new line when its middle is further from the word before than 0.6 of the taller word's height. A word with
-    no readable box gets a line of its own."""
-    out: dict[str, int] = {}
-    line = 0
-    previous: tuple[float, float] | None = None  # middle and height of the word before
-    for word_id, box in boxes:
-        ys = list(box[1::2])
+def rows(boxes: Iterable[tuple[str, Sequence[float]]]) -> list[list[str]]:
+    """The printed rows of a run of words, from their boxes (`x1,y1,x2,y2,...`) given in reading order. Words whose
+    vertical middles differ by at most 0.5 of the taller word's height stand on one row, whatever order they were
+    read in, and run left to right; rows run top to bottom. A label column read first and its value column read
+    next therefore print side by side. A word with no readable box keeps its place on a row of its own. Apply this
+    to one entry (or one block of loose words) at a time, never across entries."""
+    out: list[list[str]] = []
+    block: list[tuple[str, float, float, float]] = []  # word, left edge, vertical middle, height
+
+    def close() -> None:
+        found: list[list[Any]] = []  # [middle, height, [(left, order, word)]] per row
+        for order, (text, left, middle, height) in enumerate(block):
+            for row in found:
+                if abs(middle - row[0]) <= 0.5 * max(height, row[1]):
+                    row[1] = max(row[1], height)
+                    row[2].append((left, order, text))
+                    break
+            else:
+                found.append([middle, height, [(left, order, text)]])
+        found.sort(key=lambda row: row[0])  # stable: rows that tie keep the order they were met in
+        out.extend([text for _, _, text in sorted(row[2])] for row in found)
+        block.clear()
+
+    for text, box in boxes:
+        ys, xs = list(box[1::2]), list(box[0::2])
         height = (max(ys) - min(ys)) if len(ys) >= 2 else 0.0
         if height <= 0:
-            line += 2
-            out[word_id] = line
-            line += 2
-            previous = None
+            close()
+            out.append([text])
             continue
-        middle = (max(ys) + min(ys)) / 2
-        if previous is not None and abs(middle - previous[0]) > 0.6 * max(height, previous[1]):
-            line += 1
-        out[word_id] = line
-        previous = (middle, height)
+        block.append((text, min(xs), (max(ys) + min(ys)) / 2, height))
+    close()
     return out
 
 
@@ -87,6 +99,8 @@ class TranscriptEntry:
     source_type: str | None = None  # the page's source type (pack key), for the file's sections
     specialty_label: str | None = None  # the pack's i18n key for the specialty
     section: str | None = None  # key of the pack section the entry is in (set by `entries`)
+    before: list[str] = field(default_factory=list, repr=False)  # words on the page before it that lie in no entry
+    after: list[str] = field(default_factory=list, repr=False)  # words after the last entry of a page, in no entry
 
 
 @dataclass(frozen=True)
@@ -95,6 +109,12 @@ class Listing:
     total: int
     picture_pages: list[int] = field(default_factory=list)  # pages with no entries: read by opening the picture
     unread_pages: list[int] = field(default_factory=list)  # the computer could not read these: look at the picture
+    # With `full`, on the call that reaches the last entry: the lines of every page with no entries (the files print
+    # them under the page number); empty otherwise.
+    picture_words: dict[int, list[str]] = field(default_factory=dict, repr=False)
+    # Words (as the files count them) the computer read on each page this call lists: the number the files must
+    # print, once each. The caller merges the calls; a page is the same on every call that lists it.
+    words_by_page: dict[int, int] = field(default_factory=dict)
 
 
 Pages = dict[uuid.UUID, tuple[int, str | None]]
@@ -111,25 +131,54 @@ async def _pages_to_read(conn: AsyncConnection, case_id: uuid.UUID) -> Pages:
     return {row[0]: (int(row[1]), row[2]) for row in await cur.fetchall()}
 
 
-async def _page_lines(
+Word = tuple[int, str, list[float]]  # number on the page, text (the expert's reading in place), box
+
+
+async def _page_words(
     conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID, page_ids: list[uuid.UUID]
-) -> dict[uuid.UUID, dict[int, tuple[int, str]]]:
-    """Per page: word number -> (printed line, text), the expert's readings in place (kept in memory only)."""
+) -> dict[uuid.UUID, list[Word]]:
+    """Per page, its words in reading order, the expert's readings in place (kept in memory only)."""
     corrections = await current_corrections(conn, crypto, case_id, page_ids)
-    out: dict[uuid.UUID, dict[int, tuple[int, str]]] = {}
+    out: dict[uuid.UUID, list[Word]] = {}
     for page in page_ids:
         cur = await conn.execute(
             "select n, word_id, text, polygon from app.ocr_words where page_id = %s order by n", (page,)
         )
-        rows = await cur.fetchall()
-        words = {
+        found = await cur.fetchall()
+        texts = {
             w: (await crypto.decrypt(conn, case_id, bytes(t), purpose=word_purpose(page, w))).decode()
-            for _, w, t, _ in rows
+            for _, w, t, _ in found
         }
-        words = apply_corrections(words, corrections.get(page, []))
-        lines = line_numbers((w, [float(v) for v in poly or []]) for _, w, _, poly in rows)
-        out[page] = {int(n): (lines[w], words[w]) for n, w, _, _ in rows if words[w]}
+        texts = apply_corrections(texts, corrections.get(page, []))
+        out[page] = [(int(n), texts[w], [float(v) for v in poly or []]) for n, w, _, poly in found if texts[w]]
     return out
+
+
+def _lines(words: Iterable[Word]) -> list[str]:
+    """The printed lines of these words (one entry, or one block of loose words)."""
+    return [" ".join(row) for row in rows((text, box) for _, text, box in words)]
+
+
+def _around(page_entries: Sequence[RecordEntry], words: list[Word]) -> dict[uuid.UUID, tuple[list[Word], list[Word]]]:
+    """Entry id -> (words before it, words after it) for the words of the page that lie in no entry of the page:
+    a loose word goes before the next entry on the page, else after the last one."""
+    ordered = sorted(page_entries, key=lambda e: (e.first_n, e.last_n))
+    out: dict[uuid.UUID, tuple[list[Word], list[Word]]] = {e.id: ([], []) for e in ordered}
+    for word in words:
+        n = word[0]
+        if any(e.first_n <= n <= e.last_n for e in ordered):
+            continue
+        following = next((e for e in ordered if e.first_n > n), None)
+        if following is not None:
+            out[following.id][0].append(word)
+        else:
+            out[ordered[-1].id][1].append(word)
+    return out
+
+
+def _tokens(words: Iterable[Word]) -> int:
+    """How many words the files count in these (a word is whatever the printed line splits on)."""
+    return sum(len(text.split()) for _, text, _ in words)
 
 
 def _results(values: Iterable[str], groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -174,6 +223,7 @@ class _Survey:
     listing_pages: Pages
     picture: list[int]
     unread: list[int]
+    on_page: dict[uuid.UUID, list[RecordEntry]] = field(default_factory=dict)  # every entry of each page to read
 
 
 async def _survey(
@@ -209,6 +259,10 @@ async def _survey(
     ]
     placed.sort(key=lambda pe: pe[0][0])  # stable: the date order stays inside a section
     with_entries = {e.page_id for e in everything}
+    on_page: dict[uuid.UUID, list[RecordEntry]] = {}
+    for e in everything:
+        if e.page_id in pages:
+            on_page.setdefault(e.page_id, []).append(e)
     failed = set(await entries_unread_pages(conn, case_id))
     unread = sorted(n for p, (n, _) in pages.items() if n in failed and p not in with_entries)
     picture = (
@@ -218,7 +272,7 @@ async def _survey(
     )
     return _Survey(
         pack, [e for _, e in placed], [(k, lb) for (_, k, lb), _ in placed], {p: v[1] for p, v in pages.items()},
-        set_aside, pages, picture, unread,
+        set_aside, pages, picture, unread, on_page,
     )  # fmt: skip
 
 
@@ -293,33 +347,33 @@ async def entries(
 ) -> Listing:
     """The entries to read, in section order and then date order. With `only_read_by`, only pages that person's
     reading counts for. With `full`, an administrative entry keeps all its lines (the files print it in full); it
-    stays `folded`."""
+    stays `folded`, and the words of the pages with no entries come with the call that reaches the last entry.
+    The words of a page that lie in no entry come with the entry after them (`before`), or the last entry of the
+    page (`after`); every entry range of the page is considered, so paging and `only_read_by` change nothing."""
     got = await _survey(conn, library, case_id, only_read_by)
     if got is None:
         return Listing([], 0)
     pack, wanted = got.pack, got.wanted
     chosen = wanted[offset : offset + limit]
-    if not chosen:
-        return Listing([], len(wanted), got.picture, got.unread)
     section_keys = got.sections[offset : offset + limit]
     included = pack.transcript_entry_kinds()
     kind_labels = {k["key"]: str(k.get("label", k["key"])) for k in pack.entry_kinds()}
     role_labels = {r["key"]: str(r.get("label", r["key"])) for r in pack.author_roles()}
     specialty_labels = {s["key"]: str(s.get("label", s["key"])) for s in pack.entry_specialties()}
     groups = pack.result_groups()
-    identity = await identity_for(conn, crypto, case_id)
-    placed = await _page_lines(conn, crypto, case_id, list(dict.fromkeys(e.page_id for e in chosen)))
+    chosen_pages = list(dict.fromkeys(e.page_id for e in chosen))
+    # The pages with no entries print their words in the files: on the call that reaches the last entry.
+    last_call = offset + limit >= len(wanted)
+    numbers = {p: n for p, (n, _) in got.listing_pages.items()}
+    pictured = set(got.picture)
+    bare = [p for p, n in numbers.items() if n in pictured] if full and last_call else []
+    placed = await _page_words(conn, crypto, case_id, [*chosen_pages, *bare])
     checked = await _checked_values(conn, case_id, chosen)
+    around = {id_: sides for page in chosen_pages for id_, sides in _around(got.on_page[page], placed[page]).items()}
     out: list[TranscriptEntry] = []
     for e, (section_key, _) in zip(chosen, section_keys, strict=True):
-        words = placed[e.page_id]
-        by_line: dict[int, list[str]] = {}
-        for n in range(e.first_n, e.last_n + 1):
-            if n in words:
-                by_line.setdefault(words[n][0], []).append(words[n][1])
-        text = "\n".join(" ".join(by_line[k]) for k in sorted(by_line))
-        text = pii.strip(text, pack=pack, names=identity.names, dates_of_birth=identity.dates_of_birth).text
-        lines = text.split("\n") if text else []
+        before, after = around[e.id]
+        lines = _lines(w for w in placed[e.page_id] if e.first_n <= w[0] <= e.last_n)
         folded = e.kind in kind_labels and e.kind not in included
         if folded and not full:
             lines = [" ".join(" ".join(lines).split()[:FOLD_WORDS])]
@@ -330,9 +384,14 @@ async def entries(
                 role_labels.get(e.author_role) if e.author_role else None, e.specialty, e.event_date, e.date_basis,
                 lines, [str(g["key"]) for g in named], [str(g.get("label", g["key"])) for g in named],
                 got.sources.get(e.page_id), specialty_labels.get(e.specialty) if e.specialty else None, section_key,
+                _lines(before), _lines(after),
             )
         )  # fmt: skip
-    return Listing(out, len(wanted), got.picture, got.unread)
+    return Listing(
+        out, len(wanted), got.picture, got.unread,
+        {numbers[p]: _lines(placed[p]) for p in bare},
+        {numbers[p]: _tokens(placed[p]) for p in [*chosen_pages, *bare]},
+    )  # fmt: skip
 
 
 async def record_seen(

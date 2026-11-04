@@ -201,8 +201,16 @@ function EntryCard({ entry, caseId, onSeen, level }: { entry: Entry; caseId: str
             <span key={key} className="rd-entry__chip">{t(entry.result_labels[i] ?? key, {}, humanise(key))}</span>
           ))}
         </Head>
+        {entry.before.length > 0 && <p className="rd-entry__also">{w("transcript.also_on_page")}</p>}
+        {entry.before.map((line, i) => (
+          <p key={`b${i}`} className="rd-entry__line rd-entry__line--around">{line}</p>
+        ))}
         {entry.lines.map((line, i) => (
           <p key={i} className="rd-entry__line">{line}</p>
+        ))}
+        {entry.after.length > 0 && <p className="rd-entry__also">{w("transcript.also_on_page")}</p>}
+        {entry.after.map((line, i) => (
+          <p key={`a${i}`} className="rd-entry__line rd-entry__line--around">{line}</p>
         ))}
         {entry.folded && !open && <Button variant="secondary" onClick={() => setOpen(true)}>{w("transcript.unfold")}</Button>}
         <Link to={`/cases/${caseId}/read/${entry.page_no}`}>{w("transcript.see_page")}</Link>

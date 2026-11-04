@@ -27,6 +27,8 @@ const entry = (n: number, over: Record<string, unknown> = {}) => ({
   event_date: "2021-03-03",
   date_basis: null,
   lines: [`line ${n}`],
+  before: [],
+  after: [],
   results: [],
   result_labels: [],
   ...over,
@@ -488,6 +490,17 @@ describe.each([
     await user.click(screen.getByRole("button", { name: "Show this entry" }));
     expect(watchers).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "Show this entry" })).toBeNull();
+  });
+
+  test("the words on the page outside an entry show under a label, before and after its lines", async () => {
+    mockReader(pack);
+    mockTranscript("ready", [entry(2, { before: ["Top of page"], after: ["Foot of page"] })]);
+    renderAt(SECTION);
+    const article = await screen.findByLabelText("Entry on page 12");
+    expect(within(article).getAllByText("Also on this page")).toHaveLength(2);
+    const text = article.textContent ?? "";
+    expect(text.indexOf("Top of page")).toBeLessThan(text.indexOf("line 2"));
+    expect(text.indexOf("line 2")).toBeLessThan(text.indexOf("Foot of page"));
   });
 
   test("opening the picture of a page with no entries reports it", async () => {

@@ -33,6 +33,13 @@ class Coverage:
     no_entries: int
     unreadable: int
     set_aside: int  # copies, replaced and quarantined pages
+    bundle_pages: int = 0  # every page of the bundle: the pages in this transcript plus the pages set aside
+    words_read: int = 0  # words the computer read on the pages in this transcript
+    words_printed: int = 0  # words the files print; the files are never built when it differs from `words_read`
+
+    def __post_init__(self) -> None:
+        if self.bundle_pages == 0:
+            object.__setattr__(self, "bundle_pages", self.total_pages + self.set_aside)
 
 
 @dataclass(frozen=True)
@@ -41,6 +48,16 @@ class Layout:
     no_entry_pages: list[int]
     unread_pages: list[int]
     coverage: Coverage
+    # page number -> printed lines, for the pages with no entries
+    picture_words: dict[int, list[str]] = field(default_factory=dict, repr=False)
+
+
+def printed_words(entries: list[TranscriptEntry], picture_words: dict[int, list[str]]) -> int:
+    """How many words the files print: every line of every entry with the words around it, and the lines of the
+    pages with no entries."""
+    lines = [line for e in entries for part in (e.before, e.lines, e.after) for line in part]
+    lines += [line for page in picture_words.values() for line in page]
+    return sum(len(line.split()) for line in lines)
 
 
 def _sections(pack: Pack) -> list[dict[str, Any]]:
@@ -80,10 +97,11 @@ def arrange(
     no_entry_pages: list[int],
     unread_pages: list[int],
     coverage: Coverage,
+    picture_words: dict[int, list[str]] | None = None,
 ) -> Layout:
     """Sections in pack order (empty ones dropped), the date order of `entries` kept inside each."""
     found: dict[int, Section] = {}
     for e in entries:
         position, key, label = section_of(e, pack)
         found.setdefault(position, Section(key, label)).entries.append(e)
-    return Layout([found[p] for p in sorted(found)], no_entry_pages, unread_pages, coverage)
+    return Layout([found[p] for p in sorted(found)], no_entry_pages, unread_pages, coverage, dict(picture_words or {}))

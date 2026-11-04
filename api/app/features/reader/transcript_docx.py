@@ -21,7 +21,7 @@ from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 
 from app.features.reader.transcript import TranscriptEntry
-from app.features.reader.transcript_document import appendix_letters, by_year, numbered, summary
+from app.features.reader.transcript_document import appendix_letters, by_year, ensure_complete, numbered, summary
 from app.features.reader.transcript_layout import Layout
 from app.features.reader.transcript_words import label_text, month_name, show_date, word
 
@@ -31,6 +31,7 @@ _AMBER = RGBColor(0x8A, 0x3F, 0x06)
 _HEADING_FONT = "Atkinson Hyperlegible"  # Word falls back to its own font if this is not installed
 _BODY_FONT = "Georgia"
 _MONO_FONT = "Consolas"
+_GREY = RGBColor(0x6B, 0x74, 0x6E)  # words in no entry: grey and smaller
 _TEXT_WIDTH = Cm(17)  # A4 less 2 cm margins
 
 
@@ -210,8 +211,14 @@ def _entry(
         if i:
             _run(para, ", ")
         _run(para, part, mono=i < 2)  # the page and the date are set in a fixed-width face
-    for line in entry.lines:
-        doc.add_paragraph(line)
+    for lines, grey in ((entry.before, True), (entry.lines, False), (entry.after, True)):
+        if grey and lines:  # the words of the page that lie in no entry: a small grey label, then small grey lines
+            _run(doc.add_paragraph(), word(language, "also_on_page"), font=_HEADING_FONT, color=_GREY, size=9)
+        for line in lines:
+            if grey:
+                _run(doc.add_paragraph(), line, color=_GREY, size=9.5)
+            else:
+                doc.add_paragraph(line)
 
 
 def _cover(
@@ -228,7 +235,7 @@ def _cover(
     cov = layout.coverage
     doc.add_heading(word(language, "title"), level=0)
     doc.add_paragraph(word(language, "not_checked"))  # always the second paragraph, on the first page
-    _run(doc.add_paragraph(), word(language, "bundle_pages", count=cov.total_pages), font=_HEADING_FONT, size=14)
+    _run(doc.add_paragraph(), word(language, "bundle_pages", count=cov.bundle_pages), font=_HEADING_FONT, size=14)
     if prepared_on is not None:
         shown = show_date(prepared_on, date_order, language)
         _run(doc.add_paragraph(), word(language, "prepared", date=shown), font=_HEADING_FONT, size=14)
@@ -251,15 +258,18 @@ def _about(doc: DocumentType, layout: Layout, *, date_order: str, language: str)
     _table(
         doc,
         [
-            [word(language, "cov_total"), str(cov.total_pages)],
+            [word(language, "cov_total"), str(cov.bundle_pages)],
+            [word(language, "cov_set_aside"), str(cov.set_aside)],
+            [word(language, "cov_in_transcript"), str(cov.total_pages)],
             [word(language, "cov_with"), str(cov.with_entries)],
             [word(language, "cov_none"), str(cov.no_entries)],
             [word(language, "cov_unread"), str(cov.unreadable)],
-            [word(language, "cov_set_aside"), str(cov.set_aside)],
         ],
         header=False,
         right={1},
     )
+    if cov.words_printed:
+        doc.add_paragraph(word(language, "words_printed", count=cov.words_printed))
     _heading(doc, word(language, "holds"), 2)
     columns = ("col_number", "col_section", "col_entries", "col_pages", "col_from", "col_to")
     rows = summary(layout, date_order=date_order, language=language)
@@ -285,6 +295,7 @@ def build(
 ) -> bytes:
     """`received` maps a page number to the date its letter was received, for letters only. `case_label` is the
     name the case already shows to its members; the cover prints it when there is one."""
+    ensure_complete(layout)
     doc = Document()
     _style_document(doc)
     _header_footer(doc, language)
@@ -332,7 +343,15 @@ def build(
         if key == "no_entries":
             doc.add_paragraph(word(language, "no_entry_lead"))
         pages = layout.no_entry_pages if key == "no_entries" else layout.unread_pages
-        doc.add_paragraph(", ".join(str(n) for n in pages))
+        if key == "no_entries":  # the words the computer read on each page with no entries, under its number
+            for number in pages:
+                if layout.picture_words.get(number):
+                    _run(doc.add_paragraph(), word(language, "page", number=number), font=_HEADING_FONT).bold = True
+                    for line in layout.picture_words[number]:
+                        doc.add_paragraph(line)
+            pages = [n for n in pages if not layout.picture_words.get(n)]
+        if pages:
+            doc.add_paragraph(", ".join(str(n) for n in pages))
     out = io.BytesIO()
     doc.save(out)
     return out.getvalue()

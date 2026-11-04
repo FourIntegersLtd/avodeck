@@ -287,6 +287,8 @@ class TranscriptEntryOut(BaseModel):
     results: list[str]  # result groups of checked facts only
     result_labels: list[str]  # the pack's i18n keys, same order
     section: str | None = None  # key of the pack section the entry is in
+    before: list[str] = []  # words on the page before the entry that lie in no entry, as printed lines
+    after: list[str] = []  # words after the last entry of the page that lie in no entry
 
 
 class TranscriptList(BaseModel):

@@ -20659,6 +20659,14 @@
       },
       "TranscriptEntryOut": {
         "properties": {
+          "after": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "After",
+            "type": "array"
+          },
           "author_label": {
             "anyOf": [
               {
@@ -20680,6 +20688,14 @@
               }
             ],
             "title": "Author Role"
+          },
+          "before": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Before",
+            "type": "array"
           },
           "date_basis": {
             "anyOf": [
