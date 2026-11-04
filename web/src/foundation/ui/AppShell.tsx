@@ -35,15 +35,41 @@ function currentPlace(nav: Array<readonly [string, string]>, at: { pathname: str
   return nav.find(([, to]) => on(to).samePage && on(to).hash === "")?.[0] ?? null;
 }
 
+/** Small line icons for the menu rows (decorative: the words carry the meaning). Same 24px, stroke-2 style as the bell and hamburger. */
+const NAV_ICONS: Record<string, string[]> = {
+  today: ["M4 11l8-7 8 7", "M6 10v10h12V10"],
+  cases: ["M4 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"],
+  profile: ["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", "M4 21c0-4 4-6.5 8-6.5s8 2.5 8 6.5"],
+  support: ["M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"],
+  help: ["M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z", "M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"],
+};
+const FALLBACK_ICON = NAV_ICONS.today!;
+
+function NavIcon({ name }: { name: string }) {
+  return (
+    <svg className="av-shell__nav-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {(NAV_ICONS[name] ?? FALLBACK_ICON).map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </svg>
+  );
+}
+
 /** The places (today/cases/profile/support console): one list, drawn by both the header nav and the drawer. */
 function ShellNavLinks({
   nav,
   current,
   onNavigate,
+  icons,
+  extra,
 }: {
   nav: Array<readonly [string, string]>;
   current: string | null;
   onNavigate?: () => void;
+  /** Draw a leading icon on each row (the drawer does; the desktop bar does not). */
+  icons?: boolean;
+  /** More rows after the places (Help in the drawer). */
+  extra?: ReactNode;
 }) {
   return (
     <ul>
@@ -57,10 +83,12 @@ function ShellNavLinks({
             onFocus={() => prefetchRoute(to)}
             onTouchStart={() => prefetchRoute(to)}
           >
+            {icons && <NavIcon name={key} />}
             {t(`app.nav.${key}`)}
           </Link>
         </li>
       ))}
+      {extra}
     </ul>
   );
 }
@@ -168,8 +196,32 @@ export function AppShell({ children, name, support }: AppShellProps) {
                     </svg>
                   </button>
                 </div>
+                <Link to="/account" className="av-shell__drawer-account" onClick={closeDrawer}>
+                  <span className="av-shell__avatar-disc" aria-hidden="true">
+                    {initials(name)}
+                  </span>
+                  <span className="av-shell__drawer-who">
+                    {name && <span className="av-shell__drawer-name">{name}</span>}
+                    <span className="av-shell__drawer-caption">{t("app.nav.account")}</span>
+                  </span>
+                </Link>
                 <nav className="av-shell__drawer-nav av-shell__nav" aria-label={t("app.nav.label")}>
-                  <ShellNavLinks nav={nav} current={current} onNavigate={closeDrawer} />
+                  <ShellNavLinks
+                    nav={nav}
+                    current={current}
+                    onNavigate={closeDrawer}
+                    icons
+                    extra={
+                      help ? (
+                        <li>
+                          <Link to={help} onClick={closeDrawer}>
+                            <NavIcon name="help" />
+                            {t("app.nav.help")}
+                          </Link>
+                        </li>
+                      ) : null
+                    }
+                  />
                 </nav>
               </RadixDialog.Content>
             </RadixDialog.Overlay>
