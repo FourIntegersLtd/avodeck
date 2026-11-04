@@ -60,7 +60,10 @@ class OcrFailed(Exception):
 class OcrClient(Protocol):
     endpoint: str
 
-    async def analyse(self, document: bytes, model: OcrModel = "layout") -> OcrResult: ...
+    async def analyse(self, document: bytes, model: OcrModel = "layout", *, locale: str | None = None) -> OcrResult:
+        """Read `document`. `locale` (a language tag from the pack, e.g. en-GB) tells the reader which language and
+        script to expect; without it the reader guesses."""
+        ...
 
 
 def _result(model: str, data: dict[str, Any]) -> OcrResult:
@@ -95,8 +98,11 @@ class RecordedOcr:
         self.endpoint = check_endpoint(settings, endpoint or settings.ocr_endpoint)
 
     @staticmethod
-    def request(document: bytes, model: str) -> dict[str, str]:
-        return {"model": model, "document_sha256": hashlib.sha256(document).hexdigest()}
+    def request(document: bytes, model: str, locale: str | None = None) -> dict[str, str]:
+        key = {"model": model, "document_sha256": hashlib.sha256(document).hexdigest()}
+        if locale:  # only when given, so recordings made without one still match
+            key["locale"] = locale
+        return key
 
-    async def analyse(self, document: bytes, model: OcrModel = "layout") -> OcrResult:
-        return _result(model, self.store.lookup(self.kind, self.request(document, model)))
+    async def analyse(self, document: bytes, model: OcrModel = "layout", *, locale: str | None = None) -> OcrResult:
+        return _result(model, self.store.lookup(self.kind, self.request(document, model, locale)))

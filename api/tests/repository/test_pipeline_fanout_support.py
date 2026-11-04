@@ -103,7 +103,7 @@ class FakeOcr:
         self.failing = dict(failing or {})
         self.angle = angle  # the page angle every read reports (180: upside down, so the page is straightened)
 
-    async def analyse(self, document: bytes, model: OcrModel = "layout") -> OcrResult:
+    async def analyse(self, document: bytes, model: OcrModel = "layout", *, locale: str | None = None) -> OcrResult:
         with pikepdf.open(io.BytesIO(document)) as pdf:
             number = int(float(pdf.pages[0].mediabox[2])) - 600
         async with self.watch.call("ocr"):

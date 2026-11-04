@@ -35,7 +35,7 @@ class Failing:
         self.inner, self.error, self.bad = inner, error, bad
         self.endpoint = inner.endpoint
 
-    async def analyse(self, document: bytes, model: OcrModel = "layout") -> OcrResult:
+    async def analyse(self, document: bytes, model: OcrModel = "layout", *, locale: str | None = None) -> OcrResult:
         if self.bad is None or hashlib.sha256(document).hexdigest() in self.bad:
             raise self.error
         result: OcrResult = await self.inner.analyse(document, model)

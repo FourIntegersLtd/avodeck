@@ -54,15 +54,22 @@ MONTHS = {
     ),
 }
 
-_NUMERIC_DATE = re.compile(r"(?<![\d/.\-])(\d{1,4})([/.\-])(\d{1,2})\2(\d{2,4})(?!\d|[/.\-]\d)")
+# A date may carry OCR spacing around its separators ("14 / 03 / 1969") and may touch a bracket, a dash or a
+# letter. Only a digit (or a digit and a separator) just before it means the digits belong to a longer number.
+_NUMERIC_DATE = re.compile(r"(?<!\d)(?<!\d[/.\-])(\d{1,4})\s*([/.\-])\s*(\d{1,2})\s*\2\s*(\d{2,4})(?!\d|[/.\-]\d)")
+# Written months: any mix of space, dot, dash, slash and comma between the parts ("14-Mar-1969", "Mar. 3, 1950").
+_JOIN = r"[\s.\-/,]+"
 _DAY_WORD_YEAR = re.compile(
-    r"(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([^\W\d_]{3,})\.?,?\s+(\d{4}|\d{2})(?!\d)", re.I
+    rf"(?<!\d)(\d{{1,2}})(?:st|nd|rd|th)?(?:\s+of\s+|{_JOIN})([^\W\d_]{{3,}}){_JOIN}(\d{{4}}|\d{{2}})(?!\d)", re.I
 )
-_WORD_DAY_YEAR = re.compile(r"\b([^\W\d_]{3,})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4}|\d{2})(?!\d)", re.I)
+_WORD_DAY_YEAR = re.compile(
+    rf"\b([^\W\d_]{{3,}}){_JOIN}(\d{{1,2}})(?:st|nd|rd|th)?{_JOIN}(\d{{4}}|\d{{2}})(?!\d)", re.I
+)
 
 
 # A prompt that sends one word per line: "<id><tab or space><word>" (w36<tab>Jane, p1w5 Jane). The ids stay;
 # only the words are matched, with a line break counting as a space, so a name or date spread over lines is found.
+_DIGITS = re.compile(r"\d+")
 _WORD_LINE = re.compile(r"^([A-Za-z]+\d+(?:[A-Za-z]+\d+)*[\t ])")
 
 # A prompt names each row by its id so the model can point back at it (architecture 6.2). A digit run
@@ -250,7 +257,7 @@ def strip(
 ) -> Stripped:
     """Replace every identifier in `text` with a placeholder. Never logs or returns the originals."""
     lines = text.split("\n")
-    prefixes = [m.group(1) if (m := _WORD_LINE.match(line)) else "" for line in lines]
+    prefixes = _id_prefixes(lines, pack.identifier_recognisers())
     layered = any(prefixes)
     if layered:
         text = "\n".join(line[len(prefix) :] for line, prefix in zip(lines, prefixes, strict=True))
@@ -278,6 +285,27 @@ def strip(
         cursor = span.end
     out.append(text[cursor:])
     return Stripped(text="".join(out), counts=dict(counts))
+
+
+def _id_prefixes(lines: list[str], finder: Callable[[str], list[tuple[int, int, str]]]) -> list[str]:
+    """The row id a word-per-line prompt puts before each word ("" where a line has none).
+
+    A line that opens with a pack identifier (an address code such as `AB1 2CD` looks like
+    `<letters><digits><space>`) has no id, unless its prefix is a lowercase id of the same shape as other
+    lines' (`w11`, `w12`, `w13`): then it is a row id and the identifier-like thing after it is just a word
+    (`w12<tab>2nd`)."""
+    found = [m.group(1) if (m := _WORD_LINE.match(line)) else "" for line in lines]
+    shapes = Counter(_shape(prefix) for prefix in found if prefix)
+    prefixes: list[str] = []
+    for line, prefix in zip(lines, found, strict=True):
+        opens_identifier = bool(prefix) and any(start < len(prefix) < end for start, end, _ in finder(line))
+        is_row_id = prefix.islower() and shapes[_shape(prefix)] > 1
+        prefixes.append("" if opens_identifier and not is_row_id else prefix)
+    return prefixes
+
+
+def _shape(prefix: str) -> str:
+    return _DIGITS.sub("#", prefix.strip())
 
 
 def _per_line(flat: str, prefixes: list[str], chosen: list[_Span], marks: list[str]) -> str:
