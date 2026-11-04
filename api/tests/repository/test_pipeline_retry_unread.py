@@ -175,6 +175,9 @@ async def test_the_job_asks_only_about_the_unread_pages_and_leaves_the_rest(
         assert set((await h.drain()).values()) == {"done"}
 
         assert len(t07b_requests(h)) - asked == 1, "one question, for the one unread page"
+        assert admin.execute(
+            "select step_done, step_total from app.jobs where case_id = %s and kind = %s", (h.case_id, RETRY)
+        ).fetchone() == (1, 1), "the run says how many pages it took, and that all are done"
         row = admin.execute(
             "select entries_extracted_at is not null, entries_failed_at is null, needs_human, reason"
             " from app.page_analysis where page_id = %s",
