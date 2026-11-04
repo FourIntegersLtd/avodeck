@@ -960,8 +960,11 @@ async def _duplicates(ctx: JobContext, services: PipelineServices) -> None:
             words[page_id] = await _compared_words(conn, services, ctx.case_id, page_id)
 
     await bounded(sorted({p.page_id for pair in pairs for p in pair}, key=str), load, DB_CONCURRENCY)  # type: ignore[arg-type]
+    common = duplicates.edge_runs(words.values())  # a header or footer is a run that starts or ends several pages
     same = [
-        (a.page_id, b.page_id) for a, b in pairs if duplicates.same_content(words[a.page_id], words[b.page_id], pack)
+        (a.page_id, b.page_id)
+        for a, b in pairs
+        if duplicates.same_content(words[a.page_id], words[b.page_id], pack, common)
     ]
     found = duplicates.originals(
         same,

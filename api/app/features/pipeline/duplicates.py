@@ -9,10 +9,16 @@ another layout (a lab's own print of a result) therefore are never set aside, un
 nearly identical (Jaccard 0.95 or more), when the picture no longer has to agree. A number that differs
 only in its separators (12/05/2024 and 12.05.2024) is the same number; a changed digit is not.
 
+A re-scan can also read a block of lines in another order, and keep a boilerplate header or footer on one scan
+and lose it on the other. A line of three words or more that is only moved is not a change (a moved line carries
+its figures with it, so values swapped between labels still differ). A header or footer is a run of words that
+starts or ends at least three pages of the bundle (`edge_runs`); a run seen on fewer pages is a real addition.
+
 - `signature(...)`: what is kept for each page: a perceptual hash of its thumbnail and a MinHash of
   its typed words, so likely pairs are found without comparing every page with every other.
 - `likely_pairs(...)`: pairs whose MinHash and picture are both close.
 - `same_content(a, b, pack)`: the final word-by-word comparison.
+- `edge_runs(pages)`: how many pages start or end with each run of words, to tell a repeated header or footer.
 - `originals(...)`: for each new page, the earliest page it copies (never itself a copy).
 """
 
@@ -21,6 +27,7 @@ from __future__ import annotations
 import difflib
 import io
 import re
+from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -35,12 +42,16 @@ from app.features.pipeline import dates
 
 NUM_PERM = 128
 SCHEME = "affine32"
-LIKELY = 0.8  # MinHash similarity at which two pages are compared word by word
+LIKELY = 0.6  # MinHash similarity at which two pages are compared word by word
 PICTURE_DISTANCE = 16  # most bits two copies' picture hashes may differ by (of 64)
 IDENTICAL = 0.95  # MinHash similarity at which the picture is not asked: a re-scan can change the page's shape
 MISREAD = 80  # least spelling similarity (0-100) for one word read two ways
 MIN_WORDS = 10  # pages with fewer typed words are never set aside
 NOTE_WORDS = 6  # most handwritten words one copy may have that the other lacks (a filing note)
+MOVE_WORDS = 3  # fewest words in a line that may be read in another order (two words may be a swapped value)
+EDGE_WORDS = 3  # fewest and most words in a repeated header or footer
+EDGE_MAX = 12
+EDGE_PAGES = 3  # pages of the bundle that must start or end with the same run for it to be a header or footer
 _EDGES = re.compile(r"^\W+|\W+$")
 _DIGIT = re.compile(r"\d")
 # Between two digits, OCR varies the separator of a date or long identifier (`12/05/2024`, `12.05.2024`) or splits
@@ -149,27 +160,68 @@ def _printed(words: Sequence[str], pack: MergedPack) -> list[object]:
     return list(dates.printed_dates(dates.find([(str(n), w) for n, w in enumerate(words)], pack)))
 
 
-def same_content(a: Sequence[Word], b: Sequence[Word], pack: MergedPack) -> bool:
-    """Whether two pages show the same content (see the module notes)."""
+def edge_runs(pages: Iterable[Sequence[Word]]) -> Counter[tuple[str, tuple[str, ...]]]:
+    """How many of the pages start (`"start"`) or end (`"end"`) with each run of typed words, of three to
+    twelve words: a run on several pages is a header or footer, not content."""
+    seen: Counter[tuple[str, tuple[str, ...]]] = Counter()
+    for words in pages:
+        texts = [w.text for w in words]
+        runs = set()
+        for size in range(EDGE_WORDS, min(EDGE_MAX, len(texts)) + 1):
+            if not any(w.handwritten for w in words[:size]):
+                runs.add(("start", tuple(texts[:size])))
+            if not any(w.handwritten for w in words[-size:]):
+                runs.add(("end", tuple(texts[-size:])))
+        seen.update(runs)
+    return seen
+
+
+def _edge(
+    words: Sequence[Word],
+    at: tuple[int, int],
+    other: Sequence[Word],
+    other_at: tuple[int, int],
+    common: Mapping[Any, int],
+) -> bool:
+    """Whether the typed run `words[at]` is a header or footer that the other page lacks at the same end."""
+    run = tuple(w.text for w in words[at[0] : at[1]])
+    if not EDGE_WORDS <= len(run) <= EDGE_MAX:
+        return False
+    if at[0] == 0 and other_at[0] == 0:
+        return common.get(("start", run), 0) >= EDGE_PAGES
+    if at[1] == len(words) and other_at[0] == len(other):
+        return common.get(("end", run), 0) >= EDGE_PAGES
+    return False
+
+
+def same_content(
+    a: Sequence[Word], b: Sequence[Word], pack: MergedPack, common: Mapping[Any, int] | None = None
+) -> bool:
+    """Whether two pages show the same content (see the module notes). `common` is `edge_runs` of the bundle's pages."""
+    common = common or {}
     typed_a, typed_b = _typed(a), _typed(b)
     if len(typed_a) < MIN_WORDS or len(typed_b) < MIN_WORDS:
-        return False
-    if _number(" ".join(w for w in typed_a if _DIGIT.search(w))) != _number(
-        " ".join(w for w in typed_b if _DIGIT.search(w))
-    ):
         return False
     if _printed(typed_a, pack) != _printed(typed_b, pack):
         return False
     words_a, words_b = [w.text for w in a], [w.text for w in b]
     added = 0
+    lost: list[tuple[str, ...]] = []  # typed lines only one page has here: a line moved, or a real change
+    gained: list[tuple[str, ...]] = []
     for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, words_a, words_b, autojunk=False).get_opcodes():
         if op == "equal":
             continue
         if op in ("insert", "delete"):
             extra = a[i1:i2] or b[j1:j2]
-            if not all(w.handwritten for w in extra):
+            if all(w.handwritten for w in extra):
+                added += len(extra)
+            elif any(w.handwritten for w in extra):
                 return False
-            added += len(extra)
+            elif op == "delete":
+                if not _edge(a, (i1, i2), b, (j1, j2), common):
+                    lost.append(tuple(w.text for w in extra))
+            elif not _edge(b, (j1, j2), a, (i1, i2), common):
+                gained.append(tuple(w.text for w in extra))
             continue
         if i2 - i1 != j2 - j1:
             if _number(" ".join(words_a[i1:i2])) != _number(" ".join(words_b[j1:j2])):
@@ -183,7 +235,11 @@ def same_content(a: Sequence[Word], b: Sequence[Word], pack: MergedPack) -> bool
                     return False
             elif fuzz.ratio(x, y) < MISREAD:
                 return False
-    return added <= NOTE_WORDS
+    for line in lost:  # a line one page has and the other has elsewhere was only read in another order
+        if len(line) < MOVE_WORDS or line not in gained:
+            return False
+        gained.remove(line)
+    return not gained and added <= NOTE_WORDS
 
 
 def originals(
