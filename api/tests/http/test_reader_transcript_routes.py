@@ -131,6 +131,28 @@ async def test_pages_waiting_for_the_pipeline_queue_no_entries_job_however_often
     assert _jobs(admin, world) == 0
 
 
+async def test_set_aside_copies_are_not_counted_in_the_pages_waiting_for_the_pipeline(
+    client_for: Any, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("x",))], analysed=False)
+    await add_page(aconn, CRYPTO, world["case"], doc, 2, [Spec("zz_session", ("x",))], analysed=False)
+    admin.execute(
+        "insert into app.page_analysis (page_id, bundle_id, extracted_at) select id, bundle_id, now() from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s) and bundle_page_no = 1",
+        (world["case"],),
+    )
+    admin.execute(
+        "update app.pages set duplicate_of_page_id = (select id from app.pages where bundle_page_no = 1 and"
+        " bundle_id = (select bundle_id from app.cases where id = %s)) where bundle_page_no = 2 and"
+        " bundle_id = (select bundle_id from app.cases where id = %s)",
+        (world["case"], world["case"]),
+    )
+    body = (await (await client_for(world["expert"])).get(f"{base(world)}/transcript/entries")).json()
+    assert body["waiting_for"] == "entries", "the copy is not a page waiting for the pipeline"
+    assert (body["extracted_pages"], body["total_pages"]) == (1, 1), "the banner counts pages that are read"
+
+
 async def test_the_pipeline_counts_as_running_while_a_pipeline_job_is_waiting(
     client_for: Any, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: dict[str, Any]
 ) -> None:

@@ -556,6 +556,73 @@ async def test_a_case_with_every_page_set_aside_is_ready_and_queues_nothing(
     assert queued == []
 
 
+async def test_a_set_aside_copy_is_not_waiting_so_the_case_is_ready_and_the_entries_job_is_queued(
+    monkeypatch: pytest.MonkeyPatch, api_db: Database, admin: psycopg.Connection, seed: Seed
+) -> None:
+    expert = seed.person()
+    case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
+    doc = seed.document(case)
+    original, copy, waiting = (seed.page(case, doc, n) for n in (1, 2, 3))
+    _analysed(admin, case, original, read=False)
+    _analysed(admin, case, waiting, read=False)
+    admin.execute("update app.pages set duplicate_of_page_id = %s where id = %s", (original, copy))
+    queued: list[Any] = []
+
+    class Registry:
+        async def enqueue(self, *args: Any, **kw: Any) -> str:
+            queued.append(args)
+            return "job"
+
+    monkeypatch.setattr(record_entries, "registry", Registry())
+    async with api_db.request(scope_for(expert)) as conn:
+        progress = await record_entries.entries_progress(conn, case)
+        assert (progress.total, progress.required, progress.extracted) == (3, 2, 2)  # the copy is in none of the waits
+        assert await record_entries.entries_ready(conn, case) is False  # the two real pages are not read yet
+        assert await record_entries.request_entries(conn, case) == "job"  # extracted == required: queue the job
+    assert len(queued) == 1
+
+
+async def test_a_set_aside_copy_with_no_extraction_does_not_hold_the_case_back(
+    monkeypatch: pytest.MonkeyPatch, api_db: Database, admin: psycopg.Connection, seed: Seed
+) -> None:
+    expert = seed.person()
+    case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
+    doc = seed.document(case)
+    original, copy = seed.page(case, doc, 1), seed.page(case, doc, 2)
+    _analysed(admin, case, original, read=True)
+    admin.execute("update app.pages set duplicate_of_page_id = %s where id = %s", (original, copy))
+    queued: list[Any] = []
+
+    class Registry:
+        async def enqueue(self, *args: Any, **kw: Any) -> None:
+            queued.append(args)
+
+    monkeypatch.setattr(record_entries, "registry", Registry())
+    async with api_db.request(scope_for(expert)) as conn:
+        assert await record_entries.entries_ready(conn, case) is True
+        assert await record_entries.entries_status(conn, case) == "ready"
+        assert await record_entries.request_entries(conn, case) is None
+        progress = await record_entries.entries_progress(conn, case)
+        assert (progress.total, progress.required, progress.extracted, progress.entries_done) == (2, 1, 1, 1)
+    assert queued == []
+
+
+async def test_a_kept_copy_that_is_unread_still_counts_as_waiting(
+    api_db: Database, admin: psycopg.Connection, seed: Seed
+) -> None:
+    expert = seed.person()
+    case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
+    doc = seed.document(case)
+    original, kept = seed.page(case, doc, 1), seed.page(case, doc, 2)
+    _analysed(admin, case, original, read=True)
+    # "Kept" clears duplicate_of_page_id, so the page is an ordinary page with nothing extracted yet.
+    async with api_db.request(scope_for(expert)) as conn:
+        progress = await record_entries.entries_progress(conn, case)
+        assert (progress.total, progress.required, progress.extracted) == (2, 2, 1)
+        assert await record_entries.entries_ready(conn, case) is False
+        assert await record_entries.request_entries(conn, case) is None  # still waiting on the pipeline
+
+
 # Entries that cover too little of the page are asked again (2a, 2e) --------------------------------
 
 
