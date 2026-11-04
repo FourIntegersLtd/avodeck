@@ -160,10 +160,12 @@ async def test_an_open_stream_is_not_activity_for_the_idle_sign_out(
         "update app.sessions set last_seen_at = now() - interval '10 minutes' where person_id = %s", (team["expert"],)
     )
     await client.get(f"/v1/cases/{team['case']}/events")
-    (minutes,) = admin.execute(
+    row = admin.execute(
         "select extract(epoch from now() - last_seen_at) / 60 from app.sessions where person_id = %s",
         (team["expert"],),
     ).fetchone()
+    assert row is not None
+    minutes = row[0]
     assert minutes >= 9.9, "the stream must not count as activity"
 
 
@@ -177,8 +179,10 @@ async def test_the_job_stream_is_not_activity_either(
     admin.execute("update app.jobs set status = 'running' where id = %s", (team["job"],))
     admin.execute("update app.jobs set status = 'done' where id = %s", (team["job"],))
     await client.get(f"/v1/jobs/{team['job']}/events")
-    (minutes,) = admin.execute(
+    row = admin.execute(
         "select extract(epoch from now() - last_seen_at) / 60 from app.sessions where person_id = %s",
         (team["expert"],),
     ).fetchone()
+    assert row is not None
+    minutes = row[0]
     assert minutes >= 9.9
