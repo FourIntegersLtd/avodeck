@@ -189,6 +189,7 @@ def prepare_picture(data: bytes | None) -> bytes | None:
 
 class _Doc(BaseDocTemplate):  # type: ignore[misc]
     section_text = ""  # what the running header shows; set as each heading is placed
+    total_pages = 0  # the page count of the pass before; the footer prints it
 
     def afterFlowable(self, flowable: Any) -> None:  # noqa: N802
         if not isinstance(flowable, _Heading):
@@ -202,41 +203,37 @@ class _Doc(BaseDocTemplate):  # type: ignore[misc]
                 self.notify("TOCEntry", (flowable.level, escape(flowable.title), self.page, flowable.key))
 
 
-def _numbered_canvas(language: str) -> type[Canvas]:
-    """A canvas that writes the footer once every page is known, so it can say "Page n of N" (not on the cover)."""
+class _PageTotal(Flowable):  # type: ignore[misc]
+    """Takes up no room; tells `multiBuild` to go round again until the page count it measured is the count the
+    footers printed ("Page n of N"). The footer is drawn as each page ends, so the pages are really added as they
+    are made and every bookmark and link lands on its own page (a canvas that held the pages back put them all
+    on page 1)."""
 
-    class NumberedCanvas(Canvas):  # type: ignore[misc]
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            super().__init__(*args, **kwargs)
-            self._saved: list[dict[str, Any]] = []
+    def __init__(self, doc: _Doc) -> None:
+        super().__init__()
+        self.doc, self.settled = doc, False
 
-        def showPage(self) -> None:  # noqa: N802
-            self._saved.append(dict(self.__dict__))
-            self._startPage()
+    def wrap(self, availWidth: float, availHeight: float) -> tuple[float, float]:  # noqa: N803
+        return 0, 0
 
-        def save(self) -> None:
-            total = len(self._saved)
-            for state in self._saved:
-                self.__dict__.update(state)
-                if self._pageNumber > 1:
-                    self._footer(total)
-                super().showPage()
-            super().save()
+    def draw(self) -> None:
+        return None
 
-        def _footer(self, total: int) -> None:
-            width = A4[0]
-            self.setStrokeColor(_LINE)
-            self.setLineWidth(0.5)
-            self.line(_MARGIN_X, 15 * mm, width - _MARGIN_X, 15 * mm)
-            self.setFont(_SANS, 8.5)
-            self.setFillColor(_AMBER_TEXT)
-            self.drawString(_MARGIN_X, 10.5 * mm, word(language, "not_checked_short"))
-            self.setFillColor(_SLATE)
-            self.drawRightString(
-                width - _MARGIN_X, 10.5 * mm, word(language, "page_x_of_y", page=self._pageNumber, total=total)
-            )
+    def isIndexing(self) -> bool:  # noqa: N802
+        return True
 
-    return NumberedCanvas
+    def isSatisfied(self) -> bool:  # noqa: N802
+        return self.settled
+
+    def beforeBuild(self) -> None:  # noqa: N802
+        return None
+
+    def notify(self, kind: str, stuff: Any) -> None:
+        return None
+
+    def afterBuild(self) -> None:  # noqa: N802
+        self.settled = self.doc.total_pages == self.doc.page
+        self.doc.total_pages = self.doc.page
 
 
 def _links(pages: list[int]) -> Table:
@@ -461,8 +458,23 @@ def build_pdf(
         canvas.drawString(_MARGIN_X, A4[1] - _BAND / 2 - 10, title)
         canvas.restoreState()
 
+    def footer(canvas: Canvas, d: _Doc) -> None:
+        canvas.setStrokeColor(_LINE)
+        canvas.setLineWidth(0.5)
+        canvas.line(_MARGIN_X, 15 * mm, A4[0] - _MARGIN_X, 15 * mm)
+        canvas.setFont(_SANS, 8.5)
+        canvas.setFillColor(_AMBER_TEXT)
+        canvas.drawString(_MARGIN_X, 10.5 * mm, word(language, "not_checked_short"))
+        canvas.setFillColor(_SLATE)
+        canvas.drawRightString(
+            A4[0] - _MARGIN_X,
+            10.5 * mm,
+            word(language, "page_x_of_y", page=canvas.getPageNumber(), total=d.total_pages),
+        )
+
     def running_header(canvas: Canvas, d: _Doc) -> None:
         canvas.saveState()
+        footer(canvas, d)
         y = A4[1] - 14 * mm
         canvas.setFont(_SANS, 8.5)
         canvas.setFillColor(_SLATE)
@@ -483,5 +495,5 @@ def build_pdf(
             PageTemplate(id="body", frames=[body_frame], onPageEnd=running_header),
         ]
     )
-    doc.multiBuild(story, canvasmaker=_numbered_canvas(language))
+    doc.multiBuild([_PageTotal(doc), *story])
     return out.getvalue()
