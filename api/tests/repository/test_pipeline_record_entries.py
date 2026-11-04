@@ -613,7 +613,8 @@ async def test_a_kept_copy_that_is_unread_still_counts_as_waiting(
     expert = seed.person()
     case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
     doc = seed.document(case)
-    original, kept = seed.page(case, doc, 1), seed.page(case, doc, 2)
+    original = seed.page(case, doc, 1)
+    seed.page(case, doc, 2)  # the kept copy
     _analysed(admin, case, original, read=True)
     # "Kept" clears duplicate_of_page_id, so the page is an ordinary page with nothing extracted yet.
     async with api_db.request(scope_for(expert)) as conn:
