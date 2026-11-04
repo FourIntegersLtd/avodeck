@@ -552,3 +552,155 @@ async def test_a_case_with_every_page_set_aside_is_ready_and_queues_nothing(
         assert await record_entries.entries_ready(conn, case) is True
         assert await record_entries.request_entries(conn, case) is None
     assert queued == []
+
+
+# Entries that cover too little of the page are asked again (2a, 2e) --------------------------------
+
+
+def _full_answer(pack: Any, words: Sequence[Any], spans: list[tuple[int, int]]) -> Any:
+    """One fact over the whole page (so the page itself is never short of facts) and entries over `spans`."""
+    kind = pack.entry_kinds()[0]["key"]
+    entries = [
+        {
+            "kind": kind,
+            "first_word_id": words[a - 1].id,
+            "last_word_id": words[b - 1].id,
+            "author_role": None,
+            "specialty": None,
+        }
+        for a, b in spans
+    ]
+    return response(
+        {
+            "source_type": pack.source_types()[-1]["key"],
+            "printed_dates": [],
+            "facts": [
+                {
+                    "kind": pack.fact_kinds()[-1]["key"],
+                    "clinician_role": None,
+                    "fields": {},
+                    "value": " ".join(w.text for w in words),
+                    "word_ids": [w.id for w in words],
+                }
+            ],
+            "references_out": [],
+            "availability_evidence": [],
+            "actions_requested_of_clinician": [],
+            "entries": entries,
+        }
+    )
+
+
+async def _stored_spans(
+    scripted: list[tuple[int, int]] | None,
+    second: list[tuple[int, int]] | None,
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> tuple[list[tuple[int, int]], int, bool, int]:
+    """Spans stored, model calls made, whether the page needs a person, and the page's word count."""
+    from tests.repository.test_pipeline_extract import _wordy_lines
+
+    pack = default_library().combine(*LAUNCH.codes)
+    document = text_pdf([_wordy_lines(8)])
+    words = embedded_words(split_pages(document)[0]).words
+    assert len(words) >= 40
+    answers = [_full_answer(pack, words, scripted or [])]
+    if second is not None:
+        answers.append(_full_answer(pack, words, second))
+    bedrock = ScriptedBedrock(answers)
+    async with await opened(tmp_path, bedrock, admin, api_db, worker_dsn, auth_env, seed, storage) as h:
+        await h.upload(document)
+        assert set((await h.drain()).values()) == {"done"}
+        (page,) = h.pages()
+        rows = admin.execute(
+            "select first_n, last_n from app.record_entries where page_id = %s order by first_n", (page["id"],)
+        ).fetchall()
+        needs = admin.execute("select needs_human from app.page_analysis where page_id = %s", (page["id"],)).fetchone()
+        return [(r[0], r[1]) for r in rows], len(t07b_requests(h)), bool(needs and needs[0]), len(words)
+
+
+async def test_a_page_whose_entries_cover_little_is_asked_again_and_the_better_answer_is_kept(
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> None:
+    got = await _stored_spans(
+        [(1, 20)], [(1, 30), (31, 60), (61, 72)], tmp_path, admin, api_db, worker_dsn, auth_env, seed, storage
+    )
+    spans, calls, needs_person, count = got
+    assert count == 72 and calls == 2
+    assert spans == [(1, 30), (31, 60), (61, 72)]
+    assert needs_person is False, "entries covering little never send a page to a person"
+
+
+async def test_the_second_answer_replaces_the_first_only_when_it_covers_more(
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> None:
+    spans, calls, needs_person, _ = await _stored_spans(
+        [(1, 40)], [(1, 10)], tmp_path, admin, api_db, worker_dsn, auth_env, seed, storage
+    )
+    assert calls == 2 and spans == [(1, 40)] and needs_person is False
+    spans, calls, _, _ = await _stored_spans(
+        [(1, 40)], [(1, 40)], tmp_path, admin, api_db, worker_dsn, auth_env, seed, storage
+    )
+    assert calls == 2 and spans == [(1, 40)], "equal coverage keeps the first answer"
+
+
+async def test_a_page_with_enough_words_and_no_entries_is_asked_again(
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> None:
+    spans, calls, needs_person, _ = await _stored_spans(
+        None, [(1, 72)], tmp_path, admin, api_db, worker_dsn, auth_env, seed, storage
+    )
+    assert calls == 2 and spans == [(1, 72)] and needs_person is False
+
+
+async def test_a_page_whose_entries_cover_enough_is_asked_once(
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> None:
+    spans, calls, _, _ = await _stored_spans(
+        [(1, 60)], None, tmp_path, admin, api_db, worker_dsn, auth_env, seed, storage
+    )
+    assert calls == 1 and spans == [(1, 60)]
+
+
+async def test_a_page_with_no_entries_after_the_second_ask_is_stored_without_asking_a_third_time(
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> None:
+    spans, calls, needs_person, _ = await _stored_spans(
+        None, [], tmp_path, admin, api_db, worker_dsn, auth_env, seed, storage
+    )
+    assert calls == 2 and spans == [] and needs_person is False

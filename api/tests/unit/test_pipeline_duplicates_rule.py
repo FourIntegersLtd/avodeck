@@ -139,12 +139,41 @@ def test_likely_pairs_need_close_words_and_a_close_picture_and_a_new_page() -> N
         signature(1, LETTER, same_pic),
         signature(2, LETTER, same_pic),
         signature(3, list(reversed(LETTER)), same_pic),  # other words
-        signature(4, LETTER, picture("table")),  # another layout
+        signature(4, [*LETTER[:-2], "new", "staff"], picture("table")),  # near words, another layout
     ]
     pairs = duplicates.likely_pairs(sigs, new={"page-2", "page-3", "page-4"})
     assert [(a.page_no, b.page_no) for a, b in pairs] == [(1, 2)]
     assert duplicates.likely_pairs(sigs, new=set()) == []
     assert len(duplicates.word_hash(page(LETTER))) == duplicates.NUM_PERM
+
+
+def test_the_same_words_in_another_layout_are_a_likely_pair() -> None:
+    """A re-scan of one page can come out with another page shape; words that match to 0.95 are enough."""
+    sigs = [signature(1, LETTER, picture("lines")), signature(2, LETTER, picture("table"))]
+    assert duplicates._distance(sigs[0].picture, sigs[1].picture) > duplicates.PICTURE_DISTANCE
+    pairs = duplicates.likely_pairs(sigs, new={"page-2"})
+    assert [(a.page_no, b.page_no) for a, b in pairs] == [(1, 2)]
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.codes[0])
+def test_digit_separators_alone_do_not_make_a_changed_number(combo: Combo) -> None:
+    pack = pack_of(combo)
+    at = LETTER.index("128/82")
+    assert duplicates.same_content(page(LETTER), page(changed(at, "128.82")), pack)
+    assert duplicates.same_content(page(LETTER), page(changed(at, "128-82")), pack)
+    at_date = LETTER.index("03/04/2024")
+    assert duplicates.same_content(page(LETTER), page(changed(at_date, "03.04.2024")), pack)
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.codes[0])
+def test_a_changed_digit_or_a_moved_decimal_is_still_not_a_copy(combo: Combo) -> None:
+    pack = pack_of(combo)
+    at = LETTER.index("128/82")
+    assert not duplicates.same_content(page(LETTER), page(changed(at, "128/86")), pack)
+    assert not duplicates.same_content(page(LETTER), page(changed(at, "12.882")), pack)
+    assert not duplicates.same_content(page(LETTER), page(changed(LETTER.index("71"), "7.1")), pack)
+    assert not duplicates.same_content(page(LETTER), page(changed(LETTER.index("03/04/2024"), "03/05/2024")), pack)
+    assert not duplicates.same_content(page(LETTER), page([*LETTER, "dose", "5", "mg"]), pack), "a typed line added"
 
 
 def test_each_copy_points_at_the_earliest_page_that_is_not_a_copy() -> None:

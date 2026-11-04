@@ -83,7 +83,15 @@ class Client:
                     "references_out": [],
                     "availability_evidence": [],
                     "actions_requested_of_clinician": [],
-                    "entries": [],
+                    "entries": [
+                        {
+                            "kind": pack.entry_kinds()[0]["key"],
+                            "first_word_id": words[0].id,
+                            "last_word_id": words[-1].id,
+                            "author_role": None,
+                            "specialty": None,
+                        }
+                    ],
                 }
             )
         return ModelResponse(output={"pages": pages}, input_tokens=10, output_tokens=50, model_id=self.model_id)

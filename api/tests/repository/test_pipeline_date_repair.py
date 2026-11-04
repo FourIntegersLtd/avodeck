@@ -88,6 +88,77 @@ async def test_repair_job_sets_event_date_from_printed_words(
         assert row == (dt.date(2024, 4, 3), "printed")
 
 
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
+async def test_repair_job_dates_an_undated_entry_and_leaves_a_dated_one_alone(
+    combo: Combo,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> None:
+    expert = seed.person()
+    case_id = seed.case(seed.org(members={expert: "owner"}), expert, packs=combo.case_row())
+    page_id = seed.page(case_id, seed.document(case_id), 1)
+    spoken = "Date of birth 12-May-1986 Seen 27-Sep-2018 by nurse".split()
+    checked = "Seen 03-Apr-2019 by nurse".split()
+    nothing = "no date is printed here".split()
+    rows = [nothing, spoken, checked]  # one printed line each, top to bottom
+    words = [w for row in rows for w in row]
+    already = dt.date(2020, 1, 1)
+
+    def entry(first: int, last: int, when: dt.date | None, basis: str | None) -> uuid.UUID:
+        row = admin.execute(
+            "insert into app.record_entries"
+            " (page_id, bundle_id, kind, first_n, last_n, event_date, date_basis, extraction_version)"
+            " values (%s, (select bundle_id from app.cases where id = %s), 'consultation', %s, %s, %s, %s, 'v1')"
+            " returning id",
+            (page_id, case_id, first, last, when, basis),
+        ).fetchone()
+        assert row is not None
+        return uuid.UUID(str(row[0]))
+
+    blank = entry(1, len(nothing), None, None)
+    undated = entry(len(nothing) + 1, len(nothing) + len(spoken), None, None)
+    dated = entry(len(nothing) + len(spoken) + 1, len(words), already, "printed")
+    async with harness(
+        admin=admin,
+        api_db=api_db,
+        worker_dsn=worker_dsn,
+        auth_env=auth_env,
+        client_for=None,
+        storage=storage,
+        expert=expert,
+        case_id=case_id,
+        ocr_store=None,
+        dates_of_birth=[dt.date(1986, 5, 12)],
+    ) as h:
+        from app.features.pipeline.paths import word_purpose
+
+        async with api_db.request(scope_for(expert)) as conn:
+            line_of = [i for i, row in enumerate(rows) for _ in row]
+            for n, text in enumerate(words, start=1):
+                top = 10 * line_of[n - 1]
+                sealed = await h.crypto.encrypt(conn, case_id, text.encode(), purpose=word_purpose(page_id, f"w{n}"))
+                admin.execute(
+                    "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+                    " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s, 0.9, 'ocr')",
+                    (page_id, case_id, n, f"w{n}", sealed, [0, top, 1, top, 1, top + 5, 0, top + 5]),
+                )
+        resp = await h.client.post(f"/v1/cases/{case_id}/repair-fact-dates")
+        assert resp.status_code == 202
+        await h.drain()
+
+        def row(entry_id: uuid.UUID) -> tuple[Any, ...]:
+            got = admin.execute("select event_date, date_basis from app.record_entries where id = %s", (entry_id,))
+            return got.fetchone() or ()
+
+        assert row(undated) == (dt.date(2018, 9, 27), "printed"), "the date of birth was not used"
+        assert row(dated) == (already, "printed"), "an entry that has a date is never changed"
+        assert row(blank) == (None, None)
+
+
 # ---- century rule and the line above (pure) -------------------------------------------------
 
 
