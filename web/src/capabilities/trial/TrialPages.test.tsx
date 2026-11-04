@@ -1,10 +1,11 @@
 // S23 Trial page numbers: adding the court bundle (its name from the pack), the matched, missing and to-check
 // counts, the pages the report relies on that are missing, confirming a match, telling the instructing party
 // and downloading the table (behind the code).
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { http, json, server } from "../../test/api";
+import { FakeEventSource, liveJob } from "../../test/eventSource";
 import { axeViolations, renderAt } from "../../test/render";
 import { BUNDLE, blobReply, bundleOut, CASE, concordanceOut, launchWords, pdf, ROWS, rows, serveConcordance, term, type PackRun } from "./testing";
 import { TRIAL_MESSAGES as M } from "./words";
@@ -109,6 +110,17 @@ test("while matching it says so", async () => {
   serveConcordance("launch", concordanceOut({ bundle: { ...concordanceOut().bundle!, status: "matching" }, rows: [], counts: { matched: 0, to_confirm: 0, missing: 0 } }));
   renderAt(url);
   expect(await screen.findByText(k("pages.matching"))).toBeInTheDocument();
+});
+
+test("when the matching ends the rows appear on the case stream's word, with no refresh", async () => {
+  serveConcordance("launch", concordanceOut({ bundle: { ...concordanceOut().bundle!, status: "matching" }, rows: [], counts: { matched: 0, to_confirm: 0, missing: 0 } }));
+  renderAt(url);
+  await screen.findByText(k("pages.matching"));
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "m1", kind: "match_trial_bundle", status: "running" })]));
+  server.use(http.get("/v1/cases/:caseId/concordance", () => json(concordanceOut())));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "m1", kind: "match_trial_bundle", status: "done" })])); // a later change, not the first snapshot
+  await waitFor(() => expect(screen.queryByText(k("pages.matching"))).toBeNull(), { timeout: 4000 });
 });
 
 describe("the screen as designed", () => {

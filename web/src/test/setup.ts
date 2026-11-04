@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, configure } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, beforeEach, expect } from "vitest";
 import { resetScreens } from "../foundation/lib/screens";
+import { FakeEventSource } from "./eventSource";
 import { server } from "./server";
 
 // jsdom has no layout engine: the few browser calls Radix's menus make are stubbed.
@@ -17,6 +18,9 @@ if (typeof window !== "undefined") {
   Element.prototype.scrollIntoView ??= () => {};
 }
 
+// jsdom has no EventSource: the live hub needs one, and nothing arrives on it unless a test sends it.
+globalThis.EventSource ??= FakeEventSource as unknown as typeof EventSource;
+
 // CI runs every file in parallel under coverage, where a screen can take over the 1 s default to settle.
 configure({ asyncUtilTimeout: 5000 });
 
@@ -27,6 +31,7 @@ beforeEach(() => {
 });
 afterEach(async () => {
   server.resetHandlers();
+  FakeEventSource.all = [];
   if (typeof document === "undefined") return; // node-environment guard tests (the client needs a window)
   cleanup();
   // Each test starts with nothing kept from the last.

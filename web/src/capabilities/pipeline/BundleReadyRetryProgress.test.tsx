@@ -1,10 +1,11 @@
 // Screen 08 while "Try these pages again" runs: a real progress bar from the server's own counts (percent, pages
 // done of pages retried, pages that failed again), checked every 3 seconds, and a plain result line at the end.
 // Runs under both pack sets.
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { http, json, server, signedIn } from "../../test/api";
+import { FakeEventSource, liveJob } from "../../test/eventSource";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { CASE_ID, missingList, summary, theCase } from "./testData";
@@ -67,7 +68,7 @@ describe.each([
     expect(screen.getByText("1 page could not be read again.")).toBeVisible();
   });
 
-  test("checks again every few seconds and ends with a plain line when every page was read", async () => {
+  test("follows the retry job live and ends with a plain line when every page was read", async () => {
     const log = mock(pack, [
       running(117, 3),
       running(400, 3),
@@ -75,12 +76,16 @@ describe.each([
     ]);
     renderAt(PATH);
     await screen.findByRole("progressbar", { name: "Trying again: 120 of 650 pages (18%)" });
-    expect(await screen.findByRole("progressbar", { name: "Trying again: 403 of 650 pages (62%)" }, { timeout: 6000 })).toBeVisible();
-    expect(await screen.findByText("All done. Every page was read.", {}, { timeout: 6000 })).toBeVisible();
+    await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+    const retryJob = (over: Record<string, unknown>) => liveJob({ id: "r1", kind: "retry_unread_pages", ...over });
+    act(() => FakeEventSource.open()[0]!.emitJobs([retryJob({ status: "running", step_done: 403, step_total: 650 })]));
+    expect(await screen.findByRole("progressbar", { name: "Trying again: 403 of 650 pages (62%)" })).toBeVisible();
+    act(() => FakeEventSource.open()[0]!.emitJobs([retryJob({ status: "done", step_done: 650, step_total: 650 })]));
+    expect(await screen.findByText("All done. Every page was read.", {}, { timeout: 4000 })).toBeVisible();
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.queryByRole("button", { name: BUTTON })).toBeNull();
     expect(log.summaries).toBeGreaterThanOrEqual(3);
-  }, 20000);
+  });
 
   test("ends by saying how many pages still could not be read, with the button to try again", async () => {
     mock(pack, [

@@ -1,10 +1,11 @@
 // S06 What you've been asked: the letter's own words for every question and assumption. An edit keeps the
 // letter's words on show, a question can be flagged as outside the expert's field (with a note to draft),
 // everything can be confirmed at once, and a further letter reopens the questions with a warning.
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
+import { FakeEventSource, liveJob } from "../../test/eventSource";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { assumption, casePack, inCase, launchWords, note, nowAsked, question, questions, type PackRun } from "./testing";
@@ -142,6 +143,18 @@ test("while the letter is being read the screen says so", async () => {
   asked("launch", { reading: true, questions: [], assumptions: [] });
   renderAt(`/cases/${CASE_A}/questions`);
   expect(await screen.findByText("We're still reading the letter. This page will update by itself.")).toBeInTheDocument();
+});
+
+test("when the letter has been read the screen shows the questions with no refresh, on the case stream's word", async () => {
+  asked("launch", { reading: true, questions: [], assumptions: [] });
+  renderAt(`/cases/${CASE_A}/questions`);
+  await screen.findByText("We're still reading the letter. This page will update by itself.");
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "l1", kind: "extract_questions", status: "running" })]));
+  server.use(http.get("/v1/cases/:caseId/questions", () => json(questions({ reading: false, questions: [question({ kind: String(casePack("launch").question_types[0]!.key) })] }))));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "l1", kind: "extract_questions", status: "done" })])); // a later change, not the first snapshot
+  await waitFor(() => expect(screen.queryByText("We're still reading the letter. This page will update by itself.")).toBeNull(), { timeout: 4000 });
+  expect(await screen.findByRole("button", { name: "Confirm questions" })).toBeInTheDocument();
 });
 
 test("confirm questions stays off until every question and assumption is confirmed, and says how many are left", async () => {

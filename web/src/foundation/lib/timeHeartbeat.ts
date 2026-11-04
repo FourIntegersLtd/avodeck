@@ -17,7 +17,7 @@ export function useTimeHeartbeat(caseId: string, screen: string | null): void {
       lastInput = Date.now();
     };
     INPUTS.forEach((name) => document.addEventListener(name, touched, { passive: true }));
-    const timer = window.setInterval(() => {
+    const timer = window.setInterval(() => { // clock, not data: it sends the time, it reads nothing
       const idle = Math.max(0, Math.round((Date.now() - lastInput) / 1000));
       void api
         .POST("/v1/cases/{case_id}/time/heartbeat", {

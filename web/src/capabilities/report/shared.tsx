@@ -3,26 +3,23 @@ import { useEffect, useState } from "react";
 import { humanise } from "../../foundation/i18n";
 import { DEFAULT_LOCALE, formatDay } from "../../foundation/i18n/dates";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
+import { useOnCaseChange } from "../../foundation/lib/sse";
 import { useSession } from "../../foundation/lib/session";
 
 export const versionTag = (version: number | string) => `"${version}"`;
 
-const POLL_MS = 1000;
-const POLL_LIMIT = 120;
+const WAIT_LIMIT_MS = 120_000;
 
-/** After queuing a job, reloads every second until `signal` (for example the newest version id) changes. */
+/** After queuing a job, reloads when the case's jobs change (over the live stream) until `signal` (for example
+ * the newest version id) changes, and stops waiting after two minutes. */
 export function useWaiting(reload: () => void, signal: unknown) {
+  const { item } = useCaseFrame();
   const [from, setFrom] = useState<{ signal: unknown } | null>(null);
+  useOnCaseChange(from ? item.id : null, reload);
   useEffect(() => {
     if (!from) return;
-    let beats = 0;
-    const timer = window.setInterval(() => {
-      beats += 1;
-      if (beats > POLL_LIMIT) setFrom(null);
-      else reload();
-    }, POLL_MS);
-    return () => window.clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const timer = window.setTimeout(() => setFrom(null), WAIT_LIMIT_MS); // clock, not data
+    return () => window.clearTimeout(timer);
   }, [from]);
   useEffect(() => {
     if (from && signal !== from.signal) setFrom(null);

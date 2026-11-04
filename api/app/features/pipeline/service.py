@@ -869,6 +869,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 )
 
     await bounded(batches, one_batch, _extract_concurrency(ctx, services), _stop(ctx))
+    await ctx.progress(55, step="sort", step_done=len(waiting), step_total=len(waiting))
     return len(waiting)
 
 
@@ -1245,10 +1246,12 @@ async def extract_entries(ctx: JobContext) -> None:
                 )
         done += 1
         if done % 25 == 0:
-            await ctx.progress(min(95, 95 * done // len(waiting)), step="entries")
+            await ctx.progress(
+                min(95, 95 * done // len(waiting)), step="entries", step_done=done, step_total=len(waiting)
+            )
 
     await bounded(waiting, one, stop=_stop(ctx))
-    await ctx.progress(100, step="entries")
+    await ctx.progress(100, step="entries", step_done=len(waiting), step_total=len(waiting))
 
 
 async def repair_fact_dates(ctx: JobContext) -> None:

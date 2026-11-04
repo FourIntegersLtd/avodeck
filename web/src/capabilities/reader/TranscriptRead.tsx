@@ -7,6 +7,7 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { humanise, t } from "../../foundation/i18n";
 import { formatDay } from "../../foundation/i18n/dates";
+import { useCaseJobs, useOnCaseChange, waitForJob } from "../../foundation/lib/sse";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, ProgressBar, Spinner } from "../../foundation/ui";
@@ -20,7 +21,9 @@ import { PAGE_SIZE, TranscriptSection, yearId } from "./TranscriptSection";
 type Entry = Schemas["TranscriptEntryOut"];
 // Entries asked for in one go when the reader jumps to a year that is not loaded yet.
 const JUMP_LIMIT = 200;
-const POLL_MS = 3000;
+// The jobs that get the record ready to read; their counts come live from the case stream.
+const PDF_WAIT_MS = 20 * 60_000;
+const DOCX_WAIT_MS = 3 * 60_000;
 // Seconds' worth of milliseconds an entry must stay in view before it is reported.
 const REPORT_AFTER_MS = 400;
 // After this long with no change the screen says so and offers to start again.
@@ -35,7 +38,7 @@ function useElapsed(progressKey: number): number {
     tick((n) => n + 1);
   }, [progressKey]);
   useEffect(() => {
-    const timer = setInterval(() => tick((n) => n + 1), 1000);
+    const timer = setInterval(() => tick((n) => n + 1), 1000); // clock, not data
     return () => clearInterval(timer);
   }, []);
   return Date.now() - started.current;
@@ -251,6 +254,12 @@ export function TranscriptRead() {
   const [outlineFailed, setOutlineFailed] = useState(false);
   // Counts the sections opened, so a slow answer for a section the reader has left is dropped.
   const generation = useRef(0);
+  const leaving = useRef(new AbortController()); // stops a file wait when the screen goes
+  useEffect(() => {
+    leaving.current = new AbortController();
+    const mine = leaving.current;
+    return () => mine.abort();
+  }, []);
   // One request for more entries at a time: a second press while one is on its way does nothing.
   const appending = useRef(false);
   const appendToken = useRef(0);
@@ -315,14 +324,14 @@ export function TranscriptRead() {
     if (status !== null) void retryPages();
   }, [status, retryPages]);
 
-  useEffect(() => {
-    if (status !== "preparing" && !(status === "idle" && wait?.pipeline_running)) return;
-    const timer = setTimeout(() => {
-      void load(0, 1, "status");
-      if (retryRunning) void retryPages(); // the retry's own counts, from the server
-    }, POLL_MS);
-    return () => clearTimeout(timer);
-  }, [status, wait, load, retryRunning, retryPages]);
+  // While the record is being got ready, look again when a job on the case moves on (not on every count).
+  const preparing = status === "preparing" || (status === "idle" && wait?.pipeline_running === true);
+  useOnCaseChange(preparing ? caseId : null, () => {
+    void load(0, 1, "status");
+    if (retryRunning) void retryPages(); // the retry's own words and failed count, from the server
+  });
+  // The job this bar follows: the retry when one is running, else the one preparing the record.
+  const preparingJob = useCaseJobs(preparing ? caseId : null)?.find((j) => j.kind === (retryRunning ? "retry_unread_pages" : "extract_entries") && j.status === "running") ?? null;
 
   const fetchOutline = useCallback(() => {
     setOutlineFailed(false);
@@ -461,23 +470,15 @@ export function TranscriptRead() {
     try {
       const started = await stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/transcript/download", { params: { path: { case_id: caseId } }, body: { format } })));
       if (!started) return;
-      const job_id = started.job_id;
-      const tries = format === "pdf" ? 400 : 60;
-      for (let n = 0; n < tries; n += 1) {
-        try {
-          const blob = await unwrap(api.GET("/v1/cases/{case_id}/transcript/download/{job_id}", { params: { path: { case_id: caseId, job_id } }, parseAs: "blob" }));
-          saveBlob(blob as Blob, `transcript-${caseId.slice(0, 8)}.${format}`);
-          setMessage(w(format === "pdf" ? "transcript.downloaded_pdf" : "transcript.downloaded"));
-          return;
-        } catch (err) {
-          if (err instanceof ApiError && err.code === "build_failed") throw err;
-          if ((err as { status?: number }).status !== 409) throw err;
-          await new Promise((r) => setTimeout(r, POLL_MS));
-        }
-      }
-      setProblem({ format, text: w("transcript.download_slow") });
+      const ended = await waitForJob(caseId, started.job_id, { signal: leaving.current.signal, timeoutMs: format === "pdf" ? PDF_WAIT_MS : DOCX_WAIT_MS });
+      if (ended.status !== "done") throw Object.assign(new Error("build_failed"), { code: "build_failed" });
+      const blob = await unwrap(api.GET("/v1/cases/{case_id}/transcript/download/{job_id}", { params: { path: { case_id: caseId, job_id: started.job_id } }, parseAs: "blob" }));
+      saveBlob(blob as Blob, `transcript-${caseId.slice(0, 8)}.${format}`);
+      setMessage(w(format === "pdf" ? "transcript.downloaded_pdf" : "transcript.downloaded"));
     } catch (err) {
       // The server says a build failed with `build_failed`; anything else is shown from its code.
+      if ((err as { name?: string }).name === "AbortError") return;
+      if ((err as { name?: string }).name === "TimeoutError") return setProblem({ format, text: w("transcript.download_slow") });
       const failedBuild = (err as { code?: string }).code === "build_failed";
       setProblem({ format, text: failedBuild ? w(format === "pdf" ? "transcript.build_failed_pdf" : "transcript.build_failed_docx") : errorMessage(err) });
     } finally {
@@ -509,16 +510,19 @@ export function TranscriptRead() {
       );
     }
     if (status === "idle" && wait?.can_prepare === false) return <Notice tone="info"><p>{w("transcript.ask_expert")}</p></Notice>;
-    const done = wait?.prepared_pages ?? 0;
+    const liveCounts = preparingJob?.step_total ? { done: preparingJob.step_done ?? 0, total: preparingJob.step_total } : null;
     const run = retryRunning ? retryInfo.retry : null;
-    const handled = run ? run.done + run.failed : 0;
+    // The entries job counts only the pages still to read, so the pages already prepared are added back and the bar keeps its whole-record total.
+    const done = liveCounts && !run && all >= liveCounts.total ? all - liveCounts.total + liveCounts.done : (wait?.prepared_pages ?? 0);
+    const handled = liveCounts && run ? liveCounts.done : run ? run.done + run.failed : 0;
+    const runTotal = liveCounts && run ? liveCounts.total : (run?.total ?? 0);
     const retryCount =
-      run && run.total > 0
+      run && runTotal > 0
         ? {
             // Never 100% until the run has finished.
-            label: w("transcript.retry_progress", { done: count(handled, pack.locale), total: count(run.total, pack.locale), percent: count(Math.min(99, Math.round((handled / run.total) * 100)), pack.locale) }),
+            label: w("transcript.retry_progress", { done: count(handled, pack.locale), total: count(runTotal, pack.locale), percent: count(Math.min(99, Math.round((handled / runTotal) * 100)), pack.locale) }),
             value: handled,
-            max: run.total,
+            max: runTotal,
           }
         : undefined;
     return (

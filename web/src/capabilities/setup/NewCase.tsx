@@ -3,7 +3,6 @@
 // only when they save), who instructed them, a check for an earlier case about the same person and anything
 // they were told by phone. The server decides everything; this screen shows and sends.
 import {
-  useEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -14,6 +13,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useSession } from "../../foundation/lib/session";
+import { useOnCaseChange } from "../../foundation/lib/sse";
 import { useResource } from "../../foundation/lib/useResource";
 import { UploadStatus } from "../../foundation/lib/UploadControls";
 import { useUpload } from "../../foundation/lib/useUpload";
@@ -1098,11 +1098,7 @@ function FoundInLetter({
   const [error, setError] = useState<string | null>(null);
   const { reload } = found;
   const reading = found.data?.reading ?? false;
-  useEffect(() => {
-    if (!reading) return;
-    const timer = setInterval(reload, 5000);
-    return () => clearInterval(timer);
-  }, [reading, reload]);
+  useOnCaseChange(reading ? caseId : null, reload);
 
   const shown = (s: Schemas["Suggestion"]) => {
     if (s.field === "party_role") return packWord(words, s.value);

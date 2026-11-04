@@ -22,7 +22,7 @@ from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
 
-PROGRESS_FIELDS = {"status", "step", "pct", "eta_seconds", "error_code"}
+PROGRESS_FIELDS = {"status", "step", "pct", "eta_seconds", "step_done", "step_total", "error_code"}
 
 
 @pytest.fixture
@@ -97,12 +97,40 @@ async def test_progress_streams_over_sse_until_the_job_finishes_and_carries_no_p
     assert sent, "no progress events"
     for event in sent:
         assert set(event) == PROGRESS_FIELDS, event
-    assert {"status": "running", "step": "ocr", "pct": 50, "eta_seconds": 40, "error_code": None} in sent
+    assert {
+        "status": "running",
+        "step": "ocr",
+        "pct": 50,
+        "eta_seconds": 40,
+        "step_done": None,
+        "step_total": None,
+        "error_code": None,
+    } in sent
     assert sent[-1]["status"] == "done"
     assert sent[0]["status"] == "running"
     # Only changes are sent, and nothing about the case or its files.
     assert all(a != b for a, b in zip(sent, sent[1:], strict=False))
     assert "Case Z" not in resp.text and "f.pdf" not in resp.text
+
+
+async def test_each_new_page_count_of_the_current_step_is_a_new_event(
+    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection
+) -> None:
+    admin.execute(
+        "update app.jobs set status = 'running', step = 'ocr', step_done = 0, step_total = 882 where id = %s",
+        (team["job"],),
+    )
+    client = await client_for(team["expert"])
+    stream = asyncio.create_task(client.get(f"/v1/jobs/{team['job']}/events"))
+    for done in (100, 275):
+        await asyncio.sleep(0.3)
+        admin.execute("update app.jobs set step_done = %s where id = %s", (done, team["job"]))
+    await asyncio.sleep(0.3)
+    admin.execute("update app.jobs set status = 'done' where id = %s", (team["job"],))
+    resp = await asyncio.wait_for(stream, 10)
+
+    counts = [(e["step_done"], e["step_total"]) for e in events(resp)]
+    assert counts[:3] == [(0, 882), (100, 882), (275, 882)], counts
 
 
 async def test_a_stream_ends_after_its_time_limit_so_the_browser_reconnects(

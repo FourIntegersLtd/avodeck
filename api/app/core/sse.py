@@ -32,8 +32,9 @@ async def sse_stream(
     request: Request,
     fetch: Callable[[], Awaitable[dict[str, object] | None]],
     is_finished: Callable[[dict[str, object]], bool] = lambda _: False,
+    poll_factor: float = 1.0,
 ) -> StreamingResponse:
-    poll = float(request.app.state.job_poll_seconds)
+    poll = float(request.app.state.job_poll_seconds) * poll_factor
     limit = float(request.app.state.job_stream_seconds)
     heartbeat = float(request.app.state.job_heartbeat_seconds)
 

@@ -9,6 +9,8 @@ import { ToastProvider } from "./toasts";
 class FakeSource {
   static all: FakeSource[] = [];
   onmessage: ((e: MessageEvent<string>) => void) | null = null;
+  onerror: ((e: Event) => void) | null = null;
+  readyState = 1;
   closed = false;
   constructor(public url: string) {
     FakeSource.all.push(this);
@@ -16,8 +18,9 @@ class FakeSource {
   close() {
     this.closed = true;
   }
-  send(data: object) {
-    this.onmessage?.({ data: JSON.stringify(data) } as MessageEvent<string>);
+  send(job: object) {
+    const full = { id: "job-1", kind: "append_documents", status: "running", step: null, pct: 0, eta_seconds: null, step_done: null, step_total: null, error_code: null, ...job };
+    this.onmessage?.({ data: JSON.stringify({ jobs: [full] }) } as MessageEvent<string>);
   }
 }
 
@@ -25,7 +28,7 @@ const WORDS = { done: "Your new papers are ready.", failed: "We could not finish
 
 function Starter() {
   const { watch } = useJobWatch();
-  return <button onClick={() => watch("job-1", WORDS)}>start</button>;
+  return <button onClick={() => watch("c1", "job-1", WORDS)}>start</button>;
 }
 
 function mount() {
@@ -50,7 +53,7 @@ describe("job watch", () => {
   test("shows a toast with a link when the job is done, and stops listening", async () => {
     mount();
     await userEvent.click(screen.getByText("start"));
-    expect(FakeSource.all[0]!.url).toContain("/v1/jobs/job-1/events");
+    expect(FakeSource.all[0]!.url).toContain("/v1/cases/c1/events");
     expect(screen.queryByText(WORDS.done)).toBeNull();
     act(() => FakeSource.all[0]!.send({ status: "running", pct: 40 }));
     expect(screen.queryByText(WORDS.done)).toBeNull();
@@ -67,6 +70,33 @@ describe("job watch", () => {
     expect(screen.getByText(WORDS.failed)).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByText(WORDS.failed)).toBeNull();
+  });
+
+  test("watching two jobs of the same case shares one stream", async () => {
+    function Two() {
+      const { watch } = useJobWatch();
+      return (
+        <button
+          onClick={() => {
+            watch("c1", "job-1", WORDS);
+            watch("c1", "job-2", WORDS);
+          }}
+        >
+          both
+        </button>
+      );
+    }
+    render(
+      <MemoryRouter>
+        <ToastProvider>
+          <JobWatchProvider>
+            <Two />
+          </JobWatchProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    );
+    await userEvent.click(screen.getByText("both"));
+    expect(FakeSource.all).toHaveLength(1);
   });
 
   test("watching the same job twice listens once", async () => {

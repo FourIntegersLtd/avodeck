@@ -1,6 +1,7 @@
 """GET /v1/jobs/{job_id} and /v1/jobs/{job_id}/events: a job's progress (architecture 5.3, screen 07).
 
-Progress is status, step code, percentage, time left and an error code: never patient text (rule 6).
+Progress is status, step code, percentage, time left, the step's pages done and total, and an error code:
+never patient text (rule 6).
 The events stream sends a change only when something changed, ends when the job is done or failed,
 and ends after `app.state.job_stream_seconds` so the browser reconnects (EventSource does this itself).
 """
@@ -28,7 +29,7 @@ from app.core.sse import (  # re-exported: main.py and this route's tests import
     sse_stream,
 )
 
-jobs_router = router(prefix="/v1/jobs", tags=["jobs"])
+jobs_router = router(prefix="/v1/jobs", tags=["jobs"], touch=False)  # a stream left open is not activity
 
 __all__ = [
     "EDGE_IDLE_SECONDS",
@@ -38,7 +39,7 @@ __all__ = [
     "jobs_router",
 ]
 
-_PROGRESS = ("status", "step", "pct", "eta_seconds", "error_code")  # the stream keeps these
+_PROGRESS = ("status", "step", "pct", "eta_seconds", "step_done", "step_total", "error_code")  # the stream keeps these
 _FINISHED = {"done", "failed"}
 
 
@@ -80,7 +81,8 @@ async def get_job(job_id: uuid.UUID, conn: DbConn) -> Job:
 async def _progress(database: Database, scope: RequestScope, job_id: uuid.UUID) -> dict[str, object] | None:
     async with database.request(scope) as conn:
         cur = await conn.execute(
-            "select status, step, pct, eta_seconds, error_code from app.jobs where id = %s", (job_id,)
+            "select status, step, pct, eta_seconds, step_done, step_total, error_code from app.jobs where id = %s",
+            (job_id,),
         )
         row = await cur.fetchone()
     return None if row is None else dict(zip(_PROGRESS, row, strict=True))

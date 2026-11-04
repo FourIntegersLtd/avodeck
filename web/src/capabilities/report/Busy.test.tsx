@@ -1,9 +1,10 @@
 // Every action on screens 16, 17, 18 and 18b shows it is working: the button is disabled and busy while the request
 // runs, a second click sends nothing, and content that is reloading behind old content says so.
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { expect, test } from "vitest";
 import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
+import { FakeEventSource, liveJob } from "../../test/eventSource";
 import { renderAt } from "../../test/render";
 import { etagged, finalCheck, invoiceOut, PARA, profile, reportOut, sectionKeys, sectionLabel, serve, settingsOut, stepKeys, V1, V2, versionOut } from "./testing";
 import { REPORT_MESSAGES as M } from "./words";
@@ -221,6 +222,9 @@ test("old paragraphs say they are updating while a new version loads", async () 
   expect(await screen.findByText("Old paragraph")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: M["report.report.rebuild"]! }));
   const paper = screen.getByRole("region", { name: M["report.report.paper"]! });
+  // the case stream says the build moved on, so the report is looked at again, and its paragraphs are slow
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "j1", kind: "build_report", status: "done" })]));
   await waitFor(() => expect(paper).toHaveAttribute("aria-busy", "true"));
   expect(screen.getByText("Old paragraph")).toBeInTheDocument();
   expect(screen.getByText(M["report.report.updating"]!)).toBeInTheDocument();

@@ -1,10 +1,11 @@
 // S24 Trial pack: choosing what goes in (with the settings' version), making it from the served report,
 // the "needs rebuilding" notice, downloading it behind the code, checking a new note against what was
 // served, and the copy for the witness box (made, put on this device and removed, each behind the code).
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, json, server } from "../../test/api";
+import { FakeEventSource, liveJob } from "../../test/eventSource";
 import { axeViolations, renderAt } from "../../test/render";
 import { findCopy, memoryStore, setCopyStore, unlockCopy } from "./offline";
 import { blobReply, CASE, COPY, copyOut, etagged, launchWords, packOut, PIN, previewOut, sealed, servePack, settingsOut, term, type PackRun } from "./testing";
@@ -56,16 +57,15 @@ test("making the pack waits for the job, then shows the new pack", async () => {
   let done = false;
   server.use(
     http.post("/v1/cases/:caseId/trial-pack", async ({ request }) => (await record(request), json({ job_id: "a9999999-9999-4999-8999-999999999991" }, 202))),
-    http.get("/v1/jobs/:jobId", () => {
-      done = true;
-      return json({ id: "a9999999-9999-4999-8999-999999999991", kind: "build_trial_pack", status: "done", pct: 100, step: null, eta_seconds: null, error: null });
-    }),
     http.get("/v1/cases/:caseId/trial-pack/latest", () => json({ pack: done ? packOut({ page_count: 61 }) : null, settings: settingsOut() })),
   );
   const { user } = renderAt(url);
   await user.click(await screen.findByRole("button", { name: k("pack.build") }));
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", path: `/v1/cases/${CASE}/trial-pack` }));
-  expect(await screen.findByText(fill(k("pack.summary"), { pages: 61 }), {}, { timeout: 4000 })).toBeInTheDocument();
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  done = true;
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "a9999999-9999-4999-8999-999999999991", kind: "build_trial_pack", status: "done" })]));
+  expect(await screen.findByText(fill(k("pack.summary"), { pages: 61 }))).toBeInTheDocument();
 });
 
 test("a pack made before the court bundle changed says it needs rebuilding", async () => {

@@ -366,6 +366,40 @@ async def test_the_entries_job_reads_entries_only_for_a_case_with_none_and_only_
         ).fetchone() == (2,)
 
 
+async def test_the_entries_job_leaves_its_page_count_on_the_job_row(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> None:
+    pack = default_library().combine(*LAUNCH.codes)
+    document = text_pdf([["Seen on 12/03/2024", "by the nurse", "blood pressure fine"]])
+    words = embedded_words(split_pages(document)[0]).words
+    good = answer_with(pack, "", words, two_entries(pack, words))
+    bedrock = ScriptedBedrock([good, good])
+    async with await opened(tmp_path, bedrock, admin, api_db, worker_dsn, auth_env, seed, storage) as h:
+        await h.upload(document)
+        await h.drain()
+        monkeypatch.setattr(record_entries, "registry", h.registry)
+        admin.execute(
+            "update app.page_analysis set entries_extracted_at = null"
+            " where bundle_id = (select bundle_id from app.cases where id = %s)",
+            (h.case_id,),
+        )
+        await h.enqueue("extract_entries")
+        assert set((await h.drain()).values()) == {"done"}
+        row = admin.execute(
+            "select step, step_done, step_total from app.jobs"
+            " where case_id = %s and kind = 'extract_entries' order by created_at desc limit 1",
+            (h.case_id,),
+        ).fetchone()
+        assert row == ("entries", 1, 1), "the one page that waited is counted, all of it done"
+
+
 def test_the_entries_job_needs_the_read_action(admin: psycopg.Connection) -> None:
     row = admin.execute("select action from app.job_kind_actions where kind = 'extract_entries'").fetchone()
     assert row == ("page.read",)
