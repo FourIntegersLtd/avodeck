@@ -7,6 +7,10 @@ ended `failed` and the person-visible `app.jobs` row was left `running`: the pro
 Two defences: the recording is retried on a fresh connection a few times, and a sweep (at worker start and
 every housekeeping round) puts back any `running` job whose queue row is no longer waiting or held, keeping
 to the state machine (running -> failed -> queued while attempts remain, else running -> failed).
+
+A drop during COMMIT can leave the write already made: the retry then finds the job `queued`, so putting a job
+back is a no-op on a job already put back, and the sweep also gives a `queued` job with no queue row a new one
+(never a job waiting on a case hold, nor one that still has its row).
 """
 
 from __future__ import annotations
@@ -253,3 +257,113 @@ async def test_the_sweep_runs_when_the_worker_starts(
 
     assert finished == {job: "done"}
     assert row(admin, job)[1] == 2
+
+
+def drop_after_commit(worker: Any, state: dict[str, Any]) -> None:
+    """The write after the handler's failure commits, then the worker is told the connection dropped."""
+    real = worker.database.job
+    state["dropped"] = 0
+
+    @contextlib.asynccontextmanager
+    async def flaky(case: uuid.UUID) -> AsyncIterator[AsyncConnection]:
+        async with real(case) as conn:
+            yield conn
+        if state.get("raised") and not state["dropped"]:
+            state["dropped"] += 1
+            raise psycopg.OperationalError(DROPPED)
+
+    worker.database.job = flaky
+
+
+def leave_queued_without_a_queue_row(
+    admin: psycopg.Connection, admin_dsn: str, queue: str, job: uuid.UUID, *, error_code: str | None
+) -> None:
+    """What a requeue that committed but was retried leaves behind: `queued`, queue row ended."""
+    admin.execute(
+        "update app.jobs set status = 'queued', attempts = 1, error_code = %s where id = %s", (error_code, job)
+    )
+    with queue_admin(admin_dsn) as q:
+        q.execute("update procrastinate_jobs set status = 'failed' where queue_name = %s", (queue,))
+
+
+async def test_putting_a_job_back_after_a_commit_that_went_through_does_nothing_twice(
+    api_db: Database, worker_db: Database, worker_dsn: str, admin: psycopg.Connection, seed: Seed
+) -> None:
+    registry = isolated_registry()
+    state: dict[str, Any] = {}
+    runs: list[int] = []
+
+    @registry.kind("zz_commit_drop")
+    async def commit_drop(ctx: JobContext) -> None:
+        runs.append(ctx.attempt)
+        if len(runs) == 1:
+            state["raised"] = True
+            raise RuntimeError("the handler fails once")
+
+    _, job = await enqueue(api_db, seed, registry, "zz_commit_drop")
+    async with open_worker(registry, worker_db, worker_dsn, persist_waits=NO_WAIT) as worker:
+        drop_after_commit(worker, state)
+        await work_once(worker, registry.queue)
+
+    assert state["dropped"] == 1
+    assert row(admin, job) == ("done", 2, None)
+    assert runs == [1, 2]
+
+
+async def test_the_sweep_gives_a_queued_job_with_no_queue_row_a_new_one(
+    api_db: Database, worker_db: Database, worker_dsn: str, admin: psycopg.Connection, admin_dsn: str, seed: Seed
+) -> None:
+    registry = isolated_registry()
+
+    @registry.kind("zz_queued_orphan")
+    async def queued_orphan(ctx: JobContext) -> None:
+        return None
+
+    _, job = await enqueue(api_db, seed, registry, "zz_queued_orphan")
+    leave_queued_without_a_queue_row(admin, admin_dsn, registry.queue, job, error_code="job_error")
+    async with open_worker(registry, worker_db, worker_dsn, orphan_grace_seconds=0) as w:
+        worker: Any = w
+        assert await worker.requeue_orphaned() >= 1  # others' stale rows in a shared test database count too
+        assert row(admin, job) == ("queued", 1, "job_error")
+        await worker.requeue_orphaned()
+        assert queued_rows(admin, registry.queue) == 1  # put back once, not twice
+        await work_once(worker, registry.queue)
+
+    assert row(admin, job) == ("done", 2, None)
+
+
+async def test_the_sweep_leaves_a_queued_job_on_a_case_hold_alone(
+    api_db: Database, worker_db: Database, worker_dsn: str, admin: psycopg.Connection, admin_dsn: str, seed: Seed
+) -> None:
+    registry = isolated_registry()
+
+    @registry.kind("zz_held_queued")
+    async def held_queued(ctx: JobContext) -> None:  # pragma: no cover - never runs here
+        raise AssertionError
+
+    _, job = await enqueue(api_db, seed, registry, "zz_held_queued")
+    leave_queued_without_a_queue_row(admin, admin_dsn, registry.queue, job, error_code="case_on_hold")
+    async with open_worker(registry, worker_db, worker_dsn, orphan_grace_seconds=0) as w:
+        worker: Any = w
+        await worker.requeue_orphaned()
+
+    assert row(admin, job) == ("queued", 1, "case_on_hold")
+    assert queued_rows(admin, registry.queue) == 0
+
+
+async def test_the_sweep_leaves_a_queued_job_that_still_has_its_queue_row_alone(
+    api_db: Database, worker_db: Database, worker_dsn: str, admin: psycopg.Connection, seed: Seed
+) -> None:
+    registry = isolated_registry()
+
+    @registry.kind("zz_waiting")
+    async def waiting(ctx: JobContext) -> None:  # pragma: no cover - never runs here
+        raise AssertionError
+
+    _, job = await enqueue(api_db, seed, registry, "zz_waiting")
+    async with open_worker(registry, worker_db, worker_dsn, orphan_grace_seconds=0) as w:
+        worker: Any = w
+        await worker.requeue_orphaned()
+
+    assert row(admin, job)[0] == "queued"
+    assert queued_rows(admin, registry.queue) == 1
