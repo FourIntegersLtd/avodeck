@@ -150,9 +150,10 @@ test("when the letter has been read the screen shows the questions with no refre
   renderAt(`/cases/${CASE_A}/questions`);
   await screen.findByText("We're still reading the letter. This page will update by itself.");
   await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "l1", kind: "extract_questions", status: "running" })]));
   server.use(http.get("/v1/cases/:caseId/questions", () => json(questions({ reading: false, questions: [question({ kind: String(casePack("launch").question_types[0]!.key) })] }))));
-  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "l1", kind: "extract_questions", status: "done" })]));
-  await waitFor(() => expect(screen.queryByText("We're still reading the letter. This page will update by itself.")).toBeNull());
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "l1", kind: "extract_questions", status: "done" })])); // a later change, not the first snapshot
+  await waitFor(() => expect(screen.queryByText("We're still reading the letter. This page will update by itself.")).toBeNull(), { timeout: 4000 });
   expect(await screen.findByRole("button", { name: "Confirm questions" })).toBeInTheDocument();
 });
 

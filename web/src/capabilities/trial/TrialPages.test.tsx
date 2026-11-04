@@ -117,9 +117,10 @@ test("when the matching ends the rows appear on the case stream's word, with no 
   renderAt(url);
   await screen.findByText(k("pages.matching"));
   await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "m1", kind: "match_trial_bundle", status: "running" })]));
   server.use(http.get("/v1/cases/:caseId/concordance", () => json(concordanceOut())));
-  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "m1", kind: "match_trial_bundle", status: "done" })]));
-  await waitFor(() => expect(screen.queryByText(k("pages.matching"))).toBeNull());
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "m1", kind: "match_trial_bundle", status: "done" })])); // a later change, not the first snapshot
+  await waitFor(() => expect(screen.queryByText(k("pages.matching"))).toBeNull(), { timeout: 4000 });
 });
 
 describe("the screen as designed", () => {

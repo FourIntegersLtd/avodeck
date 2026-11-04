@@ -1,6 +1,6 @@
 // Screen 10, another reading of a page (T-10). The server hides the names on the picture before a model sees it
 // and keeps its lines apart from the expert's own words; here they are only shown to check against the page.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useOnCaseChange } from "../../foundation/lib/sse";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Notice, SectionIcon } from "../../foundation/ui";
@@ -15,9 +15,13 @@ export function SecondReading({ caseId, pageNo }: { caseId: string; pageNo: numb
   const path = { params: { path: { case_id: caseId, page_no: pageNo } } };
 
   // The page's last reading, if any.
+  const current = useRef(`${caseId}/${pageNo}`);
+  current.current = `${caseId}/${pageNo}`;
   const look = useCallback(async () => {
+    const asked = `${caseId}/${pageNo}`;
     try {
-      setReading(await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/second-reading", { params: { path: { case_id: caseId, page_no: pageNo } } })));
+      const got = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/second-reading", { params: { path: { case_id: caseId, page_no: pageNo } } }));
+      if (current.current === asked) setReading(got); // a late answer for a page we have left is dropped
     } catch {
       /* nothing to show yet */
     }

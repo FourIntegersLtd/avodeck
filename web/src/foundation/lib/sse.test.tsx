@@ -240,6 +240,26 @@ describe("a stream the server refuses", () => {
     await vi.waitFor(() => expect(checked).toBe(1));
   });
 
+  test("opens a fresh stream after a pause, and not again once nobody is listening", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { unmount } = renderHook(() => useCaseJobs("c1"));
+      const first = latest();
+      first.refuse();
+      expect(FakeEventSource.all).toHaveLength(1);
+      act(() => void vi.advanceTimersByTime(2000));
+      expect(FakeEventSource.all).toHaveLength(2);
+      expect(latest().url).toBe(url("c1"));
+      act(() => latest().emit([job()]));
+      latest().refuse();
+      unmount();
+      act(() => void vi.advanceTimersByTime(60_000));
+      expect(FakeEventSource.all).toHaveLength(2); // the last listener left, so nothing is reopened
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("a stream that is only reconnecting by itself is left alone", async () => {
     let checked = 0;
     server.use(

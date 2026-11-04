@@ -22,7 +22,6 @@ type Entry = Schemas["TranscriptEntryOut"];
 // Entries asked for in one go when the reader jumps to a year that is not loaded yet.
 const JUMP_LIMIT = 200;
 // The jobs that get the record ready to read; their counts come live from the case stream.
-const PREPARING_JOBS = new Set(["extract_entries", "retry_unread_pages"]);
 const PDF_WAIT_MS = 20 * 60_000;
 const DOCX_WAIT_MS = 3 * 60_000;
 // Seconds' worth of milliseconds an entry must stay in view before it is reported.
@@ -331,7 +330,8 @@ export function TranscriptRead() {
     void load(0, 1, "status");
     if (retryRunning) void retryPages(); // the retry's own words and failed count, from the server
   });
-  const preparingJob = useCaseJobs(preparing ? caseId : null)?.find((j) => PREPARING_JOBS.has(j.kind) && j.status === "running") ?? null;
+  // The job this bar follows: the retry when one is running, else the one preparing the record.
+  const preparingJob = useCaseJobs(preparing ? caseId : null)?.find((j) => j.kind === (retryRunning ? "retry_unread_pages" : "extract_entries") && j.status === "running") ?? null;
 
   const fetchOutline = useCallback(() => {
     setOutlineFailed(false);
@@ -511,8 +511,9 @@ export function TranscriptRead() {
     }
     if (status === "idle" && wait?.can_prepare === false) return <Notice tone="info"><p>{w("transcript.ask_expert")}</p></Notice>;
     const liveCounts = preparingJob?.step_total ? { done: preparingJob.step_done ?? 0, total: preparingJob.step_total } : null;
-    const done = liveCounts?.done ?? wait?.prepared_pages ?? 0;
     const run = retryRunning ? retryInfo.retry : null;
+    // The entries job counts only the pages still to read, so the pages already prepared are added back and the bar keeps its whole-record total.
+    const done = liveCounts && !run && all >= liveCounts.total ? all - liveCounts.total + liveCounts.done : (wait?.prepared_pages ?? 0);
     const handled = liveCounts && run ? liveCounts.done : run ? run.done + run.failed : 0;
     const runTotal = liveCounts && run ? liveCounts.total : (run?.total ?? 0);
     const retryCount =
@@ -528,7 +529,7 @@ export function TranscriptRead() {
       <WaitNotice
         words={w(retryPaused ? (retryInfo.retry?.allowance_used_up || allowanceRefused ? "transcript.retry_allowance_used_up" : retryInfo.retry?.pause_reason === "cost_guard" ? "transcript.retry_paused_cost_guard" : "transcript.retry_paused") : retryRunning ? "transcript.retrying" : "transcript.preparing")}
         paused={retryPaused}
-        counted={retryCount ?? (all > 0 && done > 0 ? { label: w("transcript.preparing_page", { done: count(done, pack.locale), total: count(liveCounts?.total ?? all, pack.locale) }), value: done, max: liveCounts?.total ?? all } : undefined)}
+        counted={retryCount ?? (all > 0 && done > 0 ? { label: w("transcript.preparing_page", { done: count(done, pack.locale), total: count(all, pack.locale) }), value: done, max: all } : undefined)}
         onRetry={(status === "idle" || (retryPaused && !retryInfo.retry?.allowance_used_up && !allowanceRefused)) && wait?.can_prepare !== false ? () => void retry() : undefined}
         progressTo={`/cases/${caseId}/preparing`}
       />

@@ -20,6 +20,7 @@ export interface LiveJob {
 
 interface Entry {
   source: EventSource;
+  retry?: number;
   count: number;
   jobs: LiveJob[] | null;
   listeners: Set<() => void>;
@@ -27,6 +28,7 @@ interface Entry {
 
 const CLOSED = 2; // EventSource.readyState: the browser has given up on this stream
 const RELOAD_MS = 2000;
+const RECONNECT_MS = [2000, 5000, 15000, 30000]; // the browser gives up on a refused stream for good, so we reopen it ourselves
 const entries = new Map<string, Entry>();
 
 /** Keep the old object for every job that has not changed, so a screen only redraws for its own job. */
@@ -38,19 +40,32 @@ function share(before: LiveJob[] | null, next: LiveJob[]): LiveJob[] {
   });
 }
 
-function open(caseId: string): Entry {
+function connect(caseId: string, entry: Entry, attempt: number): void {
   const source = new EventSource(`${apiOrigin()}/v1/cases/${caseId}/events`, { withCredentials: true });
-  const entry: Entry = { source, count: 0, jobs: null, listeners: new Set() };
+  entry.source = source;
   source.onmessage = (e: MessageEvent<string>) => {
+    attempt = 0;
     const data = JSON.parse(e.data) as { jobs: LiveJob[] };
     entry.jobs = share(entry.jobs, data.jobs);
     entry.listeners.forEach((listener) => listener());
   };
   source.onerror = () => {
     // While the browser is retrying by itself there is nothing to do. A stream it has given up on was
-    // refused (signed out, or no access): ask the normal way, which sends a signed-out person to sign in.
-    if (source.readyState === CLOSED) void unwrap(api.GET("/v1/auth/session")).catch(() => undefined);
+    // refused (signed out, no access, or a gateway hiccup): ask the normal way, which sends a signed-out
+    // person to sign in, then open a fresh stream after a pause that grows.
+    if (source.readyState !== CLOSED) return;
+    void unwrap(api.GET("/v1/auth/session")).catch(() => undefined);
+    const wait = RECONNECT_MS[Math.min(attempt, RECONNECT_MS.length - 1)]!;
+    entry.retry = window.setTimeout(() => { // clock, not data: it spaces out reconnects
+      entry.retry = undefined;
+      if (entries.get(caseId) === entry && entry.count > 0) connect(caseId, entry, attempt + 1);
+    }, wait);
   };
+}
+
+function open(caseId: string): Entry {
+  const entry = { count: 0, jobs: null, listeners: new Set() } as unknown as Entry;
+  connect(caseId, entry, 0);
   return entry;
 }
 
@@ -69,6 +84,7 @@ export function subscribeToCase(caseId: string, listener: () => void): () => voi
     mine.count -= 1;
     if (mine.count === 0) {
       mine.source.close();
+      window.clearTimeout(mine.retry);
       if (entries.get(caseId) === mine) entries.delete(caseId);
     }
   };

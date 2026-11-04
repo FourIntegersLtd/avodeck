@@ -215,9 +215,9 @@ function Contents({ frame, latest, pages, onChanged, preview }: { frame: Frame; 
 
   const liveJob = useJob(job ? frame.caseId : null, job);
   useEffect(() => {
-    if (!liveJob || (liveJob.status !== "done" && liveJob.status !== "failed")) return;
+    if (!liveJob || (liveJob.status !== "done" && liveJob.status !== "failed" && liveJob.status !== "cancelled")) return;
     setJob(null);
-    if (liveJob.status === "failed") setMessage({ tone: "error", text: w("pack.failed") });
+    if (liveJob.status !== "done") setMessage({ tone: "error", text: w("pack.failed") });
     else setChangedSince(false);
     reloadLatest.current();
     changed.current();
