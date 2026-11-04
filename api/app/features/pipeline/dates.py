@@ -105,6 +105,7 @@ def find(words: Sequence[tuple[str, str]], pack: MergedPack) -> list[Printed]:
                 continue
         if (
             i + 2 < len(words)
+            and (i == 0 or any(c.isdigit() for c in words[i - 1][1]))  # not a count: `Repeat 2 - Mar-2021`
             and _DAY.match(text)
             and _DASH.match(words[i + 1][1])
             and _MONTH_YEAR.match(words[i + 2][1])

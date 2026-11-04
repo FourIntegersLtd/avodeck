@@ -630,17 +630,18 @@ def _entries_of(
     pack: Any,
     dates_of_birth: Sequence[date] = (),
     lines: Mapping[str, int] | None = None,
-    anchor: date | None = None,
 ) -> tuple[list[repo.NewEntry], int]:
     """The page's entries that pass provenance (overlaps trimmed), an entry that holds two or more lines that
     start with different printed dates split into one entry per dated line, each dated from the dates printed
-    inside it (never a birth date, recorded or printed after a birth label), and the count dropped."""
+    inside it (never a birth date, recorded or printed after a birth label), and the count dropped. A two-digit
+    year is never read in a century here: the bundle's latest date is not known while pages are read in any
+    order, so the entry stays `please_check` and the repair job reads it with the whole bundle's."""
     positions = {word_id: n for n, (word_id, _) in enumerate(ordered, start=1)}
     sorted_entries = extract.sort_entries(output, positions, pack)
     entries = []
     for whole in sorted_entries.kept:
-        for e in extract.split_at_dated_lines(whole, ordered, struck, lines, pack, dates_of_birth, anchor):
-            when, basis = extract.entry_date(e, ordered, struck, pack, dates_of_birth, lines, len(ordered), anchor)
+        for e in extract.split_at_dated_lines(whole, ordered, struck, lines, pack, dates_of_birth):
+            when, basis = extract.entry_date(e, ordered, struck, pack, dates_of_birth, lines, len(ordered))
             entries.append(
                 repo.NewEntry(
                     kind=e.kind,
@@ -794,7 +795,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
             lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
             entries: list[Any] | None
             anchor = _page_anchor(found, latest)
-            entries, entries_rejected = _entries_of(output, ordered, struck, pack, who.dates_of_birth, lines, anchor)
+            entries, entries_rejected = _entries_of(output, ordered, struck, pack, who.dates_of_birth, lines)
             if stored and output is None:
                 entries = None  # no usable answer: not "no entries"; the page is left for a person
             if reason is None and stored and output is not None:
@@ -816,9 +817,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 again = extract.pages_of(again_raw).get(page_no) if again_raw is not None else None
                 if again is not None:
                     again_result = extract.sort_facts(again, texts, struck)
-                    again_entries, again_rejected = _entries_of(
-                        again, ordered, struck, pack, who.dates_of_birth, lines, anchor
-                    )
+                    again_entries, again_rejected = _entries_of(again, ordered, struck, pack, who.dates_of_birth, lines)
                     more_facts = len(again_result.kept) > len(kept)
                     wider = len(again_result.kept) >= len(kept) and coverage.entry_coverage(
                         ordered=ordered, struck=struck, entries=again_entries
@@ -1247,10 +1246,7 @@ async def extract_entries(ctx: JobContext) -> None:
         answer = extract.pages_of(raw).get(1) if raw is not None else None
         output = dict(answer) if answer is not None else None
         lines = dates.line_numbers([(w.word_id, w.polygon) for w in loaded.stored])
-        anchor = _page_anchor(
-            dates.find([(w, t) for w, t in loaded.ordered if w not in loaded.struck], pack), loaded.latest
-        )
-        entries, rejected = _entries_of(output, loaded.ordered, loaded.struck, pack, who.dates_of_birth, lines, anchor)
+        entries, rejected = _entries_of(output, loaded.ordered, loaded.struck, pack, who.dates_of_birth, lines)
         async with ctx.transaction() as conn:
             if loaded.stored and output is None:
                 await repo.leave_entries_for_person(conn, page_id)

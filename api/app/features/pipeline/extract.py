@@ -48,6 +48,7 @@ MODEL_ROLE = "sonnet"
 AVAILABILITY = ("received", "filed", "seen", "sent_to_clinician")
 _FIELD_TYPES = {"date": ["string", "null"], "string": ["string", "null"], "boolean": ["boolean", "null"]}
 _SHORT = 120
+MIN_DATED_LINES = 3  # lines that start with different dates before an entry is taken for a card of visits
 _SPAN = 4000
 BATCH_MAX_TOKENS = 16000
 # A page's structured answer averages ~1,000 output tokens (production, case of 900 pages). A batch
@@ -528,8 +529,12 @@ def split_at_dated_lines(
     the first dated line, and a line that does not start with a date stays with the dated line above it.
 
     A birth date never starts an entry, and two dated lines in a row with the same date are one visit, so they
-    stay together. Without line positions nothing is split."""
-    if lines is None:
+    stay together. Fewer than `MIN_DATED_LINES` dated lines is not a card (a result prints a sample date and a
+    report date), and the pack's letter kind is one document however many dates it prints. Page furniture is
+    guarded: a piece that would be only the page's first line (when the entry starts the page) or only its last
+    line (when the entry reaches the page's end) is not split off, it stays with the lines next to it. Without
+    line positions nothing is split."""
+    if lines is None or entry.kind == pack.letter_entry_kind():
         return [entry]
     inside = [
         (w, t) for n, (w, t) in enumerate(ordered, start=1) if entry.first_n <= n <= entry.last_n and w not in struck
@@ -549,9 +554,26 @@ def split_at_dated_lines(
         if starts and starts[-1][1] == d.value:
             continue
         starts.append((position[word_id], d.value))
-    if len(starts) < 2:
+    if len(starts) < MIN_DATED_LINES:
         return [entry]
     cuts = [entry.first_n, *(n for n, _ in starts[1:])]
+    first_line, last_line = lines.get(ordered[0][0]), lines.get(ordered[-1][0])
+    if (
+        len(cuts) > 1
+        and first_line is not None
+        and entry.first_n == 1
+        and lines.get(ordered[cuts[1] - 2][0]) == first_line
+    ):
+        del cuts[1]  # the first piece would be only the page's first line: a header
+    if (
+        len(cuts) > 1
+        and last_line is not None
+        and entry.last_n == len(ordered)
+        and lines.get(ordered[cuts[-1] - 1][0]) == last_line
+    ):
+        del cuts[-1]  # the last piece would be only the page's last line: a footer
+    if len(cuts) < 2:
+        return [entry]
     ends = [*(n - 1 for n in cuts[1:]), entry.last_n]
     return [
         replace(entry, first_word_id=ordered[a - 1][0], last_word_id=ordered[b - 1][0], first_n=a, last_n=b)
