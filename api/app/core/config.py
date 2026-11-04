@@ -281,6 +281,8 @@ class AiSettings:
     cost_guard_multiple: int = CostGuard.multiple
     bedrock_rpm_limit: int = 5
     extraction_batch_size: int = 10
+    # The share of a page's words the entries read from it must cover (env AI_ENTRY_COVERAGE_FLOOR, 0 to 1).
+    entry_coverage_floor: float = 0.8
     # Temporary, dummy data only (ADR 0036). The defaults are today's behaviour: Bedrock only.
     primary_provider: str = "bedrock"
     direct_models: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
@@ -378,6 +380,16 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
             raise ConfigError(f"{name} must be at least 1")
         return value
 
+    def share(name: str, default: float) -> float:
+        raw = source.get(name, "").strip()
+        try:
+            value = float(raw) if raw else default
+        except ValueError as exc:
+            raise ConfigError(f"{name} must be a number") from exc
+        if not 0 < value <= 1:  # also false for nan
+            raise ConfigError(f"{name} must be more than 0 and at most 1")
+        return value
+
     guard = cost_guard(source)  # the same numbers the API reads: one set of defaults and one set of limits
     listed = [m.strip() for m in source.get("BEDROCK_OVERFLOW_MODEL_IDS", "").split(",") if m.strip()]
     if not all(in_region_model_id(m) for m in listed):
@@ -402,6 +414,7 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
         cost_guard_multiple=guard.multiple,
         bedrock_rpm_limit=number("BEDROCK_RPM_LIMIT", 5),
         extraction_batch_size=number("AI_EXTRACTION_BATCH_SIZE", 10),
+        entry_coverage_floor=share("AI_ENTRY_COVERAGE_FLOOR", AiSettings.entry_coverage_floor),
         primary_provider=provider,
         direct_models=MappingProxyType(dict(ANTHROPIC_DIRECT_MODELS)) if direct else MappingProxyType({}),
         anthropic_endpoint=ANTHROPIC_ENDPOINT if direct else "",
