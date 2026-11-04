@@ -205,3 +205,28 @@ def test_a_number_the_reader_split_in_two_is_the_same_number(combo: Combo) -> No
     split = [*LETTER, "reference", "999", "447", "filed"]
     assert duplicates.same_content(page(whole_number), page(split), pack)
     assert not duplicates.same_content(page(whole_number), page([*LETTER, "reference", "999", "448", "filed"]), pack)
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.codes[0])
+def test_a_number_with_a_single_digit_group_keeps_its_separator(combo: Combo) -> None:
+    """1/2 is not 1.2 and 10 5 is not 10.5: separators are set aside only between groups of two digits or
+    more, or in a token of three groups or more (a date, a long identifier)."""
+    pack = pack_of(combo)
+    assert duplicates._number("1/2") != duplicates._number("1.2")
+    assert duplicates._number("10 5") != duplicates._number("10.5")
+    base = [*LETTER, "dose", "1/2", "tablet"]
+    assert not duplicates.same_content(page(base), page([*LETTER, "dose", "1.2", "tablet"]), pack)
+    ten = [*LETTER, "dose", "10", "5", "mg"]
+    assert not duplicates.same_content(page(ten), page([*LETTER, "dose", "10.5", "mg"]), pack)
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.codes[0])
+def test_a_date_or_long_identifier_ignores_its_separators(combo: Combo) -> None:
+    pack = pack_of(combo)
+    assert duplicates._number("12/05/2024") == duplicates._number("12.05.2024") == duplicates._number("12-05-2024")
+    assert duplicates._number("999 447 1234") == duplicates._number("999.447.1234")
+    assert duplicates._number("999 447 1234") != duplicates._number("999 447 1235"), "a changed digit stays different"
+    assert duplicates._number("1/2/3") == duplicates._number("1.2.3"), "three groups of any size"
+    base = [*LETTER, "reference", "999", "447", "1234", "filed"]
+    assert duplicates.same_content(page(base), page([*LETTER, "reference", "999.447.1234", "filed"]), pack)
+    assert not duplicates.same_content(page(base), page([*LETTER, "reference", "999.447.1235", "filed"]), pack)

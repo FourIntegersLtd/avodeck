@@ -736,3 +736,47 @@ async def test_the_floor_for_asking_again_comes_from_the_setting(
         )
         assert count == 72 and got == calls, f"floor {floor}"
         assert spans == ([(1, 72)] if calls == 2 else [(1, 62)])
+
+
+async def test_asking_a_thin_page_again_is_counted_by_the_cost_guard_and_a_pause_loses_nothing(
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> None:
+    """The first answer uses the page's whole allowance (110 of 100 tokens), so the second ask of the thin
+    page is refused: the run pauses with `cost_guard`, the page has nothing half-written, and once there is
+    allowance again the run finishes the page from the start."""
+    from tests.repository.test_pipeline_extract import _wordy_lines
+
+    pack = default_library().combine(*LAUNCH.codes)
+    document = text_pdf([_wordy_lines(8)])
+    words = embedded_words(split_pages(document)[0]).words
+    bedrock = ScriptedBedrock([_full_answer(pack, words, [(1, 20)]), _full_answer(pack, words, [(1, 72)])])
+    guard = {"AI_EXPECTED_TOKENS_PER_PAGE": "100", "AI_MIN_EXPECTED_PAGES": "1", "AI_COST_GUARD_MULTIPLE": "1"}
+    async with await opened(tmp_path, bedrock, admin, api_db, worker_dsn, auth_env, seed, storage, settings=guard) as h:
+        await h.upload(document)
+        await h.drain()
+        (page,) = h.pages()
+        assert len(t07b_requests(h)) == 1, "the second ask was refused before it reached the model"
+        assert h.admin.execute(
+            "select status, error_code from app.jobs where case_id = %s and kind = 'process_bundle'", (h.case_id,)
+        ).fetchall() == [("paused", "cost_guard")]
+        assert h.admin.execute(
+            "select count(*) from app.record_entries where page_id = %s", (page["id"],)
+        ).fetchone() == (0,)
+        assert h.admin.execute("select count(*) from app.facts where page_id = %s", (page["id"],)).fetchone() == (0,)
+        assert h.admin.execute(
+            "select count(*) from app.page_analysis where page_id = %s and entries_extracted_at is not null",
+            (page["id"],),
+        ).fetchone() == (0,)
+        admin.execute("delete from app.ai_calls where case_id = %s", (h.case_id,))
+        await h.enqueue("process_bundle")
+        await h.drain()
+        rows = admin.execute(
+            "select first_n, last_n from app.record_entries where page_id = %s order by first_n", (page["id"],)
+        ).fetchall()
+        assert [(r[0], r[1]) for r in rows] == [(1, 72)]
