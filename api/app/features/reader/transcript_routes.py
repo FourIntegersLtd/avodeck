@@ -212,6 +212,8 @@ async def transcript_download(
     job = await cur.fetchone()
     if job is None or not job[1]:
         raise _not_found()
+    if job[0] == "failed":
+        raise ApiError("build_failed", "The file could not be built.", 409)  # the screen stops waiting and offers again
     if job[0] != "done":
         raise ApiError("conflict", "The file is not ready yet.", 409)
     storage: CaseFileStorage | None = request.app.state.storage
