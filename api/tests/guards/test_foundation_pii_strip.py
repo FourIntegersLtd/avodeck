@@ -89,3 +89,113 @@ def test_the_ids_a_prompt_uses_to_name_rows_survive_stripping(library: PackLibra
     for one in ids:
         assert one in out.text, "an id was mangled by stripping"
     assert sum(out.counts.values()) == 0
+
+
+# Made-up values shaped like the ones OCR gave back from the synthetic bundle (check digit valid).
+BORN = date(1969, 3, 14)
+NOISY_NUMBERS = ["999 447 1015", "999.447 1015", "999 .447 1015", "999:447 1015", "999 447.1015", "999-447-1015"]
+SURROUNDS = ["Seen {} today.", "({})", "[{}]", "NHS number: {}, GP letter", "{}.", "{};", "No.{}"]
+
+
+@pytest.mark.parametrize("written", NOISY_NUMBERS)
+@pytest.mark.parametrize("sentence", SURROUNDS)
+def test_an_identifier_number_with_ocr_noise_between_its_groups_is_removed(
+    library: PackLibrary, written: str, sentence: str
+) -> None:
+    out = pii.strip(sentence.format(written), pack=merged(library, LAUNCH))
+    assert "447" not in out.text and "1015" not in out.text, "an identifier number survived stripping"
+    assert out.counts.get("NHS_NUMBER") == 1
+
+
+@pytest.mark.parametrize("written", ["123.456 7890", "123 .456 7890", "123:456 7890"])
+def test_a_noisy_number_failing_the_check_digit_is_still_not_an_identifier(library: PackLibrary, written: str) -> None:
+    out = pii.strip(f"Lab batch {written} received.", pack=merged(library, LAUNCH))
+    assert written in out.text
+    assert sum(out.counts.values()) == 0
+
+
+@pytest.mark.parametrize("written", ["NM4 7QT", "NM47QT", "NM4  7QT", "nm4 7qt"])
+@pytest.mark.parametrize("sentence", ["{}", "{} is the address.", "({})", "Lives at {}.", "Line one.\n{}\nLine three."])
+def test_a_postcode_is_removed_at_the_start_of_a_line_and_whatever_its_spacing(
+    library: PackLibrary, written: str, sentence: str
+) -> None:
+    """A line that starts with a postcode must not be taken for a word-per-line prompt's id ("NM4 " is not one)."""
+    out = pii.strip(sentence.format(written), pack=merged(library, LAUNCH))
+    assert "7qt" not in out.text.lower(), "a postcode survived stripping"
+    assert out.counts.get("POSTCODE") == 1
+
+
+@pytest.mark.parametrize(
+    "written",
+    ["14/03/1969", "(14/03/1969)", "14-Mar-1969", "(14-Mar-1969)", "14.03.1969", "14 / 03 / 1969", "14/03/69"],
+)
+@pytest.mark.parametrize(
+    "sentence",
+    ["Born {}.", "SMITH, Ada ({}) seen", "Ada Smith{} seen", "DOB:{}", "seen;{};ok", "{}", "-{}-", "{}\nNext line"],
+)
+def test_a_known_date_of_birth_is_removed_with_brackets_and_punctuation_attached(
+    library: PackLibrary, written: str, sentence: str
+) -> None:
+    out = pii.strip(sentence.format(written), pack=merged(library, LAUNCH), dates_of_birth=[BORN])
+    assert "1969" not in out.text and "14/03/69" not in out.text, "a date of birth survived stripping"
+    assert out.counts.get("DATE_OF_BIRTH") == 1
+
+
+def test_a_date_of_birth_beside_a_hyphenated_name_is_removed_and_event_dates_stay(library: PackLibrary) -> None:
+    text = "PEMBERTON-VALE, Ada (14/03/1969) seen 14-Mar-2021 and 15-Mar-1969."
+    out = pii.strip(text, pack=merged(library, LAUNCH), names=[NAME], dates_of_birth=[BORN])
+    assert_gone(out.text, "Pemberton", "14/03/1969")
+    assert "14-Mar-2021" in out.text and "15-Mar-1969" in out.text, "an event date was removed"
+
+
+# The same shapes under the fixture jurisdiction (month first, other identifiers): no pattern is launch-pack-only.
+FIXTURE_BORN = date(1961, 3, 12)
+
+
+@pytest.mark.parametrize("written", ["03/12/1961", "(03/12/1961)", "12-Mar-1961", "(12-MAR-1961)", "Mar-12-1961"])
+def test_fixture_pack_a_known_date_of_birth_is_removed_in_brackets_and_with_month_words(
+    library: PackLibrary, written: str
+) -> None:
+    text = f"{NAME} {written} seen. Seen 12/03/1961 and 13-Mar-1961."
+    out = pii.strip(text, pack=merged(library, FIXTURE), names=[NAME], dates_of_birth=[FIXTURE_BORN])
+    assert written not in out.text
+    assert "12/03/1961" in out.text, "month first: 12/03/1961 is 3 December, an event date"
+    assert "13-Mar-1961" in out.text
+
+
+@pytest.mark.parametrize("written", ["Z4 77Z", "Z477Z", "Z4  77Z"])
+def test_fixture_pack_an_address_code_at_the_start_of_a_line_is_removed(library: PackLibrary, written: str) -> None:
+    out = pii.strip(f"{written}\nSeen again.", pack=merged(library, FIXTURE))
+    assert "77Z" not in out.text, "an address code survived stripping"
+    assert out.counts.get("ZZ_AREA") == 1
+
+
+def test_fixture_pack_word_per_line_prompts_still_keep_their_ids(library: PackLibrary) -> None:
+    out = pii.strip("w1\tZ4\nw2\t77Z\nw3\tseen", pack=merged(library, FIXTURE))  # noqa: B005
+    assert [line.split("\t")[0] for line in out.text.split("\n")] == ["w1", "w2", "w3"]
+    assert "77Z" not in out.text
+
+
+@pytest.mark.parametrize("sep", ["\t", " "])
+@pytest.mark.parametrize("word", ["2nd", "1st", "3rd", "5AB", "5ab", "9th"])
+def test_a_row_id_followed_by_a_word_that_looks_like_the_end_of_a_postcode_keeps_its_id(
+    library: PackLibrary, sep: str, word: str
+) -> None:
+    """`w12<tab>2nd` reads like the postcode `W12 2ND`. In a word-per-line prompt it is a row id and a word: the id
+    must stay (the answer cites it) and the word is not an identifier."""
+    text = f"w11{sep}the\nw12{sep}{word}\nw13{sep}dose"
+    out = pii.strip(text, pack=merged(library, LAUNCH))
+    assert out.text == text
+    assert sum(out.counts.values()) == 0
+
+
+def test_a_row_id_of_the_p_w_form_keeps_its_id_before_an_ordinal(library: PackLibrary) -> None:
+    text = "p1w4\tthe\np1w5\t2nd\np1w6\tdose"
+    assert pii.strip(text, pack=merged(library, LAUNCH)).text == text
+
+
+def test_fixture_pack_a_row_id_before_a_word_shaped_like_an_address_code_keeps_its_id(library: PackLibrary) -> None:
+    text = "z4\tthe\nz5\t77z\nz6\tdose"
+    out = pii.strip(text, pack=merged(library, FIXTURE))
+    assert [line.split("\t")[0] for line in out.text.split("\n")] == ["z4", "z5", "z6"]
+    assert out.text == text

@@ -67,7 +67,7 @@ class Angled:
         self.polygon, self.size, self.angle = polygon, size, angle
         self.calls = 0
 
-    async def analyse(self, document: bytes, model: OcrModel = "layout") -> OcrResult:
+    async def analyse(self, document: bytes, model: OcrModel = "layout", *, locale: str | None = None) -> OcrResult:
         self.calls += 1
         word = OcrWord("p1w1", "Alpha", self.polygon, 0.97)
         return OcrResult("recorded", (OcrPage(1, self.size[0], self.size[1], (word,), angle=self.angle),))

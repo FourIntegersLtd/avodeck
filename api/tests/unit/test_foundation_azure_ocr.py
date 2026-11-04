@@ -6,6 +6,7 @@ returns 202 with `Operation-Location`, polls return `running` then `succeeded`. 
 
 from __future__ import annotations
 
+import inspect
 import json
 
 import httpx
@@ -14,7 +15,7 @@ import pytest
 from app.core.ai.azure_ocr import AzureOcr
 from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import EndpointNotAllowed
-from app.core.ai.ocr import OcrClient, OcrFailed, OcrResult
+from app.core.ai.ocr import OcrClient, OcrFailed, OcrResult, RecordedOcr
 from tests.support.ai import cell
 from tests.support.live_ai import (
     API_VERSION,
@@ -186,3 +187,40 @@ async def test_the_request_body_is_the_document_and_nothing_else() -> None:
     assert di.requests[0].content == PAGE
     with pytest.raises(json.JSONDecodeError):
         json.loads(di.requests[0].content)
+
+
+def _query(request: httpx.Request) -> dict[str, str]:
+    return dict(request.url.params)
+
+
+async def test_a_locale_is_sent_as_the_locale_query_parameter() -> None:
+    di = AzureDi(polls=[succeeded(di_result([di_page(1, ["ok"])]))])
+    await client(di).analyse(PAGE, "read", locale="en-GB")
+    assert _query(di.requests[0]) == {"api-version": API_VERSION, "locale": "en-GB"}
+    assert "locale" not in _query(di.requests[1]), "polls follow the operation location as given"
+
+
+async def test_without_a_locale_no_locale_parameter_is_sent() -> None:
+    di = AzureDi(polls=[succeeded(di_result([di_page(1, ["ok"])]))])
+    await client(di).analyse(PAGE, "read")
+    assert _query(di.requests[0]) == {"api-version": API_VERSION}
+
+
+async def test_a_none_locale_is_the_same_as_no_locale() -> None:
+    di = AzureDi(polls=[succeeded(di_result([di_page(1, ["ok"])]))])
+    await client(di).analyse(PAGE, locale=None)
+    assert "locale" not in _query(di.requests[0])
+
+
+def test_the_recorded_request_key_holds_a_locale_only_when_one_is_given() -> None:
+    plain = RecordedOcr.request(PAGE, "layout")
+    assert set(plain) == {"model", "document_sha256"}, "existing recordings keep matching"
+    assert RecordedOcr.request(PAGE, "layout", locale=None) == plain
+    assert RecordedOcr.request(PAGE, "layout", locale="en-GB") == {**plain, "locale": "en-GB"}
+
+
+def test_both_clients_take_an_optional_locale_keyword() -> None:
+    for analyse in (AzureOcr.analyse, RecordedOcr.analyse):
+        parameter = inspect.signature(analyse).parameters["locale"]
+        assert parameter.default is None
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY

@@ -152,7 +152,7 @@ class CountingOcr:
         self.endpoint = inner.endpoint
         self.sent: list[str] = []
 
-    async def analyse(self, document: bytes, model: OcrModel = "layout") -> OcrResult:
+    async def analyse(self, document: bytes, model: OcrModel = "layout", *, locale: str | None = None) -> OcrResult:
         self.sent.append(hashlib.sha256(document).hexdigest())
         return await self.inner.analyse(document, model)
 

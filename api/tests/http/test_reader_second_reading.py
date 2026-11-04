@@ -271,7 +271,7 @@ async def test_an_unsafe_mask_refuses_and_nothing_is_sent(
 class FreshOcr:
     """Boxes for the page as it is on the picture, because the stored words are the expert's own typing."""
 
-    async def analyse(self, document: bytes, model: str) -> OcrResult:
+    async def analyse(self, document: bytes, model: str, *, locale: str | None = None) -> OcrResult:
         first, last = NAME.split()
         texts = ["Seen", first, last, "chest"]
         words, x = [], 0.1
@@ -397,7 +397,7 @@ async def test_a_page_job_still_pending_refuses_because_the_picture_may_be_redra
 class MissesTheName:
     """OCR that did not find the patient's name on the picture."""
 
-    async def analyse(self, document: bytes, model: str) -> OcrResult:
+    async def analyse(self, document: bytes, model: str, *, locale: str | None = None) -> OcrResult:
         words = tuple(OcrWord(f"p1w{n}", t, box(0.1 + n * 0.6, t), 0.8) for n, t in enumerate(["Seen", "today"], 1))
         return OcrResult(model="layout", pages=(OcrPage(1, 4.0, 2.0, words),))
 
@@ -471,7 +471,7 @@ async def test_a_job_that_began_before_a_new_request_cannot_overwrite_it(
 class FindsTheNameOnce:
     """Fresh OCR that finds the surname once, where the expert's own text has it twice (header and footer)."""
 
-    async def analyse(self, document: bytes, model: str) -> OcrResult:
+    async def analyse(self, document: bytes, model: str, *, locale: str | None = None) -> OcrResult:
         _, last = NAME.split()
         words = tuple(OcrWord(f"p1w{n}", t, box(0.1 + n * 1.0, t), 0.8) for n, t in enumerate([last, "Seen"], 1))
         return OcrResult(model="layout", pages=(OcrPage(1, 4.0, 2.0, words),))
