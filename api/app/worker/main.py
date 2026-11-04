@@ -18,7 +18,7 @@ import app.core.notifications  # noqa: F401 - the daily messages schedule
 import app.core.uploads  # noqa: F401 - the finalize_upload job
 import app.features.pipeline  # noqa: F401 - slice A's job kinds and its DocumentUploaded subscriber
 from app.core.config import ConfigError, database_settings, env_int
-from app.core.db import WORKER_MAX_SIZE, Database
+from app.core.db import Database
 from app.core.email import Mailer
 from app.core.email_live import mailer_from_env
 from app.core.features import DEFAULT_PACKAGE, WORKER_HOOK, load_features, start_features
@@ -35,7 +35,8 @@ def build_worker(
     load_features(features)
     return JobWorker(
         registry,
-        database=Database(settings.url_direct, max_size=WORKER_MAX_SIZE),
+        database=Database(settings.url_direct, max_size=settings.worker_pool_max),
+        queue_pool_max=settings.queue_pool_max,
         dsn=settings.url_direct,
         mailer=mailer if mailer is not None else mailer_from_env(env),
     )

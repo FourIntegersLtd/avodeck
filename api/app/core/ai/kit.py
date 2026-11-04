@@ -453,8 +453,7 @@ class AiKit:
         cur = await conn.execute("select tokens_used, pages from app.ai_budget(%s)", (case_id,))
         row = await cur.fetchone()
         used, pages = (int(row[0]), int(row[1])) if row else (0, 0)
-        s = self.settings
-        allowance = s.cost_guard_multiple * s.expected_tokens_per_page * max(pages, s.min_expected_pages)
+        allowance = self.settings.cost_guard.allowance(pages)
         if used >= allowance:
             logger.error("cost_guard tripped for case %s: %d of %d tokens used", case_id, used, allowance)
             raise ProcessingPaused("cost_guard")

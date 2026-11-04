@@ -7,7 +7,7 @@ import { useBusy } from "../../foundation/lib/useBusy";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
-import { api, unwrap, type Schemas } from "../../foundation/platform-client";
+import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, cx, IconTile, LinkButton, LoadError, Loading, Notice, ProgressBar, SectionIcon, TextField, TextLink } from "../../foundation/ui";
 import { can, casePath, documentsOf, requestLabel, sourceWord } from "./data";
 import { formatDate, formatNumber, languageName, pageList } from "./format";
@@ -50,8 +50,10 @@ export function BundleReady() {
   }, [caseId]);
   const again = useBusy();
   const [retryError, setRetryError] = useState(false);
+  const [allowanceRefused, setAllowanceRefused] = useState(false);
   // The run's own flags decide when the server sent them: a paused run is not moving, so it is not asked about again.
   const run = found.data?.summary.retry ?? null;
+  const usedUp = run?.allowance_used_up === true || allowanceRefused;
   const paused = run?.paused === true;
   const retrying = run ? run.running : found.data?.summary.retrying === true;
   const reload = found.reload;
@@ -69,8 +71,10 @@ export function BundleReady() {
       try {
         await unwrap(api.POST("/v1/cases/{case_id}/transcript/retry", casePath(caseId)));
         found.reload();
-      } catch {
-        setRetryError(true);
+      } catch (error) {
+        // The server refuses while the case is over its allowance: the same line as when the summary says so.
+        if (error instanceof ApiError && error.code === "allowance_used_up") setAllowanceRefused(true);
+        else setRetryError(true);
       }
     });
   }
@@ -147,7 +151,17 @@ export function BundleReady() {
     <div className="av-page">
       <h1>{w(notProcessed > 0 && !retrying ? "bundle.title_partial" : "bundle.title")}</h1>
       {retrying && <RetryNotice retry={s.retry ?? null} locale={locale} />}
-      {paused && <Notice tone="info"><p>{w("bundle.retry_paused")}</p></Notice>}
+      {paused && (
+        <Notice tone="info">
+          <p>{w(usedUp ? "bundle.retry_allowance_used_up" : run?.pause_reason === "cost_guard" ? "bundle.retry_paused_cost_guard" : "bundle.retry_paused")}</p>
+          {can(item, "page.read") && !usedUp && (
+            <>
+              {retryError && <p role="alert" className="av-field__error">{w("bundle.try_again_error")}</p>}
+              <Button busy={again.busy} disabled={again.busy} onClick={() => void tryAgain()}>{w("bundle.try_again")}</Button>
+            </>
+          )}
+        </Notice>
+      )}
       {!retrying && !paused && s.retry && notProcessed === 0 && <Notice tone="info"><p>{w("bundle.retry_all_done")}</p></Notice>}
       {!retrying && !paused && notProcessed > 0 && (
         <Notice tone="warning">

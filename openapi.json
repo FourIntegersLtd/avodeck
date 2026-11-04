@@ -15853,6 +15853,11 @@
       "RetryProgress": {
         "description": "How far a \"Try these pages again\" run has got; counts only. Counted by the server, never by the browser.",
         "properties": {
+          "allowance_used_up": {
+            "default": false,
+            "title": "Allowance Used Up",
+            "type": "boolean"
+          },
           "done": {
             "title": "Done",
             "type": "integer"
@@ -15860,6 +15865,21 @@
           "failed": {
             "title": "Failed",
             "type": "integer"
+          },
+          "pause_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cost_guard",
+                  "other"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Reason"
           },
           "paused": {
             "default": false,

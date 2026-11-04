@@ -51,6 +51,12 @@ def env_csv(source: Mapping[str, str], name: str) -> tuple[str, ...]:
     return tuple(part.strip() for part in source.get(name, "").split(",") if part.strip())
 
 
+# The worker's connections: its own pool and the job queue library's. A hosted session pooler lets only so
+# many clients in (Supabase: 15 by default), and the two together must stay under that number.
+DEFAULT_WORKER_POOL_MAX = 10
+DEFAULT_QUEUE_POOL_MAX = 4
+
+
 @dataclass(frozen=True)
 class DatabaseSettings:
     """Connection strings for the restricted roles (ADR 0013). Hidden from repr so they never reach logs.
@@ -61,6 +67,8 @@ class DatabaseSettings:
 
     url: str = field(repr=False)
     url_direct: str | None = field(default=None, repr=False)
+    worker_pool_max: int = DEFAULT_WORKER_POOL_MAX
+    queue_pool_max: int = DEFAULT_QUEUE_POOL_MAX
 
 
 def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
@@ -69,7 +77,12 @@ def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
     if not url:
         raise ConfigError("DATABASE_URL is not set")
     direct = source.get("DATABASE_URL_DIRECT", "").strip() or None
-    return DatabaseSettings(url=url, url_direct=direct)
+    return DatabaseSettings(
+        url=url,
+        url_direct=direct,
+        worker_pool_max=env_int(source, "WORKER_DB_POOL_MAX", DEFAULT_WORKER_POOL_MAX, minimum=1),
+        queue_pool_max=env_int(source, "WORKER_QUEUE_POOL_MAX", DEFAULT_QUEUE_POOL_MAX, minimum=1),
+    )
 
 
 @dataclass(frozen=True)
@@ -231,6 +244,23 @@ BEDROCK_CONCURRENCY = 3
 
 
 @dataclass(frozen=True)
+class CostGuard:
+    """The cost guard's allowance (F11, K3): a case may use `multiple` x `expected_tokens_per_page` x the larger of
+    its pages and `min_expected_pages` tokens. The one place the numbers, their defaults and the sum live: the AI
+    kit (worker) trips the guard from `AiSettings.cost_guard`, built from `cost_guard()`, and the API reads
+    `cost_guard()` for "used up its allowance", so `AI_COST_GUARD_MULTIPLE`, `AI_EXPECTED_TOKENS_PER_PAGE` and
+    `AI_MIN_EXPECTED_PAGES` must be set identically on the API and the worker. Readable without the cell's AI
+    endpoints (e.g. by a route that only needs to know whether a case is over its allowance)."""
+
+    multiple: int = 3
+    expected_tokens_per_page: int = 4000
+    min_expected_pages: int = 100
+
+    def allowance(self, pages: int) -> int:
+        return self.multiple * self.expected_tokens_per_page * max(pages, self.min_expected_pages)
+
+
+@dataclass(frozen=True)
 class AiSettings:
     """The cell's AI services. Every value comes from the cell config; nothing is written in code.
 
@@ -246,15 +276,24 @@ class AiSettings:
     ocr_endpoint: str
     speech_endpoint: str
     allowed_hosts: frozenset[str]
-    expected_tokens_per_page: int = 4000
-    min_expected_pages: int = 100
-    cost_guard_multiple: int = 3
+    expected_tokens_per_page: int = CostGuard.expected_tokens_per_page
+    min_expected_pages: int = CostGuard.min_expected_pages
+    cost_guard_multiple: int = CostGuard.multiple
     bedrock_rpm_limit: int = 5
     extraction_batch_size: int = 10
     # Temporary, dummy data only (ADR 0036). The defaults are today's behaviour: Bedrock only.
     primary_provider: str = "bedrock"
     direct_models: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
     anthropic_endpoint: str = ""
+
+    @property
+    def cost_guard(self) -> CostGuard:
+        """The three guard numbers as the one `CostGuard`, the only place the allowance is worked out."""
+        return CostGuard(
+            multiple=self.cost_guard_multiple,
+            expected_tokens_per_page=self.expected_tokens_per_page,
+            min_expected_pages=self.min_expected_pages,
+        )
 
     @property
     def limits(self) -> Mapping[str, ProviderLimits]:
@@ -301,6 +340,18 @@ def primary_provider(env: Mapping[str, str] | None = None) -> str:
     return provider
 
 
+def cost_guard(env: Mapping[str, str] | None = None) -> CostGuard:
+    source = os.environ if env is None else env
+    defaults = CostGuard()
+    return CostGuard(
+        multiple=env_int(source, "AI_COST_GUARD_MULTIPLE", defaults.multiple, minimum=1),
+        expected_tokens_per_page=env_int(
+            source, "AI_EXPECTED_TOKENS_PER_PAGE", defaults.expected_tokens_per_page, minimum=1
+        ),
+        min_expected_pages=env_int(source, "AI_MIN_EXPECTED_PAGES", defaults.min_expected_pages, minimum=1),
+    )
+
+
 def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
     source = os.environ if env is None else env
     provider = primary_provider(source)
@@ -327,6 +378,7 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
             raise ConfigError(f"{name} must be at least 1")
         return value
 
+    guard = cost_guard(source)  # the same numbers the API reads: one set of defaults and one set of limits
     listed = [m.strip() for m in source.get("BEDROCK_OVERFLOW_MODEL_IDS", "").split(",") if m.strip()]
     if not all(in_region_model_id(m) for m in listed):
         raise ConfigError(
@@ -345,9 +397,9 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
         ocr_endpoint=values["AZURE_DI_ENDPOINT"],
         speech_endpoint=values["AZURE_SPEECH_ENDPOINT"],
         allowed_hosts=hosts | {ANTHROPIC_HOST} if direct else hosts,
-        expected_tokens_per_page=number("AI_EXPECTED_TOKENS_PER_PAGE", 4000),
-        min_expected_pages=number("AI_MIN_EXPECTED_PAGES", 100),
-        cost_guard_multiple=number("AI_COST_GUARD_MULTIPLE", 3),
+        expected_tokens_per_page=guard.expected_tokens_per_page,
+        min_expected_pages=guard.min_expected_pages,
+        cost_guard_multiple=guard.multiple,
         bedrock_rpm_limit=number("BEDROCK_RPM_LIMIT", 5),
         extraction_batch_size=number("AI_EXTRACTION_BATCH_SIZE", 10),
         primary_provider=provider,

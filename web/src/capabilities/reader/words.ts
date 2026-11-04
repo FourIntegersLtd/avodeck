@@ -220,6 +220,8 @@ const WORDS = {
   "transcript.file_note": "The file is a copy. Downloading it doesn't count as reading.",
   "transcript.download_menu": "Download a copy",
   "transcript.retry_paused": "Trying again has paused for now. Please check back in a little while.",
+  "transcript.retry_paused_cost_guard": "This case has used up its processing allowance for now.",
+  "transcript.retry_allowance_used_up": "This case has used up its processing allowance. Please contact support.",
   "transcript.retry_progress": "Trying again: {{done}} of {{total}} pages ({{percent}}%)",
   "transcript.preparing_page": "Preparing page {{done}} of {{total}}",
   "transcript.working_for": "Working for {{minutes}} min {{seconds}} s",

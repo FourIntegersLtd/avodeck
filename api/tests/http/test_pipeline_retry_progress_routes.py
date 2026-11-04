@@ -58,7 +58,15 @@ async def test_the_summary_counts_a_running_retry_and_only_its_own_pages(h: Harn
     pages(h, [("1 minute", None), (None, "1 minute"), (None, "1 hour"), (None, "1 hour")], run)
     pages(h, [("1 minute", None)], first=50)  # a page read while the run went on, which it did not take
     got = (await h.client.get(f"/v1/cases/{h.case_id}/bundle/summary")).json()
-    assert got["retry"] == {"running": True, "paused": False, "total": 4, "done": 1, "failed": 1}
+    assert got["retry"] == {
+        "running": True,
+        "paused": False,
+        "total": 4,
+        "done": 1,
+        "failed": 1,
+        "pause_reason": None,
+        "allowance_used_up": False,
+    }
     assert got["retrying"] is True and got["failed_pages"] == 3
 
 
@@ -66,12 +74,28 @@ async def test_a_paused_retry_says_so_rather_than_running(h: Harness) -> None:
     run = job(h, "running", "paused")
     pages(h, [("1 minute", None), (None, "1 hour")], run)
     got = (await h.client.get(f"/v1/cases/{h.case_id}/bundle/summary")).json()
-    assert got["retry"] == {"running": False, "paused": True, "total": 2, "done": 1, "failed": 0}
+    assert got["retry"] == {
+        "running": False,
+        "paused": True,
+        "total": 2,
+        "done": 1,
+        "failed": 0,
+        "pause_reason": "other",
+        "allowance_used_up": False,
+    }
 
 
 async def test_a_finished_retry_reports_how_it_ended(h: Harness) -> None:
     run = job(h, "running", "done")
     pages(h, [("1 minute", None), (None, "1 minute")], run)
     got = (await h.client.get(f"/v1/cases/{h.case_id}/bundle/summary")).json()
-    assert got["retry"] == {"running": False, "paused": False, "total": 2, "done": 1, "failed": 1}
+    assert got["retry"] == {
+        "running": False,
+        "paused": False,
+        "total": 2,
+        "done": 1,
+        "failed": 1,
+        "pause_reason": None,
+        "allowance_used_up": False,
+    }
     assert got["retrying"] is False

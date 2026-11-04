@@ -19,7 +19,7 @@ def test_the_api_pool_stays_at_ten_connections_by_default() -> None:
     assert Database(DSN)._pool.max_size == 10  # noqa: SLF001
 
 
-def test_the_worker_pool_may_grow_to_twenty_connections() -> None:
+def test_the_worker_pool_stays_at_ten_connections_by_default() -> None:
     from app.worker.main import build_worker
 
     worker = build_worker(
@@ -28,7 +28,7 @@ def test_the_worker_pool_may_grow_to_twenty_connections() -> None:
             "DATABASE_URL_DIRECT": "postgresql://app_worker:x@db.example:5432/postgres",
         }
     )
-    assert worker.database._pool.max_size == 20  # noqa: SLF001
+    assert worker.database._pool.max_size == 10  # noqa: SLF001
 
 
 def test_an_explicit_maximum_is_kept() -> None:

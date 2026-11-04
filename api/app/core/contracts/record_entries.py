@@ -18,6 +18,9 @@ OCR words, behind the blind-read gate.
   read (extracted, answer failed, not set aside, not copies), and the job that asks about just those again. It
   queues nothing when none are unread, while one is waiting, or while the pipeline runs. A waiting retry shows as
   `preparing` in `entries_status`.
+- `case_over_allowance(conn, case_id, guard=None)`: the case's tokens have reached the cost guard's allowance
+  (`cost_guard()`, the worker's own test). `request_unread_retry` refuses to hand a paused run back then (409
+  `allowance_used_up`, nothing queued or changed), since the run would only pause again.
 - `entries_progress(conn, case_id)`: how many pages there are, how many the pipeline has extracted, and how many
   have had their entries read (or failed); counts only.
 - `pipeline_running(conn, case_id)`: a bundle-processing job is queued or running for the case (a paused one is not).
@@ -33,6 +36,8 @@ from typing import Literal
 
 from psycopg import AsyncConnection
 
+from app.core.config import CostGuard, cost_guard
+from app.core.errors import ApiError
 from app.core.jobs import registry
 
 EXTRACT_ENTRIES = "extract_entries"
@@ -177,9 +182,45 @@ async def request_unread_retry(conn: AsyncConnection, case_id: uuid.UUID) -> uui
     await conn.execute("select pg_advisory_xact_lock(hashtext(%s))", (f"retry_unread_pages:{case_id}",))
     if await retryable_unread_pages(conn, case_id) == 0:
         return None
-    if await entries_status(conn, case_id) == "preparing" or await pipeline_running(conn, case_id):
+    if await pipeline_running(conn, case_id):
+        return None
+    paused = await _paused_retry(conn, case_id)
+    if paused is not None:
+        # A pause that is not resumable (the cost guard, the key service) never ends by itself: a press hands the
+        # same job back to the queue, never a second job. If the pause comes back, the summary says so again.
+        # Not while the case is over its allowance: that run would pause again at once.
+        if await case_over_allowance(conn, case_id):
+            raise ApiError("allowance_used_up", "This case has used up its processing allowance.", 409)
+        await _hand_back(conn, paused)
+        return paused
+    if await entries_status(conn, case_id) == "preparing":
         return None
     return await registry.enqueue(conn, case_id, RETRY_UNREAD)
+
+
+async def case_over_allowance(conn: AsyncConnection, case_id: uuid.UUID, guard: CostGuard | None = None) -> bool:
+    """The case's tokens used have reached the cost guard's allowance for its pages: the guard's own test."""
+    cur = await conn.execute("select tokens_used, pages from app.ai_budget(%s)", (case_id,))
+    budget = await cur.fetchone()
+    return budget is not None and int(budget[0]) >= (guard or cost_guard()).allowance(int(budget[1]))
+
+
+async def _paused_retry(conn: AsyncConnection, case_id: uuid.UUID) -> uuid.UUID | None:
+    """The case's latest entries job, when it is a retry of the unread pages and is paused."""
+    cur = await conn.execute(
+        "select id, kind, status from app.jobs where case_id = %s and kind = any(%s) order by created_at desc limit 1",
+        (case_id, [EXTRACT_ENTRIES, RETRY_UNREAD]),
+    )
+    row = await cur.fetchone()
+    return row[0] if row is not None and row[1] == RETRY_UNREAD and row[2] == "paused" else None
+
+
+async def _hand_back(conn: AsyncConnection, job_id: uuid.UUID) -> bool:
+    """paused -> queue through `app.resume_paused_job()` (migration 0133); False when it was not paused, is already
+    handed back and waiting, or the case is on hold. The database takes the priority and lock from the job."""
+    cur = await conn.execute("select app.resume_paused_job(%s, %s)", (job_id, registry.queue))
+    row = await cur.fetchone()
+    return bool(row and row[0])
 
 
 async def retry_waiting(conn: AsyncConnection, case_id: uuid.UUID) -> bool:

@@ -33,7 +33,8 @@ from tests.support.seed import Seed
 pytestmark = pytest.mark.anyio
 
 PAGES = 12
-POOL = 20  # the worker's connection pool; calls in flight never exceed it
+POOL = 20  # the worker's connection pool for these runs (the harness's own holds four)
+RESERVE = 2  # connections kept free for heartbeats, progress writes and the job's own transaction
 
 
 class LimitedKit:
@@ -96,6 +97,7 @@ async def run(
     *,
     primary_fails_above: int | None = None,
     pages: int = PAGES,
+    pool: int = POOL,
 ) -> tuple[LimitedKit, Harness, dict[str, str]]:
     tmp_path, admin, api_db, worker_dsn, auth_env, seed, case_storage = opened_args
     document = text_pdf([_wordy_lines(8) for _ in range(pages)])
@@ -113,15 +115,21 @@ async def run(
         batch_size="10",
     )
     async with opened as h:
+        sized = Database(worker_dsn, max_size=pool)
+        await sized.open()
+        h.worker_db = sized
         kit = LimitedKit(
             AiKit(cell(AI_EXTRACTION_BATCH_SIZE="10"), ScriptedBedrock([])),
             limits,
             words,
             primary_fails_above=primary_fails_above,
         )
-        with pipeline.wiring.use(dataclasses.replace(current(), kit=kit)):  # type: ignore[arg-type]
-            await h.upload(document)
-            finished = await h.drain()
+        try:
+            with pipeline.wiring.use(dataclasses.replace(current(), kit=kit)):  # type: ignore[arg-type]
+                await h.upload(document)
+                finished = await h.drain()
+        finally:
+            await sized.close()
         return kit, h, finished
 
 
@@ -181,12 +189,29 @@ def test_a_bedrock_sized_limit_keeps_the_fixed_ten_page_cap(caplog: pytest.LogCa
     assert extract.pages_per_call(10, 5) == 5
 
 
-async def test_calls_in_flight_never_exceed_the_worker_pool_and_the_step_log_says_so(
+async def test_calls_in_flight_never_exceed_the_worker_pool_less_its_reserve_and_the_step_log_says_so(
     opened_args: tuple[Any, ...], caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level("INFO")
     kit, _, _ = await run(opened_args, Limits(1000, 1, 8000, 200), pages=30)
     assert len(kit.calls) == 30
-    assert 3 < kit.peak <= POOL  # a timing-dependent ceiling; the step log below states the bound
+    assert 3 < kit.peak <= POOL - RESERVE  # a timing-dependent ceiling; the step log below states the bound
     starts = [r.getMessage() for r in caplog.get_records("call") if "step=sort event=start" in r.getMessage()]
-    assert starts and f"concurrency={POOL}" in starts[0]
+    assert starts and f"concurrency={POOL - RESERVE}" in starts[0]
+
+
+async def test_a_smaller_worker_pool_means_fewer_calls_in_flight(
+    opened_args: tuple[Any, ...], caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level("INFO")
+    kit, _, finished = await run(opened_args, Limits(1000, 1, 8000, 200), pages=20, pool=6)
+    assert set(finished.values()) == {"done"}
+    assert kit.peak <= 6 - RESERVE
+    starts = [r.getMessage() for r in caplog.get_records("call") if "step=sort event=start" in r.getMessage()]
+    assert starts and f"concurrency={6 - RESERVE}" in starts[0]
+
+
+async def test_a_tiny_worker_pool_still_makes_one_call_at_a_time(opened_args: tuple[Any, ...]) -> None:
+    kit, _, finished = await run(opened_args, Limits(1000, 2, 8000, 200), pool=1)
+    assert set(finished.values()) == {"done"}
+    assert kit.peak == 1

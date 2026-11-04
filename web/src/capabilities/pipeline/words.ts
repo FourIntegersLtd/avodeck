@@ -69,6 +69,8 @@ const WORDS = {
   "bundle.retry_failed_other": "{{n}} pages could not be read again.",
   "bundle.retry_all_done": "All done. Every page was read.",
   "bundle.retry_paused": "Trying again has paused for now. Please check back in a little while.",
+  "bundle.retry_paused_cost_guard": "This case has used up its processing allowance for now.",
+  "bundle.retry_allowance_used_up": "This case has used up its processing allowance. Please contact support.",
   "bundle.retry_left_one": "{{n}} page still could not be read.",
   "bundle.retry_left_other": "{{n}} pages still could not be read.",
   "bundle.try_again_error": "We couldn't start that just now. Please try again.",

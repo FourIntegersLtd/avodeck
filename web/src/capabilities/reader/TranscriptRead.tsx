@@ -8,7 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { humanise, t } from "../../foundation/i18n";
 import { formatDay } from "../../foundation/i18n/dates";
 import { useStepUp } from "../../foundation/lib/stepUp";
-import { api, unwrap, type Schemas } from "../../foundation/platform-client";
+import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, ProgressBar, Spinner } from "../../foundation/ui";
 import { count } from "./data";
 import { pageImage } from "../../foundation/lib/pageImageCache";
@@ -47,16 +47,29 @@ interface WaitProps {
   /** Determinate progress, when the server can count: the line and the numbers. */
   counted?: { label: string; value: number; max: number };
   onRetry?: () => void;
+  /** Held back and not moving: no spinner or clock, and the way out is offered at once. */
+  paused?: boolean;
   /** Where to look when it is slow and there is nothing to retry. */
   progressTo?: string;
 }
 
 /** A spinner with honest progress: a count when the server has one, else how long it has been working. */
-function WaitNotice({ words, counted, onRetry, progressTo }: WaitProps) {
+function WaitNotice({ words, counted, onRetry, progressTo, paused }: WaitProps) {
   const ms = useElapsed(counted?.value ?? 0);
   const seconds = Math.floor(ms / 1000);
   const elapsed = seconds >= 60 ? w("transcript.working_for", { minutes: Math.floor(seconds / 60), seconds: seconds % 60 }) : w("transcript.working_for_seconds", { seconds });
   const slow = ms >= SLOW_AFTER_MS;
+  if (paused) {
+    // Nothing is moving and it will not start by itself: no spinner, no clock, and the way out at once.
+    return (
+      <Notice tone="info">
+        <div className="rd-wait__text">
+          <p>{words}</p>
+          {onRetry && <Button variant="secondary" onClick={onRetry}>{w("transcript.try_again")}</Button>}
+        </div>
+      </Notice>
+    );
+  }
   return (
     <Notice tone="info">
       <div className="rd-wait">
@@ -196,6 +209,7 @@ export function TranscriptRead() {
   const [wait, setWait] = useState<Schemas["TranscriptList"] | null>(null);
   // The pages the retry would try (the bundle summary's count: one definition for the job, the summary and this button).
   const [retryInfo, setRetryInfo] = useState<{ failed_pages: number; retrying: boolean; retry: Schemas["RetryProgress"] | null }>({ failed_pages: 0, retrying: false, retry: null });
+  const [allowanceRefused, setAllowanceRefused] = useState(false);
   const [failed, setFailed] = useState(false);
   const [read, setRead] = useState<number | null>(null);
   const [pagesTotal, setPagesTotal] = useState(0);
@@ -391,8 +405,9 @@ export function TranscriptRead() {
   async function retry() {
     try {
       await unwrap(api.POST("/v1/cases/{case_id}/transcript/retry", { params: { path: { case_id: caseId } } }));
-    } catch {
-      /* the next load shows the state */
+    } catch (error) {
+      // Refused because the case is over its allowance: say so (the next load shows any other state).
+      if (error instanceof ApiError && error.code === "allowance_used_up") setAllowanceRefused(true);
     }
     outlineAsked.current = false; // the shape of the transcript is fetched again once it is ready again
     setOutline(null);
@@ -473,9 +488,10 @@ export function TranscriptRead() {
         : undefined;
     return (
       <WaitNotice
-        words={w(retryPaused ? "transcript.retry_paused" : retryRunning ? "transcript.retrying" : "transcript.preparing")}
+        words={w(retryPaused ? (retryInfo.retry?.allowance_used_up || allowanceRefused ? "transcript.retry_allowance_used_up" : retryInfo.retry?.pause_reason === "cost_guard" ? "transcript.retry_paused_cost_guard" : "transcript.retry_paused") : retryRunning ? "transcript.retrying" : "transcript.preparing")}
+        paused={retryPaused}
         counted={retryCount ?? (all > 0 && done > 0 ? { label: w("transcript.preparing_page", { done: count(done, pack.locale), total: count(all, pack.locale) }), value: done, max: all } : undefined)}
-        onRetry={status === "idle" && wait?.can_prepare !== false ? () => void retry() : undefined}
+        onRetry={(status === "idle" || (retryPaused && !retryInfo.retry?.allowance_used_up && !allowanceRefused)) && wait?.can_prepare !== false ? () => void retry() : undefined}
         progressTo={`/cases/${caseId}/preparing`}
       />
     );
