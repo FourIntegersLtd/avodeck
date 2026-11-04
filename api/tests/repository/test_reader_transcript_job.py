@@ -1,8 +1,9 @@
 """Slice B job: `export_transcript` builds the Word copy of the records transcript (ADR 0028).
 
 The file holds the same entries as the screen, in the same order, and prints the record as written (founder
-decision of 2026-11-04, ADR 0035). It is stored sealed under the case key at `exports/<job>/transcript.docx`, downloaded once by the
-person who asked, and removed by the daily close run with the other old exports. The download is audited.
+decision of 2026-11-04, ADR 0035). It is stored sealed under the case key at `exports/<job>/transcript.docx`,
+downloaded once by the person who asked, and removed by the daily close run with the other old exports. The
+download is audited.
 """
 
 from __future__ import annotations
@@ -505,5 +506,5 @@ async def test_the_cover_counts_the_whole_bundle_and_every_word_read_is_a_word_p
     cov = seen[0].coverage
     assert (cov.bundle_pages, cov.total_pages, cov.set_aside) == (3, 2, 1)
     assert cov.total_pages + cov.set_aside == cov.bundle_pages
-    assert cov.words_read == cov.words_printed == 7  # the copy's two words are not in the transcript
+    assert cov.words_read == cov.words_printed == 8  # 5 on page 1 and 3 on page 3; the copy's two are not in it
     assert seen[0].picture_words == {3: ["no entry here"]}

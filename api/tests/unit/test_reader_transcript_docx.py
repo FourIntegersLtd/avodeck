@@ -199,7 +199,16 @@ def test_the_cover_counts_the_whole_bundle_and_the_table_adds_up() -> None:
         [Section("a", "transcript.section.first_part", [_entry(1)])],
         [3],
         [],
-        Coverage(total_pages=4, with_entries=1, no_entries=1, unreadable=0, set_aside=5, bundle_pages=9, words_read=6, words_printed=6),
+        Coverage(
+            total_pages=4,
+            with_entries=1,
+            no_entries=1,
+            unreadable=0,
+            set_aside=5,
+            bundle_pages=9,
+            words_read=6,
+            words_printed=6,
+        ),
         {3: ["Stray words"]},
     )
     doc = Document(io.BytesIO(build(lay, date_order="DMY", language="en", received={})))

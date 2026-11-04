@@ -7,8 +7,8 @@ from app.features.reader.schemas import TranscriptEntryOut, TranscriptList
 
 ALLOWED = {
     "id", "page_no", "kind", "kind_label", "folded", "author_role", "author_label", "specialty", "event_date",
-    "date_basis", "lines", "results", "result_labels", "section",
-}  # fmt: skip
+    "date_basis", "lines", "results", "result_labels", "section", "before", "after",
+}  # before and after: the words printed around the entry on its page, in no entry  # fmt: skip
 FORBIDDEN = ("fact", "value", "suggest", "status_of", "word_ids", "verified", "flag")
 
 

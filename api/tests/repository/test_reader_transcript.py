@@ -167,9 +167,15 @@ async def test_words_outside_every_entry_come_with_the_entry_that_follows_them_o
 ) -> None:
     built = await loose_page(aconn, world["case"])
     first, second = (await listed(api_db, world)).entries
-    assert (first.lines, first.before, first.after) == (["alpha beta"], ["Header here please now nine words of header text"], [])
+    assert (first.lines, first.before, first.after) == (
+        ["alpha beta"],
+        ["Header here please now nine words of header text"],
+        [],
+    )
     assert (second.lines, second.before, second.after) == (["gamma delta"], ["between words"], ["Footer text"])
-    printed = [w for e in (first, second) for part in (e.before, e.lines, e.after) for line in part for w in line.split()]
+    printed = [
+        w for e in (first, second) for part in (e.before, e.lines, e.after) for line in part for w in line.split()
+    ]
     assert len(printed) == len(built.word_ids) == len(set(built.word_ids))  # every word, once
 
 
@@ -179,10 +185,14 @@ async def test_loose_words_are_right_under_paging_and_for_the_pages_a_person_has
     built = await loose_page(aconn, world["case"])
     async with api_db.request(scope_for(world["expert"])) as conn:
         later = await transcript.entries(conn, CRYPTO, LIBRARY, world["case"], offset=1, limit=1)
-    assert [(e.lines, e.before, e.after) for e in later.entries] == [(["gamma delta"], ["between words"], ["Footer text"])]
+    assert [(e.lines, e.before, e.after) for e in later.entries] == [
+        (["gamma delta"], ["between words"], ["Footer text"])
+    ]
     await read_by_expert(api_db, world, built.page_id)
     async with api_db.request(scope_for(world["expert"])) as conn:
-        mine = await transcript.entries(conn, CRYPTO, LIBRARY, world["case"], offset=1, limit=1, only_read_by=world["expert"])
+        mine = await transcript.entries(
+            conn, CRYPTO, LIBRARY, world["case"], offset=1, limit=1, only_read_by=world["expert"]
+        )
     assert [e.after for e in mine.entries] == [["Footer text"]]
     async with api_db.request(scope_for(world["assistant"])) as conn:
         theirs = await transcript.entries(
@@ -229,9 +239,12 @@ async def test_the_listing_counts_the_words_it_read_on_each_page_it_prints(
 
 async def place_words(aconn: psycopg.AsyncConnection, page_id: uuid.UUID, at: dict[int, tuple[float, float]]) -> None:
     """Moves words (by number) to a left edge x and a top y, 11 wide and 24 tall like the fixtures'."""
-    for n, (x, y) in at.items():
+    for n, (px, py) in at.items():
+        x, y = float(px), float(py)
         box = [x, y, x + 60.0, y, x + 60.0, y + 24.0, x, y + 24.0]
-        await aconn.execute("update app.ocr_words set polygon = %s::real[] where page_id = %s and n = %s", (box, page_id, n))
+        await aconn.execute(
+            "update app.ocr_words set polygon = %s::real[] where page_id = %s and n = %s", (box, page_id, n)
+        )
 
 
 async def test_a_label_and_its_value_print_on_one_line_and_entries_never_share_a_line(
@@ -244,11 +257,16 @@ async def test_a_label_and_its_value_print_on_one_line_and_entries_never_share_a
         world["case"],
         doc,
         1,
-        [Spec("zz_session", ("Problem History", "Urinary Dysuria"), day=date(2020, 1, 1)), Spec("zz_session", ("Other note",), day=date(2020, 2, 1))],
+        [
+            Spec("zz_session", ("Problem History", "Urinary Dysuria"), day=date(2020, 1, 1)),
+            Spec("zz_session", ("Other note",), day=date(2020, 2, 1)),
+        ],
     )
     # The labels are read first and then the values; the values stand to the right on the same rows. The other
     # entry's words stand on those same rows too and must stay in that entry.
-    await place_words(aconn, built.page_id, {1: (10, 80), 2: (10, 120), 3: (300, 82), 4: (300, 118), 5: (600, 80), 6: (700, 82)})
+    await place_words(
+        aconn, built.page_id, {1: (10, 80), 2: (10, 120), 3: (300, 82), 4: (300, 118), 5: (600, 80), 6: (700, 82)}
+    )
     first, second = (await listed(api_db, world)).entries
     assert first.lines == ["Problem Urinary", "History Dysuria"]
     assert second.lines == ["Other note"]
