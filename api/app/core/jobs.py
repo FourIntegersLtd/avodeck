@@ -18,6 +18,9 @@
 - A job of a case on hold is not run: it stays `queued` with `case_on_hold` until the case resumes
   (`app.core.case_hold.release_case_hold`), unless its kind is registered with `runs_on_hold=True`.
 - A worker that dies stops its heartbeat; `JobWorker.requeue_stalled()` puts its jobs back (F6).
+- A job left `running` after its database connection dropped while the worker recorded how it ended is
+  recorded again on a fresh connection (`DEFAULT_PERSIST_WAITS`); if that fails too, `requeue_orphaned()`
+  (at worker start and every housekeeping round, migration 0134) puts it back within `max_attempts` (F52).
 - Avodeck support resumes a paused job or requeues a failed one with `support_job_action()` (current
   staff only, in the database): a resumed job goes back on the queue and the worker moves it
   paused -> running; a requeued one goes failed -> queued with `attempts` 0, and what it was is kept in
@@ -36,6 +39,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
 import procrastinate
+import psycopg
 from procrastinate.jobs import Job
 from procrastinate.retry import BaseRetryStrategy, RetryDecision
 from psycopg import AsyncConnection
@@ -58,6 +62,8 @@ StepWork = Callable[[AsyncConnection], Awaitable[None]]
 # F5: pauses the worker resumes by itself, because the service comes back without anyone acting.
 RESUMABLE_PAUSES = frozenset({"service_busy", "model_unavailable"})
 # Waits between resumes: doubling from the AI kit's base, F5's 2 hours in all; then the job fails.
+# Waits (seconds) between tries when a status write loses its database connection (the pooler closed it).
+DEFAULT_PERSIST_WAITS: tuple[float, ...] = (0.25, 1.0, 3.0)
 DEFAULT_PAUSE_DELAYS: tuple[float, ...] = tuple(backoff_delays(64, limit=MAX_WAIT_SECONDS))
 
 
@@ -270,6 +276,8 @@ class JobWorker:
         pause_delays: Sequence[float] = DEFAULT_PAUSE_DELAYS,
         mailer: Mailer | None = None,
         queue_pool_max: int = 4,
+        persist_waits: Sequence[float] = DEFAULT_PERSIST_WAITS,
+        orphan_grace_seconds: float | None = None,
     ) -> None:
         self.registry = registry
         self.mailer: Mailer = mailer or OutboxMailer()
@@ -280,6 +288,8 @@ class JobWorker:
         self.max_attempts = int(max_attempts)
         self.schedule_seconds = schedule_seconds
         self.pause_delays = tuple(pause_delays)
+        self.persist_waits = tuple(persist_waits)
+        self.orphan_grace_seconds = stalled_after_seconds if orphan_grace_seconds is None else orphan_grace_seconds
         connector = procrastinate.PsycopgConnector(
             conninfo=dsn, kwargs={"options": "-c search_path=procrastinate"}, min_size=1, max_size=queue_pool_max
         )
@@ -320,6 +330,7 @@ class JobWorker:
         while True:
             try:
                 await self.requeue_stalled()
+                await self.requeue_orphaned()
                 if loop.time() - last_catch_up >= self.schedule_seconds:
                     last_catch_up = loop.time()
                     for name in self.registry.schedules:
@@ -338,6 +349,31 @@ class JobWorker:
             await self.queue.job_manager.retry_job(job)
             count += 1
         return count
+
+    async def requeue_orphaned(self) -> int:
+        """Put back jobs left `running` whose queue row has ended, e.g. after the database connection dropped
+        while the worker recorded how the job ended (migration 0134). Returns how many."""
+        async with self.database.anonymous() as conn:
+            cur = await conn.execute(
+                "select app.requeue_orphaned_jobs(%s, %s)", (self.max_attempts, self.orphan_grace_seconds)
+            )
+            row = await cur.fetchone()
+        count = int(row[0]) if row else 0
+        if count:
+            logger.warning("%d job(s) left running without a queue row were put back", count)
+        return count
+
+    async def _persist(self, write: Callable[[], Awaitable[None]]) -> None:
+        """Runs a status write, trying again on a fresh connection when the connection was dropped. The last
+        try's error is raised; the sweep (`requeue_orphaned`) then puts the job right."""
+        for wait in self.persist_waits:
+            try:
+                await write()
+                return
+            except psycopg.OperationalError as exc:
+                logger.warning("recording a job's status lost its connection (%s): trying again", type(exc).__name__)
+                await asyncio.sleep(wait)
+        await write()
 
     async def catch_up(self, name: str, today: date) -> list[date]:
         """Run schedule `name` for every date since its last run, up to `today`, each exactly once (F28).
@@ -407,13 +443,16 @@ class JobWorker:
             if attempt < self.max_attempts:
                 # running -> failed -> queued in ONE transaction (the guard allows each step): under read
                 # committed no one else sees `failed`, so a reader never takes a retry for the end.
-                async with self.database.job(case) as conn:
-                    await conn.execute(
-                        "update app.jobs set status = 'failed', error_code = 'job_error' where id = %s", (job,)
-                    )
-                    await conn.execute(
-                        "update app.jobs set status = 'queued', finished_at = null where id = %s", (job,)
-                    )
+                async def requeue() -> None:
+                    async with self.database.job(case) as conn:
+                        await conn.execute(
+                            "update app.jobs set status = 'failed', error_code = 'job_error' where id = %s", (job,)
+                        )
+                        await conn.execute(
+                            "update app.jobs set status = 'queued', finished_at = null where id = %s", (job,)
+                        )
+
+                await self._persist(requeue)
                 raise _TryAgain from None
             await self._finish(case, job, "failed", error_code="job_error")
             return
@@ -422,10 +461,14 @@ class JobWorker:
     async def _finish(
         self, case: uuid.UUID, job: uuid.UUID, status: str, *, error_code: str | None = None, pct: int | None = None
     ) -> None:
-        async with self.database.job(case) as conn:
-            await conn.execute(
-                "update app.jobs set status = %s, error_code = %s, pct = coalesce(%s, pct),"
-                " eta_seconds = case when %s = 'done' then 0 else eta_seconds end,"
-                " finished_at = case when %s in ('done', 'failed') then now() end where id = %s",
-                (status, error_code, pct, status, status, job),
-            )
+
+        async def write() -> None:
+            async with self.database.job(case) as conn:
+                await conn.execute(
+                    "update app.jobs set status = %s, error_code = %s, pct = coalesce(%s, pct),"
+                    " eta_seconds = case when %s = 'done' then 0 else eta_seconds end,"
+                    " finished_at = case when %s in ('done', 'failed') then now() end where id = %s",
+                    (status, error_code, pct, status, status, job),
+                )
+
+        await self._persist(write)
