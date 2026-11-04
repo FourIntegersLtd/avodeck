@@ -13,7 +13,7 @@ from __future__ import annotations
 import dataclasses
 import datetime as dt
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -238,6 +238,7 @@ async def opened(
     seed: Seed,
     storage: CaseFileStorage,
     combo: Combo = LAUNCH,
+    settings: Mapping[str, str] | None = None,
 ) -> Any:
     return await _open(
         combo,
@@ -249,6 +250,7 @@ async def opened(
         auth_env=auth_env,
         seed=seed,
         storage=storage,
+        settings=settings,
     )
 
 
@@ -601,6 +603,7 @@ async def _stored_spans(
     auth_env: dict[str, str],
     seed: Seed,
     storage: CaseFileStorage,
+    settings: Mapping[str, str] | None = None,
 ) -> tuple[list[tuple[int, int]], int, bool, int]:
     """Spans stored, model calls made, whether the page needs a person, and the page's word count."""
     from tests.repository.test_pipeline_extract import _wordy_lines
@@ -613,7 +616,9 @@ async def _stored_spans(
     if second is not None:
         answers.append(_full_answer(pack, words, second))
     bedrock = ScriptedBedrock(answers)
-    async with await opened(tmp_path, bedrock, admin, api_db, worker_dsn, auth_env, seed, storage) as h:
+    async with await opened(
+        tmp_path, bedrock, admin, api_db, worker_dsn, auth_env, seed, storage, settings=settings
+    ) as h:
         await h.upload(document)
         assert set((await h.drain()).values()) == {"done"}
         (page,) = h.pages()
@@ -704,3 +709,30 @@ async def test_a_page_with_no_entries_after_the_second_ask_is_stored_without_ask
         None, [], tmp_path, admin, api_db, worker_dsn, auth_env, seed, storage
     )
     assert calls == 2 and spans == [] and needs_person is False
+
+
+async def test_the_floor_for_asking_again_comes_from_the_setting(
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> None:
+    """62 of the page's 72 words (86%) sit inside entries: enough at 0.8, not enough at 0.9."""
+    for floor, calls in (("0.8", 1), ("0.9", 2)):
+        spans, got, _, count = await _stored_spans(
+            [(1, 62)],
+            [(1, 72)] if calls == 2 else None,
+            tmp_path / floor,
+            admin,
+            api_db,
+            worker_dsn,
+            auth_env,
+            seed,
+            storage,
+            settings={"AI_ENTRY_COVERAGE_FLOOR": floor},
+        )
+        assert count == 72 and got == calls, f"floor {floor}"
+        assert spans == ([(1, 72)] if calls == 2 else [(1, 62)])

@@ -112,6 +112,13 @@ def test_a_page_with_enough_words_and_few_inside_entries_is_asked_again() -> Non
     assert coverage.entry_reason(ordered=ordered, struck=set(), entries=[entry(1, 100)]) is None
 
 
+def test_the_floor_is_a_parameter_so_the_same_coverage_passes_or_fails_with_it() -> None:
+    ordered = words(100)
+    got = [entry(1, 85)]
+    assert coverage.entry_reason(ordered=ordered, struck=set(), entries=got, floor=0.8) is None
+    assert coverage.entry_reason(ordered=ordered, struck=set(), entries=got, floor=0.9) == "low_entry_coverage"
+
+
 def test_a_page_with_enough_words_and_no_entries_is_asked_again() -> None:
     assert coverage.entry_reason(ordered=words(40), struck=set(), entries=[]) == "low_entry_coverage"
 
