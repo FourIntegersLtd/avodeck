@@ -296,7 +296,9 @@ def test_the_repair_reads_the_first_lines_short_year_before_a_later_full_date(co
     assert got == (want, dates.PRINTED_CENTURY)
     below, lines = laid_out(["Seen 27-Sep-2018 by the nurse", "Card opened 12.5.86 for the patient"])
     got = extract.repair_entry_date(whole(below), below, set(), lines, pack, dates_of_birth=[], anchor=ANCHOR)
-    assert got == (None, dates.PLEASE_CHECK), "a short year that is not on the first line is left to the reader"
+    # The entry-dates change (plan section 2): a short year that reads in one century no longer blocks a
+    # different full date, so the first printed line decides, as it does between any two dates.
+    assert got == (SEEN, dates.PRINTED), "a short year no longer blocks a different full date"
 
 
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
