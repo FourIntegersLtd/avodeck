@@ -70,6 +70,33 @@ test("making the pack waits for the job, then shows the new pack", async () => {
 
 const PACK_JOB = "a9999999-9999-4999-8999-999999999991";
 
+const realSetTimeout = globalThis.setTimeout;
+/** Makes the long wait (a wait of exactly `ms`) last 20 ms, leaving every other timer alone. */
+const shortenWait = (ms: number) =>
+  vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: () => void, delay?: number, ...rest: unknown[]) => realSetTimeout(fn, delay === ms ? 20 : delay, ...rest)) as typeof setTimeout);
+
+test("a build still running when the time is up says it is slow, keeps waiting, and does not invite a second one", async () => {
+  servePack("launch", { latest: { pack: null, settings: settingsOut() } });
+  server.use(
+    http.post("/v1/cases/:caseId/trial-pack", () => json({ job_id: PACK_JOB }, 202)),
+    http.get(`/v1/jobs/${PACK_JOB}`, () => json({ id: PACK_JOB, case_id: CASE, kind: "build_trial_pack", status: "running", step: null, pct: null, eta_seconds: null, error_code: null, created_at: "", started_at: null, finished_at: null })),
+  );
+  const timer = shortenWait(20 * 60_000);
+  try {
+    const { user } = renderAt(url);
+    await user.click(await screen.findByRole("button", { name: k("pack.build") }));
+    await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+    act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: PACK_JOB, kind: "build_trial_pack", status: "running" })]));
+    expect(await screen.findByText(k("pack.slow"))).toBeInTheDocument();
+    expect(screen.queryByText(k("pack.failed"))).toBeNull();
+    expect(screen.getByRole("button", { name: k("pack.build") })).toBeDisabled();
+    act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: PACK_JOB, kind: "build_trial_pack", status: "done" })])); // it still finishes on the stream
+    await waitFor(() => expect(screen.queryByText(k("pack.slow"))).toBeNull());
+  } finally {
+    timer.mockRestore();
+  }
+});
+
 test("a cancelled build says it failed and lets the pack be made again", async () => {
   servePack("launch", { latest: { pack: null, settings: settingsOut() } });
   server.use(http.post("/v1/cases/:caseId/trial-pack", () => json({ job_id: PACK_JOB }, 202)));
