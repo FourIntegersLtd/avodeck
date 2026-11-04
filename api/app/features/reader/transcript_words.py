@@ -10,6 +10,10 @@ from datetime import date
 _WORDS: dict[str, dict[str, str]] = {
     "en": {
         "title": "Records transcript",
+        "subtitle": "The words printed on every page of the records, set out in date order",
+        "prepared_by": "Prepared by Avodeck",
+        "brand": "Avodeck",
+        "case_line": "Case: {label}",
         "page": "Page {number}",
         "undated": "No date",
         "unread": "This page couldn't be read by the computer; look at the picture.",

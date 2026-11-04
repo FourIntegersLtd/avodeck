@@ -214,12 +214,32 @@ def _entry(
         doc.add_paragraph(line)
 
 
-def _cover(doc: DocumentType, layout: Layout, *, date_order: str, language: str, prepared_on: date | None) -> None:
+def _cover(
+    doc: DocumentType,
+    layout: Layout,
+    *,
+    date_order: str,
+    language: str,
+    prepared_on: date | None,
+    case_label: str | None,
+) -> None:
+    """The title page, in the order of the PDF's: the not-checked notice and the bundle page count stay the second
+    and third paragraphs; the case, date, counts, subtitle, who prepared it and how to use it follow."""
+    cov = layout.coverage
     doc.add_heading(word(language, "title"), level=0)
     doc.add_paragraph(word(language, "not_checked"))  # always the second paragraph, on the first page
-    doc.add_paragraph(word(language, "bundle_pages", count=layout.coverage.total_pages))
+    _run(doc.add_paragraph(), word(language, "bundle_pages", count=cov.total_pages), font=_HEADING_FONT, size=14)
     if prepared_on is not None:
-        doc.add_paragraph(word(language, "prepared", date=show_date(prepared_on, date_order, language)))
+        shown = show_date(prepared_on, date_order, language)
+        _run(doc.add_paragraph(), word(language, "prepared", date=shown), font=_HEADING_FONT, size=14)
+    if case_label:
+        line = word(language, "case_line", label=case_label)
+        _run(doc.add_paragraph(), line, font=_HEADING_FONT, size=14).bold = True
+    counts = f"{word(language, 'cov_with')}: {cov.with_entries} · {word(language, 'cov_unread')}: {cov.unreadable}"
+    _run(doc.add_paragraph(), counts, font=_HEADING_FONT, color=_FOREST, size=12)
+    _run(doc.add_paragraph(), word(language, "subtitle"), color=_SLATE)
+    _run(doc.add_paragraph(), word(language, "prepared_by"), font=_HEADING_FONT, color=_FOREST, size=12).bold = True
+    _run(doc.add_paragraph(), word(language, "how_to_use"), color=_SLATE)
     doc.add_page_break()  # type: ignore[no-untyped-call]
 
 
@@ -262,12 +282,14 @@ def build(
     language: str,
     received: dict[int, date],
     prepared_on: date | None = None,
+    case_label: str | None = None,
 ) -> bytes:
-    """`received` maps a page number to the date its letter was received, for letters only."""
+    """`received` maps a page number to the date its letter was received, for letters only. `case_label` is the
+    name the case already shows to its members; the cover prints it when there is one."""
     doc = Document()
     _style_document(doc)
     _header_footer(doc, language)
-    _cover(doc, layout, date_order=date_order, language=language, prepared_on=prepared_on)
+    _cover(doc, layout, date_order=date_order, language=language, prepared_on=prepared_on, case_label=case_label)
 
     letters = appendix_letters(layout)
     appendices: list[tuple[str, str, str]] = []  # (key, anchor, heading text)
