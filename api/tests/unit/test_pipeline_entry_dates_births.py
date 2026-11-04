@@ -186,3 +186,12 @@ def test_a_birth_date_at_the_start_of_a_line_does_not_start_an_entry(combo: Comb
     dob = written(pack, 14, 3, 1969)
     got, _, _ = split(pack, [dob, "Seen 27-Sep-2018 cough", "plan rest"], dates_of_birth=[birth(pack)], anchor=ANCHOR)
     assert len(got) == 1
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
+def test_an_ecg_date_whose_day_is_split_from_its_month_by_a_dash_is_read(combo: Combo) -> None:
+    pack = pack_of(combo)
+    row = f"ASHWORTH MRS {label_of(pack)} {written(pack, 14, 3, 1969)} 08 - JUN-2022 14:51"
+    ordered, lines = laid_out([row])
+    got = extract.entry_date(whole(ordered), ordered, set(), pack, [], lines, anchor=ANCHOR)
+    assert got == (dt.date(2022, 6, 8), dates.PRINTED)
