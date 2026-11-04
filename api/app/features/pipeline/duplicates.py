@@ -43,7 +43,9 @@ MIN_WORDS = 10  # pages with fewer typed words are never set aside
 NOTE_WORDS = 6  # most handwritten words one copy may have that the other lacks (a filing note)
 _EDGES = re.compile(r"^\W+|\W+$")
 _DIGIT = re.compile(r"\d")
-_SEPARATORS = re.compile(r"[/.,:\-\u2010-\u2015]")  # between the parts of a number or date; OCR varies them
+# Between two digits, OCR varies the separator of a number or date (`142/88`, `142.88`) or splits it in two
+# (`999 447`). A comma stays distinct from a point (1,500 is not 1.500), and a separator at an edge is kept.
+_SEPARATORS = re.compile(r"(?<=\d)[/.:\u2010-\u2015 -]+(?=\d)")
 
 
 @dataclass(frozen=True)
@@ -123,7 +125,7 @@ def likely_pairs(signatures: Sequence[Signature], new: set[object]) -> list[tupl
 
 
 def _number(word: str) -> str:
-    """A word with digits as its numbers: one separator is as good as another (`142/88`, `142.88`)."""
+    """Text with digits as its numbers: one separator between two digits is as good as another."""
     return _SEPARATORS.sub(".", word)
 
 
@@ -140,7 +142,9 @@ def same_content(a: Sequence[Word], b: Sequence[Word], pack: MergedPack) -> bool
     typed_a, typed_b = _typed(a), _typed(b)
     if len(typed_a) < MIN_WORDS or len(typed_b) < MIN_WORDS:
         return False
-    if [_number(w) for w in typed_a if _DIGIT.search(w)] != [_number(w) for w in typed_b if _DIGIT.search(w)]:
+    if _number(" ".join(w for w in typed_a if _DIGIT.search(w))) != _number(
+        " ".join(w for w in typed_b if _DIGIT.search(w))
+    ):
         return False
     if _printed(typed_a, pack) != _printed(typed_b, pack):
         return False
@@ -156,7 +160,11 @@ def same_content(a: Sequence[Word], b: Sequence[Word], pack: MergedPack) -> bool
             added += len(extra)
             continue
         if i2 - i1 != j2 - j1:
-            return False
+            if _number(" ".join(words_a[i1:i2])) != _number(" ".join(words_b[j1:j2])):
+                return False
+            if not all(_DIGIT.search(w) for w in (*words_a[i1:i2], *words_b[j1:j2])):
+                return False
+            continue
         for x, y in zip(words_a[i1:i2], words_b[j1:j2], strict=True):
             if _DIGIT.search(x) or _DIGIT.search(y):
                 if _number(x) != _number(y):

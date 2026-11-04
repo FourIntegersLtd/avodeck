@@ -415,7 +415,8 @@ async def _settle(
 async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
     async with ctx.transaction() as conn:
         waiting = await repo.pages_without_words(conn, ctx.case_id)
-        spoken = services.packs.for_case(await repo.case_codes(conn, ctx.case_id)).language
+        case_pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
+        spoken, locale = case_pack.language, case_pack.locale
         numbers = await repo.page_numbers_by_id(conn, ctx.case_id)
     run = steplog.current()
 
@@ -445,7 +446,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                 if services.ocr is None:
                     raise ProcessingPaused("model_unavailable")
                 try:
-                    found = (await services.ocr.analyse(page_pdf, "layout")).pages[0]
+                    found = (await services.ocr.analyse(page_pdf, "layout", locale=locale)).pages[0]
                 except OcrFailed as exc:  # F4: this page alone is marked unreadable; the rest carry on
                     if run is not None:
                         run.page_failed(numbers.get(page_id), exc, "failed")

@@ -360,6 +360,16 @@ def _choose(found: Sequence[dates.Printed]) -> dt.date | None:
     return next(iter(readable)) if len(readable) == 1 else None
 
 
+def _on_first_line(
+    found: Sequence[dates.Printed], inside: Sequence[tuple[str, str]], lines: Mapping[str, int] | None
+) -> list[dates.Printed]:
+    """The dates that start on the entry's first printed line (none without line positions)."""
+    if lines is None or not inside or inside[0][0] not in lines:
+        return []
+    first_line = lines[inside[0][0]]
+    return [d for d in found if lines.get(d.word_ids[0]) == first_line]
+
+
 def entry_date(
     entry: Entry,
     ordered: Sequence[tuple[str, str]],
@@ -376,15 +386,15 @@ def entry_date(
     4. else, when dates were printed but none can be chosen, the reader is asked to check (`please_check`);
     5. else the entry has no date.
 
-    Nothing is guessed: a date that reads more than one way is never chosen here."""
+    Nothing is guessed: a date that reads more than one way (a two-digit year) is never chosen, and while
+    one is printed anywhere in the entry no other date is chosen either (rules 2 and 3 do not apply)."""
     inside = [
         (w, t) for n, (w, t) in enumerate(ordered, start=1) if entry.first_n <= n <= entry.last_n and w not in struck
     ]
     found = _without_births(dates.find(inside, pack), set(dates_of_birth))
-    chosen = _choose(found)
-    if chosen is None and lines is not None and inside and inside[0][0] in lines:
-        first_line = lines[inside[0][0]]
-        chosen = _choose([d for d in found if lines.get(d.word_ids[0]) == first_line])
+    chosen = None
+    if not any(d.ambiguous for d in found):
+        chosen = _choose(found) or _choose(_on_first_line(found, inside, lines))
     if chosen is not None:
         return chosen, dates.PRINTED
     return (None, dates.PLEASE_CHECK) if found else (None, None)
@@ -412,10 +422,13 @@ def repair_entry_date(
         (w, t) for n, (w, t) in enumerate(ordered, start=1) if entry.first_n <= n <= entry.last_n and w not in struck
     ]
     found = _without_births(dates.find(inside, pack), births)
-    if found and not any(not d.ambiguous for d in found):
+    short = [d for d in found if d.ambiguous]
+    if short:
+        # a short year is read only on the first printed line, or anywhere when it is the only kind of date
+        candidates = _on_first_line(short, inside, lines) or (short if len(short) == len(found) else [])
         read = {
             c
-            for d in found
+            for d in candidates
             for c in [
                 dates.century_from_ambiguous_text(" ".join(t for w, t in inside if w in d.word_ids), pack, anchor)
             ]
@@ -423,6 +436,8 @@ def repair_entry_date(
         }
         if len(read) == 1:
             return read.pop(), dates.PRINTED_CENTURY
+    if found:  # dates were printed but none can be chosen: the reader checks; nothing above is borrowed
+        return when, basis
     above, above_basis, _ = date_repair.line_above_of(
         [entry.first_word_id], ordered, struck, lines, pack, anchor=anchor, skip=births
     )
