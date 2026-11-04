@@ -18,6 +18,9 @@ OCR words, behind the blind-read gate.
   read (extracted, answer failed, not set aside, not copies), and the job that asks about just those again. It
   queues nothing when none are unread, while one is waiting, or while the pipeline runs. A waiting retry shows as
   `preparing` in `entries_status`.
+- `case_over_allowance(conn, case_id, guard=None)`: the case's tokens have reached the cost guard's allowance
+  (`cost_guard()`, the worker's own test). `request_unread_retry` refuses to hand a paused run back then (409
+  `allowance_used_up`, nothing queued or changed), since the run would only pause again.
 - `entries_progress(conn, case_id)`: how many pages there are, how many the pipeline has extracted, and how many
   have had their entries read (or failed); counts only.
 - `pipeline_running(conn, case_id)`: a bundle-processing job is queued or running for the case (a paused one is not).
@@ -33,6 +36,8 @@ from typing import Literal
 
 from psycopg import AsyncConnection
 
+from app.core.config import CostGuard, cost_guard
+from app.core.errors import ApiError
 from app.core.jobs import registry
 
 EXTRACT_ENTRIES = "extract_entries"
@@ -183,11 +188,21 @@ async def request_unread_retry(conn: AsyncConnection, case_id: uuid.UUID) -> uui
     if paused is not None:
         # A pause that is not resumable (the cost guard, the key service) never ends by itself: a press hands the
         # same job back to the queue, never a second job. If the pause comes back, the summary says so again.
+        # Not while the case is over its allowance: that run would pause again at once.
+        if await case_over_allowance(conn, case_id):
+            raise ApiError("allowance_used_up", "This case has used up its processing allowance.", 409)
         await _hand_back(conn, paused)
         return paused
     if await entries_status(conn, case_id) == "preparing":
         return None
     return await registry.enqueue(conn, case_id, RETRY_UNREAD)
+
+
+async def case_over_allowance(conn: AsyncConnection, case_id: uuid.UUID, guard: CostGuard | None = None) -> bool:
+    """The case's tokens used have reached the cost guard's allowance for its pages: the guard's own test."""
+    cur = await conn.execute("select tokens_used, pages from app.ai_budget(%s)", (case_id,))
+    budget = await cur.fetchone()
+    return budget is not None and int(budget[0]) >= (guard or cost_guard()).allowance(int(budget[1]))
 
 
 async def _paused_retry(conn: AsyncConnection, case_id: uuid.UUID) -> uuid.UUID | None:

@@ -1551,9 +1551,7 @@ async def retry_progress(
     over = False
     if paused and job[3] == "cost_guard" and guard is not None:
         # The guard's own test (`used >= allowance`): Try again cannot work while the case is still over it.
-        cur = await conn.execute("select tokens_used, pages from app.ai_budget(%s)", (case_id,))
-        budget = await cur.fetchone()
-        over = budget is not None and int(budget[0]) >= guard.allowance(int(budget[1]))
+        over = await record_entries.case_over_allowance(conn, case_id, guard)
     return RetryProgress(
         running=job[1] in ("queued", "running") or handed_back,
         paused=paused,
