@@ -81,8 +81,8 @@ async def test_entries_are_listed_without_any_fact(
     assert entry["page_no"] == 1 and entry["lines"] == ["hello there"] and entry["event_date"] == "2020-01-02"
     assert set(entry) == {
         "id", "page_no", "kind", "kind_label", "folded", "author_role", "author_label", "specialty", "event_date",
-        "date_basis", "lines", "results", "result_labels", "section",
-    }  # fmt: skip
+        "date_basis", "lines", "results", "result_labels", "section", "before", "after",
+    }  # fmt: skip  # before and after: the words of the page outside every entry (ADR 0035)
     assert body["picture_pages"] == []
 
 
