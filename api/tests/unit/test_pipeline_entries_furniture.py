@@ -125,5 +125,6 @@ def test_a_short_year_birth_date_does_not_block_the_visit_date(combo: Combo) -> 
     ordered, lines = laid_out(["Mr Smith DOB 05/03/60", "Seen 12/01/2020 cough"])
     got = extract.entry_date(whole(ordered), ordered, set(), pack, [birth_of(pack)], lines)
     assert got == (seen(pack), dates.PRINTED)
-    unknown = extract.entry_date(whole(ordered), ordered, set(), pack, [], lines)
-    assert unknown == (None, dates.PLEASE_CHECK), "without a recorded birth date the short year still blocks"
+    plain, lines = laid_out(["Mr Smith 05/03/60", "Seen 12/01/2020 cough"])  # no birth label, no recorded date
+    unknown = extract.entry_date(whole(plain), plain, set(), pack, [], lines)
+    assert unknown == (None, dates.PLEASE_CHECK), "with no label and no recorded birth date a short year blocks"
