@@ -77,6 +77,7 @@ export function SubjectIdentity({ caseId }: { caseId: string }) {
           />
           <TextField
             label={t("setup.subject_identity.date_of_birth")}
+            hint={t("setup.subject_identity.date_of_birth_hint")}
             name="subject_date_of_birth"
             autoComplete="off"
             value={born}
