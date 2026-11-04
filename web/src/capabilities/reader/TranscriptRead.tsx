@@ -93,6 +93,25 @@ function WaitNotice({ words, counted, onRetry, progressTo, paused }: WaitProps) 
   );
 }
 
+type FileFormat = "docx" | "pdf";
+
+const clock = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+
+/** A file being built: what is happening in plain words, a bar that moves (the server cannot say how far it is) and
+ * the time so far. It stays until the file has downloaded or the build has failed. */
+function BuildNotice({ format }: { format: FileFormat }) {
+  const seconds = Math.floor(useElapsed(0) / 1000);
+  return (
+    <div className="av-notice av-notice--info rd-build" role="status" aria-live="polite">
+      <p>{w(format === "pdf" ? "transcript.building_pdf" : "transcript.building_docx")}</p>
+      <div className="rd-build__bar" role="progressbar" aria-label={w(format === "pdf" ? "transcript.building_label_pdf" : "transcript.building_label_docx")}>
+        <span className="rd-build__moving" />
+      </div>
+      <p className="rd-build__time">{w("transcript.build_elapsed", { time: clock(seconds) })}</p>
+    </div>
+  );
+}
+
 type SeenFn = (view: { entry_id?: string; page_no?: number; dwell_ms?: number; picture_opened: boolean }) => void;
 
 // An entry counts as on screen when most of it is in view, or when it fills most of the screen (a tall entry can
@@ -215,6 +234,8 @@ export function TranscriptRead() {
   const [pagesTotal, setPagesTotal] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [preparingFile, setPreparingFile] = useState(false);
+  const [building, setBuilding] = useState<FileFormat | null>(null);
+  const [problem, setProblem] = useState<{ format: FileFormat; text: string } | null>(null);
   const [outline, setOutline] = useState<Schemas["TranscriptOutline"] | null>(null);
   const entriesRef = useRef<Entry[]>([]);
   entriesRef.current = entries;
@@ -424,9 +445,11 @@ export function TranscriptRead() {
     [caseId, progress],
   );
 
-  async function download(format: "docx" | "pdf") {
+  async function download(format: FileFormat) {
     setMessage(null);
+    setProblem(null);
     setPreparingFile(true);
+    setBuilding(format);
     try {
       const started = await stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/transcript/download", { params: { path: { case_id: caseId } }, body: { format } })));
       if (!started) return;
@@ -443,11 +466,14 @@ export function TranscriptRead() {
           await new Promise((r) => setTimeout(r, POLL_MS));
         }
       }
-      setMessage(w("transcript.download_slow"));
+      setProblem({ format, text: w("transcript.download_slow") });
     } catch (err) {
-      setMessage(errorMessage(err));
+      // The server says a build failed with `build_failed`; anything else is shown from its code.
+      const failedBuild = (err as { code?: string }).code === "build_failed";
+      setProblem({ format, text: failedBuild ? w(format === "pdf" ? "transcript.build_failed_pdf" : "transcript.build_failed_docx") : errorMessage(err) });
     } finally {
       setPreparingFile(false);
+      setBuilding(null);
     }
   }
 
@@ -585,6 +611,13 @@ export function TranscriptRead() {
         )}
         <p className="rd-transcript__lead">{w("transcript.lead")}</p>
       </header>
+      {building && <BuildNotice format={building} />}
+      {problem && (
+        <Notice tone="warning">
+          <p>{problem.text}</p>
+          <Button onClick={() => void download(problem.format)}>{w("transcript.try_again")}</Button>
+        </Notice>
+      )}
       {message && <Notice tone="info"><p>{message}</p></Notice>}
       {status !== "ready" && waitState()}
       {status === "ready" && view()}
