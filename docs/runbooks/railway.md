@@ -32,6 +32,7 @@ Copy every name from `api/.env.example` into both services (Railway "shared vari
   role (`app_worker`), adds its own connections to the same pool of 15 and needs more pooler capacity first: raise the
   Supabase pool size, then `WORKER_DB_POOL_MAX` / `WORKER_QUEUE_POOL_MAX`, keeping every replica's two pools together
   below the pooler's pool size. More model calls at once need a bigger `WORKER_DB_POOL_MAX`, never a bigger reserve.
+- `AI_ENTRY_COVERAGE_FLOOR` (default 0.8, more than 0 and at most 1): the share of a page's words the entries read from it must cover.
 - `AI_COST_GUARD_MULTIPLE` (default 3), `AI_EXPECTED_TOKENS_PER_PAGE` (4000), `AI_MIN_EXPECTED_PAGES` (100): the cost guard
   (F11). The worker pauses a case once its tokens pass multiple x tokens per page x max(pages, minimum pages), and the
   API reads the same three to tell the person "this case has used up its allowance" and to refuse "Try again". Set them
