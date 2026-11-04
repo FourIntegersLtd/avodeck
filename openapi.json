@@ -18273,6 +18273,12 @@
       },
       "Subject": {
         "properties": {
+          "date_of_birth_recorded": {
+            "default": false,
+            "description": "Whether the person's date of birth is recorded; never the date.",
+            "title": "Date Of Birth Recorded",
+            "type": "boolean"
+          },
           "identity_recorded": {
             "description": "Whether the person's name is recorded; never the values.",
             "title": "Identity Recorded",

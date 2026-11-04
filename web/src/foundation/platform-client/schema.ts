@@ -11968,6 +11968,12 @@ export interface components {
         /** Subject */
         Subject: {
             /**
+             * Date Of Birth Recorded
+             * @description Whether the person's date of birth is recorded; never the date.
+             * @default false
+             */
+            date_of_birth_recorded: boolean;
+            /**
              * Identity Recorded
              * @description Whether the person's name is recorded; never the values.
              */

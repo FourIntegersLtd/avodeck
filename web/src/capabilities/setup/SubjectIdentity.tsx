@@ -16,10 +16,17 @@ export function SubjectIdentity({ caseId }: { caseId: string }) {
   const [name, setName] = useState("");
   const [others, setOthers] = useState("");
   const [born, setBorn] = useState("");
-  const [saved, setSaved] = useState(false);
+  // What the last Save recorded; null until a Save, and cleared by the next edit.
+  const [justSaved, setJustSaved] = useState<{ dob: boolean } | null>(null);
+  const [saved, setSaved] = useState<{ dob: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const saving = useBusy();
-  const recorded = saved || subject.data?.identity_recorded === true;
+  const recorded = saved !== null || subject.data?.identity_recorded === true;
+  const dobRecorded = saved ? saved.dob : subject.data?.date_of_birth_recorded === true;
+  const edit = (set: (v: string) => void) => (e: { target: { value: string } }) => {
+    setJustSaved(null);
+    set(e.target.value);
+  };
   const save = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -37,7 +44,9 @@ export function SubjectIdentity({ caseId }: { caseId: string }) {
           },
         }),
       );
-      setSaved(true);
+      const result = { dob: born.trim() !== "" };
+      setSaved(result);
+      setJustSaved(result);
       setName("");
       setOthers("");
       setBorn("");
@@ -47,9 +56,9 @@ export function SubjectIdentity({ caseId }: { caseId: string }) {
   };
   return (
     <>
-      {subject.data && !recorded && (
+      {subject.data && (!recorded || !dobRecorded) && (
         <Notice tone="warning">
-          <p>{t("setup.subject_identity.banner")}</p>
+          <p>{t(recorded ? "setup.subject_identity.banner_dob" : "setup.subject_identity.banner")}</p>
         </Notice>
       )}
       <Section
@@ -57,7 +66,9 @@ export function SubjectIdentity({ caseId }: { caseId: string }) {
         title={t("setup.subject_identity.title")}
         intro={t("setup.subject_identity.intro")}
       >
-        {recorded && <p>{t("setup.subject_identity.saved")}</p>}
+        {recorded && (
+          <p>{t(dobRecorded ? "setup.subject_identity.saved" : "setup.subject_identity.saved_name_only")}</p>
+        )}
         <form className="av-stack" onSubmit={(e) => void saving.run(() => save(e))}>
           <TextField
             label={t("setup.subject_identity.name")}
@@ -65,7 +76,7 @@ export function SubjectIdentity({ caseId }: { caseId: string }) {
             autoComplete="off"
             required
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={edit(setName)}
           />
           <TextField
             label={t("setup.subject_identity.other_names")}
@@ -73,20 +84,26 @@ export function SubjectIdentity({ caseId }: { caseId: string }) {
             name="subject_other_names"
             autoComplete="off"
             value={others}
-            onChange={(e) => setOthers(e.target.value)}
+            onChange={edit(setOthers)}
           />
           <TextField
             label={t("setup.subject_identity.date_of_birth")}
+            hint={t("setup.subject_identity.date_of_birth_hint")}
             name="subject_date_of_birth"
             autoComplete="off"
             value={born}
-            onChange={(e) => setBorn(e.target.value)}
+            onChange={edit(setBorn)}
           />
           <div>
             <Button type="submit" variant="secondary" busy={saving.busy}>
               {t("setup.subject_identity.save")}
             </Button>
           </div>
+          {justSaved && (
+            <Notice tone="mint">
+              <p>{t(justSaved.dob ? "setup.subject_identity.saved_now" : "setup.subject_identity.saved_now_no_dob")}</p>
+            </Notice>
+          )}
         </form>
         {error && (
           <Notice tone="error">

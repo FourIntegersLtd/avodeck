@@ -138,3 +138,20 @@ async def test_the_save_is_audited_without_the_values(
         (world["case"],),
     ).fetchall()
     assert rows == [("subject.identity_set", f"case:{world['case']}")]
+
+
+async def test_the_subject_says_whether_the_date_of_birth_is_recorded_never_the_date(
+    client_for: ClientFor, world: dict[str, uuid.UUID]
+) -> None:
+    expert = await client_for(world["expert"])
+    first = (await expert.get(url(world, "subject"))).json()
+    assert first["identity_recorded"] is False and first["date_of_birth_recorded"] is False
+    await expert.put(url(world, "subject/identity"), json={"name": NAME, "date_of_birth": None})
+    for who in ("expert", "assistant", "viewer"):
+        got = (await (await client_for(world[who])).get(url(world, "subject"))).json()
+        assert got["identity_recorded"] is True and got["date_of_birth_recorded"] is False, who
+    await expert.put(url(world, "subject/identity"), json=BODY)
+    for who in ("expert", "assistant", "viewer"):
+        got = await (await client_for(world[who])).get(url(world, "subject"))
+        assert got.json()["date_of_birth_recorded"] is True, who
+        assert "1960" not in got.text and "03/04" not in got.text
