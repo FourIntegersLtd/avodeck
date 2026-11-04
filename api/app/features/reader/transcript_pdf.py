@@ -82,7 +82,8 @@ _AMBER_TEXT = HexColor("#8A3F06")
 _MARGIN_X = 20 * mm
 _MARGIN_Y = 22 * mm
 _GUTTER = 30 * mm
-_BAND = 60 * mm
+_BAND = 84 * mm
+_COVER_FOOT = 58 * mm  # the cover's frame stops here; the "how to use" line and the mark stand below
 
 _BODY = ParagraphStyle("body", fontName=_SERIF, fontSize=10.5, leading=14.5, textColor=_INK)
 _LEAD = ParagraphStyle("lead", parent=_BODY, fontName=_SANS, fontSize=11, leading=16, spaceAfter=6)
@@ -100,6 +101,12 @@ _CELL_NUM = ParagraphStyle("cellnum", parent=_CELL, fontName=_MONO, alignment=TA
 _CELL_PAGE = ParagraphStyle("cellpage", parent=_MONO_LINK, alignment=TA_CENTER)
 _PANEL = ParagraphStyle("panel", fontName=_SANS, fontSize=12, leading=17, textColor=_AMBER_TEXT)
 _COVER_FACT = ParagraphStyle("coverfact", fontName=_SANS, fontSize=14, leading=20, textColor=_INK, spaceBefore=10)
+_COVER_CASE = ParagraphStyle(
+    "covercase", fontName=_SANS_BOLD, fontSize=22, leading=28, textColor=_FOREST, spaceBefore=4, spaceAfter=6
+)
+_TILE_NUM = ParagraphStyle("tilenum", fontName=_SANS_BOLD, fontSize=34, leading=40, textColor=_FOREST)
+_TILE_LABEL = ParagraphStyle("tilelabel", fontName=_SANS, fontSize=12, leading=16, textColor=_SLATE)
+_FOOT_USE = ParagraphStyle("footuse", fontName=_SANS, fontSize=11, leading=16, textColor=_SLATE)
 _TOC0 = ParagraphStyle(
     "toc0", fontName=_SANS_BOLD, fontSize=11, leading=15, textColor=_FOREST, spaceBefore=5, rightIndent=22 * mm
 )
@@ -189,6 +196,7 @@ def prepare_picture(data: bytes | None) -> bytes | None:
 
 class _Doc(BaseDocTemplate):  # type: ignore[misc]
     section_text = ""  # what the running header shows; set as each heading is placed
+    total_pages = 0  # the page count of the pass before; the footer prints it
 
     def afterFlowable(self, flowable: Any) -> None:  # noqa: N802
         if not isinstance(flowable, _Heading):
@@ -202,41 +210,37 @@ class _Doc(BaseDocTemplate):  # type: ignore[misc]
                 self.notify("TOCEntry", (flowable.level, escape(flowable.title), self.page, flowable.key))
 
 
-def _numbered_canvas(language: str) -> type[Canvas]:
-    """A canvas that writes the footer once every page is known, so it can say "Page n of N" (not on the cover)."""
+class _PageTotal(Flowable):  # type: ignore[misc]
+    """Takes up no room; tells `multiBuild` to go round again until the page count it measured is the count the
+    footers printed ("Page n of N"). The footer is drawn as each page ends, so the pages are really added as they
+    are made and every bookmark and link lands on its own page (a canvas that held the pages back put them all
+    on page 1)."""
 
-    class NumberedCanvas(Canvas):  # type: ignore[misc]
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            super().__init__(*args, **kwargs)
-            self._saved: list[dict[str, Any]] = []
+    def __init__(self, doc: _Doc) -> None:
+        super().__init__()
+        self.doc, self.settled = doc, False
 
-        def showPage(self) -> None:  # noqa: N802
-            self._saved.append(dict(self.__dict__))
-            self._startPage()
+    def wrap(self, availWidth: float, availHeight: float) -> tuple[float, float]:  # noqa: N803
+        return 0, 0
 
-        def save(self) -> None:
-            total = len(self._saved)
-            for state in self._saved:
-                self.__dict__.update(state)
-                if self._pageNumber > 1:
-                    self._footer(total)
-                super().showPage()
-            super().save()
+    def draw(self) -> None:
+        return None
 
-        def _footer(self, total: int) -> None:
-            width = A4[0]
-            self.setStrokeColor(_LINE)
-            self.setLineWidth(0.5)
-            self.line(_MARGIN_X, 15 * mm, width - _MARGIN_X, 15 * mm)
-            self.setFont(_SANS, 8.5)
-            self.setFillColor(_AMBER_TEXT)
-            self.drawString(_MARGIN_X, 10.5 * mm, word(language, "not_checked_short"))
-            self.setFillColor(_SLATE)
-            self.drawRightString(
-                width - _MARGIN_X, 10.5 * mm, word(language, "page_x_of_y", page=self._pageNumber, total=total)
-            )
+    def isIndexing(self) -> bool:  # noqa: N802
+        return True
 
-    return NumberedCanvas
+    def isSatisfied(self) -> bool:  # noqa: N802
+        return self.settled
+
+    def beforeBuild(self) -> None:  # noqa: N802
+        return None
+
+    def notify(self, kind: str, stuff: Any) -> None:
+        return None
+
+    def afterBuild(self) -> None:  # noqa: N802
+        self.settled = self.doc.total_pages == self.doc.page
+        self.doc.total_pages = self.doc.page
 
 
 def _links(pages: list[int]) -> Table:
@@ -332,29 +336,58 @@ def _coverage_table(layout: Layout, language: str, width: float) -> Table:
     return table
 
 
+def _tiles(layout: Layout, language: str, width: float) -> Table:
+    """Two big numbers: the pages with entries and the pages the computer could not read."""
+    cov = layout.coverage
+    cells = [
+        [Paragraph(str(n), _TILE_NUM), Paragraph(escape(word(language, key)), _TILE_LABEL)]
+        for key, n in (("cov_with", cov.with_entries), ("cov_unread", cov.unreadable))
+    ]
+    gap = 6 * mm
+    table = Table([[cells[0], "", cells[1]]], colWidths=[(width - gap) / 2, gap, (width - gap) / 2], hAlign="LEFT")
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (0, 0), _MINT),
+                ("BACKGROUND", (2, 0), (2, 0), _MINT),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 14),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 14),
+                ("TOPPADDING", (0, 0), (-1, -1), 14),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 14),
+                ("LEFTPADDING", (1, 0), (1, 0), 0),
+                ("RIGHTPADDING", (1, 0), (1, 0), 0),
+            ]
+        )
+    )
+    return table
+
+
 def _cover_story(
-    layout: Layout, language: str, width: float, prepared_on: date | None, date_order: str
+    layout: Layout, language: str, width: float, prepared_on: date | None, date_order: str, case_label: str | None
 ) -> list[Flowable]:
+    """Below the band: the case, the page count and date, the two counts, and the notice that nothing is checked."""
     panel = Table([[Paragraph(escape(word(language, "not_checked")), _PANEL)]], colWidths=[width])
     panel.setStyle(
         TableStyle(
             [
                 ("BACKGROUND", (0, 0), (-1, -1), _AMBER_FILL),
                 ("BOX", (0, 0), (-1, -1), 0.75, _AMBER_EDGE),
-                ("LEFTPADDING", (0, 0), (-1, -1), 12),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-                ("TOPPADDING", (0, 0), (-1, -1), 10),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+                ("LEFTPADDING", (0, 0), (-1, -1), 14),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 14),
+                ("TOPPADDING", (0, 0), (-1, -1), 12),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
             ]
         )
     )
-    story: list[Flowable] = [
-        panel,
-        Paragraph(escape(word(language, "bundle_pages", count=layout.coverage.total_pages)), _COVER_FACT),
-    ]
+    story: list[Flowable] = []
+    if case_label:
+        story.append(Paragraph(escape(word(language, "case_line", label=case_label)), _COVER_CASE))
+    story.append(Paragraph(escape(word(language, "bundle_pages", count=layout.coverage.total_pages)), _COVER_FACT))
     if prepared_on is not None:
         shown = show_date(prepared_on, date_order, language)
         story.append(Paragraph(escape(word(language, "prepared", date=shown)), _COVER_FACT))
+    story += [Spacer(1, 14 * mm), _tiles(layout, language, width), Spacer(1, 14 * mm), panel]
     return story
 
 
@@ -366,8 +399,10 @@ def build_pdf(
     language: str,
     received: dict[int, date],
     prepared_on: date | None = None,
+    case_label: str | None = None,
 ) -> bytes:
-    """`pictures` are (page number, image bytes) in page order; a page with no picture shows a "not available" line."""
+    """`pictures` are (page number, image bytes) in page order; a page with no picture shows a "not available" line.
+    `case_label` is the name the case already shows to its members; the cover prints it when there is one."""
     width = A4[0] - 2 * _MARGIN_X
     title = word(language, "title")
     letters = appendix_letters(layout)
@@ -380,7 +415,7 @@ def build_pdf(
     toc = TableOfContents()
     toc.levelStyles = [_TOC0, _TOC1]
     toc.dotsMinLevel = 0
-    story: list[Flowable] = _cover_story(layout, language, width, prepared_on, date_order)
+    story: list[Flowable] = _cover_story(layout, language, width, prepared_on, date_order, case_label)
     story += [NextPageTemplate("body"), PageBreak()]
 
     contents = word(language, "contents")
@@ -457,12 +492,42 @@ def build_pdf(
         canvas.setFillColor(_FOREST)
         canvas.rect(0, A4[1] - _BAND, A4[0], _BAND, stroke=0, fill=1)
         canvas.setFillColor(white)
-        canvas.setFont(_SANS_BOLD, 28)
-        canvas.drawString(_MARGIN_X, A4[1] - _BAND / 2 - 10, title)
+        canvas.setFont(_SANS_BOLD, 36)
+        canvas.drawString(_MARGIN_X, A4[1] - 32 * mm, title)
+        canvas.setFillColor(_MINT)
+        canvas.setFont(_SANS, 13)
+        canvas.drawString(_MARGIN_X, A4[1] - 44 * mm, word(language, "subtitle"))
+        canvas.setFont(_SANS_BOLD, 13)
+        canvas.drawString(_MARGIN_X, A4[1] - _BAND + 10 * mm, word(language, "prepared_by"))
+        # The foot: a thin rule, how to use the file, and the mark.
+        canvas.setStrokeColor(_LINE)
+        canvas.setLineWidth(0.75)
+        canvas.line(_MARGIN_X, _COVER_FOOT - 4 * mm, A4[0] - _MARGIN_X, _COVER_FOOT - 4 * mm)
+        use = Paragraph(escape(word(language, "how_to_use")), _FOOT_USE)
+        _w, h = use.wrap(width, 30 * mm)
+        use.drawOn(canvas, _MARGIN_X, _COVER_FOOT - 4 * mm - 3 * mm - h)
+        canvas.setFillColor(_FOREST)
+        canvas.setFont(_SANS_BOLD, 16)
+        canvas.drawString(_MARGIN_X, _MARGIN_Y - 4 * mm, word(language, "brand"))
         canvas.restoreState()
+
+    def footer(canvas: Canvas, d: _Doc) -> None:
+        canvas.setStrokeColor(_LINE)
+        canvas.setLineWidth(0.5)
+        canvas.line(_MARGIN_X, 15 * mm, A4[0] - _MARGIN_X, 15 * mm)
+        canvas.setFont(_SANS, 8.5)
+        canvas.setFillColor(_AMBER_TEXT)
+        canvas.drawString(_MARGIN_X, 10.5 * mm, word(language, "not_checked_short"))
+        canvas.setFillColor(_SLATE)
+        canvas.drawRightString(
+            A4[0] - _MARGIN_X,
+            10.5 * mm,
+            word(language, "page_x_of_y", page=canvas.getPageNumber(), total=d.total_pages),
+        )
 
     def running_header(canvas: Canvas, d: _Doc) -> None:
         canvas.saveState()
+        footer(canvas, d)
         y = A4[1] - 14 * mm
         canvas.setFont(_SANS, 8.5)
         canvas.setFillColor(_SLATE)
@@ -474,7 +539,7 @@ def build_pdf(
         canvas.restoreState()
 
     cover_frame = Frame(
-        _MARGIN_X, _MARGIN_Y, width, A4[1] - _BAND - _MARGIN_Y - 12 * mm, id="cover", leftPadding=0, rightPadding=0
+        _MARGIN_X, _COVER_FOOT, width, A4[1] - _BAND - _COVER_FOOT - 12 * mm, id="cover", leftPadding=0, rightPadding=0
     )
     body_frame = Frame(_MARGIN_X, _MARGIN_Y, width, A4[1] - 2 * _MARGIN_Y, id="body", leftPadding=0, rightPadding=0)
     doc.addPageTemplates(
@@ -483,5 +548,5 @@ def build_pdf(
             PageTemplate(id="body", frames=[body_frame], onPageEnd=running_header),
         ]
     )
-    doc.multiBuild(story, canvasmaker=_numbered_canvas(language))
+    doc.multiBuild([_PageTotal(doc), *story])
     return out.getvalue()

@@ -167,14 +167,33 @@ async def transcript_seen(case_id: uuid.UUID, body: SeenIn, access: Read, conn: 
 
 @router.post("/transcript/download", status_code=202, response_model=JobOut)
 async def transcript_download_request(
-    case_id: uuid.UUID, access: Export, view: View, conn: DbConn, body: TranscriptFileIn | None = None
+    case_id: uuid.UUID,
+    access: Export,
+    view: View,
+    conn: DbConn,
+    scope: CurrentScope,
+    body: TranscriptFileIn | None = None,
 ) -> JobOut:
     cur = await conn.execute("select named_expert_id from app.cases where id = %s", (case_id,))
     named = (await cur.fetchone() or (None,))[0]
     if named is None:
         raise ApiError("no_named_expert", "This case has no named expert yet.", 409)
     pdf = body is not None and body.format == "pdf"
-    job = await registry.enqueue(conn, case_id, transcript_jobs.KIND_PDF if pdf else transcript_jobs.KIND)
+    kind = transcript_jobs.KIND_PDF if pdf else transcript_jobs.KIND
+    # Presses are taken one at a time per case, person and format: a second press while the file is still being
+    # built (a long record takes minutes) picks that build up instead of starting another.
+    await conn.execute(
+        "select pg_advisory_xact_lock(hashtext(%s))", (f"transcript_download:{case_id}:{scope.person_id}:{kind}",)
+    )
+    cur = await conn.execute(
+        "select id from app.jobs where case_id = %s and kind = %s and status in ('queued', 'running', 'paused')"
+        " and requested_by is not distinct from app.current_person_id() order by created_at limit 1",
+        (case_id, kind),
+    )
+    building = await cur.fetchone()
+    if building is not None:
+        return JobOut(job_id=building[0])
+    job = await registry.enqueue(conn, case_id, kind)
     await audit.record(conn, action="case.transcript_requested", target=f"export:{job}", case_id=case_id)
     return JobOut(job_id=job)
 
@@ -193,6 +212,8 @@ async def transcript_download(
     job = await cur.fetchone()
     if job is None or not job[1]:
         raise _not_found()
+    if job[0] == "failed":
+        raise ApiError("build_failed", "The file could not be built.", 409)  # the screen stops waiting and offers again
     if job[0] != "done":
         raise ApiError("conflict", "The file is not ready yet.", 409)
     storage: CaseFileStorage | None = request.app.state.storage

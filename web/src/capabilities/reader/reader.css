@@ -269,6 +269,13 @@
 .rd-wait { display: flex; gap: 16px; align-items: flex-start; }
 .rd-wait__text { flex: 1 1 auto; min-width: 0; }
 .rd-wait__text p { margin: 0 0 8px; }
+.rd-build { margin: 0 0 16px; }
+.rd-build p { margin: 0 0 8px; }
+.rd-build__bar { position: relative; height: 12px; margin: 12px 0; overflow: hidden; border-radius: 6px; background: var(--line); }
+.rd-build__moving { position: absolute; top: 0; bottom: 0; left: 0; width: 35%; border-radius: 6px; background: var(--green); animation: rd-build-slide 1.6s ease-in-out infinite alternate; }
+.rd-build__time { font-family: "IBM Plex Mono", monospace; }
+@keyframes rd-build-slide { from { left: 0; } to { left: 65%; } }
+@media (prefers-reduced-motion: reduce) { .rd-build__moving { animation: none; width: 100%; opacity: 0.5; } }
 .rd-entry { border-bottom: 1px solid var(--line); padding: 20px 0; margin: 0; }
 .rd-entry--row { display: grid; grid-template-columns: 96px 1fr; gap: 0 16px; }
 .rd-entry__gutter { display: flex; flex-direction: column; gap: 4px; }
