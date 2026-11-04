@@ -74,16 +74,19 @@ class AzureOcr:
     def __repr__(self) -> str:
         return f"AzureOcr(endpoint={self.endpoint!r})"
 
-    async def analyse(self, document: bytes, model: OcrModel = "layout") -> OcrResult:
+    async def analyse(self, document: bytes, model: OcrModel = "layout", *, locale: str | None = None) -> OcrResult:
         started = time.monotonic()
         model_id = MODEL_IDS[model]
         url = f"{self.endpoint.rstrip('/')}/documentintelligence/documentModels/{model_id}:analyze"
+        params = {"api-version": API_VERSION}
+        if locale:
+            params["locale"] = locale
         async with httpx.AsyncClient(transport=self._transport, timeout=self._timeout) as http:
             submitted = await self._send(
                 http,
                 "POST",
                 url,
-                params={"api-version": API_VERSION},
+                params=params,
                 content=document,
                 headers={"Content-Type": "application/octet-stream"},
             )

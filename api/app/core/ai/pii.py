@@ -54,11 +54,17 @@ MONTHS = {
     ),
 }
 
-_NUMERIC_DATE = re.compile(r"(?<![\d/.\-])(\d{1,4})([/.\-])(\d{1,2})\2(\d{2,4})(?!\d|[/.\-]\d)")
+# A date may carry OCR spacing around its separators ("14 / 03 / 1969") and may touch a bracket, a dash or a
+# letter. Only a digit (or a digit and a separator) just before it means the digits belong to a longer number.
+_NUMERIC_DATE = re.compile(r"(?<!\d)(?<!\d[/.\-])(\d{1,4})\s*([/.\-])\s*(\d{1,2})\s*\2\s*(\d{2,4})(?!\d|[/.\-]\d)")
+# Written months: any mix of space, dot, dash, slash and comma between the parts ("14-Mar-1969", "Mar. 3, 1950").
+_JOIN = r"[\s.\-/,]+"
 _DAY_WORD_YEAR = re.compile(
-    r"(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([^\W\d_]{3,})\.?,?\s+(\d{4}|\d{2})(?!\d)", re.I
+    rf"(?<!\d)(\d{{1,2}})(?:st|nd|rd|th)?(?:\s+of\s+|{_JOIN})([^\W\d_]{{3,}}){_JOIN}(\d{{4}}|\d{{2}})(?!\d)", re.I
 )
-_WORD_DAY_YEAR = re.compile(r"\b([^\W\d_]{3,})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4}|\d{2})(?!\d)", re.I)
+_WORD_DAY_YEAR = re.compile(
+    rf"\b([^\W\d_]{{3,}}){_JOIN}(\d{{1,2}})(?:st|nd|rd|th)?{_JOIN}(\d{{4}}|\d{{2}})(?!\d)", re.I
+)
 
 
 # A prompt that sends one word per line: "<id><tab or space><word>" (w36<tab>Jane, p1w5 Jane). The ids stay;
@@ -250,7 +256,8 @@ def strip(
 ) -> Stripped:
     """Replace every identifier in `text` with a placeholder. Never logs or returns the originals."""
     lines = text.split("\n")
-    prefixes = [m.group(1) if (m := _WORD_LINE.match(line)) else "" for line in lines]
+    finder = pack.identifier_recognisers()
+    prefixes = [_id_prefix(line, finder) for line in lines]
     layered = any(prefixes)
     if layered:
         text = "\n".join(line[len(prefix) :] for line, prefix in zip(lines, prefixes, strict=True))
@@ -278,6 +285,18 @@ def strip(
         cursor = span.end
     out.append(text[cursor:])
     return Stripped(text="".join(out), counts=dict(counts))
+
+
+def _id_prefix(line: str, finder: Callable[[str], list[tuple[int, int, str]]]) -> str:
+    """The row id a word-per-line prompt puts before a word, or "" if the line has none. A line that opens with an
+    identifier of the pack (a postcode such as `AB1 2CD` looks like `<letters><digits><space>`) has no id."""
+    m = _WORD_LINE.match(line)
+    if not m:
+        return ""
+    prefix = m.group(1)
+    if any(start < len(prefix) < end for start, end, _ in finder(line)):
+        return ""
+    return prefix
 
 
 def _per_line(flat: str, prefixes: list[str], chosen: list[_Span], marks: list[str]) -> str:

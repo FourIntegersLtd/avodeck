@@ -126,7 +126,8 @@ def test_a_postcode_is_removed_at_the_start_of_a_line_and_whatever_its_spacing(
 
 
 @pytest.mark.parametrize(
-    "written", ["14/03/1969", "(14/03/1969)", "14-Mar-1969", "(14-Mar-1969)", "14.03.1969", "14 / 03 / 1969", "14/03/69"]
+    "written",
+    ["14/03/1969", "(14/03/1969)", "14-Mar-1969", "(14-Mar-1969)", "14.03.1969", "14 / 03 / 1969", "14/03/69"],
 )
 @pytest.mark.parametrize(
     "sentence",
@@ -170,6 +171,6 @@ def test_fixture_pack_an_address_code_at_the_start_of_a_line_is_removed(library:
 
 
 def test_fixture_pack_word_per_line_prompts_still_keep_their_ids(library: PackLibrary) -> None:
-    out = pii.strip("w1\tZ4\nw2\t77Z\nw3\tseen", pack=merged(library, FIXTURE))
+    out = pii.strip("w1\tZ4\nw2\t77Z\nw3\tseen", pack=merged(library, FIXTURE))  # noqa: B005
     assert [line.split("\t")[0] for line in out.text.split("\n")] == ["w1", "w2", "w3"]
     assert "77Z" not in out.text
