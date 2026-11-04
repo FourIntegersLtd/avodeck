@@ -51,10 +51,10 @@ async def test_repair_redates_a_birth_dated_entry_and_splits_a_card_with_no_reco
     page_id = seed.page(case_id, seed.document(case_id), 1)
     ecg = ["ASHWORTH", label_of(pack), written(pack, 14, 3, 1969), "08-JUN-2022", "14:51"]
     card = [
-        ["Seen", "27-Sep-2018", "cough"],
+        ["27-Sep-2018", "cough"],
         ["plan", "rest"],
-        ["Seen", "03-Oct-2018", "better"],
-        ["Seen", "21-Nov-2018", "home"],
+        ["03-Oct-2018", "better"],
+        ["21-Nov-2018", "home"],
     ]
     last = ["Seen", "03-Apr-2019", "by", "nurse"]
     rows = [ecg, *card, last]
