@@ -27,7 +27,11 @@ Copy every name from `api/.env.example` into both services (Railway "shared vari
   pooler lets only its **pool size** of clients in at once per role (Supabase default 15, set under Database > Connection
   pooling). Keep `WORKER_DB_POOL_MAX + WORKER_QUEUE_POOL_MAX` below the pooler's pool size, or the pooler answers
   `EMAXCONNSESSION` and jobs stop. Raise the pooler's pool size first, then these. Model calls in flight follow
-  `WORKER_DB_POOL_MAX` (less a reserve of two).
+  `WORKER_DB_POOL_MAX` (less a reserve of two): with the defaults, only about **8 model calls run at once**, on 10 + 4
+  pooler connections per worker replica. A **second worker replica**, or any other client connecting as the same pooler
+  role (`app_worker`), adds its own connections to the same pool of 15 and needs more pooler capacity first: raise the
+  Supabase pool size, then `WORKER_DB_POOL_MAX` / `WORKER_QUEUE_POOL_MAX`, keeping every replica's two pools together
+  below the pooler's pool size. More model calls at once need a bigger `WORKER_DB_POOL_MAX`, never a bigger reserve.
 - `AI_COST_GUARD_MULTIPLE` (default 3), `AI_EXPECTED_TOKENS_PER_PAGE` (4000), `AI_MIN_EXPECTED_PAGES` (100): the cost guard
   (F11). The worker pauses a case once its tokens pass multiple x tokens per page x max(pages, minimum pages), and the
   API reads the same three to tell the person "this case has used up its allowance" and to refuse "Try again". Set them
