@@ -40,6 +40,7 @@ const WORDS = {
   "copies.downloaded": "Downloaded. Keep the file somewhere safe.",
   "copies.gone": "These files were already downloaded. Get them ready again if you need another copy.",
   "copies.failed": "We couldn't get your files ready. Please try again.",
+  "copies.slow": "This is taking longer than usual. Please check back in a little while. There is no need to start it again.",
 
   "keep.heading": "How long we hold the records",
   "keep.lead": "The medical records belong to the case, not to you. Pick what your instructions say.",
