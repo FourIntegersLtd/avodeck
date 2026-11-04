@@ -138,10 +138,10 @@ def split(
 def test_a_card_with_three_dated_lines_is_three_entries_that_cover_it(combo: Combo) -> None:
     pack = pack_of(combo)
     rows = [
-        "Seen 27-Sep-2018 cough",
+        "27-Sep-2018 cough",
         "plan rest and fluids",
-        "Seen 03-Oct-2018 better",
-        "Seen 21-Nov-2018 discharged home",
+        "03-Oct-2018 better",
+        "21-Nov-2018 discharged home",
     ]
     got, ordered, lines = split(pack, rows, anchor=ANCHOR)
     assert len(got) == 3

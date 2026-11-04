@@ -618,6 +618,11 @@ async def _load_page(
     return _LoadedPage(stored, size, latest, texts, ordered, struck, text, page_subject(ordered))
 
 
+def _page_anchor(found: Sequence[dates.Printed], latest: date | None) -> date:
+    """The date a two-digit year is read back from: the latest date printed in full in the bundle so far."""
+    return dates.bundle_anchor([*found, *([dates.Printed((), latest, None, False)] if latest is not None else [])])
+
+
 def _entries_of(
     output: Mapping[str, Any] | None,
     ordered: list[tuple[str, str]],
@@ -625,25 +630,28 @@ def _entries_of(
     pack: Any,
     dates_of_birth: Sequence[date] = (),
     lines: Mapping[str, int] | None = None,
+    anchor: date | None = None,
 ) -> tuple[list[repo.NewEntry], int]:
-    """The page's entries that pass provenance (overlaps trimmed), each dated from the dates printed inside it
-    (never a known date of birth), and the count dropped."""
+    """The page's entries that pass provenance (overlaps trimmed), an entry that holds two or more lines that
+    start with different printed dates split into one entry per dated line, each dated from the dates printed
+    inside it (never a birth date, recorded or printed after a birth label), and the count dropped."""
     positions = {word_id: n for n, (word_id, _) in enumerate(ordered, start=1)}
     sorted_entries = extract.sort_entries(output, positions, pack)
     entries = []
-    for e in sorted_entries.kept:
-        when, basis = extract.entry_date(e, ordered, struck, pack, dates_of_birth, lines, len(ordered))
-        entries.append(
-            repo.NewEntry(
-                kind=e.kind,
-                first_n=e.first_n,
-                last_n=e.last_n,
-                author_role=e.author_role,
-                specialty=e.specialty,
-                event_date=when,
-                date_basis=basis,
+    for whole in sorted_entries.kept:
+        for e in extract.split_at_dated_lines(whole, ordered, struck, lines, pack, dates_of_birth, anchor):
+            when, basis = extract.entry_date(e, ordered, struck, pack, dates_of_birth, lines, len(ordered), anchor)
+            entries.append(
+                repo.NewEntry(
+                    kind=e.kind,
+                    first_n=e.first_n,
+                    last_n=e.last_n,
+                    author_role=e.author_role,
+                    specialty=e.specialty,
+                    event_date=when,
+                    date_basis=basis,
+                )
             )
-        )
     return entries, sorted_entries.rejected
 
 
@@ -785,7 +793,8 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
             evidence = extract.sort_evidence(output, ordered, struck, pack)
             lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
             entries: list[Any] | None
-            entries, entries_rejected = _entries_of(output, ordered, struck, pack, who.dates_of_birth, lines)
+            anchor = _page_anchor(found, latest)
+            entries, entries_rejected = _entries_of(output, ordered, struck, pack, who.dates_of_birth, lines, anchor)
             if stored and output is None:
                 entries = None  # no usable answer: not "no entries"; the page is left for a person
             if reason is None and stored and output is not None:
@@ -807,7 +816,9 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 again = extract.pages_of(again_raw).get(page_no) if again_raw is not None else None
                 if again is not None:
                     again_result = extract.sort_facts(again, texts, struck)
-                    again_entries, again_rejected = _entries_of(again, ordered, struck, pack, who.dates_of_birth, lines)
+                    again_entries, again_rejected = _entries_of(
+                        again, ordered, struck, pack, who.dates_of_birth, lines, anchor
+                    )
                     more_facts = len(again_result.kept) > len(kept)
                     wider = len(again_result.kept) >= len(kept) and coverage.entry_coverage(
                         ordered=ordered, struck=struck, entries=again_entries
@@ -818,9 +829,6 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                         entries, entries_rejected = again_entries, again_rejected
                         reason = coverage.reason_for(ordered=ordered, struck=struck, kept=kept, entries=entries)
             facts = []
-            anchor = dates.bundle_anchor(
-                [*found, *([dates.Printed((), latest, None, False)] if latest is not None else [])]
-            )
             for f in kept:
                 fields = dict(f.get("fields") or {})
                 when, basis, extra = date_repair.resolve_dated(
@@ -1239,7 +1247,10 @@ async def extract_entries(ctx: JobContext) -> None:
         answer = extract.pages_of(raw).get(1) if raw is not None else None
         output = dict(answer) if answer is not None else None
         lines = dates.line_numbers([(w.word_id, w.polygon) for w in loaded.stored])
-        entries, rejected = _entries_of(output, loaded.ordered, loaded.struck, pack, who.dates_of_birth, lines)
+        anchor = _page_anchor(
+            dates.find([(w, t) for w, t in loaded.ordered if w not in loaded.struck], pack), loaded.latest
+        )
+        entries, rejected = _entries_of(output, loaded.ordered, loaded.struck, pack, who.dates_of_birth, lines, anchor)
         async with ctx.transaction() as conn:
             if loaded.stored and output is None:
                 await repo.leave_entries_for_person(conn, page_id)
@@ -1260,7 +1271,9 @@ async def extract_entries(ctx: JobContext) -> None:
 async def repair_fact_dates(ctx: JobContext) -> None:
     """Sets `event_date` on facts and entries that have none, using the same printed-word rules as extraction.
 
-    An entry that already has a date is never touched. A known date of birth is never used as an entry's date."""
+    An entry that has a date of its own is left alone; one dated with a birth date (recorded, or printed after a
+    birth label) is dated again, and a card that holds two or more lines starting with different dates is split
+    into one entry per dated line. A birth date is never used as an entry's date."""
     services = current()
     async with ctx.transaction() as conn:
         pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
@@ -1324,25 +1337,57 @@ async def repair_fact_dates(ctx: JobContext) -> None:
                     cited = date_repair.cited_with(fact.word_ids, extra, ordered) if extra else None
                     if await repo.set_fact_event_date(conn, ctx.case_id, fact.fact_id, when, basis, cited):
                         repaired += 1
+            every, _ = extract.page_births(ordered, struck, pack, who.dates_of_birth, anchor)
             for row in undated:
                 if row.first_n > len(ordered):
                     continue
                 first, last = ordered[row.first_n - 1][0], ordered[min(row.last_n, len(ordered)) - 1][0]
-                entry = extract.Entry(row.kind, first, last, row.first_n, row.last_n, None, None)
-                when, basis = extract.repair_entry_date(
-                    entry,
-                    ordered,
-                    struck,
-                    lines,
-                    pack,
-                    dates_of_birth=who.dates_of_birth,
-                    anchor=anchor,
-                    page_size=len(ordered),
-                    page_entries=page_entries,
+                whole = extract.Entry(row.kind, first, last, row.first_n, row.last_n, None, None)
+                birth_dated = row.event_date is not None and dates.is_birth(
+                    dates.Printed((), row.event_date, None, False), every
                 )
-                if when is not None and basis is not None and basis != dates.PLEASE_CHECK:
-                    if await repo.set_entry_event_date(conn, row.entry_id, when, basis):
-                        repaired += 1
+                if row.event_date is not None and not birth_dated:
+                    # a dated entry is changed only when its date is a birth date, or it is a card to split
+                    pieces = extract.split_at_dated_lines(
+                        whole, ordered, struck, lines, pack, who.dates_of_birth, anchor
+                    )
+                    if len(pieces) == 1:
+                        continue
+                else:
+                    pieces = extract.split_at_dated_lines(
+                        whole, ordered, struck, lines, pack, who.dates_of_birth, anchor
+                    )
+                dated = [
+                    extract.repair_entry_date(
+                        piece,
+                        ordered,
+                        struck,
+                        lines,
+                        pack,
+                        dates_of_birth=who.dates_of_birth,
+                        anchor=anchor,
+                        page_size=len(ordered),
+                        page_entries=page_entries,
+                    )
+                    for piece in pieces
+                ]
+                if len(pieces) == 1 and row.event_date is None:  # as before: only a date found is written
+                    when, basis = dated[0]
+                    if when is not None and basis is not None and basis != dates.PLEASE_CHECK:
+                        if await repo.set_entry_event_date(conn, row.entry_id, when, basis):
+                            repaired += 1
+                    continue
+                await repo.replace_entry(
+                    conn,
+                    row.entry_id,
+                    [
+                        repo.NewEntry(
+                            kind=row.kind, first_n=p.first_n, last_n=p.last_n, event_date=when, date_basis=basis
+                        )
+                        for p, (when, basis) in zip(pieces, dated, strict=True)
+                    ],
+                )
+                repaired += 1
         done += len(facts) + len(undated)
         if done == total or done % 50 == 0:
             await ctx.progress(min(99, 100 * done // total), step="repair")

@@ -53,7 +53,12 @@ def test_a_birth_date_on_the_first_line_does_not_date_an_entry_with_a_later_visi
         ["Mr Smith DOB 05/03/1960", "12/01/2020 Surgery consultation cough", "Dry cough for two days"]
     )
     size = len(ordered)
-    unknown = extract.entry_date(whole(ordered), ordered, set(), pack, lines=lines, page_size=size)
+    # The entry-dates change (plan section 2): a date after a birth label is a birth date even when none is
+    # recorded, so the unrecorded case is shown with the label left off.
+    bare, bare_lines = laid_out(
+        ["Mr Smith 05/03/1960", "12/01/2020 Surgery consultation cough", "Dry cough for two days"]
+    )
+    unknown = extract.entry_date(whole(bare), bare, set(), pack, lines=bare_lines, page_size=size)
     assert unknown == (None, dates.PLEASE_CHECK), "no date of birth is recorded: two dates, so the reader checks"
     known = extract.entry_date(
         whole(ordered), ordered, set(), pack, dates_of_birth=[birth_of(pack)], lines=lines, page_size=size

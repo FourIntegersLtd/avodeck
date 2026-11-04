@@ -27,7 +27,7 @@ import datetime as dt
 import difflib
 import logging
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import cache
 from pathlib import Path
 from typing import Any
@@ -354,6 +354,38 @@ def _without_births(found: Sequence[dates.Printed], births: Collection[dt.date])
     return [d for d in found if not dates.is_birth(d, births)]
 
 
+def page_births(
+    ordered: Sequence[tuple[str, str]],
+    struck: set[str],
+    pack: MergedPack,
+    births: Collection[dt.date],
+    anchor: dt.date | None,
+) -> tuple[set[dt.date], set[str]]:
+    """The page's birth dates (the recorded ones and every date printed after a birth label) and the words
+    of the labelled ones, which never date anything."""
+    ids, labelled = dates.labelled_births([(w, t) for w, t in ordered if w not in struck], pack, anchor)
+    return {*births, *labelled}, ids
+
+
+def _dated_inside(
+    inside: Sequence[tuple[str, str]],
+    ordered: Sequence[tuple[str, str]],
+    struck: set[str],
+    pack: MergedPack,
+    births: Collection[dt.date],
+    anchor: dt.date | None,
+) -> list[dates.Printed]:
+    """The dates printed in `inside` that can date an entry: no birth date (recorded or found by its label), and
+    with an `anchor` a two-digit year is read in its century (it stays ambiguous when no century fits)."""
+    every, labelled_words = page_births(ordered, struck, pack, births, anchor)
+    found = [d for d in dates.find(inside, pack) if not labelled_words.intersection(d.word_ids)]
+    found = _without_births(found, every)
+    if anchor is None:
+        return found
+    earliest = min(every) if every else None
+    return [dates.resolve_century(d, anchor, earliest) for d in found]
+
+
 def _choose(found: Sequence[dates.Printed]) -> dt.date | None:
     """The one date that reads a single way, when exactly one distinct such date is printed."""
     readable = {d.value for d in found if not d.ambiguous}
@@ -402,17 +434,21 @@ def entry_date(
     dates_of_birth: Collection[dt.date] = (),
     lines: Mapping[str, int] | None = None,
     page_size: int | None = None,
+    anchor: dt.date | None = None,
 ) -> tuple[Any, str | None]:
     """An entry's date from the dates printed inside its words, by these rules in order:
 
-    1. a known date of birth is never an entry's date;
+    1. a birth date is never an entry's date: neither a recorded one nor a date printed directly after a birth
+       label (the pack's words), with or without a recorded date of birth;
     2. exactly one distinct date that reads a single way is used;
     3. else exactly one such date on the entry's first printed line is used;
     4. else, when dates were printed but none can be chosen, the reader is asked to check (`please_check`);
     5. else the entry has no date.
 
-    Nothing is guessed: a date that reads more than one way (a two-digit year) is never chosen, and while
-    one is printed anywhere in the entry no other date is chosen either (rules 2 and 3 do not apply).
+    Nothing is guessed. With an `anchor` a two-digit year is read in the latest century not after it and not
+    before the date of birth when known (basis `printed_century`) and then counts as any other date. A date that
+    still reads more than one way (no `anchor`, or no century fits) is never chosen, and while one is printed
+    anywhere in the entry no other date is chosen either (rules 2 and 3 do not apply).
 
     With `page_size` (the page's word count) page furniture is guarded, since entries cover every word: the
     entry holding the page's first word may hold a header, so rule 3 is not used for it; and a date taken only
@@ -421,7 +457,7 @@ def entry_date(
     inside = [
         (w, t) for n, (w, t) in enumerate(ordered, start=1) if entry.first_n <= n <= entry.last_n and w not in struck
     ]
-    found = _without_births(dates.find(inside, pack), set(dates_of_birth))
+    found = _dated_inside(inside, ordered, struck, pack, set(dates_of_birth), anchor)
     chosen = None
     if not any(d.ambiguous for d in found):
         chosen = _choose(found)
@@ -430,7 +466,8 @@ def entry_date(
         if chosen is not None and _only_in_footer(chosen, found, entry, ordered, lines, page_size):
             chosen = None
     if chosen is not None:
-        return chosen, dates.PRINTED
+        from_century = all(d.century for d in found if d.value == chosen)
+        return chosen, dates.PRINTED_CENTURY if from_century else dates.PRINTED
     return (None, dates.PLEASE_CHECK) if found else (None, None)
 
 
@@ -446,34 +483,19 @@ def repair_entry_date(
     page_size: int | None = None,
     page_entries: Sequence[Entry] = (),
 ) -> tuple[Any, str | None]:
-    """The repair pass for an entry that has no date: the rules of `entry_date`, then a two-digit year read in
-    the century before `anchor` (`printed_century`), then the date on the line directly above the entry
+    """The repair pass for an entry that has no date: the rules of `entry_date` (which read a two-digit year in
+    the century before `anchor`, `printed_century`), then the date on the line directly above the entry
     (`line_above`). A known date of birth is never used, and a date inside any of `page_entries` (the page's
     entries) is never borrowed from the line above. With no date chosen the basis is `please_check` when
     dates were printed, else None. `page_size` guards page furniture as in `entry_date`."""
     births = set(dates_of_birth)
-    when, basis = entry_date(entry, ordered, struck, pack, births, lines, page_size)
+    when, basis = entry_date(entry, ordered, struck, pack, births, lines, page_size, anchor)
     if when is not None:
         return when, basis
     inside = [
         (w, t) for n, (w, t) in enumerate(ordered, start=1) if entry.first_n <= n <= entry.last_n and w not in struck
     ]
-    found = _without_births(dates.find(inside, pack), births)
-    short = [d for d in found if d.ambiguous]
-    if short:
-        # a short year is read only on the first printed line, or anywhere when it is the only kind of date
-        first_line = [] if _starts_page(entry, page_size) else _on_first_line(short, inside, lines)
-        candidates = first_line or (short if len(short) == len(found) else [])
-        read = {
-            c
-            for d in candidates
-            for c in [
-                dates.century_from_ambiguous_text(" ".join(t for w, t in inside if w in d.word_ids), pack, anchor)
-            ]
-            if c is not None and c not in births
-        }
-        if len(read) == 1:
-            return read.pop(), dates.PRINTED_CENTURY
+    found = _dated_inside(inside, ordered, struck, pack, births, anchor)
     if found:  # dates were printed but none can be chosen: the reader checks; nothing above is borrowed
         return when, basis
     above, above_basis, _ = date_repair.line_above_of(
@@ -483,9 +505,55 @@ def repair_entry_date(
         lines,
         pack,
         anchor=anchor,
-        skip=births,
+        skip=page_births(ordered, struck, pack, births, anchor)[0],
         blocked=[(e.first_n, e.last_n) for e in page_entries],
     )
     if above is not None:
         return above, above_basis
     return when, basis
+
+
+def split_at_dated_lines(
+    entry: Entry,
+    ordered: Sequence[tuple[str, str]],
+    struck: set[str],
+    lines: Mapping[str, int] | None,
+    pack: MergedPack,
+    dates_of_birth: Collection[dt.date] = (),
+    anchor: dt.date | None = None,
+) -> list[Entry]:
+    """One entry per dated line, for an entry that holds two or more lines that start with a printed date (a
+    handwritten card with a line for each visit). Nothing is read by a model: the pieces cover the original
+    entry's words exactly, in order, so provenance is unchanged. The first piece also keeps any lines before
+    the first dated line, and a line that does not start with a date stays with the dated line above it.
+
+    A birth date never starts an entry, and two dated lines in a row with the same date are one visit, so they
+    stay together. Without line positions nothing is split."""
+    if lines is None:
+        return [entry]
+    inside = [
+        (w, t) for n, (w, t) in enumerate(ordered, start=1) if entry.first_n <= n <= entry.last_n and w not in struck
+    ]
+    first_of_line: dict[int, str] = {}
+    for word_id, _ in inside:
+        if word_id in lines:
+            first_of_line.setdefault(lines[word_id], word_id)
+    position = {w: n for n, (w, _) in enumerate(ordered, start=1)}
+    starts: list[tuple[int, dt.date]] = []
+    for d in sorted(
+        _dated_inside(inside, ordered, struck, pack, set(dates_of_birth), anchor), key=lambda x: position[x.word_ids[0]]
+    ):
+        word_id = d.word_ids[0]
+        if word_id not in lines or first_of_line.get(lines[word_id]) != word_id:
+            continue
+        if starts and starts[-1][1] == d.value:
+            continue
+        starts.append((position[word_id], d.value))
+    if len(starts) < 2:
+        return [entry]
+    cuts = [entry.first_n, *(n for n, _ in starts[1:])]
+    ends = [*(n - 1 for n in cuts[1:]), entry.last_n]
+    return [
+        replace(entry, first_word_id=ordered[a - 1][0], last_word_id=ordered[b - 1][0], first_n=a, last_n=b)
+        for a, b in zip(cuts, ends, strict=True)
+    ]
