@@ -9,7 +9,7 @@ import { formatDay } from "../../foundation/i18n/dates";
 import { caseSubtitle, stepFor } from "../../foundation/lib/caseFrame";
 import { SessionContext } from "../../foundation/lib/session";
 import { errorMessage } from "../../foundation/lib/errors";
-import { useJob } from "../../foundation/lib/sse";
+import { useJobOutcome } from "../../foundation/lib/sse";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
@@ -139,6 +139,7 @@ function Section({ title, step, icon, children }: { title: string; step?: number
   );
 }
 
+const EXPORT_WAIT_MS = 10 * 60_000; // after this the server is asked once, so a lost job ends as a failure and not a spinner
 type Making = { state: "idle" } | { state: "making"; job: string } | { state: "ready"; job: string } | { state: "done" } | { state: "failed" };
 
 function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
@@ -152,12 +153,11 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
   const isOn = (f: { kind: string; selected: boolean }) => changed[f.kind] ?? f.selected;
   const chosen = files.filter(isOn).map((f) => f.kind);
 
-  const live = useJob(making.state === "making" ? caseId : null, making.state === "making" ? making.job : null);
+  const outcome = useJobOutcome(making.state === "making" ? caseId : null, making.state === "making" ? making.job : null, EXPORT_WAIT_MS);
   useEffect(() => {
-    if (making.state !== "making" || !live) return;
-    if (live.status === "done") setMaking({ state: "ready", job: making.job });
-    else if (live.status === "failed" || live.status === "cancelled") setMaking({ state: "failed" });
-  }, [live, making]);
+    if (making.state !== "making" || !outcome) return;
+    setMaking(outcome === "done" ? { state: "ready", job: making.job } : { state: "failed" });
+  }, [outcome, making]);
 
   const make = async () => {
     setError(null);

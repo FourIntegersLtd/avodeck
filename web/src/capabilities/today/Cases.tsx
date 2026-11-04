@@ -20,7 +20,7 @@ export function Cases() {
   const [query, setQuery] = useState(q);
   useEffect(() => {
     if (query.trim() === q) return;
-    const wait = setTimeout(() => setParams((p) => withParam(p, "q", query.trim()), { replace: true }), 250);
+    const wait = setTimeout(() => setParams((p) => withParam(p, "q", query.trim()), { replace: true }), 250); // clock, not data: waits for typing to pause
     return () => clearTimeout(wait);
   }, [query, q, setParams]);
   const setOrg = (next: string | null) => setParams((p) => withParam(p, "organisation_id", next ?? ""), { replace: true });

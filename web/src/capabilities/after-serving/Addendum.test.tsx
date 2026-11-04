@@ -1,8 +1,9 @@
 // S21b Correct or update your report: the served version read-only, a change with its reason, the paragraphs that
 // rely on it, the supplementary report, and signing it behind the code. The served report is never altered.
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import { apiError, http, json, server } from "../../test/api";
+import { FakeEventSource, liveJob } from "../../test/eventSource";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
@@ -65,6 +66,19 @@ test("the supplementary report is drafted from the changes; with none it explain
   await user.click(screen.getByRole("button", { name: M["after_serving.change.build"]! }));
   expect(await screen.findByText(M["after_serving.change.building"]!)).toBeInTheDocument();
   expect(sent).toHaveLength(2);
+});
+
+test("the 'drafting' notice clears when the case stream says the draft is ready, with no refresh", async () => {
+  serve("launch", { changes: [change()] });
+  server.use(http.post("/v1/cases/:caseId/report-changes/supplementary", () => json({ job_id: "j" }, 202)));
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: M["after_serving.change.build"]! }));
+  expect(await screen.findByText(M["after_serving.change.building"]!)).toBeInTheDocument();
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "j", kind: "build_supplementary", status: "running" })]));
+  server.use(http.get("/v1/cases/:caseId/report-changes", () => json({ changes: [change()], supplementary: supplementary("draft") } as never)));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "j", kind: "build_supplementary", status: "done" })])); // a later change, not the first snapshot
+  await waitFor(() => expect(screen.queryByText(M["after_serving.change.building"]!)).toBeNull());
 });
 
 test("signing the supplementary report needs the box ticked and the code, then shows it locked", async () => {

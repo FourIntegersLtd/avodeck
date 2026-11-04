@@ -61,7 +61,8 @@ test("building shows a waiting message, then the new version when it is ready", 
   await user.click(await screen.findByRole("button", { name: M["report.report.rebuild"]! }));
   expect(await screen.findByText(M["report.building"]!)).toBeInTheDocument();
   await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
-  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "j1", kind: "build_report", status: "done" })]));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "j1", kind: "build_report", status: "running" })]));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "j1", kind: "build_report", status: "done" })])); // a later change, not the first snapshot
   expect(await screen.findByText("Draft 2 · 31 pages")).toBeInTheDocument();
   await waitFor(() => expect(screen.queryByText(M["report.building"]!)).toBeNull());
 });

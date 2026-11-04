@@ -89,7 +89,7 @@ export function BundleSearch({ caseId, pageNo, result, onResult, onOpen, onDone,
     setAll(false);
     seq.current++;
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => void run(text), PAUSE_MS);
+    timer.current = setTimeout(() => void run(text), PAUSE_MS); // clock, not data: waits for typing to pause, one search per pause
   }
 
   function enter() {

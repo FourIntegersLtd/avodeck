@@ -7,7 +7,7 @@ import { describe, expect, test } from "vitest";
 import { files, isTest, WEB } from "./walk";
 
 const HUB = "src/foundation/lib/sse.ts";
-const CLOCK = "clock, not data"; // marks a timer that only counts time or spaces calls out, and reads nothing
+const CLOCK = "clock, not data"; // marks a timer that is a clock, never a poll: it counts time, spaces calls out, delays a write, or fires one read once per trigger and is never rescheduled from its own callback
 
 const sources = files(`${WEB}/src`, (rel) => /\.tsx?$/.test(rel) && !isTest(rel) && !rel.includes("/platform-client/")).map((full) => {
   const rel = relative(WEB, full).split("\\").join("/");
@@ -32,8 +32,9 @@ describe("no polling in the browser", () => {
     expect(hits((l) => /\bPOLL_[A-Z_]+\b|refetchInterval|pollInterval/.test(l))).toEqual([]);
   });
 
-  test("no timer that loads or reloads data when it fires", () => {
-    expect(hits((l) => /setTimeout\(\s*(void\s+)?(reload|refresh|refetch|load)\b/.test(l))).toEqual([]);
+  test("no timer at all unless it says why it is only a clock, a pause or a delay", () => {
+    // Any setTimeout can be a poll in disguise (`setTimeout(() => void look(), 2000)`), so each must carry the marker.
+    expect(hits((l) => /\bsetTimeout\s*\(/.test(l))).toEqual([]);
   });
 
   test("the hub is still the one place a case's live jobs come from", () => {

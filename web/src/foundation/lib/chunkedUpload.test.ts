@@ -251,6 +251,21 @@ test("complete answers 202, then the upload is looked at again each time the cas
   expect(calls.cancels).toEqual([]);
 });
 
+test("a job that keeps its id and only changes status (running to done) still wakes the wait", async () => {
+  const calls = polled([view({ status: "finalizing" }), view({ status: "complete", document_id: DOC })]);
+  server.use(
+    http.get("/v1/uploads/:id", () => {
+      const n = calls.polls++;
+      const status = n === 0 ? "running" : "done";
+      setTimeout(() => FakeEventSource.open().forEach((s) => s.emitJobs([liveJob({ id: "fin", kind: "finalize_upload", status })])), 0); // same id every time
+      return json(n === 0 ? view({ status: "finalizing" }) : view({ status: "complete", document_id: DOC }));
+    }),
+  );
+  await expect(uploadInParts(CASE, file(), "records")).resolves.toBe(DOC);
+  expect(calls.polls).toBe(2);
+  expect(pauses).toEqual([]);
+});
+
 test("progress never reaches 100% before the server says complete", async () => {
   polled([view({ status: "finalizing" }), view({ status: "complete", document_id: DOC })]);
   const seen: UploadProgress[] = [];

@@ -1,16 +1,17 @@
 // S04 New case: who the case is for, the pack, the side; then the letter, what was found in it (suggestions
 // the expert accepts one by one, never applied by themselves), who instructed them (jointly or not), the
 // parties, a duplicate warning and oral instructions.
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
+import { FakeEventSource, liveJob } from "../../test/eventSource";
 import { CASE_A, CASE_B } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { caseItem, casePack, inCase, launchWords, type PackRun } from "./testing";
 
 const IV = "b1111111-1111-4111-8111-111111111111";
 
-function details(run: PackRun, opts: { suggestions?: Array<Partial<{ id: string; field: string; value: string }>> } = {}) {
+function details(run: PackRun, opts: { reading?: boolean; suggestions?: Array<Partial<{ id: string; field: string; value: string }>> } = {}) {
   inCase(run);
   server.use(
     http.get("/v1/cases/:caseId", () => HttpResponse.json(caseItem(run, { due_date: null }), { headers: { etag: '"3"' } })),
@@ -19,7 +20,7 @@ function details(run: PackRun, opts: { suggestions?: Array<Partial<{ id: string;
     http.get("/v1/cases/:caseId/instructing-parties", () => json({ current: [], history: [], joint: false })),
     http.get("/v1/cases/:caseId/prefill", () =>
       json({
-        reading: false,
+        reading: opts.reading ?? false,
         rejected: 0,
         suggestions: (opts.suggestions ?? []).map((s, i) => ({
           id: s.id ?? `d000000${i}-1111-4111-8111-111111111111`,
@@ -47,6 +48,18 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
     expect(await axeViolations(container)).toEqual([]);
   });
+});
+
+test("when the letter has been read the suggestions appear on the case stream's word, with no refresh", async () => {
+  details("launch", { reading: true });
+  renderAt(`/cases/${CASE_A}/details`);
+  expect(await screen.findByText("We're reading the letter.", { exact: false })).toBeInTheDocument();
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "pf", kind: "extract_prefill", status: "running" })]));
+  details("launch", { suggestions: [{ field: "due_date", value: "2026-11-30" }] });
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "pf", kind: "extract_prefill", status: "done" })])); // a later change, not the first snapshot
+  expect(await screen.findByRole("region", { name: "Found in the letter" }, { timeout: 4000 })).toBeInTheDocument();
+  expect(screen.queryByText("We're reading the letter.", { exact: false })).toBeNull();
 });
 
 test("a suggestion from the letter is applied only when you accept it, and saved only when you save", async () => {

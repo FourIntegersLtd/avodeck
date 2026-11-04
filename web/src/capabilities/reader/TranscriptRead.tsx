@@ -376,7 +376,7 @@ export function TranscriptRead() {
   useEffect(() => {
     if (lastKey.current === key) return;
     lastKey.current = key;
-    const timer = setTimeout(() => document.getElementById("transcript-view-heading")?.focus(), 0);
+    const timer = setTimeout(() => document.getElementById("transcript-view-heading")?.focus(), 0); // clock, not data: moves focus
     return () => clearTimeout(timer);
   }, [key]);
 
@@ -428,7 +428,7 @@ export function TranscriptRead() {
           if (entriesRef.current.length <= have) break;
           have = entriesRef.current.length;
         }
-        await new Promise((r) => setTimeout(r, 0));
+        await new Promise((r) => setTimeout(r, 0)); // clock, not data: lets the screen draw between chunks
         if (left()) return true;
         const target = document.getElementById(yearId(year.year));
         target?.scrollIntoView({ block: "start" });

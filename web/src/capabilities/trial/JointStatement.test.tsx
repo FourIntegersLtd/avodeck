@@ -1,9 +1,10 @@
 // S22 Joint statement: setting up the meeting with the pack's meeting types, the agenda questions with both
 // positions, a changed position asking for a note, the pack's declarations, preparing and downloading for
 // signing (behind the code), and a signed statement shown read-only. The meeting label comes from the pack.
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { apiError, http, json, server } from "../../test/api";
+import { apiError, http, HttpResponse, json, server } from "../../test/api";
+import { FakeEventSource, liveJob } from "../../test/eventSource";
 import { axeViolations, renderAt } from "../../test/render";
 import { blobReply, CASE, item, ITEMS, launchWords, MEETING, MEETING_TYPE, meetingOut, pdf, serveMeeting, term, type PackRun } from "./testing";
 import { TRIAL_MESSAGES as M } from "./words";
@@ -135,6 +136,20 @@ test("the agenda is sent as a PDF and the screen waits while it is read", async 
   await user.upload(screen.getByLabelText(k("meeting.agenda.add")), pdf("agenda.pdf"));
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", path: `/v1/cases/${CASE}/expert-meetings/${MEETING}/agenda`, contentType: "application/pdf" }));
   expect(await screen.findByText(k("meeting.agenda.reading"))).toBeInTheDocument();
+});
+
+test("when the agenda has been read the questions appear on the case stream's word, with no refresh", async () => {
+  serveMeeting("launch", { meeting: meetingOut({ items: [], agenda_versions: [] }) });
+  server.use(http.post("/v1/cases/:caseId/expert-meetings/:meetingId/agenda", () => json({ job_id: "a9999999-9999-4999-8999-999999999999", agenda_version_id: "a9777777-7777-4777-8777-777777777778" }, 202)));
+  const { user } = renderAt(url);
+  await user.upload(await screen.findByLabelText(k("meeting.agenda.add")), pdf("agenda.pdf"));
+  expect(await screen.findByText(k("meeting.agenda.reading"))).toBeInTheDocument();
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "ag", kind: "read_agenda", status: "running" })]));
+  server.use(http.get("/v1/cases/:caseId/expert-meetings/:meetingId", () => HttpResponse.json(meetingOut(), { headers: { etag: '"5"' } })));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "ag", kind: "read_agenda", status: "done" })])); // a later change, not the first snapshot
+  expect(await rowOf(1)).toBeInTheDocument();
+  expect(screen.queryByText(k("meeting.agenda.reading"))).toBeNull();
 });
 
 test("a signed statement is shown read-only", async () => {

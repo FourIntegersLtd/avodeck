@@ -50,7 +50,7 @@ export function printBlob(blob: Blob): void {
   };
   frame.src = href;
   document.body.appendChild(frame);
-  window.setTimeout(() => {
+  window.setTimeout(() => { // clock, not data: removes the print frame
     frame.remove();
     URL.revokeObjectURL(href);
   }, 120_000);

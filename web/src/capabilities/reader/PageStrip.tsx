@@ -27,7 +27,7 @@ function Small({ caseId, pageNo }: { caseId: string; pageNo: number }) {
   useEffect(() => {
     let live = true;
     // A short wait, so scrolling past hundreds of pages does not ask for each one.
-    const wait = setTimeout(() => {
+    const wait = setTimeout(() => { // clock, not data: a short pause before fetching one page picture, once
       smallPageImage(caseId, pageNo)
         .then((url) => live && setSrc(url))
         .catch(() => undefined);

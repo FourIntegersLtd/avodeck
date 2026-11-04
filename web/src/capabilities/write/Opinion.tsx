@@ -253,7 +253,7 @@ function Editor({
         setMessage(errorMessage(err, { invalid: "write.opinion.cite_failed" }));
         setStatus("failed");
         window.clearTimeout(retry.current);
-        retry.current = window.setTimeout(() => setTick((n) => n + 1), AUTOSAVE_MS);
+        retry.current = window.setTimeout(() => setTick((n) => n + 1), AUTOSAVE_MS); // clock, not data: tries the save again, reads nothing
       }
     } finally {
       busy.current = false;
@@ -268,7 +268,7 @@ function Editor({
   // Save five seconds after the last change (and again after a failure).
   useEffect(() => {
     if (changed.current === saved.current) return;
-    const timer = setTimeout(() => void save(), AUTOSAVE_MS);
+    const timer = setTimeout(() => void save(), AUTOSAVE_MS); // clock, not data: saves what was typed, reads nothing
     return () => clearTimeout(timer);
   }, [tick, save]);
 

@@ -191,6 +191,38 @@ test("files are got ready, then downloaded once", async () => {
   expect(await screen.findByText(CLOSE_MESSAGES["close.copies.downloaded"]!)).toBeInTheDocument();
 });
 
+test("files that finished while the page was not listening are found with one question, not a spinner forever", async () => {
+  serve();
+  const job = "77777777-7777-4777-8777-777777777777";
+  let asked = 0;
+  server.use(
+    http.post(`/v1/cases/${CASE_A}/export`, () => json({ job_id: job }, 202)),
+    http.get(`/v1/jobs/${job}`, () => {
+      asked += 1;
+      return json({ id: job, case_id: CASE_A, kind: "export_case", status: "done", step: null, pct: null, eta_seconds: null, error_code: null, created_at: "", started_at: null, finished_at: null });
+    }),
+  );
+  const { user } = renderClose();
+  await user.click(await screen.findByRole("button", { name: "Download 3 files" }));
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([])); // the job has aged out of the case's list
+  expect(await screen.findByRole("button", { name: CLOSE_MESSAGES["close.copies.download"] })).toBeInTheDocument();
+  expect(asked).toBe(1);
+});
+
+test("a cancelled export says it failed and lets the button be pressed again", async () => {
+  serve();
+  const job = "77777777-7777-4777-8777-777777777777";
+  server.use(http.post(`/v1/cases/${CASE_A}/export`, () => json({ job_id: job }, 202)));
+  const { user } = renderClose();
+  await user.click(await screen.findByRole("button", { name: "Download 3 files" }));
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: job, kind: "export_case", status: "running" })]));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: job, kind: "export_case", status: "cancelled" })]));
+  expect(await screen.findByText(CLOSE_MESSAGES["close.copies.failed"]!)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Download 3 files" })).toBeEnabled();
+});
+
 test("an administrator is told the copy leaves out the medical records, and cannot settle", async () => {
   serve({ item: theCase({ allowed_actions: ADMIN_ACTIONS }) });
   renderClose();

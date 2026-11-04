@@ -60,7 +60,8 @@ test("before the first run it says so and runs the check, then shows the result"
   await user.click(screen.getByRole("button", { name: M["report.check.run"]! }));
   expect(await screen.findByText(M["report.check.running"]!)).toBeInTheDocument();
   await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
-  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "j", kind: "final_check", status: "done" })]));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "j", kind: "final_check", status: "running" })]));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "j", kind: "final_check", status: "done" })])); // a later change, not the first snapshot
   expect(await screen.findByRole("heading", { level: 1, name: M["report.check.title_ok"]! })).toBeInTheDocument();
 });
 

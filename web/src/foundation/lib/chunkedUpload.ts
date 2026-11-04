@@ -34,7 +34,7 @@ export const timing = {
   sleep: (ms: number, signal?: AbortSignal) =>
     new Promise<void>((resolve, reject) => {
       if (signal?.aborted) return reject(abortError());
-      const timer = setTimeout(() => {
+      const timer = setTimeout(() => { // clock, not data: waits before the next piece of the file is sent
         signal?.removeEventListener("abort", stop);
         resolve();
       }, ms);

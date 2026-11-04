@@ -246,6 +246,30 @@ describe.each([
     expect(await screen.findByRole("progressbar", { name: "Trying again: 400 of 650 pages (62%)" })).toBeVisible();
   });
 
+  test("the entries job counts only the pages still to read, so the bar keeps the whole-record total", async () => {
+    mockReader(pack);
+    mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 900, waiting_for: "entries" });
+    renderAt(PATH);
+    await screen.findByRole("progressbar", { name: "Preparing page 20 of 900" });
+    await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+    act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "e1", kind: "extract_entries", status: "running", step_done: 150, step_total: 400 })]));
+    expect(await screen.findByRole("progressbar", { name: "Preparing page 650 of 900" })).toHaveAttribute("aria-valuemax", "900");
+  });
+
+  test("while a retry runs the bar follows the retry job and ignores the entries job", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 530, retrying: true, retry: { running: true, paused: false, total: 650, done: 117, failed: 3 } };
+    mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 897, waiting_for: "entries" });
+    renderAt(PATH);
+    await screen.findByRole("progressbar", { name: "Trying again: 120 of 650 pages (18%)" });
+    await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+    act(() => FakeEventSource.open()[0]!.emitJobs([
+      liveJob({ id: "e1", kind: "extract_entries", status: "running", step_done: 10, step_total: 20 }),
+      liveJob({ id: "r1", kind: "retry_unread_pages", status: "running", step_done: 300, step_total: 650 }),
+    ]));
+    expect(await screen.findByRole("progressbar", { name: "Trying again: 300 of 650 pages (46%)" })).toBeVisible();
+  });
+
   test("the bar shows on the retry's own running flag, even when the summary's retrying flag is off", async () => {
     mockReader(pack);
     summary = { failed_pages: 530, retrying: false, retry: { running: true, paused: false, total: 650, done: 117, failed: 3 } };
