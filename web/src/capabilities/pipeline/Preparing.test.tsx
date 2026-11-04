@@ -212,6 +212,34 @@ describe.each([
     expect(within(reading.closest("li")!).getByText("140 of 900")).toBeVisible();
   });
 
+  test("the page count of the current step follows the stream live, with no refresh", async () => {
+    mockCase(pack, { job: processingJob({ status: "running", step: "ocr", pct: 33, step_done: 140, step_total: 900, updated_at: new Date().toISOString() }) });
+    renderAt(PATH);
+    const reading = await screen.findByText("Reading every page");
+    expect(within(reading.closest("li")!).getByText("140 of 900")).toBeVisible();
+    act(() => latest().emit({ status: "running", step: "ocr", pct: 40, eta_seconds: 90, step_done: 275, step_total: 882, error_code: null }));
+    expect(await within(reading.closest("li")!).findByText("275 of 882")).toBeVisible();
+  });
+
+  test("a job moving from waiting to running, and on to its next step, shows at once, and the page total is looked up again", async () => {
+    mockCase(pack, { job: processingJob({ status: "queued", step: null, pct: 0, eta_seconds: null, updated_at: new Date().toISOString() }) });
+    let looked = 0;
+    server.use(
+      http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => {
+        looked += 1;
+        return json(summary(pack, { pages: looked > 1 ? 120 : 0, documents: [{ id: "d0", kind: "original", filename: "f.pdf", pages: 40, first_page_no: null, last_page_no: null, received_on: null, obtained_how: null, bundle_version: 1 }] as unknown as Schemas["BundleSummary"]["documents"], quarantine_suggestions: [], foreign_language: [] }));
+      }),
+    );
+    renderAt(PATH);
+    expect(await screen.findByText(/Waiting to start/)).toBeVisible();
+    await waitFor(() => expect(FakeEventSource.all.length).toBe(1));
+    act(() => latest().emit({ status: "running", step: "split", pct: 5, eta_seconds: 300, step_done: 10, step_total: 120, error_code: null }));
+    expect(await screen.findByText("10 of 120")).toBeVisible();
+    act(() => latest().emit({ status: "running", step: "ocr", pct: 30, eta_seconds: 200, step_done: 0, step_total: 120, error_code: null }));
+    await waitFor(() => expect(looked).toBeGreaterThan(1));
+    expect(await screen.findByText("120 pages from 1 file. About 4 minutes left.")).toBeVisible();
+  });
+
   test("a failed job says so in plain words and offers to try again", async () => {
     mockCase(pack);
     let retried = 0;
