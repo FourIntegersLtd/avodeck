@@ -49,7 +49,9 @@ def test_a_date_in_the_page_header_does_not_date_the_first_entry(combo: Combo) -
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
 def test_a_birth_date_on_the_first_line_does_not_date_an_entry_with_a_later_visit_date(combo: Combo) -> None:
     pack = pack_of(combo)
-    ordered, lines = laid_out(["Mr Smith DOB 05/03/1960", "12/01/2020 Surgery consultation cough"])
+    ordered, lines = laid_out(
+        ["Mr Smith DOB 05/03/1960", "12/01/2020 Surgery consultation cough", "Dry cough for two days"]
+    )
     size = len(ordered)
     unknown = extract.entry_date(whole(ordered), ordered, set(), pack, lines=lines, page_size=size)
     assert unknown == (None, dates.PLEASE_CHECK), "no date of birth is recorded: two dates, so the reader checks"
@@ -57,6 +59,11 @@ def test_a_birth_date_on_the_first_line_does_not_date_an_entry_with_a_later_visi
         whole(ordered), ordered, set(), pack, dates_of_birth=[birth_of(pack)], lines=lines, page_size=size
     )
     assert known == (seen(pack), dates.PRINTED)
+    two, two_lines = laid_out(["Mr Smith DOB 05/03/1960", "12/01/2020 Surgery consultation cough"])
+    last = extract.entry_date(
+        whole(two), two, set(), pack, dates_of_birth=[birth_of(pack)], lines=two_lines, page_size=len(two)
+    )
+    assert last == (None, dates.PLEASE_CHECK), "a lone date on the page's last line may be a footer: the reader checks"
 
 
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)

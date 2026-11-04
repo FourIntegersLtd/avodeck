@@ -1912,6 +1912,14 @@ async def undated_entries(conn: AsyncConnection, case_id: uuid.UUID) -> list[Und
     ]
 
 
+async def entry_ranges(conn: AsyncConnection, page_id: uuid.UUID) -> list[tuple[int, int]]:
+    """The word-number ranges `(first_n, last_n)` of every entry on the page, dated or not."""
+    cur = await conn.execute(
+        "select first_n, last_n from app.record_entries where page_id = %s order by first_n", (page_id,)
+    )
+    return [(int(r[0]), int(r[1])) for r in await cur.fetchall()]
+
+
 async def set_entry_event_date(conn: AsyncConnection, entry_id: uuid.UUID, when: dt.date, basis: str) -> bool:
     """Dates an entry that has none; an entry that already has a date is never changed."""
     cur = await conn.execute(

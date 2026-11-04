@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -101,6 +101,17 @@ def find(words: Sequence[tuple[str, str]], pack: MergedPack) -> list[Printed]:
                 continue
         i += 1
     return found
+
+
+def is_birth(printed: Printed, births: Collection[dt.date]) -> bool:
+    """Whether a printed date is a known date of birth. A date read both ways matches on its printed day
+    and month (either reading) and, for a two-digit year, the last two digits of the year in any century."""
+    if not births:
+        return False
+    if not printed.ambiguous:
+        return printed.value in births or printed.other in births
+    readings = [d for d in (printed.value, printed.other) if d is not None]
+    return any((d.day, d.month, d.year % 100) == (b.day, b.month, b.year % 100) for d in readings for b in births)
 
 
 def printed_dates(found: Iterable[Printed]) -> list[dt.date]:

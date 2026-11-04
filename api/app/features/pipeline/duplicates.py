@@ -43,9 +43,13 @@ MIN_WORDS = 10  # pages with fewer typed words are never set aside
 NOTE_WORDS = 6  # most handwritten words one copy may have that the other lacks (a filing note)
 _EDGES = re.compile(r"^\W+|\W+$")
 _DIGIT = re.compile(r"\d")
-# Between two digits, OCR varies the separator of a number or date (`142/88`, `142.88`) or splits it in two
-# (`999 447`). A comma stays distinct from a point (1,500 is not 1.500), and a separator at an edge is kept.
-_SEPARATORS = re.compile(r"(?<=\d)[/.:\u2010-\u2015 -]+(?=\d)")
+# Between two digits, OCR varies the separator of a date or long identifier (`12/05/2024`, `12.05.2024`) or splits
+# a number in two (`999 447`). A comma stays distinct from a point (1,500 is not 1.500), and a separator at an
+# edge is kept. A number of two groups is set aside only when both groups have two digits or more: `1/2` is
+# not `1.2` and `10 5` is not `10.5`. A run of three groups or more is always a date or an identifier.
+_SEPARATOR = r"[/.:\u2010-\u2015 -]+"
+_GROUPS = re.compile(rf"\d+(?:{_SEPARATOR}\d+)+")
+_SPLIT = re.compile(_SEPARATOR)
 
 
 @dataclass(frozen=True)
@@ -125,8 +129,16 @@ def likely_pairs(signatures: Sequence[Signature], new: set[object]) -> list[tupl
 
 
 def _number(word: str) -> str:
-    """Text with digits as its numbers: one separator between two digits is as good as another."""
-    return _SEPARATORS.sub(".", word)
+    """Text with digits as its numbers: one separator between the groups of a date, a long identifier or a
+    number with groups of two digits or more is as good as another (a single-digit group keeps its own)."""
+    return _GROUPS.sub(_joined, word)
+
+
+def _joined(run: re.Match[str]) -> str:
+    groups = _SPLIT.split(run.group())
+    if len(groups) >= 3 or all(len(g) >= 2 for g in groups):
+        return ".".join(groups)
+    return run.group()
 
 
 def _typed(page: Sequence[Word]) -> list[str]:

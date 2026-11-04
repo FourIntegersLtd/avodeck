@@ -351,7 +351,7 @@ def sort_entries(output: Mapping[str, Any] | None, positions: Mapping[str, int],
 
 
 def _without_births(found: Sequence[dates.Printed], births: Collection[dt.date]) -> list[dates.Printed]:
-    return [d for d in found if d.value not in births and d.other not in births]
+    return [d for d in found if not dates.is_birth(d, births)]
 
 
 def _choose(found: Sequence[dates.Printed]) -> dt.date | None:
@@ -370,6 +370,30 @@ def _on_first_line(
     return [d for d in found if lines.get(d.word_ids[0]) == first_line]
 
 
+def _starts_page(entry: Entry, page_size: int | None) -> bool:
+    """Whether the entry holds the page's first word, and so its header (known only with the page's size)."""
+    return page_size is not None and entry.first_n == 1
+
+
+def _only_in_footer(
+    chosen: dt.date,
+    found: Sequence[dates.Printed],
+    entry: Entry,
+    ordered: Sequence[tuple[str, str]],
+    lines: Mapping[str, int] | None,
+    page_size: int | None,
+) -> bool:
+    """Whether an entry that reaches the page's end, and has lines of its own before the last, takes `chosen`
+    only from the page's last printed line: that line may be a footer, not the entry's own date."""
+    if lines is None or page_size is None or entry.last_n < page_size or not ordered:
+        return False
+    last_line, first_line = lines.get(ordered[-1][0]), lines.get(entry.first_word_id)
+    if last_line is None or first_line is None or first_line == last_line:
+        return False
+    sources = [d for d in found if d.value == chosen]
+    return bool(sources) and all(lines.get(w) == last_line for d in sources for w in d.word_ids)
+
+
 def entry_date(
     entry: Entry,
     ordered: Sequence[tuple[str, str]],
@@ -377,6 +401,7 @@ def entry_date(
     pack: MergedPack,
     dates_of_birth: Collection[dt.date] = (),
     lines: Mapping[str, int] | None = None,
+    page_size: int | None = None,
 ) -> tuple[Any, str | None]:
     """An entry's date from the dates printed inside its words, by these rules in order:
 
@@ -387,14 +412,23 @@ def entry_date(
     5. else the entry has no date.
 
     Nothing is guessed: a date that reads more than one way (a two-digit year) is never chosen, and while
-    one is printed anywhere in the entry no other date is chosen either (rules 2 and 3 do not apply)."""
+    one is printed anywhere in the entry no other date is chosen either (rules 2 and 3 do not apply).
+
+    With `page_size` (the page's word count) page furniture is guarded, since entries cover every word: the
+    entry holding the page's first word may hold a header, so rule 3 is not used for it; and a date taken only
+    from the last printed line by an entry that reaches the page's end, and has lines before it, may be a
+    footer, so it is not chosen. Both leave the entry to `please_check`."""
     inside = [
         (w, t) for n, (w, t) in enumerate(ordered, start=1) if entry.first_n <= n <= entry.last_n and w not in struck
     ]
     found = _without_births(dates.find(inside, pack), set(dates_of_birth))
     chosen = None
     if not any(d.ambiguous for d in found):
-        chosen = _choose(found) or _choose(_on_first_line(found, inside, lines))
+        chosen = _choose(found)
+        if chosen is None and not _starts_page(entry, page_size):
+            chosen = _choose(_on_first_line(found, inside, lines))
+        if chosen is not None and _only_in_footer(chosen, found, entry, ordered, lines, page_size):
+            chosen = None
     if chosen is not None:
         return chosen, dates.PRINTED
     return (None, dates.PLEASE_CHECK) if found else (None, None)
@@ -409,13 +443,16 @@ def repair_entry_date(
     *,
     dates_of_birth: Collection[dt.date],
     anchor: dt.date,
+    page_size: int | None = None,
+    page_entries: Sequence[Entry] = (),
 ) -> tuple[Any, str | None]:
     """The repair pass for an entry that has no date: the rules of `entry_date`, then a two-digit year read in
     the century before `anchor` (`printed_century`), then the date on the line directly above the entry
-    (`line_above`). A known date of birth is never used. With no date chosen the basis is `please_check`
-    when dates were printed, else None."""
+    (`line_above`). A known date of birth is never used, and a date inside any of `page_entries` (the page's
+    entries) is never borrowed from the line above. With no date chosen the basis is `please_check` when
+    dates were printed, else None. `page_size` guards page furniture as in `entry_date`."""
     births = set(dates_of_birth)
-    when, basis = entry_date(entry, ordered, struck, pack, births, lines)
+    when, basis = entry_date(entry, ordered, struck, pack, births, lines, page_size)
     if when is not None:
         return when, basis
     inside = [
@@ -425,7 +462,8 @@ def repair_entry_date(
     short = [d for d in found if d.ambiguous]
     if short:
         # a short year is read only on the first printed line, or anywhere when it is the only kind of date
-        candidates = _on_first_line(short, inside, lines) or (short if len(short) == len(found) else [])
+        first_line = [] if _starts_page(entry, page_size) else _on_first_line(short, inside, lines)
+        candidates = first_line or (short if len(short) == len(found) else [])
         read = {
             c
             for d in candidates
@@ -439,7 +477,14 @@ def repair_entry_date(
     if found:  # dates were printed but none can be chosen: the reader checks; nothing above is borrowed
         return when, basis
     above, above_basis, _ = date_repair.line_above_of(
-        [entry.first_word_id], ordered, struck, lines, pack, anchor=anchor, skip=births
+        [entry.first_word_id],
+        ordered,
+        struck,
+        lines,
+        pack,
+        anchor=anchor,
+        skip=births,
+        blocked=[(e.first_n, e.last_n) for e in page_entries],
     )
     if above is not None:
         return above, above_basis

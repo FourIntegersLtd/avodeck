@@ -632,7 +632,7 @@ def _entries_of(
     sorted_entries = extract.sort_entries(output, positions, pack)
     entries = []
     for e in sorted_entries.kept:
-        when, basis = extract.entry_date(e, ordered, struck, pack, dates_of_birth, lines)
+        when, basis = extract.entry_date(e, ordered, struck, pack, dates_of_birth, lines, len(ordered))
         entries.append(
             repo.NewEntry(
                 kind=e.kind,
@@ -1290,9 +1290,17 @@ async def repair_fact_dates(ctx: JobContext) -> None:
                 ).decode()
                 for w in stored
             }
+            ranges = await repo.entry_ranges(conn, page_id)
         ordered = [(w.word_id, texts[w.word_id]) for w in stored]
         struck = {w.word_id for w in stored if w.struck}
         lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
+        page_entries = [
+            extract.Entry(
+                "", ordered[min(a, len(ordered)) - 1][0], ordered[min(b, len(ordered)) - 1][0], a, b, None, None
+            )
+            for a, b in ranges
+            if a <= len(ordered)
+        ]
         async with ctx.transaction() as conn:
             for fact in facts:
                 when, basis, extra = date_repair.resolve_dated(
@@ -1316,7 +1324,15 @@ async def repair_fact_dates(ctx: JobContext) -> None:
                 first, last = ordered[row.first_n - 1][0], ordered[min(row.last_n, len(ordered)) - 1][0]
                 entry = extract.Entry(row.kind, first, last, row.first_n, row.last_n, None, None)
                 when, basis = extract.repair_entry_date(
-                    entry, ordered, struck, lines, pack, dates_of_birth=who.dates_of_birth, anchor=anchor
+                    entry,
+                    ordered,
+                    struck,
+                    lines,
+                    pack,
+                    dates_of_birth=who.dates_of_birth,
+                    anchor=anchor,
+                    page_size=len(ordered),
+                    page_entries=page_entries,
                 )
                 if when is not None and basis is not None and basis != dates.PLEASE_CHECK:
                     if await repo.set_entry_event_date(conn, row.entry_id, when, basis):

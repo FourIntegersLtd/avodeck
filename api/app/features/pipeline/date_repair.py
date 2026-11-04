@@ -87,10 +87,14 @@ def line_above_of(
     *,
     anchor: dt.date | None = None,
     skip: Collection[dt.date] = (),
+    blocked: Sequence[tuple[int, int]] = (),
 ) -> tuple[dt.date | None, str | None, list[str]]:
     """The date printed before the first of `word_ids`, on its own line or the line directly above it
-    (never below). A date in `skip` (a known date of birth) is never used."""
+    (never below). A date in `skip` (a known date of birth) is never used, and nor is a date with a word
+    inside one of `blocked` (the word-number ranges, from 1, of the page's entries: that date belongs to
+    another entry)."""
     live = [(w, t) for w, t in ordered if w not in struck]
+    number = {w: n for n, (w, _) in enumerate(ordered, start=1)}
     position = {w: i for i, (w, _) in enumerate(live)}
     first = min((position[w] for w in word_ids if w in position), default=None)
     if first is None or live[first][0] not in lines:
@@ -102,7 +106,9 @@ def line_above_of(
         last = position[printed.word_ids[-1]]
         if last >= first or lines.get(printed.word_ids[-1]) not in (here, here - 1):
             continue
-        if printed.value in skip or printed.other in skip:
+        if dates.is_birth(printed, skip):
+            continue
+        if any(a <= number[w] <= b for w in printed.word_ids for a, b in blocked):
             continue
         if nearest is None or last > nearest[0]:
             nearest = (last, printed)
