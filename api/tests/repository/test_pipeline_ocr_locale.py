@@ -48,6 +48,6 @@ async def test_every_ocr_call_carries_the_pack_locale(
         await h.upload(subset_document())
         await h.drain(timeout=300)
         assert h.ocr is not None
-        locales = list(h.ocr.locales)  # type: ignore[attr-defined]
+        locales = list(h.ocr.locales)
     assert locales, "the subset has scanned pages, so OCR was asked"
     assert set(locales) == {want}
