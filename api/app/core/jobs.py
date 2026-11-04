@@ -442,14 +442,19 @@ class JobWorker:
             logger.warning("job %s of kind %s failed on attempt %d: %s", job, kind_name, attempt, type(exc).__name__)
             if attempt < self.max_attempts:
                 # running -> failed -> queued in ONE transaction (the guard allows each step): under read
-                # committed no one else sees `failed`, so a reader never takes a retry for the end.
+                # committed no one else sees `failed`, so a reader never takes a retry for the end. Each step
+                # names the status it moves from, so a retry after a commit that went through changes nothing.
                 async def requeue() -> None:
                     async with self.database.job(case) as conn:
                         await conn.execute(
-                            "update app.jobs set status = 'failed', error_code = 'job_error' where id = %s", (job,)
+                            "update app.jobs set status = 'failed', error_code = 'job_error'"
+                            " where id = %s and status = 'running'",
+                            (job,),
                         )
                         await conn.execute(
-                            "update app.jobs set status = 'queued', finished_at = null where id = %s", (job,)
+                            "update app.jobs set status = 'queued', finished_at = null"
+                            " where id = %s and status = 'failed'",
+                            (job,),
                         )
 
                 await self._persist(requeue)
