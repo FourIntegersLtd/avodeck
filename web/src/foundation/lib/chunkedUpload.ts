@@ -13,6 +13,7 @@ import { ApiError, api, unwrap } from "../platform-client";
 import { abortError, bytesOf, chunkRanges, sha256Stream } from "./hashCore";
 import type { HashReply, HashRequest } from "./hash.worker";
 import type { Resumable } from "./uploadResume";
+import { followCase } from "./sse";
 import { removeUpload, saveUpload } from "./uploadStore";
 
 export { chunkRanges };
@@ -25,8 +26,6 @@ const BACKOFF_BASE_MS = 500;
 const BACKOFF_CAP_MS = 30_000;
 /** A part is given up on once it has failed for this long. */
 const GIVE_UP_MS = 5 * 60_000;
-const POLL_FIRST_MS = 2000;
-const POLL_CAP_MS = 10_000;
 /** How many times the server may reopen an upload for a missing part before we stop. */
 const REOPENS = 3;
 
@@ -51,8 +50,6 @@ export const timing = {
 
 /** The longest a wait can be after the `attempt`th failure (1 is the first): 0.5 s doubling to 30 s. */
 export const backoffCeiling = (attempt: number) => Math.min(BACKOFF_CAP_MS, BACKOFF_BASE_MS * 2 ** (attempt - 1));
-/** The wait before the poll after `looks` earlier ones: 2 s, growing by half each time to 10 s. */
-export const pollDelay = (looks: number) => Math.min(POLL_CAP_MS, Math.round(POLL_FIRST_MS * 1.5 ** looks));
 
 export type UploadPhase = "hashing" | "uploading" | "retrying" | "resuming" | "finalizing" | "done" | "failed";
 export interface UploadProgress {
@@ -214,7 +211,7 @@ async function run(caseId: string, file: File | null, kind: string, append: bool
       pending.closed = true;
       stored = resume.record.uploadId;
       report("finalizing", 0.99);
-      const settled = await pollUntilSettled(resume.record.uploadId!, resume.view.chunk_count ?? 0);
+      const settled = await settleUpload(resume.record.uploadId!, resume.view.chunk_count ?? 0);
       if (typeof settled === "string") return finished(settled);
       // Reopened for a missing part: the file is needed to send it, so the record stays and it is asked for.
       throw new ApiError(409, "upload_needs_file");
@@ -321,7 +318,7 @@ async function run(caseId: string, file: File | null, kind: string, append: bool
       if ("document_id" in answer && answer.document_id) return finished(answer.document_id);
       // The finish was accepted: the server cannot cancel it now, so a failure from here sends no cancel.
       pending.closed = true;
-      const reopened = await pollUntilSettled(started.upload_id, started.chunk_count);
+      const reopened = await settleUpload(started.upload_id, started.chunk_count);
       if (typeof reopened === "string") return finished(reopened);
       if (round >= REOPENS) throw failedWith("upload_failed");
       pending.closed = false; // open again: a cancel is allowed
@@ -348,39 +345,47 @@ async function run(caseId: string, file: File | null, kind: string, append: bool
     return documentId;
   }
 
-  /** Looks at the upload until it settles: the document's id, or (it was reopened) the numbers of the parts it lacks. */
-  async function pollUntilSettled(uploadId: string, chunkCount: number): Promise<string | number[]> {
-    let firstLook: number | null = null;
-    for (let looks = 0; ; looks += 1) {
-      await timing.sleep(pollDelay(looks), signal);
-      firstLook ??= timing.now();
-      const up: UploadView = await withRetries(() => unwrap(api.GET("/v1/uploads/{upload_id}", { params: { path: { upload_id: uploadId } } })), signal);
-      if (up.status === "complete") {
-        if (up.document_id) return up.document_id;
-        throw failedWith("upload_failed"); // complete, yet no document to hand back
+  /** Looks at the upload until it settles: the document's id, or (it was reopened) the numbers of the parts it lacks.
+   * It looks once, then again each time the case stream says a job moved (the finishing job is on that stream). */
+  async function settleUpload(uploadId: string, chunkCount: number): Promise<string | number[]> {
+    const follow = followCase(caseId);
+    try {
+      const firstLook = timing.now();
+      for (;;) {
+        const up: UploadView = await withRetries(() => unwrap(api.GET("/v1/uploads/{upload_id}", { params: { path: { upload_id: uploadId } } })), signal);
+        if (up.status === "complete") {
+          if (up.document_id) return up.document_id;
+          throw failedWith("upload_failed"); // complete, yet no document to hand back
+        }
+        if (up.status === "open") {
+          // Only a reopen if the server names parts it lacks. Open with none missing is the moment before the
+          // row flips to finalizing, or an upload past its time that the nightly sweep has not closed yet.
+          const lacks = Array.isArray(up.missing)
+            ? up.missing
+            : Array.isArray(up.received)
+              ? Array.from({ length: chunkCount }, (_, i) => i + 1).filter((n) => !up.received!.includes(n))
+              : []; // received left out: unknown, not none
+          const missing = lacks.filter((n) => Number.isInteger(n) && n >= 1 && n <= chunkCount);
+          if (missing.length > 0) return missing;
+        } else if (up.status === "failed") {
+          pending.closed = true;
+          throw failedWith(up.failure && KNOWN_FAILURES.has(up.failure) ? up.failure : "upload_failed");
+        } else if (up.status === "cancelled") {
+          pending.closed = true;
+          throw failedWith("upload_closed");
+        } else if (up.status === "expired") {
+          pending.closed = true;
+          throw failedWith("upload_expired");
+        }
+        // finalizing, open with nothing missing, or anything new: wait for the case to move, but not for ever.
+        const left = GIVE_UP_MS - (timing.now() - firstLook);
+        if (left <= 0) throw failedWith("upload_failed");
+        await follow.changed({ signal, timeoutMs: left }).catch((err: unknown) => {
+          throw (err as { name?: string }).name === "TimeoutError" ? failedWith("upload_failed") : err;
+        });
       }
-      if (up.status === "open") {
-        // Only a reopen if the server names parts it lacks. Open with none missing is the moment before the
-        // row flips to finalizing, or an upload past its time that the nightly sweep has not closed yet.
-        const lacks = Array.isArray(up.missing)
-          ? up.missing
-          : Array.isArray(up.received)
-            ? Array.from({ length: chunkCount }, (_, i) => i + 1).filter((n) => !up.received!.includes(n))
-            : []; // received left out: unknown, not none
-        const missing = lacks.filter((n) => Number.isInteger(n) && n >= 1 && n <= chunkCount);
-        if (missing.length > 0) return missing;
-      } else if (up.status === "failed") {
-        pending.closed = true;
-        throw failedWith(up.failure && KNOWN_FAILURES.has(up.failure) ? up.failure : "upload_failed");
-      } else if (up.status === "cancelled") {
-        pending.closed = true;
-        throw failedWith("upload_closed");
-      } else if (up.status === "expired") {
-        pending.closed = true;
-        throw failedWith("upload_expired");
-      }
-      // finalizing, open with nothing missing, or anything new: keep looking, but not for ever.
-      if (timing.now() - firstLook >= GIVE_UP_MS) throw failedWith("upload_failed");
+    } finally {
+      follow.close();
     }
   }
 }

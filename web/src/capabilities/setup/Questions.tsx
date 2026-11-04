@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
+import { useOnCaseChange } from "../../foundation/lib/sse";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Checkbox, LinkButton, PageViewer, LoadError, Loading, Notice, QChip, StaleChoice, TextLink, useBusy } from "../../foundation/ui";
@@ -23,11 +24,7 @@ export function Questions() {
   }, [caseId]);
   const { reload } = found;
   const reading = found.data?.asked.reading ?? false;
-  useEffect(() => {
-    if (!reading) return;
-    const timer = setInterval(reload, 5000);
-    return () => clearInterval(timer);
-  }, [reading, reload]);
+  useOnCaseChange(reading ? caseId : null, reload);
   if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
   if (!found.data) return <div className="av-page"><Loading /></div>;
   return <QuestionsView key={found.data.asked.version_no} caseId={caseId} asked={found.data.asked} pack={found.data.pack} reload={reload} />;

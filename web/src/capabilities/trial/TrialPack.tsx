@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
+import { useJob } from "../../foundation/lib/sse";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
@@ -18,7 +19,6 @@ import { w, wn, type TrialKey } from "./words";
 type Section = Schemas["TrialPackSettingsIn"]["sections"][number];
 type Message = { tone: "success" | "error" | "info"; text: string } | null;
 
-const POLL_MS = 800;
 const SECTIONS: Section[] = ["report", "chronology", "readiness", "joint_statement", "written_answers", "legal_tests"];
 const ERRORS = {
   not_served: "trial.pack.error.not_served",
@@ -213,29 +213,15 @@ function Contents({ frame, latest, pages, onChanged, preview }: { frame: Frame; 
     setVersion(settings.data.version);
   }, [settings.data]);
 
+  const liveJob = useJob(job ? frame.caseId : null, job);
   useEffect(() => {
-    if (!job) return;
-    let live = true;
-    const timer = window.setInterval(async () => {
-      try {
-        const state = await unwrap(api.GET("/v1/jobs/{job_id}", { params: { path: { job_id: job } } }));
-        if (!live || (state.status !== "done" && state.status !== "failed")) return;
-        setJob(null);
-        if (state.status === "failed") setMessage({ tone: "error", text: w("pack.failed") });
-        else setChangedSince(false);
-        reloadLatest.current();
-        changed.current();
-      } catch (error) {
-        if (!live) return;
-        setJob(null);
-        setMessage({ tone: "error", text: errorMessage(error, ERRORS) });
-      }
-    }, POLL_MS);
-    return () => {
-      live = false;
-      window.clearInterval(timer);
-    };
-  }, [job]);
+    if (!liveJob || (liveJob.status !== "done" && liveJob.status !== "failed")) return;
+    setJob(null);
+    if (liveJob.status === "failed") setMessage({ tone: "error", text: w("pack.failed") });
+    else setChangedSince(false);
+    reloadLatest.current();
+    changed.current();
+  }, [liveJob]);
 
   if (settings.error || latest.error) return <LoadError onRetry={() => { settings.reload(); latest.reload(); }} />;
   if (!chosen || !base || version === null || !latest.data) return <Loading />;

@@ -1,8 +1,9 @@
 // S23 Trial page numbers (docs/design/screens/S23-TrialPages.dc.html): add the court bundle (its name from
 // the pack), see every page the report relies on matched to its trial page, confirm the ones to check, and
 // tell the instructing party which pages are missing. The matching runs on the server.
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { errorMessage } from "../../foundation/lib/errors";
+import { useOnCaseChange } from "../../foundation/lib/sse";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
@@ -15,7 +16,6 @@ import { w, wn } from "./words";
 type Row = Schemas["RowOut"];
 type Message = { tone: "success" | "error" | "info"; text: string } | null;
 
-const MATCH_MS = 4000;
 const ERRORS = {
   precondition_failed: "trial.pages.error.stale",
   stale: "trial.pages.error.stale",
@@ -38,12 +38,8 @@ function Pages({ frame }: { frame: Frame }) {
   const status = data.data?.bundle?.status;
   const matching = status === "received" || status === "matching";
 
-  useEffect(() => {
-    if (!matching) return;
-    const timer = window.setInterval(data.reload, MATCH_MS);
-    return () => window.clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matching]);
+  // While the court bundle is being matched, the case's live stream says when to look again.
+  useOnCaseChange(matching ? frame.caseId : null, data.reload);
 
   const header = (
     <TrialTitle title={w("pages.title")}>

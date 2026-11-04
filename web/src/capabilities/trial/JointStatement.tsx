@@ -4,6 +4,7 @@
 // statement is read-only. The server decides every step.
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { errorMessage } from "../../foundation/lib/errors";
+import { useOnCaseChange } from "../../foundation/lib/sse";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
@@ -17,7 +18,6 @@ type Meeting = Schemas["MeetingOut"];
 type Item = Schemas["ItemOut"];
 type Message = { tone: "success" | "error" | "info"; text: string } | null;
 
-const READ_MS = 3000;
 const ERRORS = {
   change_note_needed: "trial.meeting.error.change_note_needed",
   no_items: "trial.meeting.error.no_items",
@@ -111,14 +111,9 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
     if (detail.data) setMeeting(detail.data);
   }, [detail.data]);
 
-  // While the agenda is read the questions are not there yet: look again every few seconds.
+  // While the agenda is read the questions are not there yet: the case's live stream says when to look again.
   const waiting = reading && (meeting?.items.length ?? 0) === 0;
-  useEffect(() => {
-    if (!waiting) return;
-    const timer = window.setInterval(detail.reload, READ_MS);
-    return () => window.clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [waiting]);
+  useOnCaseChange(waiting ? frame.caseId : null, detail.reload);
 
   if (detail.error) return <div className="av-page"><LoadError onRetry={detail.reload} /></div>;
   if (!meeting) return <div className="av-page"><Loading /></div>;
