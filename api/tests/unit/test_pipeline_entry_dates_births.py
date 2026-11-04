@@ -12,6 +12,7 @@ Runs under the launch and the fixture packs; the words are made up."""
 from __future__ import annotations
 
 import datetime as dt
+from dataclasses import replace
 
 import pytest
 
@@ -142,6 +143,7 @@ def test_a_card_with_three_dated_lines_is_three_entries_that_cover_it(combo: Com
         "plan rest and fluids",
         "03-Oct-2018 better",
         "21-Nov-2018 discharged home",
+        "review in a week",
     ]
     got, ordered, lines = split(pack, rows, anchor=ANCHOR)
     assert len(got) == 3
@@ -162,13 +164,19 @@ def test_a_card_with_three_dated_lines_is_three_entries_that_cover_it(combo: Com
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
 def test_lines_that_start_with_a_short_year_date_are_split_too(combo: Combo) -> None:
     pack = pack_of(combo)
-    rows = [f"{written(pack, 12, 6, 88, '.')} seen", f"{written(pack, 3, 9, 91, '.')} seen", "plan later"]
+    rows = [
+        "clinic card",
+        f"{written(pack, 12, 6, 88, '.')} seen",
+        f"{written(pack, 3, 9, 91, '.')} seen",
+        f"{written(pack, 4, 2, 93, '.')} seen",
+        "plan later",
+    ]
     got, _, _ = split(pack, rows, anchor=ANCHOR)
-    assert len(got) == 2
+    assert len(got) == 3
 
 
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
-def test_an_entry_is_not_split_without_two_different_dated_lines(combo: Combo) -> None:
+def test_an_entry_is_not_split_without_three_different_dated_lines(combo: Combo) -> None:
     pack = pack_of(combo)
     one, _, _ = split(pack, ["Seen 27-Sep-2018 cough", "plan rest and fluids"], anchor=ANCHOR)
     assert len(one) == 1
@@ -176,8 +184,21 @@ def test_an_entry_is_not_split_without_two_different_dated_lines(combo: Combo) -
     assert len(same) == 1, "two lines of one visit stay together"
     inside, _, _ = split(pack, ["Seen 27-Sep-2018 cough, seen again 03-Oct-2018 better"], anchor=ANCHOR)
     assert len(inside) == 1, "a date in the middle of a line does not start a line"
-    ordered, _, entry_ = card("Seen 27-Sep-2018 cough", "Seen 03-Oct-2018 better")
+    ordered, _, entry_ = card("27-Sep-2018 cough", "03-Oct-2018 better", "21-Nov-2018 home", "plan")
     assert extract.split_at_dated_lines(entry_, ordered, set(), None, pack) == [entry_], "no line positions"
+    two, _, _ = split(pack, ["27-Sep-2018 Sample taken Hb 130", "29-Sep-2018 Reported by lab"], anchor=ANCHOR)
+    assert len(two) == 1, "a result's sample and report dates are two dates of one document, not two visits"
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
+def test_the_letter_kind_is_never_split(combo: Combo) -> None:
+    pack = pack_of(combo)
+    letter = pack.letter_entry_kind()
+    assert letter is not None
+    ordered, lines, entry_ = card("Intro", "27-Sep-2018 a", "03-Oct-2018 b", "21-Nov-2018 c", "plan")
+    kept = extract.split_at_dated_lines(replace(entry_, kind=letter), ordered, set(), lines, pack, anchor=ANCHOR)
+    assert len(kept) == 1, "a letter is one document however many dates it prints"
+    assert len(extract.split_at_dated_lines(entry_, ordered, set(), lines, pack, anchor=ANCHOR)) == 3
 
 
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
@@ -195,3 +216,53 @@ def test_an_ecg_date_whose_day_is_split_from_its_month_by_a_dash_is_read(combo: 
     ordered, lines = laid_out([row])
     got = extract.entry_date(whole(ordered), ordered, set(), pack, [], lines, anchor=ANCHOR)
     assert got == (dt.date(2022, 6, 8), dates.PRINTED)
+
+
+# ---- page furniture: the first and last lines of a page --------------------------------------------
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
+def test_a_piece_that_is_only_the_pages_last_line_is_not_split_off(combo: Combo) -> None:
+    pack = pack_of(combo)
+    rows = [
+        "Intro note",
+        "27-Sep-2018 cough",
+        "03-Oct-2018 better",
+        "21-Nov-2018 home",
+        "03-Apr-2024 Printed by user page 1",
+    ]
+    got, ordered, lines = split(pack, rows, anchor=ANCHOR)
+    assert len(got) == 3, "the footer line stays with the visit above it"
+    assert got[-1].first_n == first_word_of_line(lines, 4) and got[-1].last_n == len(ordered)
+    assert extract.entry_date(got[-1], ordered, set(), pack, [], lines, len(ordered), ANCHOR) == (
+        dt.date(2018, 11, 21),
+        dates.PRINTED,
+    )
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
+def test_a_piece_that_is_only_the_pages_first_line_is_not_split_off(combo: Combo) -> None:
+    pack = pack_of(combo)
+    rows = [
+        "12-Jan-2024 10:31 Page 1 of 3",
+        "27-Sep-2018 cough",
+        "03-Oct-2018 better",
+        "21-Nov-2018 home",
+        "review",
+    ]
+    got, ordered, lines = split(pack, rows, anchor=ANCHOR)
+    assert len(got) == 3
+    assert got[0].first_n == 1 and got[0].last_n == first_word_of_line(lines, 3) - 1, "header kept with the first visit"
+    assert extract.entry_date(got[0], ordered, set(), pack, [], lines, len(ordered), ANCHOR) == (
+        None,
+        dates.PLEASE_CHECK,
+    ), "the header's date is never taken for the visit"
+    header_only, _, _ = split(pack, [rows[0], rows[1], "plan"], anchor=ANCHOR)
+    assert len(header_only) == 1
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
+def test_a_count_before_a_dash_and_a_month_year_is_not_a_day(combo: Combo) -> None:
+    pack = pack_of(combo)
+    ordered, lines = laid_out(["Repeat 2 - Mar-2021 review"])
+    assert extract.entry_date(whole(ordered), ordered, set(), pack, [], lines, anchor=ANCHOR) == (None, None)

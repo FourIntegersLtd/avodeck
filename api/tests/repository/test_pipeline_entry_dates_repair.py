@@ -48,7 +48,9 @@ async def test_repair_redates_a_birth_dated_entry_and_splits_a_card_with_no_reco
     pack = default_library().combine(*combo.codes)
     expert = seed.person()
     case_id = seed.case(seed.org(members={expert: "owner"}), expert, packs=combo.case_row())
-    page_id = seed.page(case_id, seed.document(case_id), 1)
+    document = seed.document(case_id)
+    page_id = seed.page(case_id, document, 1)
+    second_id = seed.page(case_id, document, 2)
     ecg = ["ASHWORTH", label_of(pack), written(pack, 14, 3, 1969), "08-JUN-2022", "14:51"]
     card = [
         ["27-Sep-2018", "cough"],
@@ -58,17 +60,25 @@ async def test_repair_redates_a_birth_dated_entry_and_splits_a_card_with_no_reco
     ]
     last = ["Seen", "03-Apr-2019", "by", "nurse"]
     rows = [ecg, *card, last]
-    words = [w for row in rows for w in row]
     sizes = [len(ecg), sum(len(r) for r in card), len(last)]
     already = dt.date(2020, 1, 1)
 
-    def entry(first: int, size: int, when: dt.date | None, basis: str | None) -> uuid.UUID:
+    # A page holding one entry that spans a card dated by its first line, with a print line at the very end.
+    second_rows = [
+        ["Intro", "note"],
+        ["27-Sep-2018", "cough"],
+        ["03-Oct-2018", "better"],
+        ["21-Nov-2018", "home"],
+        ["03-Apr-2024", "Printed", "by", "user", "page", "1"],
+    ]
+
+    def entry(first: int, size: int, when: dt.date | None, basis: str | None, page: uuid.UUID = page_id) -> uuid.UUID:
         got = admin.execute(
             "insert into app.record_entries"
             " (page_id, bundle_id, kind, first_n, last_n, event_date, date_basis, extraction_version)"
             " values (%s, (select bundle_id from app.cases where id = %s), 'consultation', %s, %s, %s, %s, 'v1')"
             " returning id",
-            (page_id, case_id, first, first + size - 1, when, basis),
+            (page, case_id, first, first + size - 1, when, basis),
         ).fetchone()
         assert got is not None
         return uuid.UUID(str(got[0]))
@@ -76,6 +86,8 @@ async def test_repair_redates_a_birth_dated_entry_and_splits_a_card_with_no_reco
     wrong = entry(1, sizes[0], dt.date(1969, 3, 14), "printed")  # dated with the birth date
     undated = entry(1 + sizes[0], sizes[1], None, None)
     fine = entry(1 + sizes[0] + sizes[1], sizes[2], already, "printed")
+    card_size = sum(len(r) for r in second_rows)
+    dated_card = entry(1, card_size, dt.date(2018, 9, 27), "printed", second_id)  # a card dated by its first line
     async with harness(
         admin=admin,
         api_db=api_db,
@@ -90,15 +102,16 @@ async def test_repair_redates_a_birth_dated_entry_and_splits_a_card_with_no_reco
         from app.features.pipeline.paths import word_purpose
 
         async with api_db.request(scope_for(expert)) as conn:
-            line_of = [i for i, row in enumerate(rows) for _ in row]
-            for n, text in enumerate(words, start=1):
-                top = 10 * line_of[n - 1]
-                sealed = await h.crypto.encrypt(conn, case_id, text.encode(), purpose=word_purpose(page_id, f"w{n}"))
-                admin.execute(
-                    "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
-                    " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s, 0.9, 'ocr')",
-                    (page_id, case_id, n, f"w{n}", sealed, [0, top, 1, top, 1, top + 5, 0, top + 5]),
-                )
+            for page, page_rows in ((page_id, rows), (second_id, second_rows)):
+                line_of = [i for i, row in enumerate(page_rows) for _ in row]
+                for n, text in enumerate([w for row in page_rows for w in row], start=1):
+                    top = 10 * line_of[n - 1]
+                    sealed = await h.crypto.encrypt(conn, case_id, text.encode(), purpose=word_purpose(page, f"w{n}"))
+                    admin.execute(
+                        "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+                        " values (%s, (select bundle_id from app.cases where id = %s), %s, %s, %s, %s, 0.9, 'ocr')",
+                        (page, case_id, n, f"w{n}", sealed, [0, top, 1, top, 1, top + 5, 0, top + 5]),
+                    )
         resp = await h.client.post(f"/v1/cases/{case_id}/repair-fact-dates")
         assert resp.status_code == 202
         await h.drain()
@@ -124,3 +137,16 @@ async def test_repair_redates_a_birth_dated_entry_and_splits_a_card_with_no_reco
         assert got[0][2] == 1 + sizes[0] and got[-1][3] == sizes[0] + sizes[1], "the pieces cover the card"
         assert all(b[2] == a[3] + 1 for a, b in zip(got, got[1:], strict=False))
         assert row(undated)[2] == 1 + sizes[0], "the card's first row keeps its place"
+
+        again = admin.execute(
+            "select event_date, date_basis, first_n, last_n from app.record_entries"
+            " where page_id = %s order by first_n",
+            (second_id,),
+        ).fetchall()
+        assert [(r[0], r[1]) for r in again] == [
+            (dt.date(2018, 9, 27), "printed"),
+            (dt.date(2018, 10, 3), "printed"),
+            (dt.date(2018, 11, 21), "printed"),
+        ], "an entry that already had a date is split too, and the print line is not an entry of its own"
+        assert again[0][2] == 1 and again[-1][3] == card_size
+        assert again[0][0] is not None and row(dated_card)[2] == 1
