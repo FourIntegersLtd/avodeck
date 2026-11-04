@@ -240,7 +240,7 @@ class TextOcr:
         self.endpoint = CELL_ENV["AZURE_DI_ENDPOINT"]
         self.calls: list[str] = []
 
-    async def analyse(self, document: bytes, model: str = "layout") -> OcrResult:
+    async def analyse(self, document: bytes, model: str = "layout", *, locale: str | None = None) -> OcrResult:
         self.calls.append(model)
         pages = []
         for number, page in enumerate(document.decode().split("\f"), start=1):
