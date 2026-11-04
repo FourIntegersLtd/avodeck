@@ -22,7 +22,7 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: (id: number) => 
   const paused = held.hover || held.focus;
   useEffect(() => {
     if (paused) return;
-    const timer = window.setTimeout(() => onClose(toast.id), SHOW_MS);
+    const timer = window.setTimeout(() => onClose(toast.id), SHOW_MS); // clock, not data: hides a notice
     return () => window.clearTimeout(timer);
   }, [paused, toast.id, onClose]);
   return (

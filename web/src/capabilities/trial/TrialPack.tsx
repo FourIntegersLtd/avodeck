@@ -6,7 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
-import { useJob } from "../../foundation/lib/sse";
+import { useJobOutcome } from "../../foundation/lib/sse";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
@@ -19,6 +19,7 @@ import { w, wn, type TrialKey } from "./words";
 type Section = Schemas["TrialPackSettingsIn"]["sections"][number];
 type Message = { tone: "success" | "error" | "info"; text: string } | null;
 
+const BUILD_WAIT_MS = 20 * 60_000; // after this the server is asked once, so a lost job ends as a failure and not a spinner
 const SECTIONS: Section[] = ["report", "chronology", "readiness", "joint_statement", "written_answers", "legal_tests"];
 const ERRORS = {
   not_served: "trial.pack.error.not_served",
@@ -213,15 +214,15 @@ function Contents({ frame, latest, pages, onChanged, preview }: { frame: Frame; 
     setVersion(settings.data.version);
   }, [settings.data]);
 
-  const liveJob = useJob(job ? frame.caseId : null, job);
+  const outcome = useJobOutcome(job ? frame.caseId : null, job, BUILD_WAIT_MS);
   useEffect(() => {
-    if (!liveJob || (liveJob.status !== "done" && liveJob.status !== "failed" && liveJob.status !== "cancelled")) return;
+    if (!outcome) return;
     setJob(null);
-    if (liveJob.status !== "done") setMessage({ tone: "error", text: w("pack.failed") });
+    if (outcome !== "done") setMessage({ tone: "error", text: w("pack.failed") });
     else setChangedSince(false);
     reloadLatest.current();
     changed.current();
-  }, [liveJob]);
+  }, [outcome]);
 
   if (settings.error || latest.error) return <LoadError onRetry={() => { settings.reload(); latest.reload(); }} />;
   if (!chosen || !base || version === null || !latest.data) return <Loading />;

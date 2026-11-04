@@ -2,7 +2,7 @@
 // (GET /v1/cases/{id}/events) carries the progress of every background job on that case. Every screen
 // that waits listens to it through the hooks below, so the browser never uses more than one connection
 // per case and never polls. A stream is opened by the first listener and closed by the last.
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { api, apiOrigin, unwrap } from "../platform-client";
 
 /** What the server says about a job: its state and counts, never any patient text. */
@@ -133,8 +133,7 @@ export function useOnCaseChange(caseId: string | null, reload: () => void): void
       lastRun.current = Date.now();
       latest.current();
     } else if (pending.current === undefined) {
-      pending.current = window.setTimeout(() => {
-        // clock, not data: it only spaces out reloads
+      pending.current = window.setTimeout(() => { // clock, not data: it only spaces out reloads
         pending.current = undefined;
         lastRun.current = Date.now();
         latest.current();
@@ -149,6 +148,53 @@ export function useOnCaseChange(caseId: string | null, reload: () => void): void
     },
     [],
   );
+}
+
+const ENDED_AS = (status: string): "done" | "failed" | null => (status === "done" ? "done" : status === "failed" || status === "cancelled" ? "failed" : null);
+
+/** How a job a screen is waiting on ended: "done", "failed", or "slow" (still going when `timeoutMs` ran out).
+ * Null while it is running. The case stream answers almost always; the server is asked once, never in a
+ * loop, when the job is missing from the stream's first list (it ended too long ago to be listed) and once
+ * when the time is up, so a wait can never go on for ever. */
+export function useJobOutcome(caseId: string | null, jobId: string | null, timeoutMs: number): "done" | "failed" | "slow" | null {
+  const jobs = useCaseJobs(caseId);
+  const live = jobId ? jobs?.find((j) => j.id === jobId) : undefined;
+  const [asked, setAsked] = useState<{ id: string; outcome: "done" | "failed" | "slow" } | null>(null);
+  const checked = useRef<string | null>(null);
+
+  const ask = useCallback(
+    async (final: boolean) => {
+      if (!jobId) return;
+      try {
+        const got = await unwrap(api.GET("/v1/jobs/{job_id}", { params: { path: { job_id: jobId } } }));
+        const outcome = ENDED_AS(got.status) ?? (final ? "slow" : null);
+        if (outcome) setAsked({ id: jobId, outcome });
+      } catch {
+        if (final) setAsked({ id: jobId, outcome: "slow" });
+      }
+    },
+    [jobId],
+  );
+
+  useEffect(() => {
+    if (!jobId) {
+      checked.current = null;
+      return;
+    }
+    if (jobs !== null && !live && checked.current !== jobId) {
+      checked.current = jobId; // the stream has spoken and does not list this job
+      void ask(false);
+    }
+  }, [jobId, jobs, live, ask]);
+
+  useEffect(() => {
+    if (!jobId) return;
+    const timer = setTimeout(() => void ask(true), timeoutMs); // clock, not data: one last question, never repeated
+    return () => clearTimeout(timer);
+  }, [jobId, timeoutMs, ask]);
+
+  const fromStream = live ? ENDED_AS(live.status) : null;
+  return fromStream ?? (asked && asked.id === jobId ? asked.outcome : null);
 }
 
 const ENDED = new Set(["done", "failed", "cancelled"]);

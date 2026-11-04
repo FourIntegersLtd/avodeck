@@ -139,7 +139,7 @@ export async function findCopy(caseId: string, now: Date = new Date()): Promise<
 export async function checkWithServer(caseId: string, packageId: string): Promise<"kept" | "wiped"> {
   if (typeof navigator !== "undefined" && navigator.onLine === false) return "kept";
   const timeout = new AbortController();
-  const timer = setTimeout(() => timeout.abort(), CHECK_TIMEOUT_MS);
+  const timer = setTimeout(() => timeout.abort(), CHECK_TIMEOUT_MS); // clock, not data: gives up on one request
   try {
     const { data, response } = await api.GET("/v1/cases/{case_id}/offline-packages/{package_id}/status", {
       params: { path: { case_id: caseId, package_id: packageId } },

@@ -17,7 +17,7 @@ export function saveBlob(blob: Blob, name: string): void {
   }
   link.remove();
   // Let the browser start the save before the address goes (revoking at once can cancel it).
-  setTimeout(() => URL.revokeObjectURL(href), REVOKE_AFTER_MS);
+  setTimeout(() => URL.revokeObjectURL(href), REVOKE_AFTER_MS); // clock, not data: frees a downloaded file
 }
 
 /** A file's bytes (older test browsers have no `Blob.arrayBuffer`). */
