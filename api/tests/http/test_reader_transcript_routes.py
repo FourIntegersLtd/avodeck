@@ -13,6 +13,7 @@ Anyone without access gets 404.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, timedelta
 from typing import Any
 
@@ -330,6 +331,127 @@ async def test_the_download_queues_a_job_for_the_requester_before_any_page_is_re
         (world["case"],),
     ).fetchone()
     assert audited is not None and audited[0] == 1
+
+
+def _builds(admin: psycopg.Connection, w: dict[str, Any]) -> int:
+    row = admin.execute(
+        "select count(*) from app.jobs where case_id = %s and kind = any(%s)",
+        (w["case"], ["export_transcript", "export_transcript_pdf"]),
+    ).fetchone()
+    assert row is not None
+    return int(row[0])
+
+
+def _requests_audited(admin: psycopg.Connection, w: dict[str, Any]) -> int:
+    row = admin.execute(
+        "select count(*) from app.audit_log where case_id = %s and action = 'case.transcript_requested'",
+        (w["case"],),
+    ).fetchone()
+    assert row is not None
+    return int(row[0])
+
+
+@pytest.mark.parametrize("body", [None, {"format": "docx"}, {"format": "pdf"}])
+async def test_pressing_download_again_while_a_build_is_waiting_gives_the_same_job(
+    client_for: Any, admin: psycopg.Connection, world: dict[str, Any], body: Any
+) -> None:
+    client: httpx.AsyncClient = await client_for(world["expert"])
+    first = await client.post(f"{base(world)}/transcript/download", json=body)
+    again = await client.post(f"{base(world)}/transcript/download", json=body)
+    assert first.status_code == again.status_code == 202
+    assert again.json() == first.json()
+    assert _builds(admin, world) == 1
+    assert _requests_audited(admin, world) == 1  # only a build that was started is audited
+
+
+async def test_pressing_download_again_while_the_build_is_running_gives_the_same_job(
+    client_for: Any, admin: psycopg.Connection, seed: Seed, world: dict[str, Any]
+) -> None:
+    job = seed.job(world["case"], kind="export_transcript_pdf", requested_by=world["expert"])
+    admin.execute("update app.jobs set status = 'running' where id = %s", (job,))
+    client: httpx.AsyncClient = await client_for(world["expert"])
+    resp = await client.post(f"{base(world)}/transcript/download", json={"format": "pdf"})
+    assert resp.status_code == 202 and resp.json() == {"job_id": str(job)}
+    assert _builds(admin, world) == 1
+    assert _requests_audited(admin, world) == 0
+
+
+async def test_presses_at_the_same_moment_start_one_build(
+    client_for: Any, admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    client: httpx.AsyncClient = await client_for(world["expert"])
+    url = f"{base(world)}/transcript/download"
+    answers = await asyncio.gather(*(client.post(url, json={"format": "pdf"}) for _ in range(4)))
+    assert {a.status_code for a in answers} == {202}
+    assert len({a.json()["job_id"] for a in answers}) == 1
+    assert _builds(admin, world) == 1
+    assert _requests_audited(admin, world) == 1
+
+
+async def test_the_other_format_builds_its_own_file(
+    client_for: Any, admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    client: httpx.AsyncClient = await client_for(world["expert"])
+    pdf = await client.post(f"{base(world)}/transcript/download", json={"format": "pdf"})
+    word = await client.post(f"{base(world)}/transcript/download", json={"format": "docx"})
+    assert pdf.json()["job_id"] != word.json()["job_id"]
+    assert _builds(admin, world) == 2
+    assert _requests_audited(admin, world) == 2
+
+
+async def test_someone_elses_build_is_not_taken_over(
+    client_for: Any, admin: psycopg.Connection, seed: Seed, world: dict[str, Any]
+) -> None:
+    theirs = seed.job(world["case"], kind="export_transcript_pdf", requested_by=world["stranger"])
+    client: httpx.AsyncClient = await client_for(world["expert"])
+    resp = await client.post(f"{base(world)}/transcript/download", json={"format": "pdf"})
+    assert resp.status_code == 202 and resp.json()["job_id"] != str(theirs)
+    row = admin.execute("select requested_by from app.jobs where id = %s", (resp.json()["job_id"],)).fetchone()
+    assert row == (world["expert"],)
+    assert _requests_audited(admin, world) == 1
+
+
+@pytest.mark.parametrize("ended", ["done", "failed"])
+async def test_a_press_after_the_earlier_build_ended_starts_a_new_one(
+    client_for: Any, admin: psycopg.Connection, seed: Seed, world: dict[str, Any], ended: str
+) -> None:
+    old = seed.job(world["case"], kind="export_transcript_pdf", requested_by=world["expert"])
+    admin.execute("update app.jobs set status = 'running' where id = %s", (old,))
+    admin.execute("update app.jobs set status = %s where id = %s", (ended, old))
+    client: httpx.AsyncClient = await client_for(world["expert"])
+    resp = await client.post(f"{base(world)}/transcript/download", json={"format": "pdf"})
+    assert resp.status_code == 202 and resp.json()["job_id"] != str(old)
+    assert _builds(admin, world) == 2
+    assert _requests_audited(admin, world) == 1
+
+
+async def test_the_job_a_repeated_press_returned_is_handed_over_once_when_done(
+    client_for: Any,
+    admin: psycopg.Connection,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    app: FastAPI,
+) -> None:
+    class Shelf:
+        async def delete(self, paths: Any) -> None:
+            return None
+
+    app.state.storage = Shelf()
+
+    async def take(conn: Any, storage: Any, crypto: Any, case_id: Any, job_id: Any, fmt: str = "docx") -> bytes:
+        return b"%PDF-1.4 x"
+
+    monkeypatch.setattr(transcript_jobs, "take", take)
+    client: httpx.AsyncClient = await client_for(world["expert"])
+    url = f"{base(world)}/transcript/download"
+    job = (await client.post(url, json={"format": "pdf"})).json()["job_id"]
+    assert (await client.post(url, json={"format": "pdf"})).json()["job_id"] == job
+    assert (await client.get(f"{url}/{job}")).status_code == 409
+    admin.execute("update app.jobs set status = 'running' where id = %s", (job,))
+    assert (await client.post(url, json={"format": "pdf"})).json()["job_id"] == job
+    admin.execute("update app.jobs set status = 'done' where id = %s", (job,))
+    got = await client.get(f"{url}/{job}")
+    assert got.status_code == 200 and got.content.startswith(b"%PDF")
 
 
 async def test_a_bad_format_is_422(client_for: Any, world: dict[str, Any]) -> None:
