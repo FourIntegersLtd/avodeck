@@ -445,3 +445,25 @@ async def test_the_copy_is_handed_over_once_even_if_removing_it_fails(
     url = f"/v1/cases/{world['case']}/transcript/download/{job}"
     assert (await client.get(url)).status_code == 200
     assert (await client.get(url)).status_code == 404  # the audit row, not the file, says it was taken
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+async def test_the_cover_names_the_case_by_the_label_its_members_see(
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    crypto: CaseCrypto,
+    world: dict[str, Any],
+    fmt: str,
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("note",))])
+    client = await client_for(world["expert"])
+    job = await build(client, worker_db, admin, world, fmt)
+    got = await client.get(f"/v1/cases/{world['case']}/transcript/download/{job}")
+    if fmt == "pdf":
+        cover = pypdf.PdfReader(io.BytesIO(got.content)).pages[0].extract_text() or ""
+    else:
+        cover = "\n".join(paragraphs(got.content)[:12])
+    assert "Case: Case Z" in " ".join(cover.split())
