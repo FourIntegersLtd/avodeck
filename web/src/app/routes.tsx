@@ -7,12 +7,14 @@ import { capabilityCaseRoutes, capabilityOfflineRoutes, capabilityRoutes } from 
 import { CaseLayout } from "./CaseLayout";
 import { NotFound } from "./NotFound";
 import { RequireSession } from "./RequireSession";
+import { RouteError } from "./RouteError";
 import { Root } from "./Root";
 
 export const routes: RouteObject[] = [
   {
     path: "/",
     element: <Root />,
+    errorElement: <RouteError />,
     children: [
       { index: true, element: <Navigate to="/today" replace /> },
       { path: "sign-in", element: <SignIn /> },
