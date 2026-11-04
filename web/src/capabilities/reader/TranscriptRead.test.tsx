@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { forgetPages } from "../../foundation/lib/pageImageCache";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
-import { http, HttpResponse, json, server } from "../../test/api";
+import { apiError, http, HttpResponse, json, server } from "../../test/api";
 import { axeViolations, renderAt } from "../../test/render";
 import { CASE_ID } from "./testData";
 import { mockReader } from "./testing";
@@ -551,6 +551,130 @@ describe.each([
     const busy = await screen.findAllByRole("menuitem", { name: "Preparing your file" });
     expect(busy).toHaveLength(2);
     busy.forEach((item) => expect(item).toHaveAttribute("aria-disabled", "true"));
+  });
+
+  describe("the status of a file being built", () => {
+    const BUILDING = "Building your PDF. A long record can take a few minutes. Please stay on this page; it will download by itself when it is ready.";
+    const panelNow = () => screen.getByText(BUILDING).closest("[role=status]") as HTMLElement;
+    const startPdf = async (user: ReturnType<typeof renderAt>["user"]) => {
+      await user.click(await screen.findByRole("button", { name: "Download a copy" }));
+      await user.click(await screen.findByRole("menuitem", { name: "Download as PDF" }));
+    };
+    const neverReady = () => server.use(http.get(`${C}/transcript/download/:job`, () => new Promise<Response>(() => undefined)));
+
+    test("pressing a format shows at once a calm panel in plain words, with a moving bar and the time so far", async () => {
+      mockReader(pack);
+      mockTranscript("ready");
+      neverReady();
+      const { user } = renderAt(PATH);
+      await startPdf(user);
+      const panel = await waitFor(panelNow);
+      expect(within(panel).getByRole("progressbar", { name: "Building your PDF" })).not.toHaveAttribute("aria-valuenow");
+      expect(within(panel).getByText("Time so far: 00:00")).toBeVisible();
+      expect(panel).toHaveAttribute("aria-live", "polite");
+    });
+
+    test("the Word file has its own words", async () => {
+      mockReader(pack);
+      mockTranscript("ready");
+      neverReady();
+      const { user } = renderAt(PATH);
+      await user.click(await screen.findByRole("button", { name: "Download a copy" }));
+      await user.click(await screen.findByRole("menuitem", { name: "Download as Word" }));
+      expect(await screen.findByText(/^Building your Word file\. A long record can take a few minutes\./)).toBeVisible();
+      expect(screen.getByRole("progressbar", { name: "Building your Word file" })).toBeVisible();
+    });
+
+    test("the time so far counts up as mm:ss", async () => {
+      vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+      try {
+        mockReader(pack);
+        mockTranscript("ready");
+        neverReady();
+        const { user } = renderAt(PATH);
+        await startPdf(user);
+        await waitFor(panelNow);
+        await act(async () => {
+          vi.advanceTimersByTime(65_000);
+        });
+        expect(within(panelNow()).getByText("Time so far: 01:05")).toBeVisible();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    test("while it builds, both formats are disabled; when it has downloaded the panel goes and they work again", async () => {
+      mockReader(pack);
+      mockTranscript("ready");
+      let release: (r: Response) => void = () => undefined;
+      server.use(http.get(`${C}/transcript/download/:job`, () => new Promise<Response>((resolve) => (release = resolve))));
+      const { user } = renderAt(PATH);
+      await startPdf(user);
+      await waitFor(panelNow);
+      await user.click(screen.getByRole("button", { name: "Download a copy" }));
+      const menu = await screen.findByRole("menu", { name: "Download a copy" });
+      const preparing = within(menu).getAllByRole("menuitem", { name: "Preparing your file" });
+      expect(preparing).toHaveLength(2);
+      for (const item of preparing) expect(item).toHaveAttribute("aria-disabled", "true");
+      await user.keyboard("{Escape}");
+      release(new HttpResponse(new Blob(["pdf"]), { status: 200 }));
+      expect(await screen.findByText("Your PDF has been downloaded.", {}, { timeout: 8000 })).toBeVisible();
+      expect(screen.queryByText(BUILDING)).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Download a copy" }));
+      const pdfItem = await screen.findByRole("menuitem", { name: "Download as PDF" });
+      expect(pdfItem).not.toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByRole("menuitem", { name: "Download as Word" })).not.toHaveAttribute("aria-disabled", "true");
+    }, 12000);
+
+    test("pressing again after a reload shows the same status and takes the file from the job the server named", async () => {
+      mockReader(pack);
+      mockTranscript("ready");
+      let asked = 0;
+      server.use(
+        http.get(`${C}/transcript/download/:job`, ({ params }) => {
+          asked += 1;
+          expect(params.job).toBe("00000000-0000-0000-0000-0000000000aa");
+          return asked < 2 ? apiError(409, "conflict") : new HttpResponse(new Blob(["pdf"]), { status: 200 });
+        }),
+      );
+      const { user } = renderAt(PATH);
+      await startPdf(user);
+      expect(await waitFor(panelNow)).toBeVisible(); // still building: the panel stays while the answer is "not ready"
+      expect(await screen.findByText("Your PDF has been downloaded.", {}, { timeout: 8000 })).toBeVisible();
+    }, 12000);
+
+    test("a build that failed says so plainly, enables both formats and offers Try again, which asks once more", async () => {
+      mockReader(pack);
+      const log = mockTranscript("ready");
+      let asked = 0;
+      server.use(
+        http.get(`${C}/transcript/download/:job`, () => {
+          asked += 1;
+          return asked === 1 ? apiError(409, "build_failed") : new HttpResponse(new Blob(["pdf"]), { status: 200 });
+        }),
+      );
+      const { user } = renderAt(PATH);
+      await startPdf(user);
+      const failed = await screen.findByText("We couldn't build your PDF. Nothing has been lost. Please try again.");
+      expect(screen.queryByText(BUILDING)).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Download a copy" }));
+      expect(await screen.findByRole("menuitem", { name: "Download as PDF" })).toBeEnabled();
+      await user.keyboard("{Escape}");
+      await user.click(within(failed.closest("[role=status],[role=alert]") as HTMLElement).getByRole("button", { name: "Try again" }));
+      expect(await screen.findByText("Your PDF has been downloaded.")).toBeVisible();
+      expect(log.bodies).toEqual([{ format: "pdf" }, { format: "pdf" }]);
+      expect(screen.queryByText("We couldn't build your PDF. Nothing has been lost. Please try again.")).toBeNull();
+    });
+
+    test("a request that fails shows words from the error and Try again", async () => {
+      mockReader(pack);
+      mockTranscript("ready");
+      server.use(http.post(`${C}/transcript/download`, () => apiError(503, "unavailable")));
+      const { user } = renderAt(PATH);
+      await startPdf(user);
+      expect(await screen.findByRole("button", { name: "Try again" })).toBeVisible();
+      expect(screen.queryByText(BUILDING)).toBeNull();
+    });
   });
 
   test("the buttons are enabled when the transcript is ready even if no page has been read", async () => {
