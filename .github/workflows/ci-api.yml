@@ -6,6 +6,12 @@ on:
   push:
     branches: [main]
 
+# A newer push to a pull request cancels the older, now-pointless run.
+# Runs on main are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   spec:
     runs-on: ubuntu-latest
