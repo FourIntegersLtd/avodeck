@@ -174,3 +174,28 @@ def test_fixture_pack_word_per_line_prompts_still_keep_their_ids(library: PackLi
     out = pii.strip("w1\tZ4\nw2\t77Z\nw3\tseen", pack=merged(library, FIXTURE))  # noqa: B005
     assert [line.split("\t")[0] for line in out.text.split("\n")] == ["w1", "w2", "w3"]
     assert "77Z" not in out.text
+
+
+@pytest.mark.parametrize("sep", ["\t", " "])
+@pytest.mark.parametrize("word", ["2nd", "1st", "3rd", "5AB", "5ab", "9th"])
+def test_a_row_id_followed_by_a_word_that_looks_like_the_end_of_a_postcode_keeps_its_id(
+    library: PackLibrary, sep: str, word: str
+) -> None:
+    """`w12<tab>2nd` reads like the postcode `W12 2ND`. In a word-per-line prompt it is a row id and a word: the id
+    must stay (the answer cites it) and the word is not an identifier."""
+    text = f"w11{sep}the\nw12{sep}{word}\nw13{sep}dose"
+    out = pii.strip(text, pack=merged(library, LAUNCH))
+    assert out.text == text
+    assert sum(out.counts.values()) == 0
+
+
+def test_a_row_id_of_the_p_w_form_keeps_its_id_before_an_ordinal(library: PackLibrary) -> None:
+    text = "p1w4\tthe\np1w5\t2nd\np1w6\tdose"
+    assert pii.strip(text, pack=merged(library, LAUNCH)).text == text
+
+
+def test_fixture_pack_a_row_id_before_a_word_shaped_like_an_address_code_keeps_its_id(library: PackLibrary) -> None:
+    text = "z4\tthe\nz5\t77z\nz6\tdose"
+    out = pii.strip(text, pack=merged(library, FIXTURE))
+    assert [line.split("\t")[0] for line in out.text.split("\n")] == ["z4", "z5", "z6"]
+    assert out.text == text

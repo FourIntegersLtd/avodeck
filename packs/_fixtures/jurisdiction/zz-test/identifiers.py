@@ -8,7 +8,7 @@ ZZ_PHONE = re.compile(r"\b555-\d{4}\b")
 ZZ_HOSPITAL = re.compile(r"\bZZ-HOSP-\d{4}\b")
 BIRTHDATE = re.compile(r"\bBirthdate:\s*(\d{1,2}/\d{1,2}/\d{4})")
 # An address code shaped like a letter and digit, then two digits and a letter (Z4 77Z): it can start a line.
-ZZ_AREA = re.compile(r"\bZ\d\s*\d{2}Z\b")
+ZZ_AREA = re.compile(r"\bZ\d\s*\d{2}Z\b", re.I)
 
 
 def find_identifiers(text: str) -> list[tuple[int, int, str]]:
