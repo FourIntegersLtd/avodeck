@@ -4,7 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { apiOrigin } from "../platform-client";
 import { http, json, server } from "../../test/api";
-import { useCaseJobs, useJob, useOnCaseChange, followCase, waitForCaseChange, waitForJob, type LiveJob } from "./sse";
+import { useCaseJobs, useJob, useJobOutcome, useOnCaseChange, followCase, waitForCaseChange, waitForJob, type LiveJob } from "./sse";
 
 class FakeEventSource {
   static all: FakeEventSource[] = [];
@@ -396,5 +396,78 @@ describe("followCase", () => {
     await check;
     vi.useRealTimers();
     follow.close();
+  });
+});
+
+describe("useJobOutcome: a job always ends, with no polling", () => {
+  const record = (status: string, onGet?: () => void) =>
+    server.use(
+      http.get("/v1/jobs/:id", () => {
+        onGet?.();
+        return json({ id: "j1", case_id: "c1", kind: "export_case", status, step: null, pct: null, eta_seconds: null, error_code: null, created_at: "", started_at: null, finished_at: null });
+      }),
+    );
+
+  test("follows the stream: done, failed and cancelled, with no request to the server", async () => {
+    let asked = 0;
+    record("running", () => (asked += 1));
+    for (const [status, outcome] of [["done", "done"], ["failed", "failed"], ["cancelled", "failed"]] as const) {
+      const { result, unmount } = renderHook(() => useJobOutcome("c1", "j1", 60_000));
+      act(() => latest().emit([job({ status: "running" })]));
+      expect(result.current).toBeNull();
+      act(() => latest().emit([job({ status })]));
+      expect(result.current).toBe(outcome);
+      unmount();
+    }
+    expect(asked).toBe(0);
+  });
+
+  test("a job missing from the first snapshot (it ended long ago) is asked about once", async () => {
+    let asked = 0;
+    record("done", () => (asked += 1));
+    const { result } = renderHook(() => useJobOutcome("c1", "j1", 60_000));
+    expect(result.current).toBeNull();
+    act(() => latest().emit([]));
+    await vi.waitFor(() => expect(result.current).toBe("done"));
+    act(() => latest().emit([job({ id: "other" })]));
+    expect(asked).toBe(1);
+  });
+
+  test("when the time is up it asks once, and says slow if the job is still running", async () => {
+    let asked = 0;
+    record("running", () => (asked += 1));
+    const { result } = renderHook(() => useJobOutcome("c1", "j1", 30));
+    act(() => latest().emit([job({ status: "running" })]));
+    await vi.waitFor(() => expect(result.current).toBe("slow"));
+    expect(asked).toBe(1);
+  });
+
+  test("when the time is up and the server says it finished, that wins over slow", async () => {
+    record("failed");
+    const { result } = renderHook(() => useJobOutcome("c1", "j1", 30));
+    act(() => latest().emit([job({ status: "running" })]));
+    await vi.waitFor(() => expect(result.current).toBe("failed"));
+  });
+
+  test("a server that cannot be reached at the time limit is slow, not a spinner forever", async () => {
+    server.use(http.get("/v1/jobs/:id", () => new Response(null, { status: 500 })));
+    const { result } = renderHook(() => useJobOutcome("c1", "j1", 30));
+    await vi.waitFor(() => expect(result.current).toBe("slow"));
+  });
+
+  test("does nothing, and opens no stream, without a job", () => {
+    const { result } = renderHook(() => useJobOutcome(null, null, 30));
+    expect(result.current).toBeNull();
+    expect(FakeEventSource.all).toHaveLength(0);
+  });
+
+  test("lets the stream go and stops its clock when the screen leaves", async () => {
+    let asked = 0;
+    record("running", () => (asked += 1));
+    const { unmount } = renderHook(() => useJobOutcome("c1", "j1", 30));
+    unmount();
+    await new Promise((r) => setTimeout(r, 80));
+    expect(asked).toBe(0);
+    expect(latest().closed).toBe(true);
   });
 });

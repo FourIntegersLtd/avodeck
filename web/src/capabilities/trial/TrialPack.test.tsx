@@ -68,6 +68,40 @@ test("making the pack waits for the job, then shows the new pack", async () => {
   expect(await screen.findByText(fill(k("pack.summary"), { pages: 61 }))).toBeInTheDocument();
 });
 
+const PACK_JOB = "a9999999-9999-4999-8999-999999999991";
+
+test("a cancelled build says it failed and lets the pack be made again", async () => {
+  servePack("launch", { latest: { pack: null, settings: settingsOut() } });
+  server.use(http.post("/v1/cases/:caseId/trial-pack", () => json({ job_id: PACK_JOB }, 202)));
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: k("pack.build") }));
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: PACK_JOB, kind: "build_trial_pack", status: "running" })]));
+  expect(screen.getByText(k("pack.building"))).toBeInTheDocument();
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: PACK_JOB, kind: "build_trial_pack", status: "cancelled" })]));
+  expect(await screen.findByText(k("pack.failed"))).toBeInTheDocument();
+  expect(screen.queryByText(k("pack.building"))).toBeNull();
+  expect(screen.getByRole("button", { name: k("pack.build") })).toBeEnabled();
+});
+
+test("a pack finished while the page was not listening is found with one question", async () => {
+  servePack("launch", { latest: { pack: null, settings: settingsOut() } });
+  let done = false;
+  server.use(
+    http.post("/v1/cases/:caseId/trial-pack", () => json({ job_id: PACK_JOB }, 202)),
+    http.get("/v1/cases/:caseId/trial-pack/latest", () => json({ pack: done ? packOut({ page_count: 61 }) : null, settings: settingsOut() })),
+    http.get(`/v1/jobs/${PACK_JOB}`, () => {
+      done = true;
+      return json({ id: PACK_JOB, case_id: CASE, kind: "build_trial_pack", status: "done", step: null, pct: null, eta_seconds: null, error_code: null, created_at: "", started_at: null, finished_at: null });
+    }),
+  );
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: k("pack.build") }));
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([])); // the job has aged out of the case's list
+  expect(await screen.findByText(fill(k("pack.summary"), { pages: 61 }))).toBeInTheDocument();
+});
+
 test("a pack made before the court bundle changed says it needs rebuilding", async () => {
   servePack("launch", { latest: { pack: packOut({ stale: true, stale_reason: "court_bundle_superseded" }), settings: settingsOut() } });
   renderAt(url);
