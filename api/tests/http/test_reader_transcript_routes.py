@@ -425,6 +425,19 @@ async def test_a_press_after_the_earlier_build_ended_starts_a_new_one(
     assert _requests_audited(admin, world) == 1
 
 
+async def test_asking_for_a_build_that_failed_says_so_rather_than_waiting(
+    client_for: Any, admin: psycopg.Connection, seed: Seed, world: dict[str, Any]
+) -> None:
+    job = seed.job(world["case"], kind="export_transcript_pdf", requested_by=world["expert"])
+    admin.execute("update app.jobs set status = 'running' where id = %s", (job,))
+    client: httpx.AsyncClient = await client_for(world["expert"])
+    waiting = await client.get(f"{base(world)}/transcript/download/{job}")
+    assert waiting.status_code == 409 and waiting.json()["error"]["code"] == "conflict"
+    admin.execute("update app.jobs set status = 'failed' where id = %s", (job,))
+    failed = await client.get(f"{base(world)}/transcript/download/{job}")
+    assert failed.status_code == 409 and failed.json()["error"]["code"] == "build_failed"
+
+
 async def test_the_job_a_repeated_press_returned_is_handed_over_once_when_done(
     client_for: Any,
     admin: psycopg.Connection,
