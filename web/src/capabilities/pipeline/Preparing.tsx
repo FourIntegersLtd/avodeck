@@ -6,9 +6,9 @@ import { useNavigate } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
-import { useEventStream } from "../../foundation/lib/sse";
+import { useJob } from "../../foundation/lib/sse";
 import { useResource } from "../../foundation/lib/useResource";
-import { api, apiOrigin, unwrap, type Schemas } from "../../foundation/platform-client";
+import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, ProgressBar, Spinner, TextLink } from "../../foundation/ui";
 import { can, casePath } from "./data";
 import { LockIcon, PagesPicture } from "./icons";
@@ -18,7 +18,6 @@ const STEPS = ["split", "ocr", "sort", "duplicates", "missing"] as const;
 const SCAN = "scan_document";
 // The steps that handle every page, so a finished one shows the bundle's page count.
 const COUNTED = new Set(["split", "ocr"]);
-const POLL_MS = 3000;
 const STUCK_MINUTES = 10; // no change for this long: say so plainly and offer to try again
 const TICK_MS = 30_000;
 
@@ -26,7 +25,6 @@ type Job = Schemas["ProcessingJob"];
 type Update = Partial<Pick<Job, "status" | "step" | "pct" | "eta_seconds" | "error_code" | "step_done" | "step_total">>;
 
 const finished = (status: string | undefined) => status === "done" || status === "failed" || status === "cancelled";
-const eventsUrl = (jobId: string) => `${apiOrigin()}/v1/jobs/${jobId}/events`;
 
 // A short, readable form of an id to read out on the phone: its first eight characters in two groups.
 const shortRef = (id: string) => id.replace(/-/g, "").slice(0, 8).toUpperCase().replace(/(.{4})(.{4})/, "$1 $2");
@@ -47,7 +45,7 @@ export function Preparing() {
   const uploads = can(item, "case.upload");
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), TICK_MS);
+    const id = window.setInterval(() => setNow(Date.now()), TICK_MS); // clock, not data
     return () => window.clearInterval(id);
   }, []);
 
@@ -75,13 +73,12 @@ export function Preparing() {
     if (update.status === "done") void check().catch(() => setLoadFailed(true));
   };
 
-  const jobId = job?.id;
-  const pollFallback = useCallback(
-    (): Promise<Update> => unwrap(api.GET("/v1/jobs/{job_id}", { params: { path: { job_id: jobId! } } })),
-    [jobId],
-  );
-
-  useEventStream<Update>(job && !finished(job.status) ? eventsUrl(job.id) : null, onUpdate, pollFallback, POLL_MS);
+  // The case's live stream (shared with every other screen) moves the job on; a finished one is not followed.
+  const live = useJob(job && !finished(job.status) ? caseId : null, job?.id ?? null);
+  useEffect(() => {
+    if (live) onUpdate(live);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live]);
 
   const load = useCallback(() => {
     setLoadFailed(false);

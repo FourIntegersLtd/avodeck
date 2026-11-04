@@ -1,23 +1,22 @@
 // Add more papers: choose new files, say what they are and how and when they arrived, upload them
 // as one new delivery (POST /documents/append), then follow the processing job. The server numbers
 // the new pages after the existing ones; this screen only sends files and shows progress.
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { useResource } from "../../foundation/lib/useResource";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
-import { useEventStream } from "../../foundation/lib/sse";
+import { useJob } from "../../foundation/lib/sse";
 import { uploadInParts } from "../../foundation/lib/upload";
 import { ResumeUpload } from "../../foundation/lib/ResumeUpload";
 import { UploadStatus } from "../../foundation/lib/UploadControls";
 import { useJobWatch } from "../../foundation/lib/jobWatch";
 import { useUpload } from "../../foundation/lib/useUpload";
-import { api, apiOrigin, unwrap, type Schemas } from "../../foundation/platform-client";
+import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, ChoicePills, DropZone, LinkButton, Notice, ProgressBar, Spinner, TextField } from "../../foundation/ui";
 import { can, casePath, kindWord } from "./data";
 import { w, wordFor } from "./words";
 
-const POLL_MS = 2000;
 const HOW = ["sent", "asked", "mine"] as const;
 const BASE_KINDS = ["records", "other"];
 
@@ -42,19 +41,9 @@ export function AddPapers() {
   const { watch } = useJobWatch();
 
   const jobId = job?.id;
-  const status = job?.latest.status;
-  const finished = status === "done" || status === "failed" || status === "cancelled";
-
-  const onUpdate = (latest: Partial<Job>) => {
-    if (jobId) setJob({ id: jobId, latest });
-  };
-
-  const pollFallback = useCallback(
-    (): Promise<Partial<Job>> => unwrap(api.GET("/v1/jobs/{job_id}", { params: { path: { job_id: jobId! } } })),
-    [jobId],
-  );
-
-  useEventStream<Partial<Job>>(jobId && !finished ? `${apiOrigin()}/v1/jobs/${jobId}/events` : null, onUpdate, pollFallback, POLL_MS);
+  const live = useJob(jobId ? caseId : null, jobId ?? null);
+  const latest: Partial<Job> | undefined = live ?? job?.latest;
+  const status = latest?.status;
 
   const extra = Object.keys(((pack.vocabulary as Record<string, unknown>).document_kinds as Record<string, string> | undefined) ?? {});
   const kinds = [...BASE_KINDS, ...extra.filter((k) => !BASE_KINDS.includes(k))].map((k) => ({ value: k, label: kindWord(pack, k) }));
@@ -101,7 +90,7 @@ export function AddPapers() {
       }
       const { job_id } = await unwrap(api.POST("/v1/cases/{case_id}/documents/append", { ...casePath(caseId), body: { document_ids: ids } }));
       setJob({ id: job_id, latest: { status: "queued", pct: 0 } });
-      watch(job_id, { done: w("add.done"), failed: w("add.toast_failed"), open: w("add.toast_open"), to: `/cases/${caseId}/bundle` });
+      watch(caseId, job_id, { done: w("add.done"), failed: w("add.toast_failed"), open: w("add.toast_open"), to: `/cases/${caseId}/bundle` });
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -110,7 +99,7 @@ export function AddPapers() {
   }
 
   if (job) {
-    const l = job.latest;
+    const l = latest ?? job.latest;
     const pct = Math.max(0, Math.min(100, l.pct ?? 0));
     return (
       <div className="av-page pl-add">

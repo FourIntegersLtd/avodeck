@@ -1,24 +1,24 @@
 // Add more papers: pick files, say what they are and how and when they arrived, upload them as one
 // new delivery, follow the processing, and go back to the case home. Runs under both pack sets.
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, onTestFinished, test } from "vitest";
 import { timing } from "../../foundation/lib/chunkedUpload";
 import type { Schemas } from "../../foundation/platform-client";
 import { http, json, server, signedIn } from "../../test/api";
+import { FakeEventSource, liveJob } from "../../test/eventSource";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { CASE_ID, JOB, processingJob, summary, theCase, VIEWER_ACTIONS } from "./testData";
+import { CASE_ID, JOB, summary, theCase, VIEWER_ACTIONS } from "./testData";
 
 const PATH = `/cases/${CASE_ID}/papers/add`;
 const DOC_A = "d3000000-0000-4000-8000-000000000001";
 const DOC_B = "d3000000-0000-4000-8000-000000000002";
 const pdf = (name: string) => new File([new Uint8Array(300)], name, { type: "application/pdf" });
 
-function mock(pack: Schemas["CasePack"], opts: { empty?: boolean; actions?: string[]; failUpload?: boolean; jobs?: Array<Partial<Schemas["ProcessingJob"]>> } = {}) {
+function mock(pack: Schemas["CasePack"], opts: { empty?: boolean; actions?: string[]; failUpload?: boolean} = {}) {
   signedIn({ pack });
   const seen = { starts: [] as Array<Record<string, unknown>>, chunks: 0, patches: [] as Array<{ id: string; body: Record<string, unknown> }>, appends: [] as unknown[] };
   const ids = [DOC_A, DOC_B];
-  const jobs = [...(opts.jobs ?? [{ status: "done", step: "missing", pct: 100 }])];
   server.use(
     http.get(`/v1/cases/${CASE_ID}`, () => json(theCase(opts.actions ? { allowed_actions: opts.actions } : {}))),
     http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => json(summary(pack, opts.empty ? { documents: [], pages: 0 } : {}))),
@@ -43,7 +43,6 @@ function mock(pack: Schemas["CasePack"], opts: { empty?: boolean; actions?: stri
       seen.appends.push(await request.json());
       return json({ job_id: JOB, bundle_version: 2 }, 202);
     }),
-    http.get(`/v1/jobs/${JOB}`, () => json(processingJob(jobs.length > 1 ? jobs.shift()! : jobs[0]!))),
   );
   return seen;
 }
@@ -89,7 +88,7 @@ describe.each([
   });
 
   test("uploads every file as later records of the chosen kind, records how and when they arrived, then follows the job", async () => {
-    const seen = mock(pack, { jobs: [{ status: "running", step: "ocr", pct: 40 }, { status: "done", step: "missing", pct: 100 }] });
+    const seen = mock(pack);
     const { user } = renderAt(PATH);
     await user.upload(await screen.findByLabelText("Choose files"), [pdf("a.pdf"), pdf("b.pdf")]);
     expect(screen.getByText("a.pdf")).toBeVisible();
@@ -104,7 +103,14 @@ describe.each([
     expect(seen.patches[0]!.body).toMatchObject({ obtained_how: "Sent by the instructing party" });
     expect(String(seen.patches[0]!.body.received_on)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
-    const done = await screen.findByText("Your new papers are ready.", {}, { timeout: 6000 });
+    await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+    const stream = FakeEventSource.open()[0]!;
+    expect(stream.url).toMatch(new RegExp(`/v1/cases/${CASE_ID}/events$`));
+    act(() => stream.emitJobs([liveJob({ id: JOB, kind: "append_documents", status: "running", step: "ocr", pct: 40 })]));
+    expect(await screen.findByText("Reading every page")).toBeVisible();
+    act(() => stream.emitJobs([liveJob({ id: JOB, kind: "append_documents", status: "done", step: "missing", pct: 100 })]));
+    // the screen says it, and so does the toast from the job watch on the same stream
+    const done = await screen.findByRole("heading", { name: "Your new papers are ready." });
     expect(done).toBeVisible();
     const back = screen.getByRole("link", { name: "Back to your papers" });
     expect(back).toHaveAttribute("href", `/cases/${CASE_ID}/home`);
