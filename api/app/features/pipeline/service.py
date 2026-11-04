@@ -674,6 +674,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
     bedrock_task = extract.task_for(pack)  # a re-split call goes to Bedrock, whose answer limit is the default
     model_id = model_for(services.kit.settings, task.model)
     size = extract.pages_per_call(services.kit.settings.extraction_batch_size, limits.pages_per_call)
+    entry_floor = services.kit.settings.entry_coverage_floor
     batches = [waiting[i : i + size] for i in range(0, len(waiting), size)]
     done = 0
 
@@ -792,7 +793,13 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
             thin_entries = (
                 reason is None
                 and entries is not None
-                and coverage.entry_reason(ordered=ordered, struck=struck, entries=entries) is not None
+                and coverage.entry_reason(
+                    ordered=ordered,
+                    struck=struck,
+                    entries=entries,
+                    floor=entry_floor,
+                )
+                is not None
             )
             if reason in ("no_facts", "low_coverage") or thin_entries:  # little to show: ask once more, on its own
                 again_text = extract.batch_text([(page_no, loaded_page.text)])

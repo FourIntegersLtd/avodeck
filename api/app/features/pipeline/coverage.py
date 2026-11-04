@@ -11,7 +11,7 @@ from typing import Any
 
 MIN_WORDS = 40
 MIN_COVERAGE = 0.5
-MIN_ENTRY_COVERAGE = 0.8  # the share of a page's words its entries should cover before it is not asked again
+MIN_ENTRY_COVERAGE = 0.8  # the default share (the cell's `entry_coverage_floor`) of words entries should cover
 
 
 def _countable(ordered: Sequence[tuple[str, str]], struck: set[str]) -> list[str]:
@@ -51,11 +51,17 @@ def entry_coverage(*, ordered: Sequence[tuple[str, str]], struck: set[str], entr
     return sum(1 for word_id in countable if word_id in covered) / len(countable)
 
 
-def entry_reason(*, ordered: Sequence[tuple[str, str]], struck: set[str], entries: Sequence[Any] | None) -> str | None:
-    """`low_entry_coverage` when a page with enough words has entries over less than `MIN_ENTRY_COVERAGE` of
+def entry_reason(
+    *,
+    ordered: Sequence[tuple[str, str]],
+    struck: set[str],
+    entries: Sequence[Any] | None,
+    floor: float = MIN_ENTRY_COVERAGE,
+) -> str | None:
+    """`low_entry_coverage` when a page with enough words has entries over less than `floor` of
     them (none at all counts). It only decides that the page is asked again, never that it needs a person.
     No usable answer (`entries` is None) is left to the caller."""
     if entries is None or len(_countable(ordered, struck)) < MIN_WORDS:
         return None
     share = entry_coverage(ordered=ordered, struck=struck, entries=entries)
-    return "low_entry_coverage" if share < MIN_ENTRY_COVERAGE else None
+    return "low_entry_coverage" if share < floor else None
