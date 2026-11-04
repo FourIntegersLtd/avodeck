@@ -1,7 +1,7 @@
 // Screen 07, Preparing your bundle. It follows the case's latest processing job (GET /process) over
 // the job's event stream and opens screen 08 when the bundle is ready. The server decides everything;
 // this screen only shows the job's step, progress and time left.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
@@ -62,7 +62,11 @@ export function Preparing() {
     }
   }, [caseId, navigate]);
 
+  const lastStep = useRef<string | null | undefined>(undefined);
   const onUpdate = (update: Update) => {
+    // The page total can be unknown until splitting is done: ask for it again when a step moves on.
+    if (update.step !== undefined && lastStep.current !== undefined && update.step !== lastStep.current) info.reload();
+    if (update.step !== undefined) lastStep.current = update.step;
     setJob((prev) => {
       if (!prev) return prev;
       const changed = (["status", "step", "pct", "step_done"] as const).some((k) => k in update && update[k] !== prev[k]);
