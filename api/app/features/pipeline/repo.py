@@ -1896,20 +1896,40 @@ class UndatedEntry:
     kind: str
     first_n: int
     last_n: int
+    event_date: dt.date | None = None  # the date it has now, when the repair job is asked to check it
 
 
 async def undated_entries(conn: AsyncConnection, case_id: uuid.UUID) -> list[UndatedEntry]:
-    """The case's entries that have no date yet (the repair job's work), page by page."""
+    """The case's entries the repair job looks at, page by page: every entry without a date, and every dated
+    entry too, since the job re-dates one whose date is a birth date and splits a card at its dated lines."""
     cur = await conn.execute(
-        "select e.id, e.page_id, e.kind, e.first_n, e.last_n from app.record_entries e"
+        "select e.id, e.page_id, e.kind, e.first_n, e.last_n, e.event_date from app.record_entries e"
         " join app.cases c on c.bundle_id = e.bundle_id"
-        " where c.id = %s and e.event_date is null order by e.page_id, e.first_n",
+        " where c.id = %s order by e.page_id, e.first_n",
         (case_id,),
     )
     return [
-        UndatedEntry(uuid.UUID(str(r[0])), uuid.UUID(str(r[1])), str(r[2]), int(r[3]), int(r[4]))
+        UndatedEntry(uuid.UUID(str(r[0])), uuid.UUID(str(r[1])), str(r[2]), int(r[3]), int(r[4]), r[5])
         for r in await cur.fetchall()
     ]
+
+
+async def replace_entry(conn: AsyncConnection, entry_id: uuid.UUID, pieces: Sequence[NewEntry]) -> None:
+    """Puts `pieces` (contiguous word ranges covering the entry) in place of the entry: the first reuses its row
+    and the others copy its kind, author, specialty and extraction version."""
+    first, *rest = pieces
+    for piece in rest:
+        await conn.execute(
+            "insert into app.record_entries (page_id, bundle_id, kind, first_n, last_n, author_role, specialty,"
+            " event_date, date_basis, extraction_version)"
+            " select page_id, bundle_id, kind, %s, %s, author_role, specialty, %s, %s, extraction_version"
+            " from app.record_entries where id = %s",
+            (piece.first_n, piece.last_n, piece.event_date, piece.date_basis, entry_id),
+        )
+    await conn.execute(
+        "update app.record_entries set first_n = %s, last_n = %s, event_date = %s, date_basis = %s where id = %s",
+        (first.first_n, first.last_n, first.event_date, first.date_basis, entry_id),
+    )
 
 
 async def entry_ranges(conn: AsyncConnection, page_id: uuid.UUID) -> list[tuple[int, int]]:

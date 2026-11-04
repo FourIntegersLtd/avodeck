@@ -20,6 +20,7 @@ from functools import lru_cache
 
 import dateparser
 
+from app.core.ai.pii import DATE_OF_BIRTH
 from app.core.packs import MergedPack
 
 PRINTED = "printed"
@@ -32,6 +33,8 @@ _YEAR_FIRST = re.compile(r"^\W*\d{4}[/.\-]\d{1,2}[/.\-]\d{1,2}\W*$")
 _MONTH_WORD = re.compile(r"^\W*\d{1,2}[/.\-][^\W\d_]{3,}\.?[/.\-]\d{4}\W*$")
 _DAY = re.compile(r"^\W*\d{1,2}\W*$")
 _WORD = re.compile(r"^\W*[^\W\d_]{3,}\W*$")
+_MONTH_YEAR = re.compile(r"^\W*[^\W\d_]{3,}\.?[/.\-]\d{4}\W*$")
+_DASH = re.compile(r"^[-\u2013\u2014]$")
 _YEAR = re.compile(r"^\W*\d{4}\W*$")
 _ISO = re.compile(r"^\s*\d{4}-\d{2}-\d{2}\s*$")
 _EDGES = re.compile(r"^\W+|\W+$")
@@ -43,6 +46,7 @@ class Printed:
     value: dt.date  # read in the pack's date order
     other: dt.date | None  # a numeric date read the other way round, if that is a date too
     ambiguous: bool  # a two-digit year: never used as a fact's date
+    century: bool = False  # a two-digit year whose century was chosen (`resolve_century`); no longer ambiguous
 
 
 @lru_cache(maxsize=4096)
@@ -94,6 +98,18 @@ def find(words: Sequence[tuple[str, str]], pack: MergedPack) -> list[Printed]:
             continue
         if i + 2 < len(words) and _DAY.match(text) and _WORD.match(words[i + 1][1]) and _YEAR.match(words[i + 2][1]):
             spoken = " ".join(_EDGES.sub("", t) for _, t in words[i : i + 3])
+            value = _read(spoken, pack.date_order, pack.language)
+            if value is not None:
+                found.append(Printed(tuple(w for w, _ in words[i : i + 3]), value, None, ambiguous=False))
+                i += 3
+                continue
+        if (
+            i + 2 < len(words)
+            and _DAY.match(text)
+            and _DASH.match(words[i + 1][1])
+            and _MONTH_YEAR.match(words[i + 2][1])
+        ):  # a day split from its month and year by a dash: `08 - JUN-2022`
+            spoken = f"{_EDGES.sub('', text)}-{_EDGES.sub('', words[i + 2][1])}"
             value = _read(spoken, pack.date_order, pack.language)
             if value is not None:
                 found.append(Printed(tuple(w for w, _ in words[i : i + 3]), value, None, ambiguous=False))
@@ -209,3 +225,57 @@ def century_from_ambiguous_text(text: str, pack: MergedPack, anchor: dt.date | N
     yy = int(match.group(1))
     part = found[0].value
     return pick_past_century(part.day, part.month, yy, anchor)
+
+
+def resolve_century(printed: Printed, anchor: dt.date, earliest_birth: dt.date | None = None) -> Printed:
+    """A two-digit year read in the latest century that is not after `anchor` and, when a date of birth is
+    known, not before it (`century=True`, no longer ambiguous). When no century fits it stays ambiguous."""
+    if not printed.ambiguous:
+        return printed
+    day, month, yy = printed.value.day, printed.value.month, printed.value.year % 100
+    fits = [
+        d
+        for base in (1900, 2000)
+        for d in [_calendar_day(base + yy, month, day)]
+        if d is not None and d <= anchor and (earliest_birth is None or d >= earliest_birth)
+    ]
+    if not fits:
+        return printed
+    return Printed(printed.word_ids, max(fits), None, ambiguous=False, century=True)
+
+
+def _calendar_day(year: int, month: int, day: int) -> dt.date | None:
+    try:
+        return dt.date(year, month, day)
+    except ValueError:
+        return None
+
+
+def labelled_births(
+    words: Sequence[tuple[str, str]], pack: MergedPack, anchor: dt.date | None = None
+) -> tuple[set[str], list[dt.date]]:
+    """The words of every date printed directly after a birth label, and those dates (read in the pack's date
+    order; a two-digit year in the latest century not after `anchor`). The label words belong to the pack: its
+    identifier recogniser says which text is a date of birth, so nothing country-specific is written here."""
+    if not words:
+        return set(), []
+    spans: list[tuple[int, int]] = []
+    text = ""
+    for _, word in words:
+        start = len(text) + (1 if text else 0)
+        spans.append((start, start + len(word)))
+        text = f"{text} {word}" if text else word
+    ids: set[str] = set()
+    births: list[dt.date] = []
+    for start, end, kind in pack.identifier_recognisers()(text):
+        if kind != DATE_OF_BIRTH:
+            continue
+        ids.update(w for (w, _), (a, b) in zip(words, spans, strict=True) if a < end and b > start)
+        printed = find([(str(n), t) for n, t in enumerate(text[start:end].split())], pack)
+        read = printed[0] if len(printed) == 1 else None
+        if read is None:
+            continue
+        if read.ambiguous and anchor is not None:
+            read = resolve_century(read, anchor)
+        births.append(read.value)
+    return ids, births
