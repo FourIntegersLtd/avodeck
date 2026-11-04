@@ -115,6 +115,13 @@ async def _layout(
     return layout, pack, received, coverage
 
 
+async def _case_label(conn: AsyncConnection, case_id: uuid.UUID) -> str | None:
+    """The name the case shows to its members (never an identifier or a birth date), for the cover."""
+    cur = await conn.execute("select label from app.cases where id = %s", (case_id,))
+    label = (await cur.fetchone() or ("",))[0] or ""
+    return str(label).strip() or None
+
+
 def _today(pack: MergedPack) -> date:
     """The date the file is prepared, in the pack's timezone."""
     return datetime.now(ZoneInfo(pack.timezone)).date()
@@ -129,8 +136,9 @@ async def export_transcript(ctx: JobContext) -> None:
             return
         layout, pack, received, _ = made
         document = transcript_docx.build(
-            layout, date_order=pack.date_order, language=pack.language, received=received, prepared_on=_today(pack)
-        )
+            layout, date_order=pack.date_order, language=pack.language, received=received, prepared_on=_today(pack),
+            case_label=await _case_label(conn, ctx.case_id),
+        )  # fmt: skip
         path = transcript_path(ctx.case_id, ctx.job_id)
         await storage.put(path, await crypto.encrypt(conn, ctx.case_id, document, purpose=path))
 
@@ -164,7 +172,7 @@ async def export_transcript_pdf(ctx: JobContext) -> None:
             )
         document = transcript_pdf.build_pdf(
             layout, pictures, date_order=pack.date_order, language=pack.language, received=received,
-            prepared_on=_today(pack),
+            prepared_on=_today(pack), case_label=await _case_label(conn, ctx.case_id),
         )  # fmt: skip
         path = transcript_path(ctx.case_id, ctx.job_id, "pdf")
         await storage.put(path, await crypto.encrypt(conn, ctx.case_id, document, purpose=path))
