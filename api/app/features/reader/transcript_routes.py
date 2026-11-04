@@ -86,9 +86,9 @@ async def transcript_entries(
             total=0,
             entries=[],
             prepared_pages=progress.entries_done,
-            total_pages=progress.total,
+            total_pages=progress.required,  # set-aside copies are not waiting for anything
             extracted_pages=progress.extracted,
-            waiting_for="entries" if own_wait or progress.extracted >= progress.total else "pipeline",
+            waiting_for="entries" if own_wait or progress.extracted >= progress.required else "pipeline",
             pipeline_running=await pipeline_running(conn, case_id),
             can_prepare=can_prepare,
         )

@@ -21,8 +21,9 @@ OCR words, behind the blind-read gate.
 - `case_over_allowance(conn, case_id, guard=None)`: the case's tokens have reached the cost guard's allowance
   (`cost_guard()`, the worker's own test). `request_unread_retry` refuses to hand a paused run back then (409
   `allowance_used_up`, nothing queued or changed), since the run would only pause again.
-- `entries_progress(conn, case_id)`: how many pages there are, how many the pipeline has extracted, and how many
-  have had their entries read (or failed); counts only.
+- `entries_progress(conn, case_id)`: how many pages there are (`total`), how many are `required` (set-aside copies, `duplicate_of_page_id`,
+  are not waiting for anything; a kept copy has it cleared and counts), how many of those the pipeline has
+  extracted, and how many have had their entries read (or failed); counts only.
 - `pipeline_running(conn, case_id)`: a bundle-processing job is queued or running for the case (a paused one is not).
 """
 
@@ -80,7 +81,7 @@ async def entries_ready(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
     cur = await conn.execute(
         "select count(*) from app.pages p left join app.page_analysis a on a.page_id = p.id"
         " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined and "
-        "(a.extracted_at is null or"
+        "p.duplicate_of_page_id is null and (a.extracted_at is null or"
         " (a.entries_extracted_at is null and a.entries_failed_at is null))",
         (case_id,),
     )
@@ -116,22 +117,29 @@ async def entries_status(conn: AsyncConnection, case_id: uuid.UUID) -> EntriesSt
 
 @dataclass(frozen=True)
 class EntriesProgress:
+    """`total`: every page of the bundle that is not set aside by quarantine (shown as-is). `required`: the pages
+    the pipeline and the entries job read, which leaves out set-aside copies (`duplicate_of_page_id`); a copy
+    marked kept has that cleared, so it counts. `extracted` and `entries_done` count required pages only."""
+
     total: int
     extracted: int
     entries_done: int
+    required: int
 
 
 async def entries_progress(conn: AsyncConnection, case_id: uuid.UUID) -> EntriesProgress:
     cur = await conn.execute(
-        "select count(*), count(a.extracted_at),"
-        " count(*) filter (where a.entries_extracted_at is not null or a.entries_failed_at is not null)"
+        "select count(*), count(a.extracted_at) filter (where p.duplicate_of_page_id is null),"
+        " count(*) filter (where p.duplicate_of_page_id is null and"
+        " (a.entries_extracted_at is not null or a.entries_failed_at is not null)),"
+        " count(*) filter (where p.duplicate_of_page_id is null)"
         " from app.pages p left join app.page_analysis a on a.page_id = p.id"
         " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined",
         (case_id,),
     )
     row = await cur.fetchone()
     assert row is not None
-    return EntriesProgress(row[0], row[1], row[2])
+    return EntriesProgress(row[0], row[1], row[2], row[3])
 
 
 PIPELINE_JOBS = ("process_bundle", "process_pages", "reprocess_case", "scan_document")
@@ -150,7 +158,7 @@ async def request_entries(conn: AsyncConnection, case_id: uuid.UUID) -> uuid.UUI
     if await entries_status(conn, case_id) in ("ready", "preparing"):
         return None
     progress = await entries_progress(conn, case_id)
-    if progress.extracted < progress.total:
+    if progress.extracted < progress.required:
         return None  # pages still wait on the pipeline; an entries job now would finish at once and be asked again
     return await registry.enqueue(conn, case_id, EXTRACT_ENTRIES)
 
