@@ -1016,6 +1016,9 @@ class Subject(BaseModel):
     label: str
     representative: str | None
     identity_recorded: bool = Field(description="Whether the person's name is recorded; never the values.")
+    date_of_birth_recorded: bool = Field(
+        default=False, description="Whether the person's date of birth is recorded; never the date."
+    )
 
 
 @router.get("/cases/{case_id}/subject", response_model=Subject)
@@ -1027,6 +1030,8 @@ async def get_subject(case_id: uuid.UUID, access: ViewMetadata, request: Request
     pack = await _pack(request, conn, case_id)
     flag = await (await conn.execute("select app.case_identity_recorded(%s)", (case_id,))).fetchone()
     recorded = bool(flag and flag[0])
+    dob_flag = await (await conn.execute("select app.case_identity_dob_recorded(%s)", (case_id,))).fetchone()
+    dob_recorded = bool(dob_flag and dob_flag[0])
     for status in pack.subject_statuses():
         if status["key"] == row[0]:
             return Subject(
@@ -1034,5 +1039,12 @@ async def get_subject(case_id: uuid.UUID, access: ViewMetadata, request: Request
                 label=str(status["label"]),
                 representative=status["representative"],
                 identity_recorded=recorded,
+                date_of_birth_recorded=dob_recorded,
             )
-    return Subject(status=None, label=pack.term("subject"), representative=None, identity_recorded=recorded)
+    return Subject(
+        status=None,
+        label=pack.term("subject"),
+        representative=None,
+        identity_recorded=recorded,
+        date_of_birth_recorded=dob_recorded,
+    )
