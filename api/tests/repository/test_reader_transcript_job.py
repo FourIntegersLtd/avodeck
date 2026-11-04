@@ -24,7 +24,7 @@ from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.jobs import JobContext
 from app.core.storage import CaseFileStorage, StorageError, case_prefix
-from app.features.reader import repo, transcript_jobs, transcript_pdf
+from app.features.reader import repo, transcript, transcript_jobs, transcript_pdf
 from app.features.reader.transcript_words import word
 from tests.support.db import scope_for
 from tests.support.files import build_app, local_storage
@@ -555,14 +555,14 @@ async def test_a_file_that_leaves_out_words_the_computer_read_is_never_built(
     await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("fine note",))])
     bare = await add_page(aconn, crypto, world["case"], doc, 2, [Spec("zz_session", ("never printed",))])
     await aconn.execute("delete from app.record_entries where id = %s", (bare.entry_ids[0],))
-    real = transcript_jobs.transcript.entries
+    real = transcript.entries
 
     async def forgetful(*a: Any, **kw: Any) -> Any:
         got = await real(*a, **kw)
         got.picture_words.clear()  # the words of the page with no entries are not handed on
         return got
 
-    monkeypatch.setattr(transcript_jobs.transcript, "entries", forgetful)
+    monkeypatch.setattr(transcript, "entries", forgetful)
     client = await client_for(world["expert"])
     resp = await client.post(f"/v1/cases/{world['case']}/transcript/download", json={"format": "docx"})
     job = uuid.UUID(resp.json()["job_id"])
