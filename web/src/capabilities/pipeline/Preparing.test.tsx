@@ -13,6 +13,7 @@ class FakeEventSource {
   static all: FakeEventSource[] = [];
   onmessage: ((e: MessageEvent) => void) | null = null;
   onerror: ((e: Event) => void) | null = null;
+  readyState = 1;
   closed = false;
   private listeners: Array<(e: MessageEvent) => void> = [];
   constructor(
@@ -28,8 +29,11 @@ class FakeEventSource {
   close() {
     this.closed = true;
   }
+  /** One job's update, sent the way the case stream sends it: the case's whole job list. */
   emit(data: object) {
-    const e = new MessageEvent("message", { data: JSON.stringify(data) });
+    const base = { id: JOB, kind: "process_bundle", status: "running", step: "sort", pct: 48, eta_seconds: 220, step_done: null, step_total: null, error_code: null };
+    const jobs = [{ ...base, ...data }];
+    const e = new MessageEvent("message", { data: JSON.stringify({ jobs }) });
     this.onmessage?.(e);
     this.listeners.forEach((fn) => fn(e));
   }
@@ -71,7 +75,7 @@ describe.each([
     expect(await screen.findByRole("heading", { level: 1, name: "Preparing your bundle" })).toBeVisible();
     expect(await screen.findByText("120 pages from 3 files. About 4 minutes left.")).toBeVisible();
     await waitFor(() => expect(FakeEventSource.all.length).toBe(1));
-    expect(latest().url).toMatch(new RegExp(`/v1/jobs/${JOB}/events$`));
+    expect(latest().url).toMatch(new RegExp(`/v1/cases/${CASE_ID}/events$`));
     expect(latest().init?.withCredentials).toBe(true);
     expect(within(stepRow("Splitting into pages")).getByText("Done")).toBeInTheDocument();
     expect(within(stepRow("Reading every page")).getByText("Done")).toBeInTheDocument();
@@ -122,8 +126,11 @@ describe.each([
     expect(within(stepRow("Splitting into pages")).getByText("Not started yet")).toBeInTheDocument();
     server.use(http.get(`/v1/cases/${CASE_ID}/process`, () => json({ job: processingJob({ id: NEXT_JOB, status: "queued", step: null, pct: 0, eta_seconds: null }) })));
     act(() => latest().emit({ status: "done", step: "scan", pct: 100, eta_seconds: 0, error_code: null }));
-    await waitFor(() => expect(FakeEventSource.all.length).toBe(2));
-    expect(latest().url).toMatch(new RegExp(`/v1/jobs/${NEXT_JOB}/events$`));
+    expect(await screen.findByText(/Waiting to start/)).toBeVisible();
+    // the next job's progress arrives on the same case stream
+    act(() => latest().emit({ id: NEXT_JOB, status: "running", step: "ocr", pct: 20, step_done: 30, step_total: 120 }));
+    expect(await screen.findByText("30 of 120")).toBeVisible();
+    expect(FakeEventSource.all.filter((s) => !s.closed)).toHaveLength(1);
     expect(router.state.location.pathname).toBe(PATH);
   });
 
@@ -148,7 +155,7 @@ describe.each([
     await user.click(start);
     await waitFor(() => expect(FakeEventSource.all.length).toBe(1));
     expect(started).toBe(1);
-    expect(latest().url).toMatch(new RegExp(`/v1/jobs/${JOB}/events$`));
+    expect(latest().url).toMatch(new RegExp(`/v1/cases/${CASE_ID}/events$`));
   });
 
   test("Stop preparing cancels the job and offers to start again", async () => {
@@ -253,7 +260,9 @@ describe.each([
     expect(alert).not.toHaveTextContent("ocr_failed");
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(retried).toBe(1);
-    await waitFor(() => expect(latest().url).toMatch(new RegExp(`/v1/jobs/${NEXT_JOB}/events$`)));
+    expect(await screen.findByText(/Waiting to start/)).toBeVisible();
+    act(() => latest().emit({ id: NEXT_JOB, status: "running", step: "ocr", pct: 20, step_done: 30, step_total: 120 }));
+    expect(await screen.findByText("30 of 120")).toBeVisible();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
