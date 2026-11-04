@@ -71,8 +71,8 @@ def test_each_outline_entry_is_on_its_own_page() -> None:
     pages = _outline_pages(reader)
     assert pages["1. First part"] == one
     assert pages["2. Second part"] == two
-    assert pages["Appendix A  Pages with no entries"] == _first_page_with(reader, "Appendix A Pages with no entries")
-    assert pages["Appendix B  Pictures of the pages"] == _first_page_with(reader, "Appendix B Pictures of the pages")
+    assert pages["Appendix A Pages with no entries"] == _first_page_with(reader, "Appendix A Pages with no entries")
+    assert pages["Appendix B Pictures of the pages"] == _first_page_with(reader, "Appendix B Pictures of the pages")
 
 
 def test_the_contents_rows_go_to_the_pages_they_list() -> None:

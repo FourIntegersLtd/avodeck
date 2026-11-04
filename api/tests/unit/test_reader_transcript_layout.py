@@ -17,6 +17,7 @@ from app.features.reader.transcript_layout import (
     OTHER_KEY,
     Coverage,
     arrange,
+    printed_words,
     section_of,
 )
 
@@ -121,3 +122,19 @@ def test_an_administrative_entry_keeps_all_its_lines() -> None:
     )
     layout = arrange([e], pack(), no_entry_pages=[], unread_pages=[], coverage=COVERAGE)
     assert layout.sections[0].entries[0].lines == ["a b c", "d e f"]
+
+
+def test_the_words_of_pages_with_no_entries_travel_with_the_layout() -> None:
+    layout = arrange(
+        [entry(1)], pack(), no_entry_pages=[3], unread_pages=[], coverage=COVERAGE, picture_words={3: ["x y"]}
+    )
+    assert layout.picture_words == {3: ["x y"]}
+    assert arrange([], pack(), no_entry_pages=[], unread_pages=[], coverage=COVERAGE).picture_words == {}
+
+
+def test_printed_words_counts_the_lines_the_words_around_them_and_the_pages_with_no_entries() -> None:
+    e = TranscriptEntry(
+        uuid.uuid4(), 1, "note", "note", False, None, None, None, None, None, ["a b", "c"], [], [],
+        before=["x y z"], after=["w"],
+    )  # fmt: skip
+    assert printed_words([e, entry(2)], {3: ["p q", "r"]}) == 3 + 3 + 1 + 2 + 3

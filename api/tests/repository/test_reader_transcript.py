@@ -1,8 +1,9 @@
 """Slice B: reading by transcript (ADR 0028). The builder and the server's own decision that a page is read.
 
 - `transcript.entries(...)` lays the case's record entries out in order (event date, undated last, then page and
-  position), one list of printed lines each, with the expert's word corrections applied and names and dates of
-  birth stripped (rule 7). Copies, replaced pages, set-aside pages and unreadable pages give no entries.
+  position), one list of printed lines each, with the expert's word corrections applied. The record prints as
+  written (founder decision of 2026-11-04, ADR 0035): it is the named expert's own copy and goes to no AI, so
+  rule 7 does not apply. Copies, replaced pages, set-aside pages and unreadable pages give no entries.
   Entries of an administrative kind (pack `transcript: exclude`) fold to one short line.
   It carries no fact and no suggestion (rule 3): only the words on the page.
 - `transcript.record_seen(...)` stores what the reader reported seeing (`transcript_views`, append-only). The
@@ -28,7 +29,7 @@ from app.core.packs import default_library
 from app.features.reader import repo, transcript
 from tests.support.contracts import add_fact
 from tests.support.db import scope_for
-from tests.support.identity import NAME, SENTENCE, leaked, record_identity
+from tests.support.identity import NAME, SENTENCE, record_identity
 from tests.support.packs import LAUNCH
 from tests.support.seed import Seed
 from tests.support.transcript_world import Spec, add_document, add_page
@@ -115,9 +116,12 @@ async def test_an_administrative_entry_folds_to_one_short_line(
     assert "twelve" not in got.lines[0]
 
 
-async def test_names_and_dates_of_birth_are_stripped_from_every_entry(
+async def test_entries_print_the_record_as_written(
     api_db: Database, aconn: psycopg.AsyncConnection, seed: Seed
 ) -> None:
+    """Founder decision of 2026-11-04 (ADR 0035): the transcript prints the records exactly as written, with no
+    identifier placeholders. It is the named expert's own copy and is never sent to an AI; rule 7 covers only
+    text sent to an AI. This replaces the earlier test that expected names and dates of birth to be stripped."""
     expert = seed.person()
     case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
     world = {"case": case, "expert": expert}
@@ -126,8 +130,128 @@ async def test_names_and_dates_of_birth_are_stripped_from_every_entry(
     await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", (SENTENCE,))])
     await add_page(aconn, CRYPTO, world["case"], doc, 2, [Spec("zz_booking", (f"{NAME} booked in",))])
     text = [line for e in (await listed(api_db, world)).entries for line in e.lines]
-    assert leaked(text) == []
-    assert NAME.split()[1].casefold() not in " ".join(text).casefold()
+    assert text == [SENTENCE, f"{NAME} booked in"]
+    assert "[NAME_" not in " ".join(text) and "[DATE_OF_BIRTH_" not in " ".join(text)
+
+
+async def drop_entries(aconn: psycopg.AsyncConnection, built: Any, *positions: int) -> None:
+    """Removes the entry rows at these positions, so their words lie in no entry (header, footer, words between)."""
+    for at in positions:
+        await aconn.execute("delete from app.record_entries where id = %s", (built.entry_ids[at],))
+
+
+async def loose_page(aconn: psycopg.AsyncConnection, case: uuid.UUID, number: int = 1, kind: str = "zz_session") -> Any:
+    """A page of five runs: header, entry one, words between, entry two, footer. The header, the words between and
+    the footer lie in no entry (their rows are removed). Returns the built page."""
+    doc = await add_document(aconn, case)
+    built = await add_page(
+        aconn,
+        CRYPTO,
+        case,
+        doc,
+        number,
+        [
+            Spec(kind, ("Header here please now nine words of header text",)),
+            Spec(kind, ("alpha beta",), day=date(2020, 1, 1)),
+            Spec(kind, ("between words",)),
+            Spec(kind, ("gamma delta",), day=date(2020, 2, 1)),
+            Spec(kind, ("Footer text",)),
+        ],
+    )
+    await drop_entries(aconn, built, 0, 2, 4)
+    return built
+
+
+async def test_words_outside_every_entry_come_with_the_entry_that_follows_them_or_the_last_one(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    built = await loose_page(aconn, world["case"])
+    first, second = (await listed(api_db, world)).entries
+    assert (first.lines, first.before, first.after) == (["alpha beta"], ["Header here please now nine words of header text"], [])
+    assert (second.lines, second.before, second.after) == (["gamma delta"], ["between words"], ["Footer text"])
+    printed = [w for e in (first, second) for part in (e.before, e.lines, e.after) for line in part for w in line.split()]
+    assert len(printed) == len(built.word_ids) == len(set(built.word_ids))  # every word, once
+
+
+async def test_loose_words_are_right_under_paging_and_for_the_pages_a_person_has_read(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    built = await loose_page(aconn, world["case"])
+    async with api_db.request(scope_for(world["expert"])) as conn:
+        later = await transcript.entries(conn, CRYPTO, LIBRARY, world["case"], offset=1, limit=1)
+    assert [(e.lines, e.before, e.after) for e in later.entries] == [(["gamma delta"], ["between words"], ["Footer text"])]
+    await read_by_expert(api_db, world, built.page_id)
+    async with api_db.request(scope_for(world["expert"])) as conn:
+        mine = await transcript.entries(conn, CRYPTO, LIBRARY, world["case"], offset=1, limit=1, only_read_by=world["expert"])
+    assert [e.after for e in mine.entries] == [["Footer text"]]
+    async with api_db.request(scope_for(world["assistant"])) as conn:
+        theirs = await transcript.entries(
+            conn, CRYPTO, LIBRARY, world["case"], offset=0, limit=10, only_read_by=world["assistant"]
+        )
+    assert theirs.entries == []
+
+
+async def test_a_folded_entry_folds_its_lines_only_never_the_words_around_it(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    await loose_page(aconn, world["case"], kind="zz_booking")
+    got = (await listed(api_db, world)).entries
+    assert [e.folded for e in got] == [True, True]
+    assert got[0].before == ["Header here please now nine words of header text"]  # nine words, kept whole
+    assert got[1].after == ["Footer text"]
+
+
+async def test_a_page_with_no_entries_lists_all_its_words_for_the_file(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    built = await add_page(aconn, CRYPTO, world["case"], doc, 5, [Spec("zz_session", ("first line", "second line"))])
+    await drop_entries(aconn, built, 0)
+    async with api_db.request(scope_for(world["expert"])) as conn:
+        got = await transcript.entries(conn, CRYPTO, LIBRARY, world["case"], offset=0, limit=10, full=True)
+        screen = await transcript.entries(conn, CRYPTO, LIBRARY, world["case"], offset=0, limit=10)
+    assert got.picture_pages == [5]
+    assert got.picture_words == {5: ["first line", "second line"]}
+    assert screen.picture_words == {}  # the screen lists the page by number; only the files print its words
+
+
+async def test_the_listing_counts_the_words_it_read_on_each_page_it_prints(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    await loose_page(aconn, world["case"])
+    doc = await add_document(aconn, world["case"])
+    bare = await add_page(aconn, CRYPTO, world["case"], doc, 2, [Spec("zz_session", ("one two three",))])
+    await drop_entries(aconn, bare, 0)
+    async with api_db.request(scope_for(world["expert"])) as conn:
+        got = await transcript.entries(conn, CRYPTO, LIBRARY, world["case"], offset=0, limit=10, full=True)
+    assert got.words_by_page == {1: 17, 2: 3}
+
+
+async def place_words(aconn: psycopg.AsyncConnection, page_id: uuid.UUID, at: dict[int, tuple[float, float]]) -> None:
+    """Moves words (by number) to a left edge x and a top y, 11 wide and 24 tall like the fixtures'."""
+    for n, (x, y) in at.items():
+        box = [x, y, x + 60.0, y, x + 60.0, y + 24.0, x, y + 24.0]
+        await aconn.execute("update app.ocr_words set polygon = %s::real[] where page_id = %s and n = %s", (box, page_id, n))
+
+
+async def test_a_label_and_its_value_print_on_one_line_and_entries_never_share_a_line(
+    api_db: Database, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    built = await add_page(
+        aconn,
+        CRYPTO,
+        world["case"],
+        doc,
+        1,
+        [Spec("zz_session", ("Problem History", "Urinary Dysuria"), day=date(2020, 1, 1)), Spec("zz_session", ("Other note",), day=date(2020, 2, 1))],
+    )
+    # The labels are read first and then the values; the values stand to the right on the same rows. The other
+    # entry's words stand on those same rows too and must stay in that entry.
+    await place_words(aconn, built.page_id, {1: (10, 80), 2: (10, 120), 3: (300, 82), 4: (300, 118), 5: (600, 80), 6: (700, 82)})
+    first, second = (await listed(api_db, world)).entries
+    assert first.lines == ["Problem Urinary", "History Dysuria"]
+    assert second.lines == ["Other note"]
 
 
 async def read_by_expert(api_db: Database, w: dict[str, Any], page_id: uuid.UUID) -> None:

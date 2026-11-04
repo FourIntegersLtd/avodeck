@@ -1,7 +1,7 @@
 """Slice B job: `export_transcript` builds the Word copy of the records transcript (ADR 0028).
 
-The file holds the same entries as the screen, in the same order, with names and dates of birth stripped
-(rule 7). It is stored sealed under the case key at `exports/<job>/transcript.docx`, downloaded once by the
+The file holds the same entries as the screen, in the same order, and prints the record as written (founder
+decision of 2026-11-04, ADR 0035). It is stored sealed under the case key at `exports/<job>/transcript.docx`, downloaded once by the
 person who asked, and removed by the daily close run with the other old exports. The download is audited.
 """
 
@@ -27,7 +27,7 @@ from app.features.reader import repo, transcript_jobs, transcript_pdf
 from app.features.reader.transcript_words import word
 from tests.support.db import scope_for
 from tests.support.files import build_app, local_storage
-from tests.support.identity import SENTENCE, leaked, record_identity
+from tests.support.identity import SENTENCE, record_identity
 from tests.support.packs import LAUNCH
 from tests.support.seed import Seed
 from tests.support.transcript_world import Spec, add_document, add_page
@@ -145,7 +145,7 @@ async def add_picture(
     await aconn.execute("update app.pages set image_path = %s where id = %s", (path, page.page_id))
 
 
-async def test_the_file_holds_the_entries_in_order_without_names_or_birth_dates(
+async def test_the_file_holds_the_entries_in_order_as_written(
     api_db: Database,
     client_for: Any,
     worker_db: Database,
@@ -170,7 +170,7 @@ async def test_the_file_holds_the_entries_in_order_without_names_or_birth_dates(
     assert resp.status_code == 200, resp.text
     assert resp.headers["cache-control"] == "private, no-store"
     text = paragraphs(resp.content)
-    assert leaked(text) == []
+    assert SENTENCE in text  # names and dates of birth print as written: the founder's decision, ADR 0035
     joined = " ".join(text)
     assert joined.index("second entry") > joined.index("Seen with")  # the January entry comes first
 
@@ -467,3 +467,43 @@ async def test_the_cover_names_the_case_by_the_label_its_members_see(
     else:
         cover = "\n".join(paragraphs(got.content)[:12])
     assert "Case: Case Z" in " ".join(cover.split())
+
+
+async def test_the_cover_counts_the_whole_bundle_and_every_word_read_is_a_word_printed(
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    crypto: CaseCrypto,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    one = await add_page(
+        aconn,
+        crypto,
+        world["case"],
+        doc,
+        1,
+        [Spec("zz_session", ("header words",)), Spec("zz_session", ("kept note",)), Spec("zz_session", ("end",))],
+    )
+    for at in (0, 2):  # the header and the last word lie in no entry
+        await aconn.execute("delete from app.record_entries where id = %s", (one.entry_ids[at],))
+    await add_page(aconn, crypto, world["case"], doc, 2, [Spec("zz_session", ("a copy",))], duplicate_of=one.page_id)
+    bare = await add_page(aconn, crypto, world["case"], doc, 3, [Spec("zz_session", ("no entry here",))])
+    await aconn.execute("delete from app.record_entries where id = %s", (bare.entry_ids[0],))
+    seen: list[Any] = []
+    real = transcript_pdf.build_pdf
+
+    def build_pdf(lay: Any, pictures: Any, **kw: Any) -> bytes:
+        seen.append(lay)
+        return real(lay, pictures, **kw)
+
+    monkeypatch.setattr(transcript_pdf, "build_pdf", build_pdf)
+    client = await client_for(world["expert"])
+    await build(client, worker_db, admin, world, "pdf")
+    cov = seen[0].coverage
+    assert (cov.bundle_pages, cov.total_pages, cov.set_aside) == (3, 2, 1)
+    assert cov.total_pages + cov.set_aside == cov.bundle_pages
+    assert cov.words_read == cov.words_printed == 7  # the copy's two words are not in the transcript
+    assert seen[0].picture_words == {3: ["no entry here"]}
