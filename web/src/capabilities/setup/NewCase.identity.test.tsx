@@ -7,7 +7,10 @@ import { CASE_A } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
 import { caseItem, inCase } from "./testing";
 
-const BANNER = "Add the person's name and date of birth so we can hide them from the reading tools.";
+const BANNER =
+  "Add the person's name and date of birth. We use them to hide their details and to stop the date of birth being read as the date of a visit.";
+const DOB_HINT =
+  "Please add this. Records print the date of birth on most pages. We use it to tell it apart from the dates of visits and results, so the transcript and timeline show the right dates.";
 
 function mockCase(recorded: boolean, sent: unknown[] = []) {
   inCase("launch");
@@ -54,4 +57,18 @@ test("saving sends the name, other names and date of birth, then clears the bann
   expect(sent[0]).toEqual({ name: "Zelda Quuxmore", other_names: ["Z Quux", "Zelda Maiden"], date_of_birth: "03/04/1960" });
   await waitFor(() => expect(screen.queryByText(BANNER)).not.toBeInTheDocument());
   expect(within(region).getByLabelText("Their name")).toHaveValue("");
+});
+
+test("the date of birth field says why it matters, and the intro explains the same", async () => {
+  mockCase(false);
+  renderAt(`/cases/${CASE_A}/details`);
+  const region = await screen.findByRole("region", { name: "Who is this about?" });
+  expect(within(region).getByText(DOB_HINT)).toBeInTheDocument();
+  expect(within(region).getByLabelText("Date of birth")).toHaveAccessibleDescription(DOB_HINT);
+  expect(
+    within(region).getByText(
+      "We use this to hide their details from the reading tools and to tell their date of birth apart from the dates in the records. It is never shown again.",
+    ),
+  ).toBeInTheDocument();
+  expect(within(region).getByLabelText("Date of birth")).not.toBeRequired();
 });
