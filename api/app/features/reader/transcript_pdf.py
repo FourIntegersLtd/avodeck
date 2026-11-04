@@ -404,6 +404,17 @@ def _cover_story(
     return story
 
 
+def _page_words(layout: Layout, pages: list[int], language: str) -> list[Flowable]:
+    """Under each of these pages' numbers (linked to its picture), the words the computer read there."""
+    story: list[Flowable] = []
+    for number in pages:
+        lines = layout.picture_words.get(number, [])
+        if lines:
+            link = f'<a href="#page-{number}" color="{_LINK}">{escape(word(language, "page", number=number))}</a>'
+            story += [Paragraph(link, _H3), *(Paragraph(escape(line) or "&nbsp;", _BODY) for line in lines)]
+    return story
+
+
 def _template_of(picture: _PicturePage) -> str:
     """Which page a picture goes on: a landscape one for a picture wider than it is tall."""
     return "wide" if picture.size is not None and picture.size[0] > picture.size[1] else "body"
@@ -489,14 +500,11 @@ def build_pdf(
     if layout.no_entry_pages:
         story += [PageBreak(), appendix("no_entries", word(language, "no_entry_pages"), "app-no-entries")]
         story += [Paragraph(escape(word(language, "no_entry_lead")), _LEAD), _links(layout.no_entry_pages)]
-        for number in layout.no_entry_pages:
-            lines = layout.picture_words.get(number, [])
-            if lines:
-                link = f'<a href="#page-{number}" color="{_LINK}">{escape(word(language, "page", number=number))}</a>'
-                story += [Paragraph(link, _H3), *(Paragraph(escape(line) or "&nbsp;", _BODY) for line in lines)]
+        story += _page_words(layout, layout.no_entry_pages, language)
     if layout.unread_pages:
         story += [PageBreak(), appendix("unread", word(language, "unread_pages"), "app-unread")]
         story.append(_links(layout.unread_pages))
+        story += _page_words(layout, layout.unread_pages, language)
     # The pictures: the heading shares its page with picture 1; a picture wider than it is tall has a landscape page.
     shown = [
         _PicturePage(

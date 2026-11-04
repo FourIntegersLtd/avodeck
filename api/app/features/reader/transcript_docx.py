@@ -343,13 +343,12 @@ def build(
         if key == "no_entries":
             doc.add_paragraph(word(language, "no_entry_lead"))
         pages = layout.no_entry_pages if key == "no_entries" else layout.unread_pages
-        if key == "no_entries":  # the words the computer read on each page with no entries, under its number
-            for number in pages:
-                if layout.picture_words.get(number):
-                    _run(doc.add_paragraph(), word(language, "page", number=number), font=_HEADING_FONT).bold = True
-                    for line in layout.picture_words[number]:
-                        doc.add_paragraph(line)
-            pages = [n for n in pages if not layout.picture_words.get(n)]
+        for number in pages:  # the words the computer read on each of these pages, under its number
+            if layout.picture_words.get(number):
+                _run(doc.add_paragraph(), word(language, "page", number=number), font=_HEADING_FONT).bold = True
+                for line in layout.picture_words[number]:
+                    doc.add_paragraph(line)
+        pages = [n for n in pages if not layout.picture_words.get(n)]
         if pages:
             doc.add_paragraph(", ".join(str(n) for n in pages))
     out = io.BytesIO()

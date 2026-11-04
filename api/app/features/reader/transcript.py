@@ -41,24 +41,33 @@ FOLD_WORDS = 8
 def rows(boxes: Iterable[tuple[str, Sequence[float]]]) -> list[list[str]]:
     """The printed rows of a run of words, from their boxes (`x1,y1,x2,y2,...`) given in reading order. Words whose
     vertical middles differ by at most 0.5 of the taller word's height stand on one row, whatever order they were
-    read in, and run left to right; rows run top to bottom. A label column read first and its value column read
-    next therefore print side by side. A word with no readable box keeps its place on a row of its own. Apply this
-    to one entry (or one block of loose words) at a time, never across entries."""
+    read in, and run left to right; rows run top to bottom. A word is compared with the word of the row nearest to
+    it along the line, not with the row's first word, so a gently tilted scan stays on its rows. A label column
+    read first and its value column read next print side by side. A word with no readable box keeps its place on a
+    row of its own. Apply this to one entry (or one block of loose words) at a time, never across entries."""
     out: list[list[str]] = []
     block: list[tuple[str, float, float, float]] = []  # word, left edge, vertical middle, height
 
     def close() -> None:
-        found: list[list[Any]] = []  # [middle, height, [(left, order, word)]] per row
+        found: list[list[Any]] = []  # [height, [(left, order, word, middle)]] per row
         for order, (text, left, middle, height) in enumerate(block):
+            best: tuple[float, list[Any]] | None = None
             for row in found:
-                if abs(middle - row[0]) <= 0.5 * max(height, row[1]):
-                    row[1] = max(row[1], height)
-                    row[2].append((left, order, text))
-                    break
+                near = min(row[1], key=lambda member: abs(member[0] - left))  # the row's word nearest along the line
+                gap = abs(middle - near[3])
+                if gap <= 0.5 * max(height, row[0]) and (best is None or gap < best[0]):
+                    best = (gap, row)
+            if best is None:
+                found.append([height, [(left, order, text, middle)]])
             else:
-                found.append([middle, height, [(left, order, text)]])
-        found.sort(key=lambda row: row[0])  # stable: rows that tie keep the order they were met in
-        out.extend([text for _, _, text in sorted(row[2])] for row in found)
+                best[1][0] = max(best[1][0], height)
+                best[1][1].append((left, order, text, middle))
+
+        def centre(row: list[Any]) -> float:
+            return float(sum(member[3] for member in row[1]) / len(row[1]))
+
+        found.sort(key=centre)  # stable: rows that tie keep the order they were met in
+        out.extend([member[2] for member in sorted(row[1], key=lambda m: (m[0], m[1]))] for row in found)
         block.clear()
 
     for text, box in boxes:
@@ -109,12 +118,9 @@ class Listing:
     total: int
     picture_pages: list[int] = field(default_factory=list)  # pages with no entries: read by opening the picture
     unread_pages: list[int] = field(default_factory=list)  # the computer could not read these: look at the picture
-    # With `full`, on the call that reaches the last entry: the lines of every page with no entries (the files print
-    # them under the page number); empty otherwise.
+    # With `full`, on the call that reaches the last entry: the lines of every page with no entries, and of every
+    # page the computer could not read that has words (the files print them under the page number); else empty.
     picture_words: dict[int, list[str]] = field(default_factory=dict, repr=False)
-    # Words (as the files count them) the computer read on each page this call lists: the number the files must
-    # print, once each. The caller merges the calls; a page is the same on every call that lists it.
-    words_by_page: dict[int, int] = field(default_factory=dict)
 
 
 Pages = dict[uuid.UUID, tuple[int, str | None]]
@@ -179,6 +185,20 @@ def _around(page_entries: Sequence[RecordEntry], words: list[Word]) -> dict[uuid
 def _tokens(words: Iterable[Word]) -> int:
     """How many words the files count in these (a word is whatever the printed line splits on)."""
     return sum(len(text.split()) for _, text, _ in words)
+
+
+async def page_word_counts(conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID) -> dict[int, int]:
+    """Page number -> how many words the computer read there, for every page the transcript covers. Counted from
+    the stored words (the expert's readings in place), apart from what any file prints, so the files can be held
+    to it. Only counts leave this function (rule 6)."""
+    pages = await _pages_to_read(conn, case_id)
+    ids = list(pages)
+    out: dict[int, int] = {}
+    for start in range(0, len(ids), 25):
+        batch = ids[start : start + 25]
+        for page, words in (await _page_words(conn, crypto, case_id, batch)).items():
+            out[pages[page][0]] = _tokens(words)
+    return out
 
 
 def _results(values: Iterable[str], groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -362,10 +382,11 @@ async def entries(
     specialty_labels = {s["key"]: str(s.get("label", s["key"])) for s in pack.entry_specialties()}
     groups = pack.result_groups()
     chosen_pages = list(dict.fromkeys(e.page_id for e in chosen))
-    # The pages with no entries print their words in the files: on the call that reaches the last entry.
+    # The pages with no entries (and those the computer could not read) print their words in the files: on the call
+    # that reaches the last entry.
     last_call = offset + limit >= len(wanted)
     numbers = {p: n for p, (n, _) in got.listing_pages.items()}
-    pictured = set(got.picture)
+    pictured = {*got.picture, *got.unread}
     bare = [p for p, n in numbers.items() if n in pictured] if full and last_call else []
     placed = await _page_words(conn, crypto, case_id, [*chosen_pages, *bare])
     checked = await _checked_values(conn, case_id, chosen)
@@ -389,8 +410,7 @@ async def entries(
         )  # fmt: skip
     return Listing(
         out, len(wanted), got.picture, got.unread,
-        {numbers[p]: _lines(placed[p]) for p in bare},
-        {numbers[p]: _tokens(placed[p]) for p in [*chosen_pages, *bare]},
+        {numbers[p]: _lines(placed[p]) for p in bare if placed[p]},
     )  # fmt: skip
 
 

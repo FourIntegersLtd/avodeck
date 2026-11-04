@@ -88,7 +88,6 @@ async def _layout(
     pictures: list[int] = []
     unread: list[int] = []
     picture_words: dict[int, list[str]] = {}
-    words_by_page: dict[int, int] = {}
     while True:
         got = await transcript.entries(
             conn, crypto, library, ctx.case_id, offset=len(everything), limit=PAGE, full=True
@@ -96,10 +95,10 @@ async def _layout(
         everything += got.entries
         pictures, unread = got.picture_pages, got.unread_pages
         picture_words.update(got.picture_words)
-        words_by_page.update(got.words_by_page)  # a page is the same on every call that lists it
         if not got.entries or len(everything) >= got.total:
             break
     total, set_aside = await repo.page_counts(conn, ctx.case_id)
+    words_read = sum((await transcript.page_word_counts(conn, crypto, ctx.case_id)).values())  # apart from the print
     coverage = transcript_layout.Coverage(
         total_pages=total,
         with_entries=len({e.page_no for e in everything}),
@@ -107,7 +106,7 @@ async def _layout(
         unreadable=len(unread),
         set_aside=set_aside,
         bundle_pages=total + set_aside,
-        words_read=sum(words_by_page.values()),
+        words_read=words_read,
         words_printed=transcript_layout.printed_words(everything, picture_words),
     )
     layout = transcript_layout.arrange(
