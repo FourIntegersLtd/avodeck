@@ -16,6 +16,7 @@ from tests.support.packs import LAUNCH
 MARCH_3 = date(1950, 3, 3)
 SEPT_3 = date(1950, 9, 3)
 MAY_3 = date(1950, 5, 3)
+MARCH_14 = date(1969, 3, 14)
 
 WRITTEN = [
     (MARCH_3, "3/3/1950"),
@@ -40,6 +41,16 @@ WRITTEN = [
     (SEPT_3, "SEPT. 3, 1950"),
     (MAY_3, "3 May 1950"),
     (MAY_3, "May 3rd, 1950"),
+    (MARCH_14, "14-Mar-1969"),
+    (MARCH_14, "14-MAR-1969"),
+    (MARCH_14, "14.3.69"),
+    (MARCH_14, "(14-Mar-1969)"),
+    (MARCH_14, "14.Mar.1969"),
+    (MARCH_14, "14/Mar/1969"),
+    (MARCH_14, "14 -Mar- 1969"),
+    (MARCH_14, "Mar-14-1969"),
+    (MARCH_14, "14-March-1969"),
+    (MARCH_14, "14 / 03 / 1969"),
 ]
 
 
