@@ -18,7 +18,7 @@ from xml.sax.saxutils import escape
 from PIL import Image
 from reportlab.lib.colors import HexColor, white
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
@@ -45,6 +45,7 @@ from app.features.reader.transcript_document import (
     SummaryRow,
     appendix_letters,
     by_year,
+    ensure_complete,
     numbered,
     summary,
 )
@@ -93,6 +94,7 @@ _H2 = ParagraphStyle(
 )
 _H3 = ParagraphStyle("h3", fontName=_SANS_BOLD, fontSize=11, leading=14, textColor=_SLATE, spaceBefore=8, spaceAfter=2)
 _META = ParagraphStyle("meta", fontName=_SANS, fontSize=9, leading=12, textColor=_SLATE, spaceAfter=2)
+_ALSO = ParagraphStyle("also", parent=_BODY, fontSize=9, leading=12.5, textColor=_SLATE)  # words in no entry
 _MONO_SMALL = ParagraphStyle("mono", fontName=_MONO, fontSize=9, leading=12, textColor=_SLATE)
 _MONO_LINK = ParagraphStyle("monolink", parent=_MONO_SMALL, textColor=HexColor(_LINK))
 _CELL = ParagraphStyle("cell", fontName=_SANS, fontSize=10, leading=13, textColor=_INK)
@@ -260,7 +262,17 @@ def _entry_table(
     link = f'<a href="#page-{entry.page_no}" color="{_LINK}">{escape(parts[0])}</a>'
     gutter: list[Flowable] = [Paragraph(link, _MONO_LINK), Paragraph(escape(parts[1]), _MONO_SMALL)]
     rows: list[list[Any]] = [[gutter, Paragraph(escape(" · ".join(parts[2:])), _META)]]
+    label = escape(word(language, "also_on_page"))
+
+    def around(lines: list[str]) -> list[list[Any]]:
+        """The words of the page that lie in no entry: a small grey label, then the lines in a smaller grey face."""
+        if not lines:
+            return []
+        return [["", Paragraph(label, _META)], *(["", Paragraph(escape(line) or "&nbsp;", _ALSO)] for line in lines)]
+
+    rows.extend(around(entry.before))
     rows.extend(["", Paragraph(escape(line) or "&nbsp;", _BODY)] for line in entry.lines)
+    rows.extend(around(entry.after))
     last = len(rows) - 1
     table = Table(rows, colWidths=[_GUTTER, width - _GUTTER], hAlign="LEFT", splitByRow=1)
     table.setStyle(
@@ -316,11 +328,12 @@ def _summary_table(rows: list[SummaryRow], language: str, width: float) -> Table
 def _coverage_table(layout: Layout, language: str, width: float) -> Table:
     cov = layout.coverage
     rows = [
-        (word(language, "cov_total"), cov.total_pages),
+        (word(language, "cov_total"), cov.bundle_pages),
+        (word(language, "cov_set_aside"), cov.set_aside),
+        (word(language, "cov_in_transcript"), cov.total_pages),
         (word(language, "cov_with"), cov.with_entries),
         (word(language, "cov_none"), cov.no_entries),
         (word(language, "cov_unread"), cov.unreadable),
-        (word(language, "cov_set_aside"), cov.set_aside),
     ]
     cells = [[Paragraph(escape(label), _CELL), Paragraph(str(n), _CELL_NUM)] for label, n in rows]
     table = Table(cells, colWidths=[width - 30 * mm, 30 * mm], hAlign="LEFT")
@@ -383,12 +396,34 @@ def _cover_story(
     story: list[Flowable] = []
     if case_label:
         story.append(Paragraph(escape(word(language, "case_line", label=case_label)), _COVER_CASE))
-    story.append(Paragraph(escape(word(language, "bundle_pages", count=layout.coverage.total_pages)), _COVER_FACT))
+    story.append(Paragraph(escape(word(language, "bundle_pages", count=layout.coverage.bundle_pages)), _COVER_FACT))
     if prepared_on is not None:
         shown = show_date(prepared_on, date_order, language)
         story.append(Paragraph(escape(word(language, "prepared", date=shown)), _COVER_FACT))
     story += [Spacer(1, 14 * mm), _tiles(layout, language, width), Spacer(1, 14 * mm), panel]
     return story
+
+
+def _page_words(layout: Layout, pages: list[int], language: str) -> list[Flowable]:
+    """Under each of these pages' numbers (linked to its picture), the words the computer read there."""
+    story: list[Flowable] = []
+    for number in pages:
+        lines = layout.picture_words.get(number, [])
+        if lines:
+            link = f'<a href="#page-{number}" color="{_LINK}">{escape(word(language, "page", number=number))}</a>'
+            story += [Paragraph(link, _H3), *(Paragraph(escape(line) or "&nbsp;", _BODY) for line in lines)]
+    return story
+
+
+def _template_of(picture: _PicturePage) -> str:
+    """Which page a picture goes on: a landscape one for a picture wider than it is tall."""
+    return "wide" if picture.size is not None and picture.size[0] > picture.size[1] else "body"
+
+
+def _words_line(layout: Layout, language: str) -> list[Flowable]:
+    """The sentence that says every word the computer read is printed, with how many (none when nothing was read)."""
+    count = layout.coverage.words_printed
+    return [Paragraph(escape(word(language, "words_printed", count=count)), _LEAD)] if count else []
 
 
 def build_pdf(
@@ -403,13 +438,14 @@ def build_pdf(
 ) -> bytes:
     """`pictures` are (page number, image bytes) in page order; a page with no picture shows a "not available" line.
     `case_label` is the name the case already shows to its members; the cover prints it when there is one."""
+    ensure_complete(layout)
     width = A4[0] - 2 * _MARGIN_X
     title = word(language, "title")
     letters = appendix_letters(layout)
     rows = summary(layout, date_order=date_order, language=language)
 
     def appendix(key: str, text: str, mark: str) -> _Heading:
-        heading = f"{word(language, 'appendix', letter=letters[key])}  {text}"
+        heading = f"{word(language, 'appendix', letter=letters[key])} {text}"
         return _Heading(escape(heading), _H1, key=mark, title=heading, running=heading)
 
     toc = TableOfContents()
@@ -429,6 +465,7 @@ def build_pdf(
         Paragraph(escape(word(language, "how_to_use")), _LEAD),
         _Heading(escape(word(language, "coverage")), _H2, rule=True),
         _coverage_table(layout, language, width),
+        *_words_line(layout, language),
         _Heading(escape(word(language, "holds")), _H2, rule=True),
         _summary_table(rows, language, width),
     ]
@@ -463,17 +500,28 @@ def build_pdf(
     if layout.no_entry_pages:
         story += [PageBreak(), appendix("no_entries", word(language, "no_entry_pages"), "app-no-entries")]
         story += [Paragraph(escape(word(language, "no_entry_lead")), _LEAD), _links(layout.no_entry_pages)]
+        story += _page_words(layout, layout.no_entry_pages, language)
     if layout.unread_pages:
         story += [PageBreak(), appendix("unread", word(language, "unread_pages"), "app-unread")]
         story.append(_links(layout.unread_pages))
-    story += [PageBreak(), appendix("pictures", word(language, "pictures"), "app-pictures"), Spacer(1, 4)]
-    for number, data in pictures:
-        story.append(PageBreak())
-        story.append(
-            _PicturePage(
-                number, prepare_picture(data), word(language, "page", number=number), word(language, "picture_missing")
-            )
+        story += _page_words(layout, layout.unread_pages, language)
+    # The pictures: the heading shares its page with picture 1; a picture wider than it is tall has a landscape page.
+    shown = [
+        _PicturePage(
+            number, prepare_picture(data), word(language, "page", number=number), word(language, "picture_missing")
         )
+        for number, data in pictures
+    ]
+    story += [
+        NextPageTemplate(_template_of(shown[0]) if shown else "body"),
+        PageBreak(),
+        appendix("pictures", word(language, "pictures"), "app-pictures"),
+        Spacer(1, 4),
+    ]
+    for at, picture in enumerate(shown):
+        if at:
+            story += [NextPageTemplate(_template_of(picture)), PageBreak()]
+        story.append(picture)
 
     out = io.BytesIO()
     doc = _Doc(
@@ -511,41 +559,49 @@ def build_pdf(
         canvas.drawString(_MARGIN_X, _MARGIN_Y - 4 * mm, word(language, "brand"))
         canvas.restoreState()
 
-    def footer(canvas: Canvas, d: _Doc) -> None:
+    def footer(canvas: Canvas, d: _Doc, page_width: float) -> None:
         canvas.setStrokeColor(_LINE)
         canvas.setLineWidth(0.5)
-        canvas.line(_MARGIN_X, 15 * mm, A4[0] - _MARGIN_X, 15 * mm)
+        canvas.line(_MARGIN_X, 15 * mm, page_width - _MARGIN_X, 15 * mm)
         canvas.setFont(_SANS, 8.5)
         canvas.setFillColor(_AMBER_TEXT)
         canvas.drawString(_MARGIN_X, 10.5 * mm, word(language, "not_checked_short"))
         canvas.setFillColor(_SLATE)
         canvas.drawRightString(
-            A4[0] - _MARGIN_X,
+            page_width - _MARGIN_X,
             10.5 * mm,
             word(language, "page_x_of_y", page=canvas.getPageNumber(), total=d.total_pages),
         )
 
-    def running_header(canvas: Canvas, d: _Doc) -> None:
-        canvas.saveState()
-        footer(canvas, d)
-        y = A4[1] - 14 * mm
-        canvas.setFont(_SANS, 8.5)
-        canvas.setFillColor(_SLATE)
-        canvas.drawString(_MARGIN_X, y, title)
-        canvas.drawRightString(A4[0] - _MARGIN_X, y, d.section_text)
-        canvas.setStrokeColor(_LINE)
-        canvas.setLineWidth(0.5)
-        canvas.line(_MARGIN_X, y - 3 * mm, A4[0] - _MARGIN_X, y - 3 * mm)
-        canvas.restoreState()
+    def running_header_for(size: tuple[float, float]) -> Any:
+        def running_header(canvas: Canvas, d: _Doc) -> None:
+            canvas.saveState()
+            footer(canvas, d, size[0])
+            y = size[1] - 14 * mm
+            canvas.setFont(_SANS, 8.5)
+            canvas.setFillColor(_SLATE)
+            canvas.drawString(_MARGIN_X, y, title)
+            canvas.drawRightString(size[0] - _MARGIN_X, y, d.section_text)
+            canvas.setStrokeColor(_LINE)
+            canvas.setLineWidth(0.5)
+            canvas.line(_MARGIN_X, y - 3 * mm, size[0] - _MARGIN_X, y - 3 * mm)
+            canvas.restoreState()
+
+        return running_header
 
     cover_frame = Frame(
         _MARGIN_X, _COVER_FOOT, width, A4[1] - _BAND - _COVER_FOOT - 12 * mm, id="cover", leftPadding=0, rightPadding=0
     )
     body_frame = Frame(_MARGIN_X, _MARGIN_Y, width, A4[1] - 2 * _MARGIN_Y, id="body", leftPadding=0, rightPadding=0)
+    wide = landscape(A4)
+    wide_frame = Frame(
+        _MARGIN_X, _MARGIN_Y, wide[0] - 2 * _MARGIN_X, wide[1] - 2 * _MARGIN_Y, id="wide", leftPadding=0, rightPadding=0
+    )
     doc.addPageTemplates(
         [
             PageTemplate(id="cover", frames=[cover_frame], onPage=band),
-            PageTemplate(id="body", frames=[body_frame], onPageEnd=running_header),
+            PageTemplate(id="body", frames=[body_frame], onPageEnd=running_header_for(A4)),
+            PageTemplate(id="wide", frames=[wide_frame], onPageEnd=running_header_for(wide), pagesize=wide),
         ]
     )
     doc.multiBuild([_PageTotal(doc), *story])

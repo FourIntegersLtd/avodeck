@@ -12859,10 +12859,20 @@ export interface components {
         };
         /** TranscriptEntryOut */
         TranscriptEntryOut: {
+            /**
+             * After
+             * @default []
+             */
+            after: string[];
             /** Author Label */
             author_label: string | null;
             /** Author Role */
             author_role: string | null;
+            /**
+             * Before
+             * @default []
+             */
+            before: string[];
             /** Date Basis */
             date_basis: string | null;
             /** Event Date */

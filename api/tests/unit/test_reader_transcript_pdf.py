@@ -8,6 +8,7 @@ import uuid
 from datetime import date
 from typing import Any
 
+import pytest
 from PIL import Image
 from pypdf import PdfReader
 
@@ -76,9 +77,9 @@ def test_bookmarks_and_page_count() -> None:
     reader = PdfReader(io.BytesIO(_build()))
     titles = _titles(reader.outline)
     assert "1. First part" in titles
-    assert "Appendix A  Pages with no entries" in titles  # layout changed by the transcript-document plan
-    assert "Appendix B  Pages the computer couldn't read" in titles
-    assert "Appendix C  Pictures of the pages" in titles
+    assert "Appendix A Pages with no entries" in titles  # layout changed by the transcript-document plan
+    assert "Appendix B Pages the computer couldn't read" in titles
+    assert "Appendix C Pictures of the pages" in titles
     assert len(reader.pages) >= 1 + 4
 
 
@@ -144,9 +145,9 @@ def test_contents_gives_the_page_where_each_heading_is() -> None:
     contents = texts[1].splitlines()  # pypdf prints a row's dots and page number just before its words
     for heading, row in (
         ("1. First part", "First part"),
-        ("Appendix A  Pages with no entries", "Appendix A"),
-        ("Appendix B  Pages the computer couldn't read", "Appendix B"),
-        ("Appendix C  Pictures of the pages", "Appendix C"),
+        ("Appendix A Pages with no entries", "Appendix A"),
+        ("Appendix B Pages the computer couldn't read", "Appendix B"),
+        ("Appendix C Pictures of the pages", "Appendix C"),
     ):
         at = next(i for i, ln in enumerate(contents) if row in ln)
         listed = int(re.search(r"(\d+)\s*$", contents[at - 1]).group(1))  # type: ignore[union-attr]
@@ -178,3 +179,87 @@ def test_a_long_entry_continues_on_the_next_page() -> None:
 def test_prepared_on_is_optional() -> None:
     pdf = build_pdf(_layout(), [(n, _jpeg()) for n in (1, 2, 3, 4)], date_order="DMY", language="en", received={})
     assert "Prepared on" not in _texts(PdfReader(io.BytesIO(pdf)))[0]
+
+
+def _with_around(entry: TranscriptEntry, before: list[str], after: list[str]) -> TranscriptEntry:
+    return TranscriptEntry(**{**entry.__dict__, "before": before, "after": after})
+
+
+def _complete_layout() -> Layout:
+    """Six words printed in all (four in two entries, two on the page with no entries); nine pages in the bundle."""
+    return Layout(
+        sections=[Section("a", "transcript.section.first_part", [_entry(1), _entry(2)])],
+        no_entry_pages=[3],
+        unread_pages=[4],
+        coverage=Coverage(
+            total_pages=4, with_entries=2, no_entries=1, unreadable=1, set_aside=5, bundle_pages=9,
+            words_read=6, words_printed=6,
+        ),
+        picture_words={3: ["Stray words"]},
+    )  # fmt: skip
+
+
+def _normal(reader: PdfReader) -> str:
+    return " ".join(" ".join(_texts(reader)).split())
+
+
+def test_words_outside_the_entries_print_under_a_label_before_and_after_the_entry() -> None:
+    entry = _with_around(_entry(1), ["Top of page"], ["Foot of page"])
+    layout = Layout([Section("a", "transcript.section.first_part", [entry])], [], [], Coverage(1, 1, 0, 0, 0))
+    text = _normal(PdfReader(io.BytesIO(_build(layout, [(1, _jpeg())]))))
+    assert text.count("Also on this page") == 2
+    assert text.index("Top of page") < text.index("Line one") < text.index("Foot of page")
+
+
+def test_a_page_with_no_entries_prints_its_words_under_its_number_with_the_new_sentence() -> None:
+    text = _normal(PdfReader(io.BytesIO(_build(_complete_layout()))))
+    assert (
+        "The computer found no entries on these pages. The words it read are below; check them against the picture."
+        in text
+    )
+    assert "These pages have no entries to set out" not in text
+    assert "Stray words" in text
+
+
+def test_the_cover_counts_the_whole_bundle_and_the_table_adds_up() -> None:
+    reader = PdfReader(io.BytesIO(_build(_complete_layout())))
+    assert "9 pages in the bundle" in _texts(reader)[0]
+    body = _normal(reader)
+    assert "Pages in the bundle 9" in body
+    assert "Pages in this transcript 4" in body
+    assert "(copies, replaced or held back) 5" in body  # 4 + 5 = 9
+    assert "Every word the computer read on these pages is printed (6 words)" in body
+
+
+def test_a_file_that_would_drop_a_word_is_never_built() -> None:
+    layout = _complete_layout()
+    short = Layout(
+        layout.sections,
+        layout.no_entry_pages,
+        layout.unread_pages,
+        Coverage(4, 2, 1, 1, 5, bundle_pages=9, words_read=7, words_printed=6),
+        {3: ["Stray words"]},
+    )
+    with pytest.raises(ValueError):
+        _build(short)
+
+
+def test_the_pictures_heading_shares_its_page_with_the_first_picture() -> None:
+    reader = PdfReader(io.BytesIO(_build()))
+    texts = [" ".join(t.split()) for t in _texts(reader)]
+    heading = next(i for i, t in enumerate(texts) if i > 1 and "Appendix C Pictures of the pages" in t)
+    assert heading == len(reader.pages) - 4  # the page of picture 1
+
+
+def test_a_picture_wider_than_it_is_tall_goes_on_a_landscape_page() -> None:
+    wide = io.BytesIO()
+    Image.new("RGB", (40, 20), "white").save(wide, "JPEG")
+    pics = [(1, _jpeg()), (2, wide.getvalue()), (3, _jpeg()), (4, _jpeg())]
+    reader = PdfReader(io.BytesIO(_build(pictures=pics)))
+    sizes = [(float(p.mediabox.width), float(p.mediabox.height)) for p in reader.pages[-4:]]
+    assert [w > h for w, h in sizes] == [False, True, False, False]
+
+
+def test_no_outline_title_has_two_spaces_in_a_row() -> None:
+    titles = _titles(PdfReader(io.BytesIO(_build())).outline)
+    assert titles and all("  " not in t for t in titles)

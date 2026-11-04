@@ -7,6 +7,7 @@ import re
 import uuid
 from datetime import date
 
+import pytest
 from docx import Document
 from docx.document import Document as DocumentType
 from docx.oxml.ns import qn
@@ -142,10 +143,11 @@ def test_coverage_table_holds_the_coverage_numbers() -> None:
     rows = [[c.text for c in r.cells] for r in _doc().tables[0].rows]
     assert rows == [
         ["Pages in the bundle", "7"],
+        ["Pages set aside (copies, replaced or held back)", "0"],
+        ["Pages in this transcript", "7"],
         ["Pages with entries", "2"],
         ["Pages with no entries", "2"],
         ["Pages the computer couldn't read", "1"],
-        ["Pages set aside (copies, replaced or held back)", "0"],
     ]
 
 
@@ -190,3 +192,55 @@ def test_undated_entries_are_one_level_below_their_no_date_heading() -> None:
     start = heads.index(("No date", "Heading 2"))
     assert heads[start + 1][1] == "Heading 3"  # the entry, one level below its year heading
     assert "Heading 4" not in [style for _, style in heads]
+
+
+def test_the_cover_counts_the_whole_bundle_and_the_table_adds_up() -> None:
+    lay = Layout(
+        [Section("a", "transcript.section.first_part", [_entry(1)])],
+        [3],
+        [],
+        Coverage(
+            total_pages=4,
+            with_entries=1,
+            no_entries=1,
+            unreadable=0,
+            set_aside=5,
+            bundle_pages=9,
+            words_read=6,
+            words_printed=6,
+        ),
+        {3: ["Stray words"]},
+    )
+    doc = Document(io.BytesIO(build(lay, date_order="DMY", language="en", received={})))
+    assert doc.paragraphs[2].text == "9 pages in the bundle"
+    rows = [[c.text for c in r.cells] for r in doc.tables[0].rows]
+    assert rows[:3] == [
+        ["Pages in the bundle", "9"],
+        ["Pages set aside (copies, replaced or held back)", "5"],
+        ["Pages in this transcript", "4"],
+    ]
+    assert "Every word the computer read on these pages is printed (6 words)" in [p.text for p in doc.paragraphs]
+
+
+def test_words_outside_the_entries_and_on_pages_with_no_entries_are_printed() -> None:
+    entry = TranscriptEntry(**{**_entry(1).__dict__, "before": ["Top of page"], "after": ["Foot of page"]})
+    lay = Layout(
+        [Section("a", "transcript.section.first_part", [entry])],
+        [3],
+        [],
+        Coverage(total_pages=2, with_entries=1, no_entries=1, unreadable=0, set_aside=0),
+        {3: ["Stray words", "second line"]},
+    )
+    texts = [p.text for p in Document(io.BytesIO(build(lay, date_order="DMY", language="en", received={}))).paragraphs]
+    assert texts.count("Also on this page") == 2
+    assert texts.index("Top of page") < texts.index("Line one") < texts.index("Foot of page")
+    lead = "The computer found no entries on these pages. The words it read are below; check them against the picture."
+    assert lead in texts
+    at = texts.index("Page 3")
+    assert texts[at + 1 : at + 3] == ["Stray words", "second line"]
+
+
+def test_a_file_that_would_drop_a_word_is_never_built() -> None:
+    lay = Layout([], [], [], Coverage(1, 0, 0, 0, 0, bundle_pages=1, words_read=3, words_printed=2))
+    with pytest.raises(ValueError):
+        build(lay, date_order="DMY", language="en", received={})

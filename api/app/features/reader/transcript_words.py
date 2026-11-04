@@ -24,7 +24,10 @@ _WORDS: dict[str, dict[str, str]] = {
         "contents": "Contents",
         "other_entries": "Other entries",
         "no_entry_pages": "Pages with no entries",
-        "no_entry_lead": "These pages have no entries to set out. See the picture of each page.",
+        "no_entry_lead": (
+            "The computer found no entries on these pages. The words it read are below; check them against the picture."
+        ),
+        "also_on_page": "Also on this page",
         "unread_pages": "Pages the computer couldn't read",
         "coverage": "Every page accounted for",
         "coverage_line": (
@@ -51,6 +54,8 @@ _WORDS: dict[str, dict[str, str]] = {
         "col_from": "From",
         "col_to": "To",
         "cov_total": "Pages in the bundle",
+        "cov_in_transcript": "Pages in this transcript",
+        "words_printed": "Every word the computer read on these pages is printed ({count} words)",
         "cov_with": "Pages with entries",
         "cov_none": "Pages with no entries",
         "cov_unread": "Pages the computer couldn't read",

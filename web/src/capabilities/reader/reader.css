@@ -287,6 +287,8 @@
 .rd-entry__picture { display: block; width: 100%; max-width: 860px; height: auto; border: 1px solid var(--line); }
 .rd-entry__line { margin: 0 0 4px; font-family: Georgia, serif; font-size: 18px; line-height: 28px; }
 .rd-entry--folded .rd-entry__line { color: var(--ink-soft); font-size: 17px; }
+.rd-entry__line--around { color: var(--ink-soft); font-size: 17px; }
+.rd-entry__also { margin: 8px 0 4px; color: var(--ink-soft); font-size: 17px; font-weight: 600; }
 .rd-transcript__note { margin: 0; padding: 8px 12px; color: var(--ink-soft); }
 .rd-view-heading { margin: 24px 0 8px; scroll-margin-top: 16px; }
 .rd-back { display: inline-flex; align-items: center; min-height: 52px; }

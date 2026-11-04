@@ -215,6 +215,7 @@ const WORDS = {
   "transcript.see_page": "See the page",
   "transcript.undated": "No date",
   "transcript.entry_label": "Entry on page {{page}}",
+  "transcript.also_on_page": "Also on this page",
   "transcript.unfold": "Show this entry",
   "transcript.open_picture": "Open the picture of page {{page}}",
   "transcript.picture_alt": "Picture of page {{page}}",

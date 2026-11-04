@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.features.reader.transcript import TranscriptEntry
-from app.features.reader.transcript_layout import Layout, Section
+from app.features.reader.transcript_layout import Layout, Section, printed_words
 from app.features.reader.transcript_words import label_text, show_date
 
 
@@ -84,3 +84,12 @@ def appendix_letters(layout: Layout) -> dict[str, str]:
         if there
     ]
     return {key: chr(ord("A") + i) for i, key in enumerate(present)}
+
+
+def ensure_complete(layout: Layout) -> None:
+    """Never builds a file that leaves out or repeats a word the computer read: the count it was given must match
+    the words printed, and (when there is one) the words really laid out. Says nothing of the record (rule 6)."""
+    cov = layout.coverage
+    laid_out = printed_words([e for section in layout.sections for e in section.entries], layout.picture_words)
+    if cov.words_read != cov.words_printed or (cov.words_read and cov.words_read != laid_out):
+        raise ValueError("The transcript would not print every word the computer read once.")
