@@ -149,8 +149,8 @@ export function BundleReady() {
       {retrying && <RetryNotice retry={s.retry ?? null} locale={locale} />}
       {paused && (
         <Notice tone="info">
-          <p>{w(run?.pause_reason === "cost_guard" ? "bundle.retry_paused_cost_guard" : "bundle.retry_paused")}</p>
-          {can(item, "page.read") && (
+          <p>{w(run?.allowance_used_up ? "bundle.retry_allowance_used_up" : run?.pause_reason === "cost_guard" ? "bundle.retry_paused_cost_guard" : "bundle.retry_paused")}</p>
+          {can(item, "page.read") && !run?.allowance_used_up && (
             <>
               {retryError && <p role="alert" className="av-field__error">{w("bundle.try_again_error")}</p>}
               <Button busy={again.busy} disabled={again.busy} onClick={() => void tryAgain()}>{w("bundle.try_again")}</Button>

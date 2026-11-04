@@ -486,10 +486,10 @@ export function TranscriptRead() {
         : undefined;
     return (
       <WaitNotice
-        words={w(retryPaused ? (retryInfo.retry?.pause_reason === "cost_guard" ? "transcript.retry_paused_cost_guard" : "transcript.retry_paused") : retryRunning ? "transcript.retrying" : "transcript.preparing")}
+        words={w(retryPaused ? (retryInfo.retry?.allowance_used_up ? "transcript.retry_allowance_used_up" : retryInfo.retry?.pause_reason === "cost_guard" ? "transcript.retry_paused_cost_guard" : "transcript.retry_paused") : retryRunning ? "transcript.retrying" : "transcript.preparing")}
         paused={retryPaused}
         counted={retryCount ?? (all > 0 && done > 0 ? { label: w("transcript.preparing_page", { done: count(done, pack.locale), total: count(all, pack.locale) }), value: done, max: all } : undefined)}
-        onRetry={(status === "idle" || retryPaused) && wait?.can_prepare !== false ? () => void retry() : undefined}
+        onRetry={(status === "idle" || (retryPaused && !retryInfo.retry?.allowance_used_up)) && wait?.can_prepare !== false ? () => void retry() : undefined}
         progressTo={`/cases/${caseId}/preparing`}
       />
     );
