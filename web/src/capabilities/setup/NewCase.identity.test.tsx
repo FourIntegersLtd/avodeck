@@ -9,10 +9,12 @@ import { caseItem, inCase } from "./testing";
 
 const BANNER =
   "Add the person's name and date of birth. We use them to hide their details and to stop the date of birth being read as the date of a visit.";
+const DOB_BANNER =
+  "Add the person's date of birth. We use it to stop the date of birth being read as the date of a visit.";
 const DOB_HINT =
   "Please add this. Records print the date of birth on most pages. We use it to tell it apart from the dates of visits and results, so the transcript and timeline show the right dates.";
 
-function mockCase(recorded: boolean, sent: unknown[] = []) {
+function mockCase(recorded: boolean, sent: unknown[] = [], dobRecorded = recorded) {
   inCase("launch");
   server.use(
     http.get("/v1/cases/:caseId", () => HttpResponse.json(caseItem("launch", { due_date: null }), { headers: { etag: '"3"' } })),
@@ -21,7 +23,7 @@ function mockCase(recorded: boolean, sent: unknown[] = []) {
     http.get("/v1/cases/:caseId/instructing-parties", () => json({ current: [], history: [], joint: false })),
     http.get("/v1/cases/:caseId/prefill", () => json({ reading: false, rejected: 0, suggestions: [] })),
     http.get("/v1/cases/:caseId/subject", () =>
-      json({ status: null, label: "person", representative: null, identity_recorded: recorded }),
+      json({ status: null, label: "person", representative: null, identity_recorded: recorded, date_of_birth_recorded: dobRecorded }),
     ),
     http.put("/v1/cases/:caseId/subject/identity", async ({ request }) => {
       sent.push(await request.json());
@@ -71,4 +73,48 @@ test("the date of birth field says why it matters, and the intro explains the sa
     ),
   ).toBeInTheDocument();
   expect(within(region).getByLabelText("Date of birth")).not.toBeRequired();
+});
+
+test("recorded without a date of birth: the banner asks for the date and the top line says only the name is saved", async () => {
+  mockCase(true, [], false);
+  renderAt(`/cases/${CASE_A}/details`);
+  expect(await screen.findByText(DOB_BANNER)).toBeInTheDocument();
+  expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
+  const region = await screen.findByRole("region", { name: "Who is this about?" });
+  expect(within(region).getByText("Their name is saved.")).toBeInTheDocument();
+});
+
+test("recorded with a date of birth: no banner and the top line says both are saved", async () => {
+  mockCase(true, [], true);
+  renderAt(`/cases/${CASE_A}/details`);
+  const region = await screen.findByRole("region", { name: "Who is this about?" });
+  expect(await within(region).findByText("Their name and date of birth are saved.")).toBeInTheDocument();
+  expect(screen.queryByText(DOB_BANNER)).not.toBeInTheDocument();
+});
+
+test("saving with a date of birth shows a clear confirmation under the button until the next edit", async () => {
+  mockCase(false);
+  const { user } = renderAt(`/cases/${CASE_A}/details`);
+  const region = await screen.findByRole("region", { name: "Who is this about?" });
+  await user.type(within(region).getByLabelText("Their name"), "Zelda Quuxmore");
+  await user.type(within(region).getByLabelText("Date of birth"), "03/04/1960");
+  await user.click(within(region).getByRole("button", { name: "Save" }));
+  const done = await within(region).findByText("Saved. Their name and date of birth are saved.");
+  expect(done.closest("[role=status]")).not.toBeNull();
+  expect(screen.queryByText(DOB_BANNER)).not.toBeInTheDocument();
+  await user.type(within(region).getByLabelText("Their name"), "Z");
+  expect(within(region).queryByText("Saved. Their name and date of birth are saved.")).not.toBeInTheDocument();
+});
+
+test("saving without a date of birth says it is not saved and asks for it", async () => {
+  mockCase(false);
+  const { user } = renderAt(`/cases/${CASE_A}/details`);
+  const region = await screen.findByRole("region", { name: "Who is this about?" });
+  await user.type(within(region).getByLabelText("Their name"), "Zelda Quuxmore");
+  await user.click(within(region).getByRole("button", { name: "Save" }));
+  expect(
+    await within(region).findByText("Saved. Their name is saved. Their date of birth is not \u2014 please add it."),
+  ).toBeInTheDocument();
+  expect(await screen.findByText(DOB_BANNER)).toBeInTheDocument();
+  expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
 });
