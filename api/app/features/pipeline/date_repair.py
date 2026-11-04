@@ -8,7 +8,7 @@ from free text outside those words.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Any
 
 from app.core.packs import MergedPack
@@ -75,6 +75,21 @@ def line_above_date(
     field = dates.date_field(pack, kind)
     if field is None or str(fields.get(field) or "").strip():
         return None, None, []
+    return line_above_of(word_ids, ordered, struck, lines, pack, anchor=anchor)
+
+
+def line_above_of(
+    word_ids: Sequence[str],
+    ordered: Sequence[tuple[str, str]],
+    struck: set[str],
+    lines: Mapping[str, int],
+    pack: MergedPack,
+    *,
+    anchor: dt.date | None = None,
+    skip: Collection[dt.date] = (),
+) -> tuple[dt.date | None, str | None, list[str]]:
+    """The date printed before the first of `word_ids`, on its own line or the line directly above it
+    (never below). A date in `skip` (a known date of birth) is never used."""
     live = [(w, t) for w, t in ordered if w not in struck]
     position = {w: i for i, (w, _) in enumerate(live)}
     first = min((position[w] for w in word_ids if w in position), default=None)
@@ -87,6 +102,8 @@ def line_above_date(
         last = position[printed.word_ids[-1]]
         if last >= first or lines.get(printed.word_ids[-1]) not in (here, here - 1):
             continue
+        if printed.value in skip or printed.other in skip:
+            continue
         if nearest is None or last > nearest[0]:
             nearest = (last, printed)
     if nearest is None:
@@ -96,7 +113,7 @@ def line_above_date(
     if printed.ambiguous:
         text = " ".join(t for w, t in live if w in printed.word_ids)
         when = dates.century_from_ambiguous_text(text, pack, anchor)
-    if when is None:
+    if when is None or when in skip:
         return None, None, []
     return when, dates.LINE_ABOVE, list(printed.word_ids)
 

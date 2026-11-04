@@ -614,8 +614,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 | kind | What sort of entry it is (from the pack's list) |
 | first_n / last_n | Where the entry starts and ends, as the number of its first and last word on the page |
 | author_role / specialty | Who wrote it and which speciality, when the page says (from the pack's lists) |
-| event_date | The date printed inside the entry, read by code in the pack's date order (empty when none) |
-| date_basis | Whether the date is plainly printed or needs the expert to check it |
+| event_date | The date printed inside the entry, read by code in the pack's date order (empty when none). A known date of birth is never used. When several dates are printed, the one on the entry's first line is used; later the repair job may fill it from a two-digit year read in the century before the bundle's latest date, or from the line directly above. An entry that has a date is never changed by the repair |
+| date_basis | Whether the date is plainly printed, read with a century, taken from the line above, or needs the expert to check it |
 | extraction_version | Which version of the reading produced it |
 
 ### instructing_party_requests

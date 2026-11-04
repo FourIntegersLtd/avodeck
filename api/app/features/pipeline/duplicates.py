@@ -5,7 +5,9 @@ same order once case and edge punctuation are set aside, with the same numbers a
 written by hand or crossed out are left out, so a copy that was annotated later is still a copy.
 A word may differ only as a misread does (a close spelling with no digits); a changed month, name
 or value, or a line added or taken away, means the pages are not copies. Near copies printed in
-another layout (a lab's own print of a result) therefore are never set aside.
+another layout (a lab's own print of a result) therefore are never set aside, unless their words are
+nearly identical (Jaccard 0.95 or more), when the picture no longer has to agree. A number that differs
+only in its separators (12/05/2024 and 12.05.2024) is the same number; a changed digit is not.
 
 - `signature(...)`: what is kept for each page: a perceptual hash of its thumbnail and a MinHash of
   its typed words, so likely pairs are found without comparing every page with every other.
@@ -35,11 +37,13 @@ NUM_PERM = 128
 SCHEME = "affine32"
 LIKELY = 0.8  # MinHash similarity at which two pages are compared word by word
 PICTURE_DISTANCE = 16  # most bits two copies' picture hashes may differ by (of 64)
+IDENTICAL = 0.95  # MinHash similarity at which the picture is not asked: a re-scan can change the page's shape
 MISREAD = 80  # least spelling similarity (0-100) for one word read two ways
 MIN_WORDS = 10  # pages with fewer typed words are never set aside
 NOTE_WORDS = 6  # most handwritten words one copy may have that the other lacks (a filing note)
 _EDGES = re.compile(r"^\W+|\W+$")
 _DIGIT = re.compile(r"\d")
+_SEPARATORS = re.compile(r"[/.,:\-\u2010-\u2015]")  # between the parts of a number or date; OCR varies them
 
 
 @dataclass(frozen=True)
@@ -108,13 +112,19 @@ def likely_pairs(signatures: Sequence[Signature], new: set[object]) -> list[tupl
             other = by_id[key]
             if other.page_id == s.page_id:
                 continue
-            if sketches[s.page_id].jaccard(sketches[other.page_id]) < LIKELY:
+            similar = sketches[s.page_id].jaccard(sketches[other.page_id])
+            if similar < LIKELY:
                 continue
-            if _distance(s.picture, other.picture) > PICTURE_DISTANCE:
+            if similar < IDENTICAL and _distance(s.picture, other.picture) > PICTURE_DISTANCE:
                 continue
             first, second = sorted((s, other), key=lambda x: x.page_no)
             pairs[(first.page_no, second.page_no)] = (first, second)
     return [pairs[k] for k in sorted(pairs)]
+
+
+def _number(word: str) -> str:
+    """A word with digits as its numbers: one separator is as good as another (`142/88`, `142.88`)."""
+    return _SEPARATORS.sub(".", word)
 
 
 def _typed(page: Sequence[Word]) -> list[str]:
@@ -130,7 +140,7 @@ def same_content(a: Sequence[Word], b: Sequence[Word], pack: MergedPack) -> bool
     typed_a, typed_b = _typed(a), _typed(b)
     if len(typed_a) < MIN_WORDS or len(typed_b) < MIN_WORDS:
         return False
-    if [w for w in typed_a if _DIGIT.search(w)] != [w for w in typed_b if _DIGIT.search(w)]:
+    if [_number(w) for w in typed_a if _DIGIT.search(w)] != [_number(w) for w in typed_b if _DIGIT.search(w)]:
         return False
     if _printed(typed_a, pack) != _printed(typed_b, pack):
         return False
@@ -148,7 +158,10 @@ def same_content(a: Sequence[Word], b: Sequence[Word], pack: MergedPack) -> bool
         if i2 - i1 != j2 - j1:
             return False
         for x, y in zip(words_a[i1:i2], words_b[j1:j2], strict=True):
-            if _DIGIT.search(x) or _DIGIT.search(y) or fuzz.ratio(x, y) < MISREAD:
+            if _DIGIT.search(x) or _DIGIT.search(y):
+                if _number(x) != _number(y):
+                    return False
+            elif fuzz.ratio(x, y) < MISREAD:
                 return False
     return added <= NOTE_WORDS
 
