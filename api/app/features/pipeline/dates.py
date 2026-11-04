@@ -33,6 +33,8 @@ _YEAR_FIRST = re.compile(r"^\W*\d{4}[/.\-]\d{1,2}[/.\-]\d{1,2}\W*$")
 _MONTH_WORD = re.compile(r"^\W*\d{1,2}[/.\-][^\W\d_]{3,}\.?[/.\-]\d{4}\W*$")
 _DAY = re.compile(r"^\W*\d{1,2}\W*$")
 _WORD = re.compile(r"^\W*[^\W\d_]{3,}\W*$")
+_MONTH_YEAR = re.compile(r"^\W*[^\W\d_]{3,}\.?[/.\-]\d{4}\W*$")
+_DASH = re.compile(r"^[-\u2013\u2014]$")
 _YEAR = re.compile(r"^\W*\d{4}\W*$")
 _ISO = re.compile(r"^\s*\d{4}-\d{2}-\d{2}\s*$")
 _EDGES = re.compile(r"^\W+|\W+$")
@@ -96,6 +98,18 @@ def find(words: Sequence[tuple[str, str]], pack: MergedPack) -> list[Printed]:
             continue
         if i + 2 < len(words) and _DAY.match(text) and _WORD.match(words[i + 1][1]) and _YEAR.match(words[i + 2][1]):
             spoken = " ".join(_EDGES.sub("", t) for _, t in words[i : i + 3])
+            value = _read(spoken, pack.date_order, pack.language)
+            if value is not None:
+                found.append(Printed(tuple(w for w, _ in words[i : i + 3]), value, None, ambiguous=False))
+                i += 3
+                continue
+        if (
+            i + 2 < len(words)
+            and _DAY.match(text)
+            and _DASH.match(words[i + 1][1])
+            and _MONTH_YEAR.match(words[i + 2][1])
+        ):  # a day split from its month and year by a dash: `08 - JUN-2022`
+            spoken = f"{_EDGES.sub('', text)}-{_EDGES.sub('', words[i + 2][1])}"
             value = _read(spoken, pack.date_order, pack.language)
             if value is not None:
                 found.append(Printed(tuple(w for w, _ in words[i : i + 3]), value, None, ambiguous=False))
