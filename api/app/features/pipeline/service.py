@@ -88,7 +88,7 @@ CONCURRENCY = 3  # model calls (extraction, references, entries); the AI kit's o
 OCR_CONCURRENCY = 30  # Azure S0 allows 15 submits/s; 30 pages in flight at ~5 s each is ~6 submits/s
 STORAGE_CONCURRENCY = 20  # S3-only work (reading pictures back, writing page files): latency, not bandwidth
 DB_CONCURRENCY = 6  # database-only work: each task holds a pooled connection, and the pool has to keep spare ones
-POOL_CONCURRENCY = 20  # the worker's connection pool; calls in flight never exceed it, whatever a provider allows
+POOL_RESERVE = 2  # worker connections left free (heartbeat, progress, the job's own); model calls stay under the rest
 CPU_CONCURRENCY = min(  # the cores this process may use (not the host's), at most 8
     8, len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 2)
 )
@@ -844,7 +844,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                     min(55, 40 + 15 * done // len(waiting)), step="sort", step_done=done, step_total=len(waiting)
                 )
 
-    await bounded(batches, one_batch, _extract_concurrency(services), _stop(ctx))
+    await bounded(batches, one_batch, _extract_concurrency(ctx, services), _stop(ctx))
     return len(waiting)
 
 
@@ -1103,9 +1103,11 @@ STEP_CONCURRENCY = {
 }
 
 
-def _extract_concurrency(services: PipelineServices) -> int:
-    """Calls to the model in flight at once: the provider's own limit, never more than the worker's pool."""
-    return min(services.kit.primary_limits.concurrency, POOL_CONCURRENCY) if services.kit is not None else CONCURRENCY
+def _extract_concurrency(ctx: JobContext, services: PipelineServices) -> int:
+    """Calls to the model in flight at once: the provider's own limit, never more than the worker's pool
+    less a small reserve (and always at least one)."""
+    room = max(1, ctx.database.max_size - POOL_RESERVE)
+    return min(services.kit.primary_limits.concurrency, room) if services.kit is not None else min(CONCURRENCY, room)
 
 
 def _pending(services: PipelineServices, step: str) -> steplog.Pending:
@@ -1139,7 +1141,7 @@ async def run_step(ctx: JobContext, services: PipelineServices, step: str) -> No
         "missing": _missing_step,
         "embed": _embed,
     }
-    concurrency = _extract_concurrency(services) if step == "sort" else STEP_CONCURRENCY[step]  # as logged
+    concurrency = _extract_concurrency(ctx, services) if step == "sort" else STEP_CONCURRENCY[step]  # as logged
     async with steplog.logged_step(ctx, step, _pending(services, step), concurrency):
         await stages[step](ctx, services)
 

@@ -51,6 +51,12 @@ def env_csv(source: Mapping[str, str], name: str) -> tuple[str, ...]:
     return tuple(part.strip() for part in source.get(name, "").split(",") if part.strip())
 
 
+# The worker's connections: its own pool and the job queue library's. A hosted session pooler lets only so
+# many clients in (Supabase: 15 by default), and the two together must stay under that number.
+DEFAULT_WORKER_POOL_MAX = 10
+DEFAULT_QUEUE_POOL_MAX = 4
+
+
 @dataclass(frozen=True)
 class DatabaseSettings:
     """Connection strings for the restricted roles (ADR 0013). Hidden from repr so they never reach logs.
@@ -61,6 +67,8 @@ class DatabaseSettings:
 
     url: str = field(repr=False)
     url_direct: str | None = field(default=None, repr=False)
+    worker_pool_max: int = DEFAULT_WORKER_POOL_MAX
+    queue_pool_max: int = DEFAULT_QUEUE_POOL_MAX
 
 
 def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
@@ -69,7 +77,12 @@ def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
     if not url:
         raise ConfigError("DATABASE_URL is not set")
     direct = source.get("DATABASE_URL_DIRECT", "").strip() or None
-    return DatabaseSettings(url=url, url_direct=direct)
+    return DatabaseSettings(
+        url=url,
+        url_direct=direct,
+        worker_pool_max=env_int(source, "WORKER_DB_POOL_MAX", DEFAULT_WORKER_POOL_MAX, minimum=1),
+        queue_pool_max=env_int(source, "WORKER_QUEUE_POOL_MAX", DEFAULT_QUEUE_POOL_MAX, minimum=1),
+    )
 
 
 @dataclass(frozen=True)

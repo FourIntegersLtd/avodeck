@@ -269,6 +269,7 @@ class JobWorker:
         schedule_seconds: float = 3600,
         pause_delays: Sequence[float] = DEFAULT_PAUSE_DELAYS,
         mailer: Mailer | None = None,
+        queue_pool_max: int = 4,
     ) -> None:
         self.registry = registry
         self.mailer: Mailer = mailer or OutboxMailer()
@@ -280,7 +281,7 @@ class JobWorker:
         self.schedule_seconds = schedule_seconds
         self.pause_delays = tuple(pause_delays)
         connector = procrastinate.PsycopgConnector(
-            conninfo=dsn, kwargs={"options": "-c search_path=procrastinate"}, min_size=1, max_size=10
+            conninfo=dsn, kwargs={"options": "-c search_path=procrastinate"}, min_size=1, max_size=queue_pool_max
         )
         self.queue = procrastinate.App(connector=connector)
         self.queue.task(

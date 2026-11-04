@@ -23,6 +23,11 @@ Copy every name from `api/.env.example` into both services (Railway "shared vari
 - `DATABASE_URL` and `DATABASE_URL_DIRECT`: the Supabase **session pooler**, not the direct host (IPv6 only):
   `postgresql://<role>.<project-ref>:<password>@aws-0-eu-west-2.pooler.supabase.com:5432/postgres?sslmode=require`
   with `app_api` for `DATABASE_URL` and `app_worker` for `DATABASE_URL_DIRECT`.
+- `WORKER_DB_POOL_MAX` (default 10) and `WORKER_QUEUE_POOL_MAX` (default 4): the worker's two connection pools. The session
+  pooler lets only its **pool size** of clients in at once per role (Supabase default 15, set under Database > Connection
+  pooling). Keep `WORKER_DB_POOL_MAX + WORKER_QUEUE_POOL_MAX` below the pooler's pool size, or the pooler answers
+  `EMAXCONNSESSION` and jobs stop. Raise the pooler's pool size first, then these. Model calls in flight follow
+  `WORKER_DB_POOL_MAX` (less a reserve of two).
 - `APP_ORIGIN`: the web app's public origins, comma-separated (`https://avodeck.com`). Never a wildcard; start-up refuses one.
 - `COOKIE_DOMAIN`: `avodeck.com`, so the page on `avodeck.com` can read the `av_csrf` cookie the API sets (ADR 0031). Empty locally.
 - `PACKS_APPROVED_ONLY=1` once the launch packs are approved.
