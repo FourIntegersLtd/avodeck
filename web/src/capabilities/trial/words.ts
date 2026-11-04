@@ -172,6 +172,7 @@ const WORDS = {
   "pack.stale_reason.other": "Something it uses has changed since it was made.",
   "pack.download": "Download PDF",
   "pack.failed": "We couldn't make your trial pack. Please try again.",
+  "pack.slow": "This is taking longer than usual. Please check back in a little while. There is no need to build it again.",
   "pack.error.not_served": "The trial pack is made from your served report. Serve it first.",
   "pack.error.stale": "Someone else changed these settings. We've loaded the latest version.",
   "pack.check.heading": "Nothing new on the day",

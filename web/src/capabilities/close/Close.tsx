@@ -139,7 +139,7 @@ function Section({ title, step, icon, children }: { title: string; step?: number
   );
 }
 
-const EXPORT_WAIT_MS = 10 * 60_000; // after this the server is asked once, so a lost job ends as a failure and not a spinner
+const EXPORT_WAIT_MS = 10 * 60_000; // after this the server is asked once; a job still going is called slow (the wait goes on), never failed
 type Making = { state: "idle" } | { state: "making"; job: string } | { state: "ready"; job: string } | { state: "done" } | { state: "failed" };
 
 function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
@@ -155,7 +155,7 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
 
   const outcome = useJobOutcome(making.state === "making" ? caseId : null, making.state === "making" ? making.job : null, EXPORT_WAIT_MS);
   useEffect(() => {
-    if (making.state !== "making" || !outcome) return;
+    if (making.state !== "making" || !outcome || outcome === "slow") return; // slow keeps waiting: the stream can still finish it
     setMaking(outcome === "done" ? { state: "ready", job: making.job } : { state: "failed" });
   }, [outcome, making]);
 
@@ -208,7 +208,7 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
           <p>{error}</p>
         </Notice>
       )}
-      {making.state === "making" && <Notice><p>{w("copies.making")}</p></Notice>}
+      {making.state === "making" && <Notice><p>{w(outcome === "slow" ? "copies.slow" : "copies.making")}</p></Notice>}
       {making.state === "ready" && <Notice tone="success"><p>{w("copies.ready")}</p></Notice>}
       {making.state === "done" && <Notice tone="success"><p>{w("copies.downloaded")}</p></Notice>}
       {making.state === "failed" && <Notice tone="error"><p>{w("copies.failed")}</p></Notice>}

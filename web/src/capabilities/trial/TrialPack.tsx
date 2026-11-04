@@ -19,7 +19,7 @@ import { w, wn, type TrialKey } from "./words";
 type Section = Schemas["TrialPackSettingsIn"]["sections"][number];
 type Message = { tone: "success" | "error" | "info"; text: string } | null;
 
-const BUILD_WAIT_MS = 20 * 60_000; // after this the server is asked once, so a lost job ends as a failure and not a spinner
+const BUILD_WAIT_MS = 20 * 60_000; // after this the server is asked once; a job still going is called slow (the wait goes on), never failed
 const SECTIONS: Section[] = ["report", "chronology", "readiness", "joint_statement", "written_answers", "legal_tests"];
 const ERRORS = {
   not_served: "trial.pack.error.not_served",
@@ -216,7 +216,7 @@ function Contents({ frame, latest, pages, onChanged, preview }: { frame: Frame; 
 
   const outcome = useJobOutcome(job ? frame.caseId : null, job, BUILD_WAIT_MS);
   useEffect(() => {
-    if (!outcome) return;
+    if (!outcome || outcome === "slow") return; // slow keeps waiting: the stream can still finish it
     setJob(null);
     if (outcome !== "done") setMessage({ tone: "error", text: w("pack.failed") });
     else setChangedSince(false);
@@ -326,7 +326,7 @@ function Contents({ frame, latest, pages, onChanged, preview }: { frame: Frame; 
           <p>{staleReason(pack.stale_reason, frame)}</p>
         </Callout>
       )}
-      {job && <Notice><p>{w("pack.building")}</p></Notice>}
+      {job && <Notice><p>{w(outcome === "slow" ? "pack.slow" : "pack.building")}</p></Notice>}
 
       <div className="av-trial-bar">
         <p className="av-trial-muted av-trial-bar__summary">

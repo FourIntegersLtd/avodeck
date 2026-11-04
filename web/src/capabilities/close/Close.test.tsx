@@ -3,7 +3,7 @@
 // fixtures, so this file names none itself.
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, json, server, signedIn } from "../../test/api";
 import { FakeEventSource, liveJob } from "../../test/eventSource";
@@ -208,6 +208,35 @@ test("files that finished while the page was not listening are found with one qu
   act(() => FakeEventSource.open()[0]!.emitJobs([])); // the job has aged out of the case's list
   expect(await screen.findByRole("button", { name: CLOSE_MESSAGES["close.copies.download"] })).toBeInTheDocument();
   expect(asked).toBe(1);
+});
+
+const realSetTimeout = globalThis.setTimeout;
+/** Makes the long wait (a wait of exactly `ms`) last 20 ms, leaving every other timer alone. */
+const shortenWait = (ms: number) =>
+  vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: () => void, delay?: number, ...rest: unknown[]) => realSetTimeout(fn, delay === ms ? 20 : delay, ...rest)) as typeof setTimeout);
+
+test("an export still running when the time is up says it is slow, keeps waiting, and does not invite a second one", async () => {
+  serve();
+  const job = "77777777-7777-4777-8777-777777777777";
+  server.use(
+    http.post(`/v1/cases/${CASE_A}/export`, () => json({ job_id: job }, 202)),
+    http.get(`/v1/jobs/${job}`, () => json({ id: job, case_id: CASE_A, kind: "export_case", status: "running", step: null, pct: null, eta_seconds: null, error_code: null, created_at: "", started_at: null, finished_at: null })),
+  );
+  const timer = shortenWait(10 * 60_000);
+  try {
+    const { user } = renderClose();
+    await user.click(await screen.findByRole("button", { name: "Download 3 files" }));
+    await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+    act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: job, kind: "export_case", status: "running" })]));
+    expect(await screen.findByText(CLOSE_MESSAGES["close.copies.slow"]!)).toBeInTheDocument();
+    expect(screen.queryByText(CLOSE_MESSAGES["close.copies.failed"]!)).toBeNull();
+    expect(screen.getByRole("button", { name: "Download 3 files" })).toBeDisabled();
+    act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: job, kind: "export_case", status: "done" })])); // it still finishes on the stream
+    expect(await screen.findByRole("button", { name: CLOSE_MESSAGES["close.copies.download"] })).toBeInTheDocument();
+    expect(screen.queryByText(CLOSE_MESSAGES["close.copies.slow"]!)).toBeNull();
+  } finally {
+    timer.mockRestore();
+  }
 });
 
 test("a cancelled export says it failed and lets the button be pressed again", async () => {
