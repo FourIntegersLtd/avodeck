@@ -2,6 +2,7 @@
 // Under both pack sets.
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { FakeEventSource, liveJob } from "../../test/eventSource";
 import { forgetPages } from "../../foundation/lib/pageImageCache";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
@@ -123,6 +124,13 @@ function mockTranscript(
   return log;
 }
 
+const BUILD_JOB = "00000000-0000-0000-0000-0000000000aa";
+/** The case stream says the file's build has ended. */
+const finishBuild = async (status: "done" | "failed" = "done") => {
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: BUILD_JOB, kind: "build_transcript", status })]));
+};
+
 const WAIT_WORDS = "We're getting the record ready to read. This can take a minute.";
 const waitNoticeNow = () => screen.getByText(WAIT_WORDS).closest("[role=status]") as HTMLElement;
 const waitNotice = async () => {
@@ -227,15 +235,16 @@ describe.each([
     expect(screen.queryByRole("progressbar", { name: "Preparing page 20 of 900" })).toBeNull();
   });
 
-  test("the retry's bar moves on as the summary is asked again", async () => {
+  test("the retry's bar moves on as the retry job's counts arrive over the case stream", async () => {
     mockReader(pack);
     summary = { failed_pages: 530, retrying: true, retry: { running: true, paused: false, total: 650, done: 117, failed: 3 } };
     mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 897, waiting_for: "entries" });
     renderAt(PATH);
     await screen.findByRole("progressbar", { name: "Trying again: 120 of 650 pages (18%)" });
-    summary = { failed_pages: 250, retrying: true, retry: { running: true, paused: false, total: 650, done: 397, failed: 3 } };
-    expect(await screen.findByRole("progressbar", { name: "Trying again: 400 of 650 pages (62%)" }, { timeout: 6000 })).toBeVisible();
-  }, 15000);
+    await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+    act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "r1", kind: "retry_unread_pages", status: "running", step_done: 400, step_total: 650 })]));
+    expect(await screen.findByRole("progressbar", { name: "Trying again: 400 of 650 pages (62%)" })).toBeVisible();
+  });
 
   test("the bar shows on the retry's own running flag, even when the summary's retrying flag is off", async () => {
     mockReader(pack);
@@ -441,6 +450,7 @@ describe.each([
     const { user } = renderAt(PATH);
     await user.click(await screen.findByRole("button", { name: "Download a copy" }));
     await user.click(await screen.findByRole("menuitem", { name: "Download as Word" }));
+    await finishBuild();
     expect(await screen.findByText("Your Word file has been downloaded.")).toBeVisible();
     expect(log.downloads).toBe(1);
   });
@@ -543,9 +553,11 @@ describe.each([
     const { user } = renderAt(PATH);
     await user.click(await screen.findByRole("button", { name: "Download a copy" }));
     await user.click(await screen.findByRole("menuitem", { name: "Download as Word" }));
+    await finishBuild();
     expect(await screen.findByText("Your Word file has been downloaded.")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Download a copy" }));
     await user.click(screen.getByRole("menuitem", { name: "Download as PDF" }));
+    await finishBuild();
     expect(await screen.findByText("Your PDF has been downloaded.")).toBeVisible();
     expect(log.bodies).toEqual([{ format: "docx" }, { format: "pdf" }]);
     await user.click(screen.getByRole("button", { name: "Download a copy" }));
@@ -619,8 +631,6 @@ describe.each([
     test("while it builds, both formats are disabled; when it has downloaded the panel goes and they work again", async () => {
       mockReader(pack);
       mockTranscript("ready");
-      let release: (r: Response) => void = () => undefined;
-      server.use(http.get(`${C}/transcript/download/:job`, () => new Promise<Response>((resolve) => (release = resolve))));
       const { user } = renderAt(PATH);
       await startPdf(user);
       await waitFor(panelNow);
@@ -630,50 +640,44 @@ describe.each([
       expect(preparing).toHaveLength(2);
       for (const item of preparing) expect(item).toHaveAttribute("aria-disabled", "true");
       await user.keyboard("{Escape}");
-      release(new HttpResponse(new Blob(["pdf"]), { status: 200 }));
-      expect(await screen.findByText("Your PDF has been downloaded.", {}, { timeout: 8000 })).toBeVisible();
+      await finishBuild();
+      expect(await screen.findByText("Your PDF has been downloaded.")).toBeVisible();
       expect(screen.queryByText(BUILDING)).toBeNull();
       await user.click(screen.getByRole("button", { name: "Download a copy" }));
       const pdfItem = await screen.findByRole("menuitem", { name: "Download as PDF" });
       expect(pdfItem).not.toHaveAttribute("aria-disabled", "true");
       expect(screen.getByRole("menuitem", { name: "Download as Word" })).not.toHaveAttribute("aria-disabled", "true");
-    }, 12000);
+    });
 
     test("pressing again after a reload shows the same status and takes the file from the job the server named", async () => {
       mockReader(pack);
       mockTranscript("ready");
-      let asked = 0;
       server.use(
         http.get(`${C}/transcript/download/:job`, ({ params }) => {
-          asked += 1;
-          expect(params.job).toBe("00000000-0000-0000-0000-0000000000aa");
-          return asked < 2 ? apiError(409, "conflict") : new HttpResponse(new Blob(["pdf"]), { status: 200 });
+          expect(params.job).toBe(BUILD_JOB);
+          return new HttpResponse(new Blob(["pdf"]), { status: 200 });
         }),
       );
       const { user } = renderAt(PATH);
       await startPdf(user);
-      expect(await waitFor(panelNow)).toBeVisible(); // still building: the panel stays while the answer is "not ready"
-      expect(await screen.findByText("Your PDF has been downloaded.", {}, { timeout: 8000 })).toBeVisible();
-    }, 12000);
+      expect(await waitFor(panelNow)).toBeVisible(); // still building: the panel stays until the stream says it is done
+      await finishBuild();
+      expect(await screen.findByText("Your PDF has been downloaded.")).toBeVisible();
+    });
 
     test("a build that failed says so plainly, enables both formats and offers Try again, which asks once more", async () => {
       mockReader(pack);
       const log = mockTranscript("ready");
-      let asked = 0;
-      server.use(
-        http.get(`${C}/transcript/download/:job`, () => {
-          asked += 1;
-          return asked === 1 ? apiError(409, "build_failed") : new HttpResponse(new Blob(["pdf"]), { status: 200 });
-        }),
-      );
       const { user } = renderAt(PATH);
       await startPdf(user);
+      await finishBuild("failed");
       const failed = await screen.findByText("We couldn't build your PDF. Nothing has been lost. Please try again.");
       expect(screen.queryByText(BUILDING)).toBeNull();
       await user.click(screen.getByRole("button", { name: "Download a copy" }));
       expect(await screen.findByRole("menuitem", { name: "Download as PDF" })).toBeEnabled();
       await user.keyboard("{Escape}");
       await user.click(within(failed.closest("[role=status],[role=alert]") as HTMLElement).getByRole("button", { name: "Try again" }));
+      await finishBuild();
       expect(await screen.findByText("Your PDF has been downloaded.")).toBeVisible();
       expect(log.bodies).toEqual([{ format: "pdf" }, { format: "pdf" }]);
       expect(screen.queryByText("We couldn't build your PDF. Nothing has been lost. Please try again.")).toBeNull();

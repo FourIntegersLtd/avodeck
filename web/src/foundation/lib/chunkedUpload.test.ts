@@ -4,12 +4,12 @@ import { createHash } from "node:crypto";
 import { afterEach, beforeEach, expect, test } from "vitest";
 import { ApiError } from "../platform-client";
 import { http, HttpResponse, json, server } from "../../test/api";
+import { FakeEventSource, liveJob } from "../../test/eventSource";
 import {
   backoffCeiling,
   CHUNK_CONCURRENCY,
   chunkRanges,
   hashFile,
-  pollDelay,
   timing,
   uploadInParts,
   type UploadProgress,
@@ -23,10 +23,12 @@ const CHUNK = 7;
 // No real waiting: every pause is recorded and moves a fake clock on.
 const pauses: number[] = [];
 let clock = 0;
+let pollStep = 0; // how far each look moves the fake clock on
 const real = { ...timing };
 beforeEach(() => {
   pauses.length = 0;
   clock = 0;
+  pollStep = 0;
   timing.sleep = async (ms, signal) => {
     if (signal?.aborted) throw new DOMException("stopped", "AbortError");
     pauses.push(ms);
@@ -228,21 +230,24 @@ function polled(polls: Poll[], put: (n: number) => Response = ok204) {
     http.post("/v1/cases/:caseId/uploads", () => json({ upload_id: UP, chunk_size: CHUNK, chunk_count: 3 }, 201)),
     http.put("/v1/uploads/:id/chunks/:n", ({ params }) => (calls.puts.push(Number(params.n)), put(Number(params.n)))),
     http.post("/v1/uploads/:id/complete", ({ request }) => (calls.completes.push(request.headers.get("idempotency-key")), json({ status: "finalizing" }, 202))),
-    http.get("/v1/uploads/:id", () => json(polls[Math.min(calls.polls++, polls.length - 1)]!)),
+    http.get("/v1/uploads/:id", () => {
+      const n = calls.polls++;
+      clock += pollStep;
+      // The case stream moves on after each look, the way the finishing job does.
+      setTimeout(() => FakeEventSource.open().forEach((s) => s.emitJobs([liveJob({ id: `fin-${n}`, kind: "finalize_upload" })])), 0);
+      return json(polls[Math.min(n, polls.length - 1)]!);
+    }),
     http.post("/v1/uploads/:id/cancel", ({ request }) => (calls.cancels.push(request.headers.get("idempotency-key")), json(view({ status: "cancelled" })))),
   );
   return calls;
 }
 
-test("poll waits two seconds, backing off to ten", () => {
-  expect([0, 1, 2, 3, 4, 5, 6].map(pollDelay)).toEqual([2000, 3000, 4500, 6750, 10000, 10000, 10000]);
-});
-
-test("complete answers 202, then the upload is polled until it says complete", async () => {
+test("complete answers 202, then the upload is looked at again each time the case stream moves, until it says complete", async () => {
   const calls = polled([view({ status: "finalizing" }), view({ status: "finalizing" }), view({ status: "complete", document_id: DOC })]);
   await expect(uploadInParts(CASE, file(), "records")).resolves.toBe(DOC);
   expect(calls.polls).toBe(3);
-  expect(pauses.slice(-3)).toEqual([2000, 3000, 4500].slice(0, 3));
+  expect(pauses).toEqual([]); // nothing is waited out on a timer
+  expect(FakeEventSource.open()).toHaveLength(0); // and the stream is let go
   expect(calls.cancels).toEqual([]);
 });
 
@@ -319,6 +324,7 @@ test("a part that fails for good cancels the upload", async () => {
 // ---- review fixes ----------------------------------------------------------------------------------
 
 test("an upload still finalizing after five minutes gives up with a plain failure and no cancel", async () => {
+  pollStep = 100_000;
   const calls = polled([view({ status: "finalizing" })]);
   await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "upload_failed" });
   expect(clock).toBeGreaterThanOrEqual(5 * 60_000);

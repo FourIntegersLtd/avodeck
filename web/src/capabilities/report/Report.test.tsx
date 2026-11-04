@@ -1,10 +1,11 @@
 // S16 Your report: sections from the pack, what the court requires (from the pack), citation style, build and
 // rebuild, the expert's own sections, and the methodology note.
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { humanise } from "../../foundation/i18n";
 import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
+import { FakeEventSource, liveJob } from "../../test/eventSource";
 import { axeViolations, renderAt } from "../../test/render";
 import { inCase, launchWords } from "../setup/testing";
 import { casePack, checklistItems, etagged, reportOut, sectionKeys, sectionLabel, serve, settingsOut, V1, V2, versionOut, type PackRun } from "./testing";
@@ -59,6 +60,8 @@ test("building shows a waiting message, then the new version when it is ready", 
   const { user } = renderAt(url);
   await user.click(await screen.findByRole("button", { name: M["report.report.rebuild"]! }));
   expect(await screen.findByText(M["report.building"]!)).toBeInTheDocument();
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "j1", kind: "build_report", status: "done" })]));
   expect(await screen.findByText("Draft 2 · 31 pages")).toBeInTheDocument();
   await waitFor(() => expect(screen.queryByText(M["report.building"]!)).toBeNull());
 });

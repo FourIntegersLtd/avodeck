@@ -4,7 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { apiOrigin } from "../platform-client";
 import { http, json, server } from "../../test/api";
-import { useCaseJobs, useJob, useOnCaseChange, type LiveJob } from "./sse";
+import { useCaseJobs, useJob, useOnCaseChange, followCase, waitForCaseChange, waitForJob, type LiveJob } from "./sse";
 
 class FakeEventSource {
   static all: FakeEventSource[] = [];
@@ -253,5 +253,128 @@ describe("a stream the server refuses", () => {
     latest().onerror?.(new Event("error"));
     await new Promise((r) => setTimeout(r, 20));
     expect(checked).toBe(0);
+  });
+});
+
+describe("waitForJob", () => {
+  test("settles with the job when it ends, then lets the stream go", async () => {
+    const wait = waitForJob("c1", "j1", { timeoutMs: 60_000 });
+    latest().emit([job({ status: "running" })]);
+    latest().emit([job({ status: "done" })]);
+    await expect(wait).resolves.toMatchObject({ id: "j1", status: "done" });
+    expect(latest().closed).toBe(true);
+  });
+
+  test("a failed or cancelled job settles too, with its status", async () => {
+    const wait = waitForJob("c1", "j1", { timeoutMs: 60_000 });
+    latest().emit([job({ status: "failed", error_code: "build_failed" })]);
+    await expect(wait).resolves.toMatchObject({ status: "failed", error_code: "build_failed" });
+  });
+
+  test("a job that ended before the stream opened is found in the first snapshot", async () => {
+    const wait = waitForJob("c1", "j1", { timeoutMs: 60_000 });
+    latest().emit([job({ status: "done" }), job({ id: "j2", status: "running" })]);
+    await expect(wait).resolves.toMatchObject({ id: "j1", status: "done" });
+  });
+
+  test("ignores other jobs of the case", async () => {
+    const wait = waitForJob("c1", "j1", { timeoutMs: 60_000 });
+    let settled = false;
+    void wait.then(() => (settled = true), () => (settled = true));
+    latest().emit([job({ id: "j2", status: "done" }), job({ id: "j1", status: "running" })]);
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    latest().emit([job({ id: "j1", status: "done" })]);
+    await expect(wait).resolves.toMatchObject({ id: "j1" });
+  });
+
+  test("rejects when asked to stop, and lets the stream go", async () => {
+    const stop = new AbortController();
+    const wait = waitForJob("c1", "j1", { signal: stop.signal, timeoutMs: 60_000 });
+    const source = latest();
+    stop.abort();
+    await expect(wait).rejects.toMatchObject({ name: "AbortError" });
+    expect(source.closed).toBe(true);
+  });
+
+  test("rejects when it takes longer than allowed", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const wait = waitForJob("c1", "j1", { timeoutMs: 5000 });
+    const caught = wait.catch((e: Error) => e);
+    latest().emit([job({ status: "running" })]);
+    await vi.advanceTimersByTimeAsync(5001);
+    expect(await caught).toMatchObject({ name: "TimeoutError" });
+    expect(latest().closed).toBe(true);
+  });
+});
+
+describe("waitForCaseChange", () => {
+  test("with no snapshot yet it settles on the first one", async () => {
+    const wait = waitForCaseChange("c1", { timeoutMs: 60_000 });
+    latest().emit([job({ status: "running" })]);
+    await expect(wait).resolves.toBeUndefined();
+    expect(latest().closed).toBe(true);
+  });
+
+  test("with a snapshot held it settles when a job's status changes, a job appears or goes, never on counts", async () => {
+    renderHook(() => useCaseJobs("c1")); // another screen keeps the stream open
+    latest().emit([job({ status: "running" })]);
+    const next = waitForCaseChange("c1", { timeoutMs: 60_000 });
+    let settled = false;
+    void next.then(() => (settled = true));
+    latest().emit([job({ status: "running", step_done: 5 })]);
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    latest().emit([job({ status: "done" })]);
+    await expect(next).resolves.toBeUndefined();
+    expect(latest().closed).toBe(false);
+  });
+
+  test("rejects on stop or timeout", async () => {
+    const stop = new AbortController();
+    const wait = waitForCaseChange("c1", { signal: stop.signal, timeoutMs: 60_000 });
+    stop.abort();
+    await expect(wait).rejects.toMatchObject({ name: "AbortError" });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const slow = waitForCaseChange("c1", { timeoutMs: 1000 }).catch((e: Error) => e);
+    await vi.advanceTimersByTimeAsync(1001);
+    expect(await slow).toMatchObject({ name: "TimeoutError" });
+  });
+});
+
+describe("followCase", () => {
+  test("one stream is held across waits; each wait settles on a change, and a change between waits is not lost", async () => {
+    const follow = followCase("c1");
+    expect(FakeEventSource.all).toHaveLength(1);
+    const first = follow.changed({ timeoutMs: 60_000 });
+    latest().emit([job({ status: "running" })]);
+    await expect(first).resolves.toBeUndefined(); // the first snapshot
+    latest().emit([job({ status: "done" })]); // changes while nobody is waiting
+    await expect(follow.changed({ timeoutMs: 60_000 })).resolves.toBeUndefined();
+    let settled = false;
+    const next = follow.changed({ timeoutMs: 60_000 });
+    void next.then(() => (settled = true));
+    latest().emit([job({ status: "done", step_done: 9 })]); // counts only
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    expect(FakeEventSource.all).toHaveLength(1);
+    follow.close();
+    expect(latest().closed).toBe(true);
+    await expect(Promise.race([next, Promise.resolve("pending")])).resolves.toBe("pending");
+  });
+
+  test("rejects on stop or timeout", async () => {
+    const follow = followCase("c1");
+    const stop = new AbortController();
+    const waiting = follow.changed({ signal: stop.signal, timeoutMs: 60_000 });
+    stop.abort();
+    await expect(waiting).rejects.toMatchObject({ name: "AbortError" });
+    vi.useFakeTimers();
+    const slow = follow.changed({ timeoutMs: 1000 });
+    const check = expect(slow).rejects.toMatchObject({ name: "TimeoutError" });
+    await vi.advanceTimersByTimeAsync(1001);
+    await check;
+    vi.useRealTimers();
+    follow.close();
   });
 });

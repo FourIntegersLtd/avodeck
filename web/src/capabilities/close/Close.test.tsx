@@ -1,11 +1,12 @@
 // S26 Close the case: keep your copies, how long we hold the records, proof of deletion, pause
 // deletion, and closing. Pack words (retention years, the instructing party) come from the pack
 // fixtures, so this file names none itself.
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { expect, test } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, json, server, signedIn } from "../../test/api";
+import { FakeEventSource, liveJob } from "../../test/eventSource";
 import { CASE_A, fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderUi } from "../../test/render";
 import { Close } from "./Close";
@@ -176,19 +177,16 @@ test("pausing deletion asks why and until when, then shows it is paused", async 
 test("files are got ready, then downloaded once", async () => {
   const { sent, record } = serve();
   const job = "77777777-7777-4777-8777-777777777777";
-  let polls = 0;
   server.use(
     http.post(`/v1/cases/${CASE_A}/export`, async ({ request }) => { await record(request); return json({ job_id: job }, 202); }),
-    http.get(`/v1/jobs/${job}`, () => {
-      polls += 1;
-      return json({ id: job, case_id: CASE_A, kind: "export_case", status: polls > 1 ? "done" : "running", pct: null, step: null, eta_seconds: null, error_code: null, created_at: "2027-07-20T10:00:00Z", started_at: null, finished_at: null });
-    }),
     http.get(`/v1/cases/${CASE_A}/export/${job}/download`, () => new Response(new Blob(["PK"]), { headers: { "content-type": "application/zip" } })),
   );
   const { user } = renderClose();
   await user.click(await screen.findByRole("button", { name: "Download 3 files" }));
   expect(sent.find((s) => s.path.endsWith("/export"))?.body).toEqual({ files: ["reports", "method", "reads"] });
-  const download = await screen.findByRole("button", { name: CLOSE_MESSAGES["close.copies.download"] }, { timeout: 5000 });
+  await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: job, kind: "export_case", status: "done" })]));
+  const download = await screen.findByRole("button", { name: CLOSE_MESSAGES["close.copies.download"] });
   await user.click(download);
   expect(await screen.findByText(CLOSE_MESSAGES["close.copies.downloaded"]!)).toBeInTheDocument();
 });
