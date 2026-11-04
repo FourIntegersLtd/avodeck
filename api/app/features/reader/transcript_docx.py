@@ -239,7 +239,6 @@ def _cover(
     _run(doc.add_paragraph(), counts, font=_HEADING_FONT, color=_FOREST, size=12)
     _run(doc.add_paragraph(), word(language, "subtitle"), color=_SLATE)
     _run(doc.add_paragraph(), word(language, "prepared_by"), font=_HEADING_FONT, color=_FOREST, size=12).bold = True
-    _run(doc.add_paragraph(), word(language, "how_to_use"), color=_SLATE)
     doc.add_page_break()  # type: ignore[no-untyped-call]
 
 

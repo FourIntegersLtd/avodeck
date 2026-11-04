@@ -186,7 +186,7 @@ async def transcript_download_request(
         "select pg_advisory_xact_lock(hashtext(%s))", (f"transcript_download:{case_id}:{scope.person_id}:{kind}",)
     )
     cur = await conn.execute(
-        "select id from app.jobs where case_id = %s and kind = %s and status in ('queued', 'running')"
+        "select id from app.jobs where case_id = %s and kind = %s and status in ('queued', 'running', 'paused')"
         " and requested_by is not distinct from app.current_person_id() order by created_at limit 1",
         (case_id, kind),
     )
