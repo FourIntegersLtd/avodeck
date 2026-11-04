@@ -181,7 +181,9 @@ export function useJobOutcome(caseId: string | null, jobId: string | null, timeo
       checked.current = null;
       return;
     }
-    if (jobs !== null && !live && checked.current !== jobId) {
+    if (live) {
+      checked.current = null; // listed now; if it later drops out of the list, one more look is allowed
+    } else if (jobs !== null && checked.current !== jobId) {
       checked.current = jobId; // the stream has spoken and does not list this job
       void ask(false);
     }

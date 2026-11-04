@@ -7,7 +7,7 @@ import { describe, expect, test } from "vitest";
 import { files, isTest, WEB } from "./walk";
 
 const HUB = "src/foundation/lib/sse.ts";
-const CLOCK = "clock, not data"; // marks a timer that only counts time, spaces calls out or delays a write, and reads nothing
+const CLOCK = "clock, not data"; // marks a timer that is a clock, never a poll: it counts time, spaces calls out, delays a write, or fires one read once per trigger and is never rescheduled from its own callback
 
 const sources = files(`${WEB}/src`, (rel) => /\.tsx?$/.test(rel) && !isTest(rel) && !rel.includes("/platform-client/")).map((full) => {
   const rel = relative(WEB, full).split("\\").join("/");

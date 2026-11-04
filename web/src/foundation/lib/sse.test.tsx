@@ -433,6 +433,21 @@ describe("useJobOutcome: a job always ends, with no polling", () => {
     expect(asked).toBe(1);
   });
 
+  test("a job that was listed and then drops out of the stream (it aged out after a gap) is asked about once more", async () => {
+    let asked = 0;
+    record("running", () => (asked += 1));
+    const { result } = renderHook(() => useJobOutcome("c1", "j1", 60_000));
+    act(() => latest().emit([])); // a snapshot from before the job existed: one look, still running
+    await vi.waitFor(() => expect(asked).toBe(1));
+    act(() => latest().emit([job({ status: "running" })]));
+    expect(asked).toBe(1);
+    record("done", () => (asked += 1));
+    act(() => latest().emit([])); // it aged out of the list
+    await vi.waitFor(() => expect(result.current).toBe("done"));
+    act(() => latest().emit([job({ id: "other" })]));
+    expect(asked).toBe(2); // once per appearing and vanishing, never a loop
+  });
+
   test("when the time is up it asks once, and says slow if the job is still running", async () => {
     let asked = 0;
     record("running", () => (asked += 1));
