@@ -25589,6 +25589,52 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/events": {
+      "get": {
+        "operationId": "case_events_v1_cases__case_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Case Events",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/exhibits": {
       "get": {
         "description": "Audio, video and imaging files: kept and listed, never paged or read (F36).",

@@ -83,9 +83,7 @@ async def test_someone_without_access_gets_404(client_for: ClientFor, team: dict
         assert resp.json()["error"]["code"] == "not_found"
 
 
-async def test_another_cases_jobs_never_appear(
-    client_for: ClientFor, team: dict[str, uuid.UUID], seed: Seed
-) -> None:
+async def test_another_cases_jobs_never_appear(client_for: ClientFor, team: dict[str, uuid.UUID], seed: Seed) -> None:
     org = seed.org(kind="team", members={team["outsider"]: "owner"})
     other_case = seed.case(org, team["outsider"])
     other_job = seed.job(other_case)
@@ -98,7 +96,10 @@ async def test_a_new_event_is_sent_when_a_job_changes_and_not_otherwise(
     client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, app: FastAPI
 ) -> None:
     app.state.job_stream_seconds = 2.0
-    admin.execute("update app.jobs set status = 'running', step = 'ocr', step_done = 0, step_total = 882 where id = %s", (team["job"],))
+    admin.execute(
+        "update app.jobs set status = 'running', step = 'ocr', step_done = 0, step_total = 882 where id = %s",
+        (team["job"],),
+    )
     client = await client_for(team["expert"])
     stream = asyncio.create_task(client.get(f"/v1/cases/{team['case']}/events"))
     for done in (100, 275):
@@ -116,9 +117,7 @@ async def test_a_job_finished_long_ago_is_left_out_and_a_new_job_appears(
 ) -> None:
     old = seed.job(team["case"], kind="rerun_checks")
     admin.execute("update app.jobs set status = 'running' where id = %s", (old,))
-    admin.execute(
-        "update app.jobs set status = 'done', finished_at = now() - interval '2 hours' where id = %s", (old,)
-    )
+    admin.execute("update app.jobs set status = 'done', finished_at = now() - interval '2 hours' where id = %s", (old,))
     recent = seed.job(team["case"], kind="find_may_matter")
     admin.execute("update app.jobs set status = 'running' where id = %s", (recent,))
     admin.execute("update app.jobs set status = 'done', finished_at = now() where id = %s", (recent,))

@@ -26,6 +26,7 @@ from app.core.features import feature_routers, start_features
 from app.core.packs import PackLibrary, default_library
 from app.core.routes.account import account_public, account_router
 from app.core.routes.auth import auth_password, auth_pending, auth_public, auth_signed_in, auth_status
+from app.core.routes.case_events import case_events_router
 from app.core.routes.cases import cases_router
 from app.core.routes.cell import cell_public_router
 from app.core.routes.dictation import dictation_socket, transcripts_router
@@ -165,7 +166,7 @@ def create_app(
         account_public,
         account_router,
     )
-    files = (uploads_router, jobs_router, transcripts_router, dictation_socket)
+    files = (uploads_router, jobs_router, case_events_router, transcripts_router, dictation_socket)
     people = (me_router, help_router, today_router, notifications_router, support_router, legal_router)
     slices = (pipeline_router, colleague_router, esign_webhook_router)  # public: token- or signature-gated
     for r in (*routers, *people, cases_router, packs_router, case_pack_router, *files, *slices):

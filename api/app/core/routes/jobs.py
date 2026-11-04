@@ -29,7 +29,7 @@ from app.core.sse import (  # re-exported: main.py and this route's tests import
     sse_stream,
 )
 
-jobs_router = router(prefix="/v1/jobs", tags=["jobs"])
+jobs_router = router(prefix="/v1/jobs", tags=["jobs"], touch=False)  # a stream left open is not activity
 
 __all__ = [
     "EDGE_IDLE_SECONDS",

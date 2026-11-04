@@ -536,6 +536,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 |---|---|---|
 | GET | `/jobs/{job_id}` | Status, step (split/ocr/sort/duplicates/missing), pct, eta |
 | GET | `/jobs/{job_id}/events` | Same, as a live server-sent events stream |
+| GET | `/cases/{case_id}/events` | Every job on the case (active, or ended in the last 10 minutes) as one live server-sent events stream: status, step, pct, eta, step_done, step_total, error_code. The browser keeps one per open case. Not counted as activity for the idle sign-out |
 | | *(internal worker steps)* | split → T-07a OCR → M9 → T-07b → dates, duplicates, gaps → T-07c → index (M7) → email via Resend |
 
 **08 Bundle ready**
