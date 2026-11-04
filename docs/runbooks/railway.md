@@ -28,6 +28,12 @@ Copy every name from `api/.env.example` into both services (Railway "shared vari
   pooling). Keep `WORKER_DB_POOL_MAX + WORKER_QUEUE_POOL_MAX` below the pooler's pool size, or the pooler answers
   `EMAXCONNSESSION` and jobs stop. Raise the pooler's pool size first, then these. Model calls in flight follow
   `WORKER_DB_POOL_MAX` (less a reserve of two).
+- `AI_COST_GUARD_MULTIPLE` (default 3), `AI_EXPECTED_TOKENS_PER_PAGE` (4000), `AI_MIN_EXPECTED_PAGES` (100): the cost guard
+  (F11). The worker pauses a case once its tokens pass multiple x tokens per page x max(pages, minimum pages), and the
+  API reads the same three to tell the person "this case has used up its allowance" and to refuse "Try again". Set them
+  **identically on the api and the worker services** (use Railway shared variables, never per-service copies): if they
+  differ, a screen can offer "Try again" for a run the worker will pause again, or hide it for one that would work.
+  Both read them through `cost_guard()`, so the defaults and the sum live in one place (`app/core/config.py`).
 - `APP_ORIGIN`: the web app's public origins, comma-separated (`https://avodeck.com`). Never a wildcard; start-up refuses one.
 - `COOKIE_DOMAIN`: `avodeck.com`, so the page on `avodeck.com` can read the `av_csrf` cookie the API sets (ADR 0031). Empty locally.
 - `PACKS_APPROVED_ONLY=1` once the launch packs are approved.
