@@ -75,6 +75,32 @@ describe.each([
     expect(screen.queryByRole("button", { name: BUTTON })).toBeNull();
   });
 
+  test("when the server refuses the press because the case is over its allowance, the screen says so and drops the button", async () => {
+    const log = mock(pack, [paused("other")]);
+    server.use(
+      http.post(`/v1/cases/${CASE_ID}/transcript/retry`, () => {
+        log.retries += 1;
+        return json({ error: { code: "allowance_used_up", message: "This case has used up its processing allowance." } }, 409);
+      }),
+    );
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: BUTTON }));
+    expect(await screen.findByText(USED_UP)).toBeVisible();
+    expect(log.retries).toBe(1);
+    expect(screen.queryByText("We couldn't start that just now. Please try again.")).toBeNull();
+    expect(screen.queryByRole("button", { name: BUTTON })).toBeNull();
+  });
+
+  test("any other failure of the press still gives the general try-again line", async () => {
+    mock(pack, [paused("other")]);
+    server.use(http.post(`/v1/cases/${CASE_ID}/transcript/retry`, () => json({ error: { code: "internal", message: "no" } }, 500)));
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: BUTTON }));
+    expect(await screen.findByText("We couldn't start that just now. Please try again.")).toBeVisible();
+    expect(screen.queryByText(USED_UP)).toBeNull();
+    expect(screen.getByRole("button", { name: BUTTON })).toBeVisible();
+  });
+
   test("once the allowance has room again the button is back", async () => {
     mock(pack, [paused("cost_guard")]);
     renderAt(PATH);

@@ -281,6 +281,24 @@ describe.each([
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
+  test("when the server refuses Try again because the case is over its allowance, the screen says so and drops the button", async () => {
+    mockReader(pack);
+    summary = { failed_pages: 530, retrying: true, retry: { running: false, paused: true, pause_reason: "other", total: 650, done: 117, failed: 3 } };
+    const log = mockTranscript("preparing", [], [], [], { prepared_pages: 20, total_pages: 900, extracted_pages: 897, waiting_for: "entries", can_prepare: true });
+    server.use(
+      http.post(`${C}/transcript/retry`, () => {
+        log.retries += 1;
+        return json({ error: { code: "allowance_used_up", message: "This case has used up its processing allowance." } }, 409);
+      }),
+    );
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("This case has used up its processing allowance. Please contact support.")).toBeVisible();
+    expect(log.retries).toBe(1);
+    expect(screen.queryByText("Trying again has paused for now. Please check back in a little while.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
   test("a retry paused for another reason gives the general line and still offers Try again", async () => {
     mockReader(pack);
     summary = { failed_pages: 530, retrying: true, retry: { running: false, paused: true, pause_reason: "other", total: 650, done: 117, failed: 3 } };
