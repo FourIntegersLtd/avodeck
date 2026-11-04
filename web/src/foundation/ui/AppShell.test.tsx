@@ -149,7 +149,7 @@ test("following a place in the drawer closes it", async () => {
 // and Help live inside the hamburger menu, and every row there has a decorative icon.
 const mobileCss = () => {
   const css = readFileSync(join(__dirname, "styles.css"), "utf8");
-  return css.match(/@media \(max-width:\s*768px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+  return Array.from(css.matchAll(/@media \(max-width:\s*768px\)\s*\{([\s\S]*?)\n\}/g), (m) => m[1]).join("\n");
 };
 
 test("on mobile the bar is the hamburger and logo on the left and only the bell on the right", async () => {
@@ -175,7 +175,7 @@ test("desktop keeps Help and the account initials in the bar (they are hidden on
   const header = await screen.findByRole("banner");
   expect(await within(header).findByRole("link", { name: "Help" })).toHaveAttribute("href", "/help");
   expect(within(header).getByRole("link", { name: "Account" })).toHaveAttribute("href", "/account");
-  const css = readFileSync(join(__dirname, "styles.css"), "utf8").replace(/@media \(max-width:\s*768px\)\s*\{[\s\S]*?\n\}/, "");
+  const css = readFileSync(join(__dirname, "styles.css"), "utf8").replace(/@media \(max-width:\s*768px\)\s*\{[\s\S]*?\n\}/g, "");
   expect(css).not.toMatch(/\.av-shell__header \.av-shell__help[^{]*\{[^}]*display:\s*none/);
 });
 
@@ -200,7 +200,8 @@ test("every row in the hamburger menu has a decorative icon and the words carry 
   const { user } = renderAt("/today");
   await user.click(await screen.findByRole("button", { name: "Open menu" }));
   const dialog = await screen.findByRole("dialog", { name: "Menu" });
-  const rows = within(dialog).getAllByRole("link");
+  // The account block leads with the person's initials; every other row leads with an icon.
+  const rows = within(dialog).getAllByRole("link").filter((r) => !r.classList.contains("av-shell__drawer-account"));
   expect(rows.map((r) => r.textContent)).toEqual(expect.arrayContaining([expect.stringContaining("Today"), "Cases", "Your profile", "Help"]));
   for (const row of rows) {
     const icon = row.querySelector("svg");
