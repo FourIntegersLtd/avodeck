@@ -92,9 +92,15 @@ def test_the_word_cover_carries_the_same_words_and_keeps_its_first_three_paragra
     texts = _word_texts()
     assert texts[1].startswith("This file has not been checked")
     assert texts[2] == "4 pages in the bundle"
-    for expected in (WORDS[1], WORDS[2], WORDS[3], WORDS[5], WORDS[9]):
+    for expected in (WORDS[1], WORDS[2], WORDS[3], WORDS[5]):
         assert any(expected in t for t in texts[:12]), expected
     assert "Pages with entries: 2 · Pages the computer couldn't read: 1" in texts[:12]
+
+
+def test_the_word_cover_does_not_tell_the_reader_to_select_a_picture_the_file_does_not_have() -> None:
+    texts = _word_texts()
+    last = max(i for i, t in enumerate(texts[:12]) if WORDS[2] in t)
+    assert WORDS[9] not in texts[last + 1]
 
 
 def test_the_word_cover_has_no_label_line_without_a_label() -> None:

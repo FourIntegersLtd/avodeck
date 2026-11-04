@@ -376,6 +376,18 @@ async def test_pressing_download_again_while_the_build_is_running_gives_the_same
     assert _requests_audited(admin, world) == 0
 
 
+async def test_pressing_download_again_while_the_build_is_paused_gives_the_same_job(
+    client_for: Any, admin: psycopg.Connection, seed: Seed, world: dict[str, Any]
+) -> None:
+    job = seed.job(world["case"], kind="export_transcript_pdf", requested_by=world["expert"])
+    admin.execute("update app.jobs set status = 'running' where id = %s", (job,))
+    admin.execute("update app.jobs set status = 'paused' where id = %s", (job,))
+    client: httpx.AsyncClient = await client_for(world["expert"])
+    resp = await client.post(f"{base(world)}/transcript/download", json={"format": "pdf"})
+    assert resp.status_code == 202 and resp.json() == {"job_id": str(job)}
+    assert _builds(admin, world) == 1
+
+
 async def test_presses_at_the_same_moment_start_one_build(
     client_for: Any, admin: psycopg.Connection, world: dict[str, Any]
 ) -> None:
