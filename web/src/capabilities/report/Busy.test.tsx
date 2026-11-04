@@ -224,7 +224,8 @@ test("old paragraphs say they are updating while a new version loads", async () 
   const paper = screen.getByRole("region", { name: M["report.report.paper"]! });
   // the case stream says the build moved on, so the report is looked at again, and its paragraphs are slow
   await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
-  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "j1", kind: "build_report", status: "done" })]));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "j1", kind: "build_report", status: "running" })]));
+  act(() => FakeEventSource.open()[0]!.emitJobs([liveJob({ id: "j1", kind: "build_report", status: "done" })])); // a later change, not the first snapshot
   await waitFor(() => expect(paper).toHaveAttribute("aria-busy", "true"));
   expect(screen.getByText("Old paragraph")).toBeInTheDocument();
   expect(screen.getByText(M["report.report.updating"]!)).toBeInTheDocument();
