@@ -46,7 +46,7 @@ from app.core.db import Database
 from app.core.email import OutboxMailer
 from app.core.jobs import JobContext, JobRegistry
 from app.core.packs import default_library
-from app.core.storage import CaseFileStorage, case_prefix
+from app.core.storage import CaseFileStorage, StorageError, case_prefix
 from app.features.close import jobs as close_jobs
 from app.features.close import sealed as close_sealed
 from tests.support.case_rows import CaseWorld, fill_every_case_table
@@ -767,13 +767,35 @@ async def test_a_framed_export_with_a_missing_last_frame_or_changed_frame_is_ref
             await close_sealed.open_sealed(conn, crypto, case, swapped, purpose=path)
 
 
+class HeldStore:
+    """Objects held as the same `bytes` they were given: unlike the S3 stand-in (an HTTP server in this
+    process, which copies every object several times), reading or storing one allocates nothing."""
+
+    def __init__(self) -> None:
+        self.objects: dict[str, bytes] = {}
+
+    async def put(self, path: str, data: bytes) -> None:
+        self.objects[path] = data
+
+    async def get(self, path: str) -> bytes:
+        if path not in self.objects:
+            raise StorageError("missing")
+        return self.objects[path]
+
+    async def delete(self, paths: Any) -> None:
+        for path in paths:
+            self.objects.pop(path, None)
+
+
 async def test_an_export_never_holds_more_than_twice_the_largest_file_in_memory(
-    run: Run, seed: Seed, admin: psycopg.Connection, storage: CaseFileStorage, crypto: CaseCrypto,
-    worker_db: Database, world: dict[str, Any], client_for: ClientFor,
+    run: Run, seed: Seed, admin: psycopg.Connection, crypto: CaseCrypto, worker_db: Database,
+    world: dict[str, Any], client_for: ClientFor, monkeypatch: pytest.MonkeyPatch,
 ) -> None:  # fmt: skip
     case = world["case"]
     size = 16 * 1024 * 1024
-    original = await add_large_document(admin, seed, storage, crypto, worker_db, case, size)
+    storage = HeldStore()
+    monkeypatch.setattr(close_jobs.services, "storage", storage)
+    original = await add_large_document(admin, seed, storage, crypto, worker_db, case, size)  # type: ignore[arg-type]
     client = await client_for(world["expert"])
     job = uuid.UUID((await client.post(f"/v1/cases/{case}/export")).json()["job_id"])
     del original
