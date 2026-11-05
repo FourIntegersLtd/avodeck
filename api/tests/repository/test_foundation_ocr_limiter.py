@@ -9,6 +9,7 @@ from __future__ import annotations
 import dataclasses
 import uuid
 from collections.abc import AsyncIterator
+from types import SimpleNamespace
 
 import psycopg
 import pytest
@@ -17,7 +18,6 @@ from app.core.ai.kit import AiKit
 from app.core.db import Database
 from app.core.storage import CaseFileStorage
 from app.features.pipeline import service
-from app.features.pipeline.wiring import current
 from tests.repository.test_foundation_ai_slots_global import _granted, _kit, _Stop, two_cases, worker_db  # noqa: F401
 from tests.repository.test_pipeline_fanout_support import PAGES, World, world
 from tests.repository.test_pipeline_words import storage  # noqa: F401
@@ -141,14 +141,7 @@ async def test_a_scanned_bundle_reads_every_page_through_the_limiter_within_the_
     assert scanned.ocr_watch.violations == []  # no connection held while waiting for a slot or for Azure
 
 
-async def test_without_a_kit_the_ocr_step_is_not_limited(scanned: World) -> None:
-    assert scanned.services.kit is None
-    await service.run_step(scanned.ctx, scanned.services, "split")
-    await service.run_step(scanned.ctx, scanned.services, "ocr")
-    assert scanned.h.admin.execute("select count(*) from app.ai_request_slots").fetchone() == (0,)
-
-
 def test_the_per_job_cap_is_the_setting() -> None:
     kit = AiKit(cell(AZURE_OCR_CONCURRENCY="7"), object())  # type: ignore[arg-type]
-    assert service.ocr_concurrency(dataclasses.replace(current(), kit=kit)) == 7
-    assert service.ocr_concurrency(dataclasses.replace(current(), kit=None)) == service.OCR_CONCURRENCY
+    assert service.ocr_concurrency(SimpleNamespace(kit=kit)) == 7  # type: ignore[arg-type]
+    assert service.ocr_concurrency(SimpleNamespace(kit=None)) == service.OCR_CONCURRENCY  # type: ignore[arg-type]

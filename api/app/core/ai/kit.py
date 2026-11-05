@@ -20,11 +20,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import copy
 import logging
 import time
 import uuid
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Any
@@ -599,9 +600,26 @@ class AiKit:
             if not waited:
                 self._log_wait(provider)
             waited = True
-            await self.sleep(self.slot_poll_seconds)
+            await self.sleep(self._poll_seconds(provider))
         self._log_slot(provider, started, waited)
         return slot_id
+
+    def _poll_seconds(self, provider: str) -> float:
+        """How long a waiting job sleeps between polls: the configured poll, but at most half the provider's
+        window, so a per-second ceiling is noticed within half a second."""
+        return min(self.slot_poll_seconds, self.settings.limits[provider].window_seconds / 2)
+
+    @contextlib.asynccontextmanager
+    async def slot(
+        self, database: Database, case_id: uuid.UUID, job_id: uuid.UUID, provider: str
+    ) -> AsyncIterator[None]:
+        """Hold one of `provider`'s account-wide slots for the length of the block (for calls the kit does not
+        make itself, such as a page sent to Azure OCR). No connection is held while waiting or inside the block."""
+        slot_id = await self._wait_for_slot_detached(database, case_id, job_id, provider)
+        try:
+            yield
+        finally:
+            await self._release(lambda: self._release_slot_detached(database, case_id, slot_id))
 
     async def _wait_for_slot_detached(
         self, database: Database, case_id: uuid.UUID, job_id: uuid.UUID, provider: str = "bedrock"
@@ -619,7 +637,7 @@ class AiKit:
             if not waited:
                 self._log_wait(provider)
             waited = True
-            await self.sleep(self.slot_poll_seconds)
+            await self.sleep(self._poll_seconds(provider))
         self._log_slot(provider, started, waited)
         return slot_id
 
@@ -683,15 +701,15 @@ class AiKit:
             assert row is not None  # the job row must exist: its own job is running this call
             slot_id = row[0]
 
+            limits = self.settings.limits[provider]
             cur = await conn.execute(
-                "select in_flight, granted_in_window from app.ai_slots_in_use(%s, interval '60 seconds')",
-                (provider,),
+                "select in_flight, granted_in_window from app.ai_slots_in_use(%s, make_interval(secs => %s))",
+                (provider, limits.window_seconds),
             )
             count_row = await cur.fetchone()
             assert count_row is not None
             in_flight, granted_count = count_row
             self._last_grants[provider] = granted_count
-            limits = self.settings.limits[provider]
             if granted_count < limits.rpm and in_flight < limits.concurrency:
                 cur = await conn.execute(
                     "select s.job_id from app.ai_request_slots s join app.jobs j on j.id = s.job_id"
