@@ -64,9 +64,8 @@ async def open_sealed(
         if start + size > len(view):
             raise CiphertextInvalid("the sealed copy is cut off")
         last = start + size == len(view)
-        parts.append(
-            await crypto.decrypt(conn, case_id, bytes(view[start : start + size]), purpose=_purpose(purpose, index, last=last))
-        )
+        frame = bytes(view[start : start + size])
+        parts.append(await crypto.decrypt(conn, case_id, frame, purpose=_purpose(purpose, index, last=last)))
         if last:
             return b"".join(parts)
         at, index = start + size, index + 1
