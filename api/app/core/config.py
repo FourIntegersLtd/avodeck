@@ -81,14 +81,11 @@ class DatabaseSettings:
     """Connection strings for the restricted roles (ADR 0013). Hidden from repr so they never reach logs.
 
     `url` is `app_api` through the pooler (transaction mode); `url_direct` is `app_worker` on a
-    direct connection, needed by the job queue. `url_listen` is `app_api` on a direct or session-mode
-    connection (never transaction mode, which cannot LISTEN): the API's one live-updates listener (PR 8).
-    Unset, streams keep their timed loop. The migrator's URL is deliberately not read here.
+    direct connection, needed by the job queue. The migrator's URL is deliberately not read here.
     """
 
     url: str = field(repr=False)
     url_direct: str | None = field(default=None, repr=False)
-    url_listen: str | None = field(default=None, repr=False)
     worker_pool_max: int = DEFAULT_WORKER_POOL_MAX
     queue_pool_max: int = DEFAULT_QUEUE_POOL_MAX
     acquire_timeout_seconds: float = DEFAULT_API_ACQUIRE_TIMEOUT_SECONDS
@@ -96,10 +93,25 @@ class DatabaseSettings:
     statement_timeout_ms: int = DEFAULT_API_STATEMENT_TIMEOUT_MS
 
 
+TRANSACTION_MODE_PORT = "6543"  # Supabase's pooler in transaction mode: it cannot LISTEN
+
+
 def listen_url(env: Mapping[str, str] | None = None) -> str | None:
-    """`DATABASE_URL_LISTEN`, or None when unset (streams then keep their timed loop)."""
+    """`DATABASE_URL_LISTEN`, or None when unset (streams then keep their timed loop).
+
+    It is `app_api` on a direct or session-mode connection (port 5432), never transaction mode, which cannot
+    LISTEN: a URL on the transaction-mode port is refused at start-up rather than failing silently later (PR 8).
+    """
     source = os.environ if env is None else env
-    return source.get("DATABASE_URL_LISTEN", "").strip() or None
+    url = source.get("DATABASE_URL_LISTEN", "").strip()
+    if not url:
+        return None
+    if urlsplit(url).port == int(TRANSACTION_MODE_PORT):
+        raise ConfigError(
+            "DATABASE_URL_LISTEN is on the transaction-mode port (6543), which cannot LISTEN;"
+            " use the direct or session-mode URL (port 5432)"
+        )
+    return url
 
 
 def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
@@ -108,11 +120,9 @@ def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
     if not url:
         raise ConfigError("DATABASE_URL is not set")
     direct = source.get("DATABASE_URL_DIRECT", "").strip() or None
-    listen = listen_url(source)
     return DatabaseSettings(
         url=url,
         url_direct=direct,
-        url_listen=listen,
         worker_pool_max=env_int(source, "WORKER_DB_POOL_MAX", DEFAULT_WORKER_POOL_MAX, minimum=1),
         queue_pool_max=env_int(source, "WORKER_QUEUE_POOL_MAX", DEFAULT_QUEUE_POOL_MAX, minimum=1),
         acquire_timeout_seconds=env_float(

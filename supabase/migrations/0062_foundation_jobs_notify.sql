@@ -14,7 +14,12 @@ create function app.jobs_notify()
   set search_path = ''
 as $$
 begin
-  if new.case_id is not null then
+  -- A delete names the old row: the open streams drop the job.
+  if tg_op = 'DELETE' then
+    if old.case_id is not null then
+      perform pg_catalog.pg_notify('case_jobs', old.case_id::text);
+    end if;
+  elsif new.case_id is not null then
     perform pg_catalog.pg_notify('case_jobs', new.case_id::text);
   end if;
   return null;
@@ -24,6 +29,10 @@ $$;
 create trigger jobs_notify
   after insert or update of status, step, pct, eta_seconds, step_done, step_total, error_code
   on app.jobs
+  for each row execute function app.jobs_notify();
+
+create trigger jobs_notify_delete
+  after delete on app.jobs
   for each row execute function app.jobs_notify();
 
 reset role;

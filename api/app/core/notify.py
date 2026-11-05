@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
@@ -117,5 +118,6 @@ class CaseNotifier:
                 _log.warning("case notifier connection lost: %s", type(exc).__name__)
             finally:
                 self._ready.clear()
-            await asyncio.sleep(delay)
+            # Jitter, so a restarted fleet does not reconnect in step.
+            await asyncio.sleep(delay * random.uniform(0.5, 1.0))
             delay = min(delay * 2, self._backoff_max)

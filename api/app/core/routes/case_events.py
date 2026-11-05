@@ -15,7 +15,6 @@ stream left open is not activity, so it must not hold off the idle sign-out.
 
 from __future__ import annotations
 
-import time
 import uuid
 from typing import Annotated
 
@@ -27,15 +26,13 @@ from app.core.db import Database, RequestScope
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, router
 from app.core.notify import CaseNotifier
-from app.core.sse import sse_stream
-
-_MONOTONIC = time.monotonic
+from app.core.sse import ACCESS_RECHECK_SECONDS, AccessRecheck, sse_stream
 
 case_events_router = router(prefix="/v1/cases", tags=["jobs"], touch=False)
 
 RECENT_MINUTES = 10  # how long a finished job stays in the list, so a screen that opens late still sees it end
 MAX_JOBS = 50
-ACCESS_RECHECK_SECONDS = 60.0  # the longest a stream goes without asking again whether the person may see the case
+__all__ = ["ACCESS_RECHECK_SECONDS", "case_events_router"]  # the limit lives in core.sse
 POLL_FACTOR = 2.0  # looks half as often as a single job's stream: the whole case changes more rarely to a screen
 
 _FIELDS = ("id", "kind", "status", "step", "pct", "eta_seconds", "step_done", "step_total", "error_code")
@@ -69,22 +66,19 @@ async def case_events(
     scope: CurrentScope,
 ) -> StreamingResponse:
     database: Database = request.app.state.database
-    state = request.app.state
-    notifier: CaseNotifier | None = getattr(state, "case_notifier", None)
-    # Looks land up to one wake apart, so asking at half the limit keeps the gap between checks under the limit.
-    recheck = float(getattr(state, "sse_access_recheck_seconds", ACCESS_RECHECK_SECONDS)) / 2
-    checked_at = _MONOTONIC()  # `_access` above is the check at connect
+    notifier: CaseNotifier | None = getattr(request.app.state, "case_notifier", None)
+    recheck = AccessRecheck(request.app.state, notifier)  # `_access` above is the check at connect
 
     async def fetch() -> dict[str, object] | None:
-        nonlocal checked_at
-        now = _MONOTONIC()
-        due = notifier is None or now - checked_at >= recheck  # the timed loop checks every look
-        if due:
-            checked_at = now
-        return await _jobs(database, scope, case_id, check_access=due)
+        return await _jobs(database, scope, case_id, check_access=recheck.due())
 
     if notifier is None:
         return await sse_stream(request, fetch, poll_factor=POLL_FACTOR)
     return await sse_stream(
-        request, fetch, poll_factor=POLL_FACTOR, watch=lambda: notifier.watch(case_id), wake_within=recheck
+        request,
+        fetch,
+        poll_factor=POLL_FACTOR,
+        watch=lambda: notifier.watch(case_id),
+        wake_within=recheck.interval,
+        live=lambda: notifier.ready,
     )
