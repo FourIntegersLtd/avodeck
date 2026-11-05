@@ -95,6 +95,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Page viewer (approved 2026-10-23, PR2):**
 - [x] Find words in the bundle (`POST …/search`): only the words read from the pages, with the expert's corrections; never suggestions or facts, so searching is not reading and the blind read holds; answers page numbers and places, hits marked on the page
+- [x] Bundle search keeps the case's opened words in memory (`features/reader/search_cache.py`, scalability PR 10): `READER_SEARCH_CACHE_CASES` (8, least recently used out), `READER_SEARCH_CACHE_TTL_SECONDS` (600), `READER_SEARCH_CACHE_MAX_WORDS` (3,000,000); reopened when pages, the words of a page or the expert's readings change (a cheap version read on every search); `search_cache.clear_case(case_id)` drops a case (PR 15 calls it when a case key is destroyed); keys are case ids only, words are opened in a thread, nothing is logged
 - [x] Two pages side by side: the clearer copy, else the next page, or any page number
 - [x] Full screen (button, F, Escape); view settings held in memory only
 - [x] The person's own bookmarks and private notes (`page_notes`, migration 0214): RLS per person, sealed, not reading, never sent to AI; goes with its page on case deletion (no case_id, so no purge-list entry)

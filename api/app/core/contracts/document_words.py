@@ -17,12 +17,13 @@ reader and `cited_words` agree on what a fact's words say.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 
 from psycopg import AsyncConnection
 
-from app.core.crypto import CaseCrypto
+from app.core.crypto import CaseCrypto, _open
 
 
 def word_purpose(page_id: uuid.UUID, word_id: str) -> str:
@@ -83,6 +84,12 @@ def apply_corrections(
     return out
 
 
+def read_as_corrected(words: list[tuple[str, str]], corrections: Iterable[Correction]) -> list[tuple[str, str]]:
+    """`words` (word id, text in reading order) as the expert reads them: each correction applied, the words of a
+    corrected run after its anchor left out."""
+    return _read_as_corrected(words, corrections)
+
+
 def _read_as_corrected(words: list[tuple[str, str]], corrections: Iterable[Correction]) -> list[tuple[str, str]]:
     corrections = list(corrections)
     if not corrections:
@@ -108,6 +115,29 @@ def box(
         "x1": share(max(xs), width),
         "y1": share(max(ys), height),
     }
+
+
+def _open_word(key: bytes, blob: bytes, aad: bytes) -> bytes:
+    """The AES-GCM step for one word (the seam tests count)."""
+    return _open(key, blob, aad)
+
+
+def _open_all(key: bytes, case_id: uuid.UUID, rows: Sequence[tuple[uuid.UUID, str, bytes]]) -> list[str]:
+    return [
+        _open_word(key, bytes(sealed), CaseCrypto._case_aad(case_id, word_purpose(page, word))).decode()
+        for page, word, sealed in rows
+    ]
+
+
+async def open_words(
+    conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID, rows: Sequence[tuple[uuid.UUID, str, bytes]]
+) -> list[str]:
+    """The text of many sealed words at once: (page id, word id, sealed text) in, texts out in the same order.
+
+    The case key is fetched once and the opening runs in a thread, so a long list does not hold up other requests
+    (one `await crypto.decrypt` per word runs on the event loop). Fails closed as `crypto.decrypt` does."""
+    key = await crypto._key(conn, case_id, create=False)
+    return await asyncio.to_thread(_open_all, key, case_id, rows)
 
 
 async def document_words(
