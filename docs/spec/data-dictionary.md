@@ -1093,9 +1093,10 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | kind / status / priority | What the background work is, its state, and how urgent |
 | attempts | How many times it has been tried (a resume after a pause, a restart or a stalled worker is not counted) |
 | requeued_stall | Set when the worker's sweep put the job back after its worker stalled; the next run starts without counting an attempt, then clears it |
+| stall_requeues | How many times the worker's sweep has put the job back after its worker stalled; past `JOB_MAX_STALL_REQUEUES` (default 5) the next stall fails the job (`stalled_too_often`) instead |
 | step / pct / eta_seconds | Which step it is on (a short code), progress and time left |
 | step_done / step_total | Whole numbers for the current step ("page 40 of 900"); empty until the job reports them, and start again when the step changes |
-| code_version / error_code | Which version of Avodeck ran it; what went wrong if it failed, or `case_on_hold` while it waits for its case to resume (a short code, never text) |
+| code_version / error_code | Which version of Avodeck ran it; what went wrong if it failed (including `stalled_too_often`, a job whose worker stalled more often than allowed), or `case_on_hold` while it waits for its case to resume (a short code, never text) |
 | requested_by | The person who asked for it; empty for work started by another job or the daily run. Set by the system |
 | last_granted_at | When this job was last let through the Bedrock request limit; used to pick fairly among jobs waiting for a turn |
 

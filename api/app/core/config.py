@@ -135,6 +135,17 @@ def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
     )
 
 
+# A job put back after its worker stalled is not a failure (F6), but one that stalls every run must end: after
+# this many stall requeues the next stall fails the job (`stalled_too_often`). 0 never puts a stalled job back.
+DEFAULT_JOB_MAX_STALL_REQUEUES = 5
+
+
+def job_max_stall_requeues(env: Mapping[str, str] | None = None) -> int:
+    """`JOB_MAX_STALL_REQUEUES`, default 5."""
+    source = os.environ if env is None else env
+    return env_int(source, "JOB_MAX_STALL_REQUEUES", DEFAULT_JOB_MAX_STALL_REQUEUES, minimum=0)
+
+
 DEFAULT_SSE_SAFETY_POLL_SECONDS = 30.0
 
 

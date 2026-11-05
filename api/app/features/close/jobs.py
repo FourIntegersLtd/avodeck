@@ -403,7 +403,7 @@ async def export_case(ctx: JobContext) -> None:
                 with tempfile.TemporaryFile() as sealed_file:  # sealed frame by frame, then stored
                     await sealed.seal_file(conn, crypto, ctx.case_id, files[variant], sealed_file, purpose=target)
                     sealed_file.seek(0)
-                    await storage.put(target, sealed_file.read())
+                    await storage.put_file(target, sealed_file)  # in parts: never the whole archive in memory
 
 
 async def _chosen_kinds(

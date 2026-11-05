@@ -103,6 +103,7 @@ Steps:
 Done when: tests green and dev metrics show the `azure_ocr` 429 count stays at 0 on a 900-page run.
 
 ## PR 5. Keep the worker loop free; stalls are not failures (pipeline + foundation, S)
+Done, with a leftover closed: stall requeues are counted (`jobs.stall_requeues`, migration 9002) and capped by `JOB_MAX_STALL_REQUEUES` (default 5); the next stall fails the job (`stalled_too_often`) and dead-letters it.
 Branch `fix/worker-loop-blocking`. Files: `features/pipeline/service.py` (`rasterise`, `_unpack`, pikepdf use), `api/app/core/jobs.py` (stall requeue, attempts), `api/app/worker/main.py`.
 Tests first:
 - A test patches `rasterise` to `time.sleep(2)`; the job's heartbeat timestamp still advances during it.
@@ -211,6 +212,7 @@ Steps:
 Done when: tests green. Update `docs/decisions/deferred.md` to remove the rate-limit item.
 
 ## PR 13. Export without buffering the whole archive (close, S)
+Done, with a leftover closed: the final put streams the sealed temp file as an S3 multipart upload (`CaseFileStorage.put_file`, 8 MiB parts, aborted on failure), so no step holds the archive whole.
 Branch `fix/export-streaming`. Files: `features/close/jobs.py` (`export_case`, the `.read()` of the zip).
 Tests first: an export of the fixture case has the same bytes after decryption as today, and peak memory under 2× the largest single file (tracemalloc).
 Steps: write the zip to a temp file; seal and put in chunks using the same envelope scheme as uploads (`core/uploads.py`); delete the temp file in `finally`.
