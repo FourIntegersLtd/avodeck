@@ -17,7 +17,7 @@ from app.core import metrics
 from app.core.errors import ApiError
 from app.core.http import public_router
 
-ops_router = public_router(machine=True, prefix="/v1/internal", tags=["ops"])
+ops_router = public_router(prefix="/v1/internal", tags=["ops"])
 
 
 def _allowed(request: Request) -> bool:
