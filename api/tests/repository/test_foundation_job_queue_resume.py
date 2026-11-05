@@ -48,12 +48,13 @@ def paused_job_waiting_on(
     admin.execute("update app.jobs set status = 'paused', error_code = 'service_busy' where id = %s", (job,))
     admin.execute("set search_path = procrastinate, public")  # the queue's triggers use bare type names
     admin.execute(
-        "select procrastinate_defer_jobs_v1(array[row(%s, 'run_job', 0, %s, null, jsonb_build_object('job_id', %s::text),"
-        " null)::procrastinate_job_to_defer_v1])",
+        "select procrastinate_defer_jobs_v1(array[row(%s, 'run_job', 0, %s, null,"
+        " jsonb_build_object('job_id', %s::text), null)::procrastinate_job_to_defer_v1])",
         (queue, f"case:{case}", str(job)),
     )
     admin.execute(
-        "update procrastinate.procrastinate_jobs set scheduled_at = now() + interval '1 hour' where args ->> 'job_id' = %s",
+        "update procrastinate.procrastinate_jobs set scheduled_at = now() + interval '1 hour'"
+        " where args ->> 'job_id' = %s",
         (str(job),),
     )
     admin.execute("reset search_path")
