@@ -2,8 +2,8 @@
 
 `app.resume_paused_job()` and `app.support_job_action()` defer a new queue row with `case:<id>` when the job's
 earlier rows carry no lock. A batch child (a `pipeline_batches` row names it as `child_job_id`) must never take the
-case lock, or one child would block the case. The rule is inert while the table does not exist: these tests stand a
-minimal `app.pipeline_batches` in for it. The behaviours 9001 and 0064 fixed stay: the waiting row is found by the job
+case lock, or one child would block the case. The rule is inert while the table does not exist (migration 0136 creates
+it, so the tests use the real table). The behaviours 9001 and 0064 fixed stay: the waiting row is found by the job
 on whatever queue it waits, and a job is never queued twice.
 """
 
@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import threading
 import uuid
-from collections.abc import Iterator
 
 import psycopg
 import pytest
@@ -26,21 +25,28 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-def batches_table(admin: psycopg.Connection) -> Iterator[None]:
-    """A stand-in for the pipeline's table, owned like a migration would own it; dropped again afterwards."""
-    exists = admin.execute("select to_regclass('app.pipeline_batches')").fetchone() == (None,)
-    if exists:
-        admin.execute("create table app.pipeline_batches (id bigserial primary key, child_job_id uuid)")
-        admin.execute("alter table app.pipeline_batches owner to app_migrator")
-    try:
-        yield
-    finally:
-        if exists:
-            admin.execute("drop table app.pipeline_batches")
+def batches_table() -> None:
+    """The pipeline's table exists since migration 0136; kept as a fixture name so the tests below read as before."""
 
 
 def make_child(admin: psycopg.Connection, job: uuid.UUID) -> None:
-    admin.execute("insert into app.pipeline_batches (child_job_id) values (%s)", (job,))
+    """Name the job as the child of a batch of a run (a parent job, a run and a batch, as the pipeline writes them)."""
+    row = admin.execute("select case_id from app.jobs where id = %s", (job,)).fetchone()
+    assert row is not None
+    case = row[0]
+    parent = admin.execute(
+        "insert into app.jobs (case_id, kind) values (%s, 'process_bundle') returning id", (case,)
+    ).fetchone()
+    assert parent is not None
+    admin.execute(
+        'insert into app.pipeline_runs (job_id, case_id, state, batch_pages, "window") values (%s, %s, %s, 100, 2)',
+        (parent[0], case, "ocr_waiting"),
+    )
+    admin.execute(
+        "insert into app.pipeline_batches (run_job_id, case_id, phase, seq, first_page_no, last_page_no, page_count,"
+        " child_job_id) values (%s, %s, 'ocr', 0, 1, 100, 100, %s)",
+        (parent[0], case, job),
+    )
 
 
 @pytest.fixture

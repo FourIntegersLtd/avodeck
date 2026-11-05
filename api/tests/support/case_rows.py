@@ -229,7 +229,20 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
         " values (%s, %s, %s, 'mailto', %s)",
         (w.case, b"sealed", b"sealed", w.expert),
     )
+    run_job = seed.job(w.case)  # a page-batch run and one batch (ADR 0038): ids and numbers only
+    admin.execute(
+        'insert into app.pipeline_runs (job_id, case_id, state, batch_pages, "window") values (%s, %s, %s, 100, 2)',
+        (run_job, w.case, "ocr_waiting"),
+    )
+    admin.execute(
+        "insert into app.pipeline_batches (run_job_id, case_id, phase, seq, first_page_no, last_page_no, page_count)"
+        " values (%s, %s, 'ocr', 0, 1, 100, 100)",
+        (run_job, w.case),
+    )
     return {
+        "jobs": 1,
+        "pipeline_runs": 1,
+        "pipeline_batches": 1,
         "documents": 2,
         "pages": 2,
         "case_processing": 1,

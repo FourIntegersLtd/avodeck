@@ -149,7 +149,7 @@ KEPT_AFTER_CASE_DELETION: frozenset[str] = frozenset(
 
 # Registered here before the slice named creates the table in its migration range. Remove the entry
 # in the same change that creates the table.
-AWAITING_SLICE_MIGRATION: dict[str, str] = {"pipeline_batches": "A", "pipeline_runs": "A"}
+AWAITING_SLICE_MIGRATION: dict[str, str] = {}
 
 # The order `app.purge_case()` removes a case's rows in: each child table before the tables it
 # references, `cases` (left as a tombstone) second-to-last, `bundles` last (it outlives the case

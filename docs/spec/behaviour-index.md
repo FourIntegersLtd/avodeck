@@ -54,6 +54,8 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `pages` | Foundation (A, B) | Worker; named expert for flags | Many | Number permanent; quarantine, replacement, rotation (also set once by auto-straighten) per state machine | Belongs to the bundle, not the case (ADR 0034); quarantined images deleted earlier |
 | `page_analysis` | A | Worker; named expert or assistant for duplicate review | One per page | Worker notes; duplicate review with If-Match; cleared when a quarantined page is deleted | Case deletion |
 | `page_embeddings` | A | Worker | One per page | Remade only when the embedder changes; made from stripped text | Case deletion |
+| `pipeline_runs` | A | Worker | One per bundle job cut into page batches | State machine "Pipeline run"; closed by a newer bundle job only when its parent is paused, failed or stopped | Case deletion (first in the purge order) |
+| `pipeline_batches` | A | Worker | Many per run | A child is set once; completed once | Case deletion (first in the purge order) |
 | `page_quarantines` | A | Worker or case member suggests; only named expert confirms or undoes | Many per page; one open | State machine in the database; image and text deleted once told or after the pack's days | Case deletion |
 | `documents.split_of_page_id`, `pages.split_of_page_id` (columns, ADR 0019) | A | Named expert or assistant (page.replace) | One split per page | Set once when the halves are numbered; the original keeps its number, facts and reads | Case deletion |
 | `page_replacements` | A | Named expert or assistant (page.replace) | One per page; one per copy | Link set once; nothing moves by itself | Case deletion |
