@@ -105,6 +105,44 @@ $$;
 revoke execute on function app.pipeline_case_busy(uuid, text[]) from public, app_api, app_worker;
 grant execute on function app.pipeline_case_busy(uuid, text[]) to app_worker;
 
+-- Takes ALL the case's open run rows `for update`, oldest first. Every function that locks a run row calls this first,
+-- so two of them never hold one run row while waiting for another (the lock order is the age order: no `40P01`). A
+-- second call in the same transaction waits for nothing. Not granted to any role.
+create or replace function app.pipeline_lock_runs(p_case uuid)
+  returns void
+  language plpgsql
+  security definer
+  set search_path = ''
+as $$
+begin
+  perform 1 from app.pipeline_runs
+   where case_id = p_case and state not in ('done', 'closed')
+   order by created_at, job_id
+     for update;
+end
+$$;
+revoke execute on function app.pipeline_lock_runs(uuid) from public, app_api, app_worker;
+
+-- True when an OLDER open run of the case has a `running` parent (F61, F69: a paused or failed parent does not hold
+-- the case). The one ordering rule: fire_next and enter both ask it before they move a run to ready.
+create or replace function app.pipeline_older_running(p_case uuid, p_created timestamptz, p_run uuid)
+  returns boolean
+  language sql
+  security definer
+  set search_path = ''
+as $$
+  select exists (
+    select 1
+      from app.pipeline_runs o
+      join app.jobs op on op.id = o.job_id
+     where o.case_id = p_case and o.job_id <> p_run
+       and o.state not in ('done', 'closed')
+       and (o.created_at, o.job_id) < (p_created, p_run)
+       and op.status = 'running'
+  )
+$$;
+revoke execute on function app.pipeline_older_running(uuid, timestamptz, uuid) from public, app_api, app_worker;
+
 -- Moves every run of the case that is waiting on a finished phase to its ready state and wakes the parked parent.
 -- A run fires only when no batch of its phase is open, its parent is `running`, and no OLDER run of the case that is
 -- still open has a running parent (F69, F59: a paused or failed parent does not hold the case). Oldest run first, so
@@ -132,15 +170,7 @@ begin
        where b.run_job_id = r.job_id and b.completed_at is null
          and b.phase = case when r.state = 'ocr_waiting' then 'ocr' else 'sort' end
     );
-    continue when exists (
-      select 1
-        from app.pipeline_runs o
-        join app.jobs op on op.id = o.job_id
-       where o.case_id = p_case and o.job_id <> r.job_id
-         and o.state not in ('done', 'closed')
-         and (o.created_at, o.job_id) < (r.created_at, r.job_id)
-         and op.status = 'running'
-    );
+    continue when app.pipeline_older_running(p_case, r.created_at, r.job_id);
     update app.pipeline_runs
        set state = replace(state, '_waiting', '_ready'), ready_at = now(), updated_at = now()
      where job_id = r.job_id;
@@ -154,7 +184,7 @@ revoke execute on function app.pipeline_fire_next(uuid) from public, app_api, ap
 
 -- Queues children for the current phase's batches up to the run's window: while fewer children are queued or running
 -- than the window allows and a batch has no child, one new `read_page_batch` job (priority 0, no case lock, the run's
--- child queue) is queued for the next batch. A batch gets a child once, ever (`child_job_id` is set once). Only for a
+-- child queue) is queued for the next batch through `app.enqueue_job`, with `app.job_case_id` set around the call. A batch gets a child once, ever (`child_job_id` is set once). Only for a
 -- `*_waiting` run whose parent is `running`. The caller holds the run row. Not granted to any role.
 create or replace function app.pipeline_has_row(p_job uuid)
   returns boolean
@@ -180,6 +210,8 @@ declare
   nb app.pipeline_batches;
   v_child uuid;
   v_phase text;
+  v_version text;
+  v_prev text;
 begin
   select * into r from app.pipeline_runs where job_id = p_run;
   if not found or r.state not in ('ocr_waiting', 'sort_waiting')
@@ -187,6 +219,11 @@ begin
     return;
   end if;
   v_phase := split_part(r.state, '_', 1);
+  select p.code_version into v_version from app.jobs p where p.id = r.job_id;
+  -- `enqueue_job` checks the case against `app.job_case_id` (the heal sweep runs with none): set it for this call
+  -- only and put the caller's value back.
+  v_prev := current_setting('app.job_case_id', true);
+  perform set_config('app.job_case_id', r.case_id::text, true);
   loop
     exit when (
       select count(*) from app.pipeline_batches x
@@ -196,10 +233,10 @@ begin
      where x.run_job_id = r.job_id and x.phase = v_phase and x.child_job_id is null
      order by x.seq limit 1 for update;
     exit when not found;
-    insert into app.jobs (case_id, kind, priority) values (r.case_id, 'read_page_batch', 0) returning id into v_child;
+    v_child := app.enqueue_job(r.case_id, 'read_page_batch', r.child_queue, 0, false, v_version);
     update app.pipeline_batches set child_job_id = v_child where id = nb.id;
-    perform app.pipeline_defer_row(v_child, r.child_queue, null, 0);
   end loop;
+  perform set_config('app.job_case_id', coalesce(v_prev, ''), true);
 end
 $$;
 revoke execute on function app.pipeline_topup(uuid) from public, app_api, app_worker;
@@ -225,7 +262,11 @@ begin
   if app.current_job_case_id() is distinct from b.case_id then
     raise exception using errcode = '42501', message = 'no access to this case';
   end if;
+  perform app.pipeline_lock_runs(b.case_id);
   select * into r from app.pipeline_runs where job_id = b.run_job_id for update;
+  if not found then
+    return false;  -- the case was purged while this child finished: nothing is left to mark
+  end if;
   update app.pipeline_batches set completed_at = now() where id = p_batch and completed_at is null;
   v_before := r.state;
   perform app.pipeline_topup(r.job_id);
@@ -255,8 +296,9 @@ begin
   if app.current_job_case_id() is distinct from r.case_id then
     raise exception using errcode = '42501', message = 'no access to this case';
   end if;
+  perform app.pipeline_lock_runs(r.case_id);
   select * into r from app.pipeline_runs where job_id = p_run for update;
-  if r.state <> 'finishing' then
+  if not found or r.state <> 'finishing' then
     return false;
   end if;
   update app.pipeline_runs set state = 'done', finished_at = now(), updated_at = now() where job_id = p_run;
@@ -290,7 +332,11 @@ begin
   if app.current_job_case_id() is distinct from r.case_id then
     raise exception using errcode = '42501', message = 'no access to this case';
   end if;
+  perform app.pipeline_lock_runs(r.case_id);
   select * into r from app.pipeline_runs where job_id = p_run for update;
+  if not found then
+    return;
+  end if;
   update app.pipeline_runs set reopened_at = now(), updated_at = now() where job_id = p_run;
   for c in
     select j.id, j.status, j.priority
@@ -342,7 +388,11 @@ begin
   if app.current_job_case_id() is distinct from r.case_id then
     raise exception using errcode = '42501', message = 'no access to this case';
   end if;
+  perform app.pipeline_lock_runs(r.case_id);
   select * into r from app.pipeline_runs where job_id = p_run for update;
+  if not found then
+    return 'end';
+  end if;
   update procrastinate_jobs pj set priority = j.priority
     from app.jobs j
    where j.id = p_run and pj.args ->> 'job_id' = p_run::text and pj.status = 'doing' and pj.priority <> j.priority;
@@ -356,6 +406,9 @@ begin
        where b.run_job_id = p_run and b.completed_at is null and b.phase = split_part(r.state, '_', 1)
     ) then
       return 'park';
+    end if;
+    if app.pipeline_older_running(r.case_id, r.created_at, p_run) then
+      return 'park';  -- an older run goes first (F61); the fan-in fires this one when that run ends
     end if;
     r.state := replace(r.state, '_waiting', '_ready');
     update app.pipeline_runs set state = r.state, ready_at = now(), updated_at = now() where job_id = p_run;
@@ -461,11 +514,11 @@ begin
     raise exception using errcode = '42501', message = 'no access to this case';
   end if;
   select cp.cancel_requested_at into v_stop from app.case_processing cp where cp.case_id = p_case;
+  perform app.pipeline_lock_runs(p_case);
   for r in
     select * from app.pipeline_runs
      where case_id = p_case and job_id <> p_by and state not in ('done', 'closed')
      order by created_at, job_id
-       for update
   loop
     perform app.pipeline_mirror_run(r.job_id, p_resumable);
     select * into p from app.jobs where id = r.job_id for update;
