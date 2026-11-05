@@ -32,7 +32,9 @@ def test_with_nothing_set_the_settings_are_exactly_todays() -> None:
     assert dict(settings.direct_models) == {}
     assert settings.anthropic_endpoint == ""
     assert dict(settings.limits) == {
-        "bedrock": ProviderLimits(rpm=5, pages_per_call=10, max_output_tokens=16000, concurrency=3)
+        "bedrock": ProviderLimits(rpm=5, pages_per_call=10, max_output_tokens=16000, concurrency=3),
+        # PR 4: Azure OCR is a third pool, counted per second (12 submits a second, 30 in flight)
+        "azure_ocr": ProviderLimits(rpm=12, pages_per_call=1, max_output_tokens=0, concurrency=30, window_seconds=1),
     }
     assert settings.primary_limits == settings.limits["bedrock"]
     assert settings.allowed_hosts == frozenset(CELL_ENV["AI_ENDPOINT_ALLOW_LIST"].split(","))
