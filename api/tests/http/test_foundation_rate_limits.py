@@ -35,9 +35,7 @@ async def _statuses(client: httpx.AsyncClient, path: str, n: int) -> list[int]:
     return [(await client.get(path)).status_code for _ in range(n)]
 
 
-async def test_a_person_over_the_limit_gets_429_slow_down_with_retry_after(
-    client_for: ClientFor, seed: Seed
-) -> None:
+async def test_a_person_over_the_limit_gets_429_slow_down_with_retry_after(client_for: ClientFor, seed: Seed) -> None:
     client = await client_for(seed.person())
     assert await _statuses(client, "/v1/me", 3) == [200, 200, 200]
     resp = await client.get("/v1/me")
