@@ -1091,7 +1091,8 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | Field | In plain words |
 |---|---|
 | kind / status / priority | What the background work is, its state, and how urgent |
-| attempts | How many times it has been tried |
+| attempts | How many times it has been tried (a resume after a pause, a restart or a stalled worker is not counted) |
+| requeued_stall | Set when the worker's sweep put the job back after its worker stalled; the next run starts without counting an attempt, then clears it |
 | step / pct / eta_seconds | Which step it is on (a short code), progress and time left |
 | step_done / step_total | Whole numbers for the current step ("page 40 of 900"); empty until the job reports them, and start again when the step changes |
 | code_version / error_code | Which version of Avodeck ran it; what went wrong if it failed, or `case_on_hold` while it waits for its case to resume (a short code, never text) |

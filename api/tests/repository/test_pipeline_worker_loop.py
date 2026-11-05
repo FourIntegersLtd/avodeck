@@ -198,7 +198,16 @@ async def test_on_a_stop_running_jobs_are_paused_without_an_attempt_and_carry_on
         assert row(admin, job) == ("paused", 1, "resuming")
 
         hold["on"] = False
-        assert (await run_until_finished(worker, admin, [job]))[job] == "done"
+        again = asyncio.create_task(worker.run())  # `paused` already counts as finished for the helper
+        try:
+            for _ in range(200):
+                if row(admin, job)[0] == "done":
+                    break
+                await asyncio.sleep(0.1)
+        finally:
+            again.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await again
 
     assert seen == [1, 1], "a stop counted as an attempt"
     assert row(admin, job) == ("done", 1, None)
