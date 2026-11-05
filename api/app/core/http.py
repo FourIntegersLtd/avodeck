@@ -261,12 +261,21 @@ class SessionRoute(APIRoute):
             refusal: ApiError | None = None
             endpoint = f"{request.method} {self.path_format}"
             counted = False  # this request's count is in the transaction, which an error rolls back
+            failed = False
+
+            async def recount(conn: AsyncConnection) -> None:
+                if counted and failed:  # the rollback took the count with it: count again, same connection
+                    await rate_limits.keep(conn, scopes[0].person_id, endpoint)
+
             try:
                 # One connection, one transaction: the session lookup (which also ends an idle or expired
                 # session and counts activity) shares it with the route's own work.
                 async with (
                     audit.detached(database, lambda: scopes[0] if scopes else None),
-                    database.session_request(sessions.resolve_args(token, touch=self.touch), request_id) as (conn, row),
+                    database.session_request(sessions.resolve_args(token, touch=self.touch), request_id, recount) as (
+                        conn,
+                        row,
+                    ),
                 ):
                     outcome = sessions.from_row(row)
                     if isinstance(outcome, ApiError):
@@ -296,9 +305,13 @@ class SessionRoute(APIRoute):
                         pending_token = _PENDING.set(pending)
                         try:
                             response = await handler(request)
+                        except BaseException:
+                            failed = True
+                            raise
                         finally:
                             _PENDING.reset(pending_token)
                         if response.status_code >= 400:
+                            failed = True
                             raise _Discard(response)
                         released = getattr(request.state, "conn_released", False)  # no transaction left to record in
                         if pending is not None and not released and response.headers.get("idempotent-replayed") is None:
@@ -309,13 +322,7 @@ class SessionRoute(APIRoute):
                                 await _remember(conn, pending, response)
                         return response
             except _Discard as discarded:
-                if counted and not getattr(request.state, "conn_released", False):
-                    await rate_limits.keep(database, scopes[0], endpoint)  # the rollback took the count with it
                 return discarded.response
-            except Exception:
-                if counted and not getattr(request.state, "conn_released", False):  # released: already committed
-                    await rate_limits.keep(database, scopes[0], endpoint)
-                raise
             assert refusal is not None
             raise refusal
 

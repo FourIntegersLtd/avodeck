@@ -19,7 +19,7 @@ transaction is rolled back before the connection goes back to the pool.
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator, Iterator, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager, contextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -160,15 +160,21 @@ class Database:
 
     @asynccontextmanager
     async def session_request(
-        self, resolve_args: Sequence[Any], request_id: str
+        self,
+        resolve_args: Sequence[Any],
+        request_id: str,
+        after: Callable[[AsyncConnection], Awaitable[None]] | None = None,
     ) -> AsyncIterator[tuple[AsyncConnection, tuple[Any, ...] | None]]:
         with self._busy_guard():
-            async with self._session_request(resolve_args, request_id) as found:
+            async with self._session_request(resolve_args, request_id, after) as found:
                 yield found
 
     @asynccontextmanager
     async def _session_request(
-        self, resolve_args: Sequence[Any], request_id: str
+        self,
+        resolve_args: Sequence[Any],
+        request_id: str,
+        after: Callable[[AsyncConnection], Awaitable[None]] | None = None,
     ) -> AsyncIterator[tuple[AsyncConnection, tuple[Any, ...] | None]]:
         """`request()` for a signed-in route whose person is not known yet: ONE connection, ONE transaction.
 
@@ -179,6 +185,8 @@ class Database:
         the function's own writes (it ends an idle or expired session, and counts activity): raising
         rolls them back.
         `app.org_ids`, `app.request_id` and `TimeZone` are the same as `request()` sets.
+        `after`, if given, is awaited on the same connection once the transaction has ended and the connection
+        is still held (never after `release`), for a count that must survive a rollback. It must not raise.
         """
         settings = self._with_limits({"app.org_ids": "", "app.request_id": request_id, "TimeZone": "UTC"})
         *lookup, touch = resolve_args
@@ -211,6 +219,9 @@ class Database:
                             await _rollback(conn)
                     raise
             finally:
+                if after is not None and not hold.released:
+                    with anyio.CancelScope(shield=True), suppress(Exception):
+                        await after(conn)
                 if touch and row is not None:
                     with anyio.CancelScope(shield=True):  # nor skip the count
                         if hold.released:  # the connection went back to the pool early: borrow one again

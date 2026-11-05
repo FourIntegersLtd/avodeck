@@ -28,7 +28,6 @@ from contextlib import suppress
 
 from psycopg import AsyncConnection
 
-from app.core.db import Database, RequestScope
 from app.core.errors import ApiError
 
 _SWEEP_ABOVE = 1000
@@ -57,13 +56,21 @@ async def hit(conn: AsyncConnection, endpoint: str, limit: int) -> None:
         raise slow_down(row[1])
 
 
-async def keep(database: Database, scope: RequestScope, endpoint: str) -> None:
-    """Count a request whose own transaction was rolled back (it ended in an error), in a short one of its own.
+async def keep(conn: AsyncConnection, person_id: uuid.UUID, endpoint: str) -> None:
+    """Count a request whose own transaction was rolled back (it ended in an error), on the same connection.
 
-    Best effort: a busy pool must not turn the answer the person was about to get into something else."""
-    with suppress(Exception):
-        async with database.request(scope) as conn:
+    Called once that transaction has ended and the connection is still held (`Database.session_request`'s
+    `after`), so an error answer still takes one connection. Best effort: it never raises."""
+    try:
+        async with conn.pipeline():
+            await conn.execute("BEGIN")
+            await conn.execute("select set_config('app.person_id', %s, true)", (str(person_id),))
             await conn.execute("select hits from app.rate_limit_hit(%s)", (endpoint,))
+            await conn.execute("COMMIT")
+    except Exception:  # noqa: BLE001 - the answer the person was about to get must not change
+        with suppress(Exception):
+            if not conn.closed:
+                await conn.execute("ROLLBACK")
 
 
 class StreamLease:
