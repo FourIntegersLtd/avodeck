@@ -30,6 +30,8 @@ Date: 2026-11-03 · Status: accepted, temporary · Decided by: the founder · Bu
 
 Slice A reads `kit.primary_limits.pages_per_call` and `.concurrency` for batching and fan-out instead of `settings.extraction_batch_size`.
 
+**Account-wide counts (migration 0056).** The kit counts grants and calls in flight through `app.ai_slots_in_use` (security definer, worker only) so the ceilings hold across every case, not per case. `BEDROCK_CONCURRENCY` (default 3) is the in-flight ceiling for Bedrock.
+
 **Separate slot pools.** `app.ai_request_slots` gains `provider` (migration 0055, default `bedrock`). The kit counts, grants and orders fairly within one provider; the advisory lock key is per provider. A full direct window never holds back Bedrock and the reverse. `app.jobs.last_granted_at` is shared by both providers, which has a minor fairness effect that is accepted.
 
 **Fallback.** A busy direct API (429, 5xx, 529, a dropped connection) is retried on the direct side up to 3 times, waiting `retry-after` (else 2, 4, 8 seconds) but never more than 30 seconds. After that, or at once on an unavailable model (including a spend limit) or a refusal, the same request goes to Bedrock under Bedrock's own back-off, slots and limits. If the request asks for more output than Bedrock can give (`max_tokens` over 16000), the kit raises `TooLargeForFallback(pages_per_call)` so the caller can retry with smaller batches. A wrong answer (schema) is asked again of the same provider and never hides behind the other. With no Bedrock client, a busy or unavailable direct API pauses processing as before.

@@ -7,6 +7,8 @@ range, status and linked question. Suggestions on pages the person has not read 
 
 from __future__ import annotations
 
+import base64
+import json
 import uuid
 from collections import Counter
 from datetime import date
@@ -15,7 +17,9 @@ from typing import Annotated, Literal
 from fastapi import Depends, Query, Request
 
 from app.core.auth.access import CaseAccess, require_case_access
+from app.core.errors import ApiError
 from app.core.http import DbConn
+from app.core.packs import MergedPack
 from app.features.understand import gaps, guidelines, overview, repo, series
 from app.features.understand.common import case_pack
 from app.features.understand.lanes import arrange, subtitle
@@ -23,6 +27,7 @@ from app.features.understand.router import router
 from app.features.understand.timeline_models import (
     ChronologyRef,
     Event,
+    Gap,
     Lane,
     Overview,
     Range,
@@ -44,10 +49,37 @@ def _rank(fact: repo.SeenFact, flagged: set[uuid.UUID], links: dict[uuid.UUID, l
     return 3 if fact.status in repo.CHECKED else 2
 
 
-def _chrono_key(fact: repo.SeenFact) -> tuple[int, date, int]:
-    """Dated entries by day, then page; entries with no day last, by page."""
-    day = fact.event_date or fact.available_at
-    return (0, day, fact.page_no) if day else (1, date.min, fact.page_no)
+PAGE_AFTER_CURSOR = 200
+"""The page size when a cursor comes with no `limit`."""
+
+
+def _encode(key: tuple[date, int, date, uuid.UUID]) -> str:
+    raw = json.dumps([key[0].isoformat(), key[1], key[2].isoformat(), str(key[3])])
+    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
+
+
+def _decode(cursor: str) -> repo.After:
+    try:
+        day, page_no, own, fact_id = json.loads(base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)))
+        return repo.After(date.fromisoformat(day), int(page_no), date.fromisoformat(own), uuid.UUID(fact_id))
+    except (ValueError, TypeError, KeyError):
+        raise ApiError("invalid", "That place in the list is not valid.", 422) from None
+
+
+async def _gaps(
+    request: Request,
+    conn: DbConn,
+    case_id: uuid.UUID,
+    pack: MergedPack,
+    shown: list[repo.SeenFact],
+    as_seen_on: date | None,
+) -> list[Gap]:
+    """Gaps for the open things to look at; the whole dated record is read only when there is one."""
+    found = await gaps.open_findings(conn, case_id)
+    if not found:
+        return []
+    arrived = await repo.visible_facts(request, conn, case_id, repo.Filters(as_seen_on=as_seen_on), dated_only=True)
+    return await gaps.assemble(conn, case_id, pack, found, shown, arrived)
 
 
 @router.get("/cases/{case_id}/timeline", response_model=Timeline)
@@ -64,31 +96,34 @@ async def timeline(
         Only | None, Query(description="Only entries not linked to a question, or with a thing to look at.")
     ] = None,
     as_seen_on: Annotated[date | None, Query(description="Only what had arrived by this day.")] = None,
+    limit: Annotated[
+        int | None,
+        Query(ge=1, le=500, description="A page of entries in date order; leave out for the whole list."),
+    ] = None,
+    cursor: Annotated[str | None, Query(description="`next_cursor` of the page before.")] = None,
 ) -> Timeline:
+    """With `limit`, the entries come a page at a time (lanes, list and unplaced hold the page's entries only).
+
+    Counts, range and filter options always cover the whole record; series bars and gaps are worked out from
+    the entries on the page.
+    """
     pack = await case_pack(request, conn, case_id)
-    facts = await repo.visible_facts(request, conn, case_id)
-    links = await repo.linked_questions(conn, case_id)
+    after = _decode(cursor) if cursor else None
+    if limit is None and after is not None:
+        limit = PAGE_AFTER_CURSOR
+    filters = repo.Filters(since, until, status, question_id, only, as_seen_on)
+    facts = await repo.visible_facts(
+        request, conn, case_id, filters, limit=None if limit is None else limit + 1, after=after
+    )
+    next_cursor = None
+    if limit is not None and len(facts) > limit:
+        facts = facts[:limit]
+        next_cursor = _encode(repo.chrono_key(facts[-1]))
+    if limit is not None:  # lanes list their entries by the date the record shows, undated last
+        facts.sort(key=lambda f: (f.event_date is None, f.event_date or date.min, f.page_no, f.fact_id))
+    totals = await repo.totals(request, conn, case_id)
+    links = await repo.linked_questions(conn, case_id, [f.fact_id for f in facts])
     flagged = await repo.flagged_facts(conn, case_id)
-
-    def arrived(fact: repo.SeenFact) -> bool:
-        return as_seen_on is None or (fact.available_at is not None and fact.available_at <= as_seen_on)
-
-    def keep(fact: repo.SeenFact) -> bool:
-        if since is not None and (fact.event_date is None or fact.event_date < since):
-            return False
-        if until is not None and (fact.event_date is None or fact.event_date > until):
-            return False
-        if status == "verified" and fact.status not in repo.CHECKED:
-            return False
-        if status not in (None, "verified") and fact.status != status:
-            return False
-        if not arrived(fact):
-            return False
-        if only == "not_linked" and links.get(fact.fact_id):
-            return False
-        if only == "things_to_look" and fact.fact_id not in flagged:
-            return False
-        return question_id is None or question_id in links.get(fact.fact_id, [])
 
     def event(fact: repo.SeenFact, series_key: str | None = None) -> Event:
         rank = _rank(fact, flagged, links)
@@ -111,16 +146,16 @@ async def timeline(
         )
 
     lanes = pack.lanes()
-    placed, unplaced = arrange([f for f in facts if keep(f)], lanes, kind=lambda f: f.kind, fields=lambda f: f.fields)
+    placed, unplaced = arrange(facts, lanes, kind=lambda f: f.kind, fields=lambda f: f.fields)
     labels = pack.vocabulary.get("lanes", {})
     source_words = pack.vocabulary.get("source_types", {})
     counts = TimelineCounts(
-        checked=sum(1 for f in facts if f.status in repo.CHECKED),
-        please_check=sum(1 for f in facts if f.status not in repo.CHECKED),
-        things_to_look=sum(1 for f in facts if f.fact_id in flagged),
-        not_linked=sum(1 for f in facts if not links.get(f.fact_id)),
-        undated=sum(1 for f in facts if f.event_date is None),
-        total=len(facts),
+        checked=totals.checked,
+        please_check=totals.please_check,
+        things_to_look=totals.things_to_look,
+        not_linked=totals.not_linked,
+        undated=totals.undated,
+        total=totals.total,
     )
     icon_of = {str(lane["key"]): lane.get("icon") for lane in lanes}
     colour_of = {str(src["key"]): src.get("colour") for src in pack.source_types()}
@@ -129,11 +164,10 @@ async def timeline(
         tally = Counter(f.source for f in got if f.source in colour_of)
         return colour_of[tally.most_common(1)[0][0]] if tally else None
 
-    days = [f.event_date for f in facts if f.event_date is not None]
     kept = [f for got in placed for f in got[1]]
     lane_series = {key: series.build(pack, key, got) for key, got in placed}
     rows = [(key, f) for key, got in placed for f in got] + [("", f) for f in unplaced]
-    rows.sort(key=lambda r: _chrono_key(r[1]))
+    rows.sort(key=lambda r: repo.chrono_key(r[1]))
     options = [
         value
         for value, n in (
@@ -155,7 +189,7 @@ async def timeline(
             for key, f in rows
         ],
         status_options=options,
-        range=Range(first=min(days), last=max(days)) if days else None,
+        range=Range(first=totals.first, last=totals.last) if totals.first and totals.last else None,
         as_seen_on=as_seen_on,
         as_seen_title=pack.term("as_seen_title"),
         sources=[
@@ -175,9 +209,10 @@ async def timeline(
             )
             for key, got in placed
         ],
-        gaps=await gaps.build(conn, case_id, pack, kept, [f for f in facts if arrived(f)]),
+        gaps=await _gaps(request, conn, case_id, pack, kept, as_seen_on),
         unplaced=[event(f) for f in unplaced],
         guidance_changed=await guidelines.changed(conn, case_id, pack.guidelines()),
+        next_cursor=next_cursor,
     )
 
 

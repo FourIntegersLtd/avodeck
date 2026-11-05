@@ -200,3 +200,18 @@ def _zz_kinds_email_in_database_tests(request: pytest.FixtureRequest, monkeypatc
         from app.core import notifications
 
         monkeypatch.setattr(notifications, "EMAIL_KINDS", notifications.EMAIL_KINDS | _ZZ_EMAIL_KINDS)
+
+
+@pytest.fixture(autouse=True)
+def _empty_slot_pool(request: pytest.FixtureRequest) -> None:
+    """The slot scheduler counts the whole account (migration 0056, default five calls a minute), so slots
+    another test left behind would count against this one: with a real sleep it waits up to a minute, with a
+    stand-in sleep it never ends. Every test that can reach the database starts from an empty pool; unit
+    tests (no database) and a database that is not running are left alone."""
+    if "unit" in request.node.path.parts:
+        return
+    try:
+        with psycopg.connect(request.getfixturevalue("admin_dsn"), autocommit=True, connect_timeout=5) as conn:
+            conn.execute("delete from app.ai_request_slots")
+    except psycopg.Error:
+        pass

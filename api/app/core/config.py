@@ -32,6 +32,20 @@ def env_int(source: Mapping[str, str], name: str, default: int, *, minimum: int 
     return value
 
 
+def env_float(source: Mapping[str, str], name: str, default: float, *, minimum: float | None = None) -> float:
+    """A number setting; unset or empty gives `default`. Anything else is a ConfigError naming it."""
+    raw = source.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ConfigError(f"{name} must be a number") from exc
+    if minimum is not None and value < minimum:
+        raise ConfigError(f"{name} must be at least {minimum}")
+    return value
+
+
 _TRUE_WORDS = frozenset({"1", "true", "yes"})
 _FALSE_WORDS = frozenset({"", "0", "false", "no"})
 
@@ -55,6 +69,11 @@ def env_csv(source: Mapping[str, str], name: str) -> tuple[str, ...]:
 # many clients in (Supabase: 15 by default), and the two together must stay under that number.
 DEFAULT_WORKER_POOL_MAX = 10
 DEFAULT_QUEUE_POOL_MAX = 4
+# The API's pool fails fast (PR 1 of docs/ops/scalability-plan.md): a request waits this long for a connection,
+# at most this many wait at once, and a statement runs at most this long (0 = no limit). The worker has none.
+DEFAULT_API_ACQUIRE_TIMEOUT_SECONDS = 2.0
+DEFAULT_API_MAX_WAITING = 50
+DEFAULT_API_STATEMENT_TIMEOUT_MS = 5000
 
 
 @dataclass(frozen=True)
@@ -69,6 +88,9 @@ class DatabaseSettings:
     url_direct: str | None = field(default=None, repr=False)
     worker_pool_max: int = DEFAULT_WORKER_POOL_MAX
     queue_pool_max: int = DEFAULT_QUEUE_POOL_MAX
+    acquire_timeout_seconds: float = DEFAULT_API_ACQUIRE_TIMEOUT_SECONDS
+    max_waiting: int = DEFAULT_API_MAX_WAITING
+    statement_timeout_ms: int = DEFAULT_API_STATEMENT_TIMEOUT_MS
 
 
 def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
@@ -82,6 +104,13 @@ def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
         url_direct=direct,
         worker_pool_max=env_int(source, "WORKER_DB_POOL_MAX", DEFAULT_WORKER_POOL_MAX, minimum=1),
         queue_pool_max=env_int(source, "WORKER_QUEUE_POOL_MAX", DEFAULT_QUEUE_POOL_MAX, minimum=1),
+        acquire_timeout_seconds=env_float(
+            source, "API_DB_ACQUIRE_TIMEOUT_SECONDS", DEFAULT_API_ACQUIRE_TIMEOUT_SECONDS, minimum=0.1
+        ),
+        max_waiting=env_int(source, "API_DB_MAX_WAITING", DEFAULT_API_MAX_WAITING, minimum=0),
+        statement_timeout_ms=env_int(
+            source, "API_DB_STATEMENT_TIMEOUT_MS", DEFAULT_API_STATEMENT_TIMEOUT_MS, minimum=0
+        ),
     )
 
 
@@ -240,6 +269,7 @@ ANTHROPIC_LIMITS = ProviderLimits(
     rpm=1000, pages_per_call=5, max_output_tokens=32000, concurrency=50, widest_output_tokens=64000
 )
 BEDROCK_MAX_OUTPUT_TOKENS = 16000
+# Default for `BEDROCK_CONCURRENCY`: the account-wide cap on Bedrock calls in flight at once (migration 0056).
 BEDROCK_CONCURRENCY = 3
 
 
@@ -280,6 +310,7 @@ class AiSettings:
     min_expected_pages: int = CostGuard.min_expected_pages
     cost_guard_multiple: int = CostGuard.multiple
     bedrock_rpm_limit: int = 5
+    bedrock_concurrency: int = BEDROCK_CONCURRENCY
     extraction_batch_size: int = 10
     # The share of a page's words the entries read from it must cover (env AI_ENTRY_COVERAGE_FLOOR, 0 to 1).
     entry_coverage_floor: float = 0.8
@@ -305,7 +336,7 @@ class AiSettings:
                 rpm=self.bedrock_rpm_limit,
                 pages_per_call=self.extraction_batch_size,
                 max_output_tokens=BEDROCK_MAX_OUTPUT_TOKENS,
-                concurrency=BEDROCK_CONCURRENCY,
+                concurrency=self.bedrock_concurrency,
             )
         }
         if self.primary_provider == "anthropic":
@@ -413,6 +444,7 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
         min_expected_pages=guard.min_expected_pages,
         cost_guard_multiple=guard.multiple,
         bedrock_rpm_limit=number("BEDROCK_RPM_LIMIT", 5),
+        bedrock_concurrency=number("BEDROCK_CONCURRENCY", BEDROCK_CONCURRENCY),
         extraction_batch_size=number("AI_EXTRACTION_BATCH_SIZE", 10),
         entry_coverage_floor=share("AI_ENTRY_COVERAGE_FLOOR", AiSettings.entry_coverage_floor),
         primary_provider=provider,

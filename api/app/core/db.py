@@ -19,8 +19,8 @@ transaction is rolled back before the connection goes back to the pool.
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator, Sequence
-from contextlib import asynccontextmanager, suppress
+from collections.abc import AsyncIterator, Iterator, Sequence
+from contextlib import asynccontextmanager, contextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -28,8 +28,11 @@ from typing import Any
 
 import anyio
 from psycopg import AsyncConnection, AsyncCursor
+from psycopg.errors import QueryCanceled
 from psycopg.pq import TransactionStatus
-from psycopg_pool import AsyncConnectionPool
+from psycopg_pool import AsyncConnectionPool, PoolTimeout, TooManyRequests
+
+from app.core.errors import PoolBusy
 
 # Connections kept open and ready, so a request after a quiet spell does not wait for a new one.
 DEFAULT_MIN_SIZE = 4
@@ -68,14 +71,30 @@ class RequestScope:
 
 
 class Database:
-    def __init__(self, dsn: str, *, min_size: int | None = None, max_size: int = DEFAULT_MAX_SIZE) -> None:
+    def __init__(
+        self,
+        dsn: str,
+        *,
+        min_size: int | None = None,
+        max_size: int = DEFAULT_MAX_SIZE,
+        acquire_timeout: float = 30.0,
+        max_waiting: int = 0,
+        statement_timeout_ms: int = 0,
+    ) -> None:
+        """`acquire_timeout` is how long a caller waits for a free connection and `max_waiting` how many may
+        wait at once (0 = any number); past either, the caller gets `PoolBusy` (503 `busy`). A positive
+        `statement_timeout_ms` cancels any statement that runs longer, also as `PoolBusy`. The API sets all
+        three; the worker keeps the defaults because bundle steps are long."""
         # prepare_threshold=None: Supavisor transaction mode cannot keep prepared statements.
         self.max_size = max_size
+        self.statement_timeout_ms = statement_timeout_ms
         self._pool = AsyncConnectionPool(
             dsn,
             min_size=min(DEFAULT_MIN_SIZE, max_size) if min_size is None else min_size,
             max_size=max_size,
             open=False,
+            timeout=acquire_timeout,
+            max_waiting=max_waiting,
             # autocommit: db.py sends BEGIN and COMMIT itself, so BEGIN shares a round trip with the
             # settings (psycopg's own BEGIN waits for its answer). Callers still get one transaction.
             kwargs={"prepare_threshold": None, "autocommit": True, "cursor_factory": _CountingCursor},
@@ -107,8 +126,33 @@ class Database:
         async with self._transaction(settings) as conn:
             yield conn
 
+    @contextmanager
+    def _busy_guard(self) -> Iterator[None]:
+        """No connection in time, or a statement over its limit, is `PoolBusy` (503 `busy`), never a hang or a 500."""
+        try:
+            yield
+        except (PoolTimeout, TooManyRequests) as exc:
+            raise PoolBusy from exc
+        except QueryCanceled as exc:
+            if not self.statement_timeout_ms:
+                raise
+            raise PoolBusy from exc
+
+    def _with_limits(self, settings: dict[str, str]) -> dict[str, str]:
+        if self.statement_timeout_ms > 0:
+            return {**settings, "statement_timeout": str(self.statement_timeout_ms)}
+        return settings
+
     @asynccontextmanager
     async def session_request(
+        self, resolve_args: Sequence[Any], request_id: str
+    ) -> AsyncIterator[tuple[AsyncConnection, tuple[Any, ...] | None]]:
+        with self._busy_guard():
+            async with self._session_request(resolve_args, request_id) as found:
+                yield found
+
+    @asynccontextmanager
+    async def _session_request(
         self, resolve_args: Sequence[Any], request_id: str
     ) -> AsyncIterator[tuple[AsyncConnection, tuple[Any, ...] | None]]:
         """`request()` for a signed-in route whose person is not known yet: ONE connection, ONE transaction.
@@ -121,7 +165,7 @@ class Database:
         rolls them back.
         `app.org_ids`, `app.request_id` and `TimeZone` are the same as `request()` sets.
         """
-        settings = {"app.org_ids": "", "app.request_id": request_id, "TimeZone": "UTC"}
+        settings = self._with_limits({"app.org_ids": "", "app.request_id": request_id, "TimeZone": "UTC"})
         *lookup, touch = resolve_args
         row: tuple[Any, ...] | None = None
         async with self._pool.connection() as conn:
@@ -166,10 +210,14 @@ class Database:
     async def anonymous_one(
         self, query: str, params: Sequence[Any] = (), request_id: str = ""
     ) -> tuple[Any, ...] | None:
+        with self._busy_guard():
+            return await self._anonymous_one(query, params, request_id)
+
+    async def _anonymous_one(self, query: str, params: Sequence[Any], request_id: str) -> tuple[Any, ...] | None:
         """One statement in its own `anonymous()` transaction, sent with BEGIN, the settings and
         COMMIT in one round trip; its first row, or None. For the signed-out lookups that run on
         every request (the session behind the cookie)."""
-        settings = {"app.request_id": request_id, "TimeZone": "UTC"}
+        settings = self._with_limits({"app.request_id": request_id, "TimeZone": "UTC"})
         async with self._pool.connection() as conn:
             try:
                 async with conn.pipeline():
@@ -184,6 +232,12 @@ class Database:
 
     @asynccontextmanager
     async def _transaction(self, settings: dict[str, str]) -> AsyncIterator[AsyncConnection]:
+        with self._busy_guard():
+            async with self._transaction_unguarded(self._with_limits(settings)) as conn:
+                yield conn
+
+    @asynccontextmanager
+    async def _transaction_unguarded(self, settings: dict[str, str]) -> AsyncIterator[AsyncConnection]:
         async with self._pool.connection() as conn:
             try:
                 # BEGIN and the settings in one round trip; the transaction outlives the pipeline.

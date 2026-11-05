@@ -1117,7 +1117,8 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | job_id / case_id | Which job is waiting for a turn to call Claude, and its case |
 | requested_at | When the job asked for a turn |
 | granted_at | When it was let through; empty while it still waits. The limit on requests per minute of the provider it is for decides when |
-| provider | Which model service the turn is for: `bedrock` (the default) or `anthropic` (the temporary direct API, dummy data only, ADR 0036). Each provider has its own pool and its own limit |
+| in_flight | Whether the call the turn was granted for is still running (migration 0056): set when it is let through, cleared when the call answers or fails. A call that never reported back stops counting after ten minutes |
+| provider | Which model service the turn is for: `bedrock` (the default) or `anthropic` (the temporary direct API, dummy data only, ADR 0036). Each provider has its own pool and its own limit, counted over every case on the account, not one case |
 
 ### job_support_actions
 | Field | In plain words |

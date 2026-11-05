@@ -405,7 +405,7 @@ The machinery behind everything: keys, jobs, notifications, logs.
 | `case_keys` | The case's encryption key (scrambled by the key service); destroying it makes the case unreadable. | case_id, wrapped_key, key_ref, created_at, destroyed_at |
 | `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, step, pct, eta_seconds, step_done, step_total, code_version, error_code, requested_by, last_granted_at |
 | `job_steps` | The steps of a job that have finished, so a retried or requeued job skips them (F6). | job_id, case_id, step, created_at |
-| `ai_request_slots` | Each attempt by a job to call Claude via Bedrock, against the requests-per-minute ceiling of its provider (Bedrock's account-wide on-demand ceiling; the direct API's own, ADR 0036); each provider has its own pool; grants go to whichever waiting job was least recently granted one, so one job cannot starve another. Worker-only. | job_id, case_id, requested_at, granted_at, provider |
+| `ai_request_slots` | Each attempt by a job to call Claude via Bedrock, against the requests-per-minute ceiling of its provider (Bedrock's account-wide on-demand ceiling; the direct API's own, ADR 0036); each provider has its own pool; grants go to whichever waiting job was least recently granted one, so one job cannot starve another. Worker-only. | job_id, case_id, requested_at, granted_at, in_flight, provider |
 | `job_support_actions` | Each time Avodeck support resumed a paused job or requeued a failed one, with what the job was before (so a requeue that resets attempts keeps the history). Ids and codes only; goes with its job (migration 0035). | job_id, action (resume/requeue), reason_code, from_status, error_code, attempts, person_id (staff), created_at |
 | `job_kind_actions` | The case action each job kind needs; `app.enqueue_job()` looks it up, so a caller cannot choose a weaker one. | kind, action |
 | `scheduled_runs` | One row per daily job per date it ran, so a missed date catches up exactly once (F28). | name, run_date, started_at |
@@ -595,7 +595,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does |
 |---|---|---|
-| GET | `/cases/{case_id}/timeline?from=&to=&status=&question_id=&only=&as_seen_on=` | Events by lane with verification status and links |
+| GET | `/cases/{case_id}/timeline?from=&to=&status=&question_id=&only=&as_seen_on=&limit=&cursor=` | Events by lane with verification status and links; filters run in SQL; with `limit` (1-500) a page at a time in date order and `next_cursor` |
 | GET | `/cases/{case_id}/timeline/overview?as_seen_on=` | The ribbon: the whole record counted per lane per month, with pins for things to look at and question links |
 | GET | `/cases/{case_id}/fact-links?status=` | Fact–question links (`stale` when the fact was rejected) |
 | POST | `/cases/{case_id}/fact-links/suggest` | Run T-11 (202 + job) |
