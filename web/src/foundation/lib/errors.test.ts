@@ -47,6 +47,17 @@ test.each(OWN_WORDS)("%s has plain words of its own, never the code or the gener
   expect(words).not.toMatch(/errors\./);
 });
 
+test("slow_down and too_many_streams each tell the person what to do, in plain words", () => {
+  const slow = errorMessage(new ApiError(429, "slow_down"));
+  const streams = errorMessage(new ApiError(429, "too_many_streams"));
+  for (const words of [slow, streams]) {
+    expect(words).not.toBe(t("errors.generic"));
+    expect(words).not.toMatch(/errors\.|429|stream|rate/i);
+  }
+  expect(slow).toMatch(/wait/i);
+  expect(streams).toMatch(/window|tab/i);
+});
+
 test("a file that is too large tells the person to split it", () => {
   expect(errorMessage(new ApiError(422, "file_too_large"))).toMatch(/split it into smaller files/i);
 });
