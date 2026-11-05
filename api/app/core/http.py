@@ -44,7 +44,7 @@ from fastapi.routing import APIRoute
 from psycopg import AsyncConnection
 from pydantic import BaseModel
 
-from app.core import audit
+from app.core import audit, rate_limits
 from app.core.auth import session as sessions
 from app.core.auth.identity import Identity
 from app.core.crypto import cell_secret_box
@@ -259,6 +259,8 @@ class SessionRoute(APIRoute):
             fingerprint = await _fingerprint(request) if key else ""
             scopes: list[RequestScope] = []  # filled once the session is known
             refusal: ApiError | None = None
+            endpoint = f"{request.method} {self.path_format}"
+            counted = False  # this request's count is in the transaction, which an error rolls back
             try:
                 # One connection, one transaction: the session lookup (which also ends an idle or expired
                 # session and counts activity) shares it with the route's own work.
@@ -284,6 +286,10 @@ class SessionRoute(APIRoute):
                         request.state.scope = scopes[0]  # for streamed bodies, which run after this transaction
                         request.state.identity = identity
                         request.state.session = session
+                        # One upsert, first thing: a person over the limit is turned away before any work.
+                        limit = int(getattr(request.app.state, "api_rate_per_minute", 0))
+                        await rate_limits.hit(conn, endpoint, limit)
+                        counted = True
                         pending = (
                             _Pending(conn, identity.person_id, key, fingerprint, _case_id(request)) if key else None
                         )
@@ -303,7 +309,13 @@ class SessionRoute(APIRoute):
                                 await _remember(conn, pending, response)
                         return response
             except _Discard as discarded:
+                if counted and not getattr(request.state, "conn_released", False):
+                    await rate_limits.keep(database, scopes[0], endpoint)  # the rollback took the count with it
                 return discarded.response
+            except Exception:
+                if counted and not getattr(request.state, "conn_released", False):  # released: already committed
+                    await rate_limits.keep(database, scopes[0], endpoint)
+                raise
             assert refusal is not None
             raise refusal
 

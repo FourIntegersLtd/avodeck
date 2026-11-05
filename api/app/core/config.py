@@ -152,6 +152,31 @@ def sse_settings(env: Mapping[str, str] | None = None) -> SseSettings:
     )
 
 
+DEFAULT_API_RATE_PER_MINUTE = 600
+DEFAULT_API_MAX_STREAMS_PER_PERSON = 3
+
+
+@dataclass(frozen=True)
+class RateSettings:
+    """Per-person limits (scalability PR 12); 0 turns a limit off.
+
+    `per_minute` is the requests one person may make to one endpoint in a minute (Postgres counts, so every
+    process and replica shares it). `streams_per_person` is the live event streams one person may hold open
+    at once; it is counted in each process, which is enough at two processes.
+    """
+
+    per_minute: int = DEFAULT_API_RATE_PER_MINUTE
+    streams_per_person: int = DEFAULT_API_MAX_STREAMS_PER_PERSON
+
+
+def rate_settings(env: Mapping[str, str] | None = None) -> RateSettings:
+    source = os.environ if env is None else env
+    return RateSettings(
+        per_minute=env_int(source, "API_RATE_PER_MINUTE", DEFAULT_API_RATE_PER_MINUTE, minimum=0),
+        streams_per_person=env_int(source, "API_MAX_STREAMS_PER_PERSON", DEFAULT_API_MAX_STREAMS_PER_PERSON, minimum=0),
+    )
+
+
 @dataclass(frozen=True)
 class CellSettings:
     """The cell this process serves (rule 5): `REGION=uk` first. Stamped on new people and organisations."""
