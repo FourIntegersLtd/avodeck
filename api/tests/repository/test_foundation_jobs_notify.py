@@ -1,4 +1,4 @@
-"""Migration 0060: a job change tells listeners which case moved (PR 8, live updates pushed not polled).
+"""Migration 0062: a job change tells listeners which case moved (PR 8, live updates pushed not polled).
 
 The notification carries the case id and nothing else (rule 6): a uuid, never a step name, a count or text.
 """
