@@ -69,7 +69,9 @@ def test_the_case_stream_reads_a_cases_jobs_through_the_new_index(admin: psycopg
     assert "jobs_case_created_idx" in used
 
 
-def test_a_documents_pages_are_read_through_the_new_index(admin: psycopg.Connection, seed: Seed, case: uuid.UUID) -> None:
+def test_a_documents_pages_are_read_through_the_new_index(
+    admin: psycopg.Connection, seed: Seed, case: uuid.UUID
+) -> None:
     document = seed.document(case)
     seed.page(case, document, 1)
     # The query shape in core/contracts/document_words.py: one document's pages within the case's bundle.
