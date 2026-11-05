@@ -124,7 +124,17 @@ The person who reads the pages may also hand back a paused **retry of the unread
 
 A job left `running` whose queue row has ended (the worker's database connection dropped while it recorded the end) is put right by the worker's sweep (F52, migration 0134): running → failed (`job_error`), then failed → queued with a new queue row while `attempts` is below the maximum; otherwise it stays `failed`. A `queued` job with no queue row waiting or held (a put-back whose commit went through, then was tried again) is given a new queue row with no change of status (migration 0135); one tagged `case_on_hold` is left to the hold.
 
+A bundle read in page batches (`PIPELINE_BATCH_PAGES` above 0, ADR 0038) has one parent job and child jobs of kind `read_page_batch`. While its batches work the parent is `running` with no queue row of its own (it is parked; the orphan sweep skips it), the children follow the machine above, and the worker's sweep mirrors them onto the parent: a child `failed` makes the parent `failed` with the child's code, a child `paused` (any code but `resuming`) makes it `paused` with that code, and a resumable pause that has cleared puts it back to `running` without a new attempt. The parent is `done` only after its final steps have run. No job status is added.
+
 Every step is idempotent, so retrying from the start is always safe. Finished steps are recorded in `job_steps` and skipped on retry; a job whose worker stopped sending heartbeats is put back on the queue (F6).
+
+## Pipeline run (`pipeline_runs.state`, page-batch jobs)
+
+```
+waiting ──▶ ready ──▶ finishing ──▶ done
+```
+
+One row per bundle read in batches, kept by `app.pipeline_complete_batch` and `app.pipeline_heal_runs`. `waiting` (the batches are being read) becomes `ready` only when no batch is open and no older run of the case is still `waiting` or `ready`; that single guarded update also queues the parent's final run, so it happens once. `ready` becomes `finishing` when the parent claims it, and `finishing` becomes `done` when the case is made ready. A state never goes back; a failed or paused batch leaves the run `waiting` and Try again reopens only the unfinished batches. A run is `done` only after its duplicates, missing-document and ready steps.
 
 ## Upload (`uploads.status`)
 
