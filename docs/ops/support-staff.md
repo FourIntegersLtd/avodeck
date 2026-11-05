@@ -91,7 +91,7 @@ Every upload is scanned before any page is read (`scan_document` job; the scanne
 
 Run "Check the service" in the console first.
 
-- "The worker has not checked in": nothing runs until the worker is back. Check the worker component in DigitalOcean App Platform and restart it. Work waits safely; nothing is lost.
+- "The worker has not checked in": nothing runs until the worker is back. Check the `worker` service in Railway and restart it. Work waits safely; nothing is lost.
 - Work paused because the reading service is busy or away (`service_busy`, `model_unavailable`, F5): it starts again by itself, waiting longer each time, for up to 2 hours in all; after that the job fails and the expert sees a button to try again. Do nothing unless the outage lasts longer; check the cell's Azure and Bedrock status.
 - Work paused for the cost limit (`cost_guard`): it waits for someone to decide. It does not resume by itself. Look at the case page for the job's code; the expert or the founder decides whether to go on.
 - Work waiting with `case_on_hold`: the case is on hold; it runs once the case comes off hold. Do not touch the job.

@@ -162,7 +162,7 @@ async def process_bundle(ctx: JobContext) -> None:
 job_id = await registry.enqueue(conn, case_id, "process_bundle")  # in the request's transaction; 202 + job_id
 ```
 
-Daily work uses `@registry.schedule(name)` with a handler taking `(conn, run_date)`; each date runs once (F28). Handlers raise `ProcessingPaused` to pause; any other exception is retried, then `failed` with `job_error`. Log exception types only.
+Daily work uses `@registry.schedule(name)` with a handler taking `(conn, run_date)`; each date runs once (F28). `@registry.sweep(name)` registers a handler `(conn)` run in every housekeeping round. A handler raises `JobParked` to leave its job `running` with no queue row (page-batch parents, ADR 0038); `ctx.limit_checkouts(cap)` bounds the pool connections the job holds (`checkout_cap(pool_max=, concurrency=)`); `ctx.progress(..., monotone=True, job_id=...)`. `busy_processing` is a pause that is not resumable (no queue row). Handlers raise `ProcessingPaused` to pause; any other exception is retried, then `failed` with `job_error`. Log exception types only.
 
 ### Rules
 

@@ -2,7 +2,7 @@
 
 Date: 2026-10-15 · Status: accepted
 
-**Decision.** Every service that touches patient records processes it in the UK: Supabase London, DigitalOcean London, Bedrock London **in-region** model IDs (Claude Sonnet 5 / Opus 5.5), Azure UK South (Document Intelligence, Speech). Bedrock `global.*` and `eu.*` inference profiles are denied by IAM policy and by `core/ai/bedrock.py`.
+**Decision.** Every service that touches patient records processes it in the UK: Supabase London, the Railway API and worker in Amsterdam (compute only, no data at rest; ADR 0021), Bedrock London **in-region** model IDs (Claude Sonnet 5 / Opus 5.5), Azure UK South (Document Intelligence, Speech). Bedrock `global.*` and `eu.*` inference profiles are denied by IAM policy and by `core/ai/bedrock.py`.
 
 **Why.** Special-category health data; expert and solicitor expectations; simpler DPIA.
 

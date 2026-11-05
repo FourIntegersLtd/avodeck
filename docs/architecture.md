@@ -61,9 +61,9 @@ Each region is a complete, identical deployment with its own data. Nothing patie
 | Cell | App + worker | Database, auth, files | Claude | OCR + speech | Status |
 |---|---|---|---|---|---|
 | **uk** | Railway, Amsterdam (ADR 0021) | Supabase, London | Bedrock, London in-region | Azure UK South | Launch |
-| **au** | DigitalOcean, Sydney | Supabase, Sydney | Bedrock, Sydney (check in-region models) | Azure Australia East | Later |
-| **ca** | DigitalOcean, Toronto | Supabase, Canada | Bedrock, Canada (check models) | Azure Canada Central | Later |
-| **nz** | Served from the **au** cell if NZ customers and law accept it; AWS and Azure have NZ regions but Supabase and DigitalOcean do not | — | — | — | Decide later |
+| **au** | Host chosen when the cell is built (ADR 0021), Sydney | Supabase, Sydney | Bedrock, Sydney (check in-region models) | Azure Australia East | Later |
+| **ca** | Host chosen when the cell is built (ADR 0021), Toronto | Supabase, Canada | Bedrock, Canada (check models) | Azure Canada Central | Later |
+| **nz** | Served from the **au** cell if NZ customers and law accept it; AWS and Azure have NZ regions but Supabase does not | — | — | — | Decide later |
 
 - **One codebase, configured per cell:** `REGION=uk|au|ca`. The cell's config supplies Supabase project, storage bucket, Bedrock model IDs and region, Azure endpoints, Resend domain, Stripe account settings, and the list of packs allowed in that cell.
 - **Region-locked:** the AI kit refuses any model ID or endpoint not in the cell's allow-list (generalises the UK-only rule).
@@ -428,7 +428,7 @@ The machinery behind everything: keys, jobs, notifications, logs.
 
 ### 5.1 Conventions
 
-- **Base path:** `https://{region}.api.avodeck.com/v1` (UK first: `uk.api.avodeck.com`), served by FastAPI on DigitalOcean App Platform in that region. Every regional cell runs the same code and API.
+- **Base path:** `https://{region}.api.avodeck.com/v1` (UK first: `uk.api.avodeck.com`), served by FastAPI in that region (UK cell: Railway, Amsterdam, ADR 0021). Every regional cell runs the same code and API.
 - **Server-side by default:** the browser only talks to FastAPI. It never calls Supabase, Azure or AWS directly, holds no Supabase key, and never gets a direct storage link. Only two things run on the device because they must: drawing the signature on screen, and the offline witness-box search (screen 25).
 - **Auth:** the browser posts credentials to FastAPI; FastAPI calls Supabase Auth server-side and sets the session as an `httpOnly`, `Secure`, `SameSite=Strict` cookie that page scripts cannot read. FastAPI keeps the Supabase access and refresh tokens server-side (or encrypted inside the cookie), refreshes them itself, and verifies every token against Supabase's signing keys (JWKS), checking `aud`, `exp`, `sub` and `aal`.
 - **CSRF:** because a cookie is sent automatically, every state-changing request also carries a CSRF token (double-submit) and the API only accepts requests from the app's own origin.
@@ -942,9 +942,9 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | **M4** | Claude Opus 5.5, Bedrock **in-region** model ID | AWS London (API) | Hard two-document judgements only: opposing-report verification, conflicting accounts, joint-statement deviation | Real-time, low volume |
 | **M5** | Claude Sonnet 5 **vision** (same endpoint as M3) | AWS London (API) | Second reading of low-confidence handwriting pages, identifier areas masked; shown only after the expert has transcribed | Batch |
 | **M6** | Azure Speech real-time, language from the jurisdiction pack (en-GB at launch) + Custom Speech phrase list from the overlay pack (local drug names, abbreviations) | Azure UK South (API) | All dictation | Real-time streaming |
-| **M7** | `bge-small-en-v1.5` embeddings (33M params, CPU) + pgvector | FastAPI worker, DigitalOcean London | Finding candidate links: events to questions, facts to drafts, notes to served documents | Batch + real-time |
-| **M8** | `bge-reranker-base` cross-encoder (CPU) | FastAPI worker, DigitalOcean London | Re-ordering M7 candidates before M3 sees them | Real-time |
-| **M9** | Microsoft Presidio + spaCy model for the pack's language + recognisers from the jurisdiction pack (at launch: NHS number mod-11, UK postcode) + DOB and per-case name list | FastAPI worker, DigitalOcean London | Stripping identifiers before every M3/M4/M5 call | Inline |
+| **M7** | `bge-small-en-v1.5` embeddings (33M params, CPU) + pgvector | FastAPI worker, Railway Amsterdam | Finding candidate links: events to questions, facts to drafts, notes to served documents | Batch + real-time |
+| **M8** | `bge-reranker-base` cross-encoder (CPU) | FastAPI worker, Railway Amsterdam | Re-ordering M7 candidates before M3 sees them | Real-time |
+| **M9** | Microsoft Presidio + spaCy model for the pack's language + recognisers from the jurisdiction pack (at launch: NHS number mod-11, UK postcode) + DOB and per-case name list | FastAPI worker, Railway Amsterdam | Stripping identifiers before every M3/M4/M5 call | Inline |
 
 Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for simple classification (T-13a, T-15a regex fallbacks) to cut cost.
 
@@ -1043,7 +1043,7 @@ Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for s
 ## 7. Bundle pipeline (worker)
 
 **Batch pipeline per case:**
-1. **Ingest:** S3 upload → ClamAV → pikepdf/qpdf split and repair → pypdfium2 render (150–200 dpi) → hashes (FastAPI worker on DigitalOcean App Platform). Never PyMuPDF (AGPL).
+1. **Ingest:** S3 upload → ClamAV → pikepdf/qpdf split and repair → pypdfium2 render (150–200 dpi) → hashes (FastAPI worker on Railway). Never PyMuPDF (AGPL).
 2. **Text layer or OCR:** for each page, check for a usable embedded text layer (born-digital hospital letters, discharge summaries, results). If present, read words and their boxes directly with pypdfium2, give them `word_ids` in `ocr_words` like any OCR output, and skip Azure; set `pages.text_source = 'embedded'`. Treat the layer as unusable (send to OCR) if it is empty, mostly non-dictionary characters, or covers only part of a page that also contains an image of text (scans with a stamped header). Everything else goes to Azure DI Layout (UK South), bounded concurrency, `text_source = 'ocr'`. Embedded-text pages get confidence 1.0 and are never sent to screen 10 for unreadable text. Docling and other local layout models are not used (see decision 0009).
 3. **Triage:** confidence + OCR/VLM disagreement → screen 10; Claude vision fallback with identifier boxes masked.
 4. **PII stripping:** Presidio + case dictionary (dates kept).
@@ -1052,6 +1052,8 @@ Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for s
 7. **Case-level passes:** dedup, missing references, gaps, anomaly rules, availability computation.
 8. **Indexing:** Supabase Postgres full-text + pgvector; timeline view.
 9. **Notify:** Resend email (no patient data) + in-app update via server-sent events from FastAPI.
+
+**Page-batch jobs (flag `PIPELINE_BATCH_PAGES`, default 0 = off; ADR 0038).** The worker offers small hooks for a parent job that reads pages in child jobs: a handler raises `JobParked` to leave its job `running` with no queue row; a queue row for a `done` job is ended unrun; `registry.sweep(name)` runs a handler in every housekeeping round; `ctx.limit_checkouts(cap)` bounds the pool connections one job holds (`checkout_cap(pool_max, concurrency)`); `ctx.progress(..., monotone=True, job_id=...)` never lowers `pct`. Settings: `PIPELINE_BATCH_PAGES`, `PIPELINE_BATCH_WINDOW` (default 2, at most `WORKER_CONCURRENCY - 1`; the worker warns at start otherwise) and `PIPELINE_BATCH_MIN_PAGES`. A pause `busy_processing` is not resumable (the job keeps no queue row). Migration 9003 re-queues a batch child with no case lock; 9004 puts `pipeline_batches` and `pipeline_runs` first in the purge order.
 
 **Real-time vs batch:** real-time for dictation, linting, fact chips, filters, report assembly and final checks; batch for OCR, extraction, duplicates, checks, court-bundle matching and opposing-report verification. Use Bedrock batch where the in-region model supports it, otherwise on-demand with prompt caching (stable system prompt + schema at the head of each call).
 

@@ -35,3 +35,30 @@ plan, and record the RSS below.
 | Date | Bundle | RSS per job | `WORKER_CONCURRENCY` chosen |
 |---|---|---|---|
 | | | | |
+
+## Load test (scalability plan PR 18)
+
+Scripts: `scripts/load/` (k6; read its README first). Targets: ADR 0037, NFR C3 (50 bundles at once), C5 (300
+experts online), P2 (4,000 pages in 75 min at p90), P3 (reader page p95 300 ms), P9 (API p95 400 ms). Run only
+against the Railway `staging` environment with its own staging Supabase London project and synthetic bundles (stitched to
+4,000 pages, half with text layers and half image-only). Never against production; never with real records.
+Add a row per run and never overwrite an old one. The two right-hand columns are for you to fill in after each run:
+the numbers k6 prints and the ones you read from Railway and `GET /v1/internal/metrics`.
+
+| Run | Load | Pass when | Date and build | Measured | Result |
+|---|---|---|---|---|---|
+| Bundles x5 | 5 bundles at once (`bundles.js`, `LOAD_BUNDLES=5`) | p90 at most 75 min; 0 failed jobs; retried 429s under 5% of calls; worker RSS under 80% of the limit; no job run twice | | | |
+| Bundles x20 | 20 bundles at once | same as above | | | |
+| Bundles x50 | 50 bundles at once | same as above | | | |
+| Interactive | `rerun_checks`, `build_report`, `build_trial_pack`, `export_case` every 30 s during a bundle run (`interactive.js`) | p95 time to start at most 30 s | | | |
+| Experts x300 | 300 users ramped over 10 min; one case stream each, a page every 20 s (page, image, facts), a search every 5 min, the timeline every 10 min (`experts.js`) | API p95 at most 400 ms; reader page p95 at most 300 ms; 5xx under 0.1%; 503 `busy` under 0.5%; loop lag p99 at most 100 ms | | | |
+| Soak | 2 h at 300 experts (`LOAD_HOLD=2h`) with one worker deploy | no job fails; bundles resume after the deploy | | | |
+| Bundles x50 after PR 17 | the 50-bundle run again once bundles are split into page-batch jobs | same as the 50-bundle row | | | |
+
+### Where each number comes from
+
+- Bundle minutes (p90), failed jobs, time to start, API and reader p95, 5xx and `busy` rates: k6 summary (`bundle_minutes`, `failed_jobs`, `time_to_start_seconds`, `http_req_duration`, `server_errors`, `busy_503`).
+- Loop lag p99, pool waiting, queue age: `GET /v1/internal/metrics` (the scripts read loop lag when `OPS_METRICS_TOKEN` is set).
+- Worker RSS against its limit: Railway metrics for the `worker` and `worker-interactive` services.
+- Retried 429s as a share of AI calls: provider 429 counters in the same metrics against `ai_calls` for the run.
+- Jobs run twice: `app.jobs` attempts for the run's cases: any job with more than one start that did not fail first.

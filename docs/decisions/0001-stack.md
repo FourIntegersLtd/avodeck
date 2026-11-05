@@ -1,8 +1,8 @@
-# 0001 Stack: Vercel, FastAPI on DigitalOcean App Platform, Supabase
+# 0001 Stack: Vercel, FastAPI on Railway, Supabase
 
 Date: 2026-10-15 · Status: accepted
 
-**Decision.** Frontend on Vercel. FastAPI API and worker on DigitalOcean App Platform (London). Supabase (London) for Postgres + pgvector, Auth and Storage. AWS and Azure used only as AI APIs. Resend for patient-free email. Stripe for billing.
+**Decision.** Frontend on Vercel. FastAPI API and worker on Railway (Amsterdam). This was DigitalOcean App Platform, London when first written; ADR 0021 replaced it. Supabase (London) for Postgres + pgvector, Auth and Storage. AWS and Azure used only as AI APIs. Resend for patient-free email. Stripe for billing.
 
 **Why.** No servers to manage or SSH into; a solo founder can run it. All patient-data services sit in London. Hosting cost is small next to AI cost.
 
