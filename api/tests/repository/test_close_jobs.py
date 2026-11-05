@@ -773,9 +773,17 @@ class HeldStore:
 
     def __init__(self) -> None:
         self.objects: dict[str, bytes] = {}
+        self.streamed: dict[str, int] = {}
 
     async def put(self, path: str, data: bytes) -> None:
         self.objects[path] = data
+
+    async def put_file(self, path: str, source: Any, *, part_size: int = 8 * 1024 * 1024) -> None:
+        """Takes the file in parts, as the real store does, and keeps only its size."""
+        size = 0
+        while chunk := source.read(part_size):
+            size += len(chunk)
+        self.streamed[path] = size
 
     async def get(self, path: str) -> bytes:
         if path not in self.objects:
@@ -806,6 +814,39 @@ async def test_an_export_never_holds_more_than_twice_the_largest_file_in_memory(
     finally:
         tracemalloc.stop()
     assert peak < 2.5 * size, f"peak {peak / size:.2f} x the largest file; sealing must not copy the whole archive"
+
+
+async def test_an_export_is_stored_from_the_sealed_file_in_parts_never_as_one_blob(
+    run: Run, seed: Seed, admin: psycopg.Connection, storage: CaseFileStorage, crypto: CaseCrypto,
+    worker_db: Database, world: dict[str, Any], client_for: ClientFor, monkeypatch: pytest.MonkeyPatch,
+) -> None:  # fmt: skip
+    case = world["case"]
+    original = await add_large_document(admin, seed, storage, crypto, worker_db, case, 30_000)
+    client = await client_for(world["expert"])
+    job = uuid.UUID((await client.post(f"/v1/cases/{case}/export")).json()["job_id"])
+    streamed: list[str] = []
+    real_put_file = storage.put_file
+    real_put = storage.put
+
+    async def spy_put_file(path: str, source: Any, **kwargs: Any) -> None:
+        streamed.append(path)
+        await real_put_file(path, source, **kwargs)
+
+    async def no_blob_put(path: str, data: bytes) -> None:
+        assert "/exports/" not in path, "the sealed archive must not be put whole"
+        await real_put(path, data)
+
+    monkeypatch.setattr(storage, "put_file", spy_put_file)
+    monkeypatch.setattr(storage, "put", no_blob_put)
+    await run(close_jobs.export_case, case, "export_case", job=job)
+    finish(admin, job)
+
+    path = f"{case_prefix(case)}/exports/{job}/full.zip"
+    assert streamed == [path]
+    resp = await client.get(f"/v1/cases/{case}/export/{job}/download")
+    assert resp.status_code == 200, resp.text
+    archive = zipfile.ZipFile(io.BytesIO(resp.content))
+    assert [archive.read(n) for n in archive.namelist() if n.startswith("bundle/")] == [original]
 
 
 # --- the daily close run ----------------------------------------------------------------------------
