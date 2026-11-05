@@ -95,7 +95,7 @@ async def test_resume_hands_a_paused_job_back_to_the_queue(
     assert response.status_code == 200, response.text
     assert response.json() == {"job_id": str(job), "case_id": str(case_id), "action": "resume", "status": "paused"}
     assert job_row(admin, job) == ("paused", 2, "cost_guard")  # the worker moves it to running
-    assert queue_rows(admin, job) == [("jobs", "todo", f"case:{case_id}")]
+    assert queue_rows(admin, job) == [("bulk", "todo", f"case:{case_id}")]  # process_bundle runs on the bulk queue
     assert history(admin, job) == [("resume", "service_restored", "paused", "cost_guard", 2, staff)]
     [mail] = app.state.mailer.outbox
     expert_email = admin.execute("select email from app.people where id = %s", (expert,)).fetchone()
@@ -153,7 +153,7 @@ async def test_requeue_puts_a_failed_job_back_with_its_attempts_reset_and_its_hi
     assert response.status_code == 200, response.text
     assert response.json() == {"job_id": str(job), "case_id": str(case_id), "action": "requeue", "status": "queued"}
     assert job_row(admin, job) == ("queued", 0, "job_error")
-    assert queue_rows(admin, job) == [("jobs", "todo", f"case:{case_id}")]
+    assert queue_rows(admin, job) == [("bulk", "todo", f"case:{case_id}")]  # process_bundle runs on the bulk queue
     assert history(admin, job) == [("requeue", "fault_fixed", "failed", "job_error", 3, staff)]
     [mail] = app.state.mailer.outbox
     assert (mail.template, mail.params) == ("support.job_requeued", {"case_ref": str(case_id), "job_ref": str(job)})

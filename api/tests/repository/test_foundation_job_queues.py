@@ -80,10 +80,15 @@ async def test_a_worker_for_the_interactive_queue_never_takes_a_bulk_job(
         slow_job = await registry.enqueue(conn, case, "zz_slow")
     async with open_worker(registry, worker_db, worker_dsn, queues=[registry.interactive_queue]) as worker:
         await run_until_finished(worker, admin, [fast_job])
-        await asyncio.sleep(0.5)
     assert ran == ["fast"]
     row = admin.execute("select status from app.jobs where id = %s", (slow_job,)).fetchone()
     assert row == ("queued",)
+    # The bulk job's queue row is still waiting on the bulk queue: nothing took it (checked, not waited for).
+    waiting = admin.execute(
+        "select queue_name, status::text from procrastinate.procrastinate_jobs where args ->> 'job_id' = %s",
+        (str(slow_job),),
+    ).fetchall()
+    assert waiting == [(registry.bulk_queue, "todo")]
 
 
 async def test_an_interactive_job_starts_within_a_second_while_four_bulk_jobs_run(
