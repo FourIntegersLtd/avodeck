@@ -511,7 +511,7 @@ async def close_daily(reg: JobRegistry, conn: AsyncConnection, run_date: date) -
 
 
 def register(reg: JobRegistry, *, daily_name: str = DAILY) -> None:
-    reg.kind("export_case", changes_case=False, runs_on_hold=True)(export_case)
+    reg.kind("export_case", interactive=True, changes_case=False, runs_on_hold=True)(export_case)
     reg.kind("delete_case", changes_case=True, runs_on_hold=True)(delete_case)
 
     async def daily(conn: AsyncConnection, run_date: date) -> None:

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": { "builder": "DOCKERFILE", "dockerfilePath": "api/Dockerfile" },
+  "deploy": {
+    "startCommand": "env WORKER_QUEUES=interactive WORKER_CONCURRENCY=8 WORKER_DB_POOL_MAX=6 python -m app.worker.main",
+    "multiRegionConfig": { "europe-west4-drams3a": { "numReplicas": 1 } },
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
