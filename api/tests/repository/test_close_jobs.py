@@ -28,6 +28,8 @@ import csv
 import hashlib
 import io
 import json
+import os
+import tracemalloc
 import uuid
 import zipfile
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -39,13 +41,14 @@ import pytest
 from fastapi import FastAPI
 
 from app.core.contracts.case_tables import BUNDLE_SCOPED_TABLES, CASE_TABLES
-from app.core.crypto import CaseCrypto, CaseKeyDestroyed, LocalKeyProvider
+from app.core.crypto import CaseCrypto, CaseKeyDestroyed, CiphertextInvalid, LocalKeyProvider
 from app.core.db import Database
 from app.core.email import OutboxMailer
 from app.core.jobs import JobContext, JobRegistry
 from app.core.packs import default_library
 from app.core.storage import CaseFileStorage, case_prefix
 from app.features.close import jobs as close_jobs
+from app.features.close import sealed as close_sealed
 from tests.support.case_rows import CaseWorld, fill_every_case_table
 from tests.support.contracts import add_fact, add_report_version, add_sent_invoice
 from tests.support.db import ClientFor
@@ -694,6 +697,93 @@ async def test_an_export_is_stored_encrypted(
     await run(close_jobs.export_case, case, "export_case", job=job)
     blob = await storage.get(f"{case_prefix(case)}/exports/{job}/full.zip")
     assert pdf not in blob and not blob.startswith(b"PK")
+
+
+async def add_large_document(
+    admin: psycopg.Connection, seed: Seed, storage: CaseFileStorage, crypto: CaseCrypto, worker_db: Database,
+    case: uuid.UUID, size: int,
+) -> bytes:  # fmt: skip
+    doc = seed.document(case)
+    path = f"{case_prefix(case)}/documents/{doc}.pdf"
+    data = os.urandom(size)
+    admin.execute(
+        "update app.documents set storage_path = %s, sha256 = %s where id = %s",
+        (path, hashlib.sha256(data).hexdigest(), doc),
+    )
+    await put_encrypted(storage, crypto, worker_db, case, path, data)
+    return data
+
+
+async def test_an_export_is_sealed_in_frames_and_downloads_to_the_same_zip(
+    run: Run, seed: Seed, admin: psycopg.Connection, storage: CaseFileStorage, crypto: CaseCrypto,
+    worker_db: Database, world: dict[str, Any], client_for: ClientFor, monkeypatch: pytest.MonkeyPatch,
+) -> None:  # fmt: skip
+    case = world["case"]
+    monkeypatch.setattr(close_sealed, "FRAME_SIZE", 4096)
+    original = await add_large_document(admin, seed, storage, crypto, worker_db, case, 50_000)
+    client = await client_for(world["expert"])
+    job = uuid.UUID((await client.post(f"/v1/cases/{case}/export")).json()["job_id"])
+    await run(close_jobs.export_case, case, "export_case", job=job)
+    finish(admin, job)
+
+    path = f"{case_prefix(case)}/exports/{job}/full.zip"
+    stored = await storage.get(path)
+    assert stored.startswith(close_sealed.MAGIC) and not stored.startswith(b"PK")
+    assert len(stored) > 4 * 4096, "the archive is more than one frame"
+    resp = await client.get(f"/v1/cases/{case}/export/{job}/download")
+    assert resp.status_code == 200, resp.text
+    archive = zipfile.ZipFile(io.BytesIO(resp.content))
+    assert archive.testzip() is None
+    docs = [n for n in archive.namelist() if n.startswith("bundle/")]
+    assert [archive.read(n) for n in docs] == [original]
+
+
+async def test_a_framed_export_with_a_missing_last_frame_or_changed_frame_is_refused(
+    run: Run, seed: Seed, admin: psycopg.Connection, storage: CaseFileStorage, crypto: CaseCrypto,
+    worker_db: Database, world: dict[str, Any], client_for: ClientFor, monkeypatch: pytest.MonkeyPatch,
+) -> None:  # fmt: skip
+    case = world["case"]
+    monkeypatch.setattr(close_sealed, "FRAME_SIZE", 4096)
+    await add_large_document(admin, seed, storage, crypto, worker_db, case, 20_000)
+    client = await client_for(world["expert"])
+    job = uuid.UUID((await client.post(f"/v1/cases/{case}/export")).json()["job_id"])
+    await run(close_jobs.export_case, case, "export_case", job=job)
+    path = f"{case_prefix(case)}/exports/{job}/full.zip"
+    stored = await storage.get(path)
+    frames, at = [], len(close_sealed.MAGIC)
+    while at < len(stored):
+        size = int.from_bytes(stored[at : at + 4], "big")
+        frames.append(stored[at : at + 4 + size])
+        at += 4 + size
+    assert len(frames) > 2
+    async with worker_db.job(case) as conn:
+        whole = await close_sealed.open_sealed(conn, crypto, case, stored, purpose=path)
+        assert whole[:2] == b"PK"
+        truncated = close_sealed.MAGIC + b"".join(frames[:-1])
+        with pytest.raises(CiphertextInvalid):
+            await close_sealed.open_sealed(conn, crypto, case, truncated, purpose=path)
+        swapped = close_sealed.MAGIC + b"".join([frames[1], frames[0], *frames[2:]])
+        with pytest.raises(CiphertextInvalid):
+            await close_sealed.open_sealed(conn, crypto, case, swapped, purpose=path)
+
+
+async def test_an_export_never_holds_more_than_twice_the_largest_file_in_memory(
+    run: Run, seed: Seed, admin: psycopg.Connection, storage: CaseFileStorage, crypto: CaseCrypto,
+    worker_db: Database, world: dict[str, Any], client_for: ClientFor,
+) -> None:  # fmt: skip
+    case = world["case"]
+    size = 16 * 1024 * 1024
+    original = await add_large_document(admin, seed, storage, crypto, worker_db, case, size)
+    client = await client_for(world["expert"])
+    job = uuid.UUID((await client.post(f"/v1/cases/{case}/export")).json()["job_id"])
+    del original
+    tracemalloc.start()
+    try:
+        await run(close_jobs.export_case, case, "export_case", job=job)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 2.5 * size, f"peak {peak / size:.2f} x the largest file; sealing must not copy the whole archive"
 
 
 # --- the daily close run ----------------------------------------------------------------------------
