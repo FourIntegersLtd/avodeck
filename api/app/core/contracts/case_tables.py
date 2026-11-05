@@ -8,6 +8,8 @@ from __future__ import annotations
 
 CASE_TABLES: frozenset[str] = frozenset(
     {
+        "pipeline_batches",
+        "pipeline_runs",
         "case_processing",
         "page_quarantines",
         "page_replacements",
@@ -147,7 +149,7 @@ KEPT_AFTER_CASE_DELETION: frozenset[str] = frozenset(
 
 # Registered here before the slice named creates the table in its migration range. Remove the entry
 # in the same change that creates the table.
-AWAITING_SLICE_MIGRATION: dict[str, str] = {}
+AWAITING_SLICE_MIGRATION: dict[str, str] = {"pipeline_batches": "A", "pipeline_runs": "A"}
 
 # The order `app.purge_case()` removes a case's rows in: each child table before the tables it
 # references, `cases` (left as a tombstone) second-to-last, `bundles` last (it outlives the case
@@ -155,6 +157,8 @@ AWAITING_SLICE_MIGRATION: dict[str, str] = {}
 # cases -> bundles, not the other way). The database keeps the same list in
 # `app.case_purge_order()`; a slice adding a case table adds it to both.
 PURGE_ORDER: tuple[str, ...] = (
+    "pipeline_batches",  # page-batch jobs (ADR 0038): a batch references its run, both reference the case's jobs
+    "pipeline_runs",
     "job_steps",
     "instruction_extractions",
     "prefill_runs",
