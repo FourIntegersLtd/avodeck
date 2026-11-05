@@ -8,4 +8,4 @@ Date: 2026-10-15 · Status: accepted
 
 **Why.** Tokens can't be stolen by page scripts; no keys in the browser; one place enforces every rule.
 
-**Trade-off.** Upload bandwidth runs through DigitalOcean; slightly slower uploads than direct-to-storage.
+**Trade-off.** Upload bandwidth runs through the API host (Railway; first written as DigitalOcean, ADR 0021); slightly slower uploads than direct-to-storage.

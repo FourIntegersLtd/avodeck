@@ -16,7 +16,7 @@ Date: 2026-10-16 · Status: accepted for design; confirm with spike 8 before sta
 | AWS KMS London (chosen) | Account already exists; FIPS-validated HSMs; IAM policies; audit via CloudTrail; per-region keys for future cells | One more provider in the request path (cached keys keep latency low) |
 | Azure Key Vault UK South | Already using Azure | Second key system for future cells; we use Azure only through stateless APIs today |
 | Supabase Vault (pgsodium) | No extra service | Keys live next to the data they protect, which defeats the insider threat (T11) and makes crypto-shredding weaker |
-| DigitalOcean | — | No key management service |
+| Railway (the API host, ADR 0021) | — | No key management service |
 
 **Consequences.**
 - `core/crypto.py` (foundation) provides `encrypt(case_id, bytes)` and `decrypt(case_id, bytes)`. Slices never handle keys.
