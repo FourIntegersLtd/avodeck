@@ -158,9 +158,9 @@ async def test_access_is_checked_at_connect_and_only_every_recheck_interval_afte
     assert checks.count(False) >= 3, "a pushed or tick fetch between checks skips the check"
 
 
-def test_the_default_recheck_interval_is_at_most_sixty_seconds(notifier: CaseNotifier) -> None:
+def test_the_default_recheck_interval_is_at_most_sixty_seconds() -> None:
     assert case_events.ACCESS_RECHECK_SECONDS <= 60.0
-    recheck = AccessRecheck(SimpleNamespace(), notifier)  # a state with none of the settings: the defaults
+    recheck = AccessRecheck(SimpleNamespace(), None)  # a state with none of the settings: the defaults
     assert recheck.interval <= 60.0, "the gap between checks, with every setting at its default"
 
 
