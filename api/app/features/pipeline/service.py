@@ -25,15 +25,18 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import io
 import json
 import logging
 import os
+import tempfile
 import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any
 
 import pikepdf
@@ -53,7 +56,7 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcrip
 from app.core.contracts.record_entries import RETRY_UNREAD
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
-from app.core.pdf import split_pages
+from app.core.pdf import cut_page
 from app.core.scan import ScanUnavailable
 from app.features.pipeline import (
     convert,
@@ -96,6 +99,8 @@ _CPU = ThreadPoolExecutor(max_workers=CPU_CONCURRENCY, thread_name_prefix="pipel
 # PDFium is not thread-safe, so every call into it goes through this one thread: the event loop stays free
 # (the worker's heartbeat, progress and other pages keep moving) and two calls never overlap.
 _PDFIUM = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pdfium")
+_CUT = ThreadPoolExecutor(max_workers=1, thread_name_prefix="qpdf")  # one thread holds an open document and cuts it
+_SPLITS = asyncio.Semaphore(1)  # one split at a time in this process
 LIMITS = convert.Limits()
 PART_OBJECT = "file"  # the one sealed object under a part's prefix
 log = logging.getLogger(__name__)
@@ -106,18 +111,6 @@ READY = "bundle_ready"  # the notification kind sent when new pages are ready
 
 async def _noop(conn: AsyncConnection) -> None:
     return None
-
-
-async def _chunks(
-    conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, prefix: str
-) -> AsyncIterator[bytes]:
-    for path in sorted(await services.storage.list(prefix)):
-        blob = await services.storage.get(path)
-        yield await services.crypto.decrypt(conn, case_id, blob, purpose=path)
-
-
-async def _read_document(conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, prefix: str) -> bytes:
-    return b"".join([chunk async for chunk in _chunks(conn, services, case_id, prefix)])
 
 
 async def _put_sealed(
@@ -149,15 +142,46 @@ async def scan_document(ctx: JobContext) -> None:
     await ctx.progress(100, step="scan")
 
 
-def _pages_of(found: convert.Unpacked) -> list[bytes]:
-    return split_pages(found.pdf) if found.pdf is not None else []
+async def _download(ctx: JobContext, services: PipelineServices, prefix: str) -> Path:
+    """A stored document's bytes in a temp file, written as the parts are read (one part in memory at a time).
+    The caller deletes the file; if the download itself fails, it is deleted here."""
+    handle, name = tempfile.mkstemp(prefix="avodeck-split-")
+    path = Path(name)
+    try:
+        with os.fdopen(handle, "wb") as out:
+            async for chunk in _chunks_free(ctx, services, prefix):  # S3 with no connection held
+                await asyncio.to_thread(out.write, chunk)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+    return path
+
+
+def _head(path: Path) -> bytes:
+    with path.open("rb") as handle:
+        return handle.read(2048)  # all `convert.sniff` needs to tell a PDF apart
+
+
+def _checked_pages(source: Path | bytes) -> int:
+    """The page count of a PDF, after cutting every page once and dropping it, so a damaged page stops the
+    document here (F2), as it always did, not part-way through the pictures."""
+    with pikepdf.open(io.BytesIO(source) if isinstance(source, bytes) else source) as pdf:
+        count = len(pdf.pages)
+        for index in range(count):
+            cut_page(pdf, index)
+        return count
 
 
 async def _unpack(
-    conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, doc: repo.Document, data: bytes
-) -> list[bytes]:
-    """Cuts one document into pages; the files inside an email or a zip become documents of their
-    own (cut on the next round) and files that cannot be paged become exhibits (F36)."""
+    conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, doc: repo.Document, path: Path
+) -> int:
+    """Counts one document's pages; the files inside an email or a zip become documents of their
+    own (cut on the next round) and files that cannot be paged become exhibits (F36). A PDF is opened from
+    its file and never held as one `bytes`."""
+    if convert.sniff(await asyncio.to_thread(_head, path)) == convert.PDF:
+        await repo.set_media_type(conn, doc.id, convert.PDF)
+        return await asyncio.to_thread(_checked_pages, path)
+    data = await asyncio.to_thread(path.read_bytes)
     found = await asyncio.to_thread(convert.unpack, data, doc.filename, LIMITS)
     if found.members and await repo.part_depth(conn, doc.id) >= LIMITS.max_depth:
         found = convert.Unpacked(found.media_type, exhibit=True)
@@ -188,49 +212,100 @@ async def _unpack(
             storage_path=doc.storage_path,
         )
     await repo.set_media_type(conn, doc.id, found.media_type)
-    return await asyncio.to_thread(_pages_of, found)
+    if found.pdf is None:
+        return 0
+    return await asyncio.to_thread(_checked_pages, found.pdf)
+
+
+class _Source:
+    """One document's pages, cut one at a time from a temp file; nothing but the page being cut is in memory.
+
+    The document is fetched from S3 the first time a page is wanted and the file is deleted as soon as the
+    last of its waiting pages is done (or by `close`, on any failure). Every pikepdf call runs on one thread.
+    """
+
+    def __init__(self, ctx: JobContext, services: PipelineServices, document_id: uuid.UUID, waiting: int) -> None:
+        self.ctx, self.services, self.document_id = ctx, services, document_id
+        self.waiting = waiting
+        self.lock = asyncio.Lock()
+        self.path: Path | None = None
+        self.pdf: pikepdf.Pdf | None = None
+
+    async def _open(self) -> pikepdf.Pdf:
+        async with self.ctx.transaction() as conn:
+            prefix, filename = await repo.document_file(conn, self.document_id)
+        self.path = await _download(self.ctx, self.services, prefix)
+        if convert.sniff(await asyncio.to_thread(_head, self.path)) != convert.PDF:  # a Word file, an email, a picture
+            data = await asyncio.to_thread(self.path.read_bytes)
+            found = await asyncio.to_thread(convert.unpack, data, filename, LIMITS)
+            del data
+            assert found.pdf is not None
+            self.path.unlink(missing_ok=True)
+            handle, name = tempfile.mkstemp(prefix="avodeck-split-")
+            self.path = Path(name)
+            with os.fdopen(handle, "wb") as out:
+                await asyncio.to_thread(out.write, found.pdf)
+        return await asyncio.get_running_loop().run_in_executor(_CUT, pikepdf.open, self.path)
+
+    async def cut(self, index: int) -> bytes:
+        async with self.lock:
+            if self.pdf is None:
+                self.pdf = await self._open()
+        return await asyncio.get_running_loop().run_in_executor(_CUT, cut_page, self.pdf, index)
+
+    async def finished_one(self) -> None:
+        self.waiting -= 1
+        if self.waiting <= 0:
+            await self.close()
+
+    async def close(self) -> None:
+        async with self.lock:
+            pdf, self.pdf = self.pdf, None
+            if pdf is not None:
+                await asyncio.get_running_loop().run_in_executor(_CUT, pdf.close)
+            if self.path is not None:
+                self.path.unlink(missing_ok=True)
+                self.path = None
 
 
 async def _split(ctx: JobContext, services: PipelineServices) -> None:
-    cache: dict[uuid.UUID, list[bytes]] = {}
+    async with _SPLITS:  # one split at a time in this process: its memory is the worker's biggest spike
+        await _split_documents(ctx, services)
+
+
+async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
     while True:
         async with ctx.transaction() as conn:
             documents = await repo.clean_unsplit(conn, ctx.case_id)
         if not documents:
             break
         for doc in documents:
-            data = await _read_document_free(ctx, services, doc.storage_path)  # S3 with no connection held
-            async with ctx.transaction() as conn:
-                try:
-                    pages = await _unpack(conn, services, ctx.case_id, doc, data)
-                except (pikepdf.PasswordError, pikepdf.PdfError) as error:  # F2: this file stops, the rest go on
-                    log.warning("document could not be opened: %s", type(error).__name__)  # class only, no text
-                    reason = "locked" if isinstance(error, pikepdf.PasswordError) else "damaged"
-                    await repo.mark_unopened(conn, ctx.case_id, doc.id, reason)
-                    continue
-                if await repo.add_pages(conn, ctx.case_id, doc.id, len(pages)):
-                    cache[doc.id] = pages
-                await repo.link_replacements(conn, ctx.case_id)
-                await repo.link_splits(conn, ctx.case_id)
+            path = await _download(ctx, services, doc.storage_path)
+            try:
+                async with ctx.transaction() as conn:
+                    try:
+                        count = await _unpack(conn, services, ctx.case_id, doc, path)
+                    except (pikepdf.PasswordError, pikepdf.PdfError) as error:  # F2: this file stops, the rest go on
+                        log.warning("document could not be opened: %s", type(error).__name__)  # class only, no text
+                        reason = "locked" if isinstance(error, pikepdf.PasswordError) else "damaged"
+                        await repo.mark_unopened(conn, ctx.case_id, doc.id, reason)
+                        continue
+                    await repo.add_pages(conn, ctx.case_id, doc.id, count)
+                    await repo.link_replacements(conn, ctx.case_id)
+                    await repo.link_splits(conn, ctx.case_id)
+            finally:
+                path.unlink(missing_ok=True)
     async with ctx.transaction() as conn:
         waiting = await repo.pages_without_image(conn, ctx.case_id)
-    locks: dict[uuid.UUID, asyncio.Lock] = {}
+    sources: dict[uuid.UUID, _Source] = {}
+    for page in waiting:
+        sources.setdefault(page.document_id, _Source(ctx, services, page.document_id, 0)).waiting += 1
     finished = 0
-
-    async def pages_of(page: repo.PageRow) -> list[bytes]:
-        """The document's one-page PDFs: from this run's cache, else read back from S3 (once per document)."""
-        async with locks.setdefault(page.document_id, asyncio.Lock()):
-            if page.document_id not in cache:
-                async with ctx.transaction() as conn:
-                    prefix, filename = await repo.document_file(conn, page.document_id)
-                data = await _read_document_free(ctx, services, prefix)
-                unpacked = await asyncio.to_thread(convert.unpack, data, filename, LIMITS)
-                cache[page.document_id] = await asyncio.to_thread(_pages_of, unpacked)
-            return cache[page.document_id]
 
     async def make(page: repo.PageRow) -> None:
         nonlocal finished
-        page_pdf = (await pages_of(page))[page.bundle_page_no - page.first_page_no]
+        source = sources[page.document_id]
+        page_pdf = await source.cut(page.bundle_page_no - page.first_page_no)
         pictures = await _pictures(page_pdf, page.rotation)
         image_path = paths.page_image_path(ctx.case_id, page.id)
         thumbnail_path = paths.thumbnail_path(ctx.case_id, page.id)
@@ -240,15 +315,22 @@ async def _split(ctx: JobContext, services: PipelineServices) -> None:
             services,
             [(page_path, page_pdf), (thumbnail_path, pictures.thumbnail), (image_path, pictures.image)],
         )
+        del page_pdf, pictures
         for path, blob in sealed:  # S3 with no connection held
             await services.storage.put(path, blob)
+        del sealed
         async with ctx.transaction() as conn:
             await repo.set_image(conn, page.id, image_path)
+        await source.finished_one()
         finished += 1
         if finished % 25 == 0:
             await ctx.progress(min(30, 30 * finished // len(waiting)), step="split")
 
-    await bounded(waiting, make, STORAGE_CONCURRENCY, _stop(ctx), label=lambda page: page.bundle_page_no)
+    try:
+        await bounded(waiting, make, STORAGE_CONCURRENCY, _stop(ctx), label=lambda page: page.bundle_page_no)
+    finally:
+        for source in sources.values():
+            await source.close()
 
 
 async def _pictures(page_pdf: bytes, rotation: int) -> Pictures:
@@ -276,10 +358,6 @@ async def _chunks_free(ctx: JobContext, services: PipelineServices, prefix: str)
             opened = await services.crypto.decrypt(conn, ctx.case_id, blob, purpose=path)
         del blob
         yield opened
-
-
-async def _read_document_free(ctx: JobContext, services: PipelineServices, prefix: str) -> bytes:
-    return b"".join([chunk async for chunk in _chunks_free(ctx, services, prefix)])
 
 
 Stop = Callable[[], Awaitable[bool]]
