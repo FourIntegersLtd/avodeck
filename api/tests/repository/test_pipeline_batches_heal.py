@@ -304,6 +304,27 @@ def test_the_pass_order_is_mirror_then_stranded_wake(
     assert not rows_of(admin, run)  # ... so the wake saw a failed parent and did nothing
 
 
+def test_the_whole_pass_order_is_pinned_in_the_function_source(admin: psycopg.Connection) -> None:
+    """mirror, the paused children, the paused parent then the stranded parent, the top-up, the fire, and the
+    waiters last: the order is the design (ADR 0038, F57-F69), so a reordering must break a test."""
+    row = admin.execute("select prosrc from pg_proc where proname = 'pipeline_heal_runs'").fetchone()
+    assert row is not None
+    source = row[0]
+    marks = [
+        "app.pipeline_mirror_run(",
+        "app.pipeline_defer_row(cj.id",
+        "app.pipeline_redefer(r.job_id, false)",
+        "app.pipeline_redefer(r.job_id, true)",
+        "app.pipeline_topup(",
+        "app.pipeline_fire_next(",
+        "app.pipeline_case_busy(",
+        "app.pipeline_redefer(c.id, false)",
+    ]
+    places = [source.find(m) for m in marks]
+    assert all(p >= 0 for p in places), places
+    assert places == sorted(places), places
+
+
 # --- waiters ----------------------------------------------------------------------------------------------------
 
 

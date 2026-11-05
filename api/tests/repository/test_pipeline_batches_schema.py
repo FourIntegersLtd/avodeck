@@ -180,6 +180,22 @@ def test_a_batch_child_is_set_once_and_batches_must_belong_to_the_runs_case(
         _batch(admin, run, other_case, seq=1)
 
 
+def test_deleting_a_child_job_clears_its_batch_link_and_the_set_once_rule_still_holds(
+    admin: psycopg.Connection, seed: Seed
+) -> None:
+    case = _case(seed)
+    run = _run(admin, case)
+    batch = _batch(admin, run, case)
+    first, second = _job(admin, case), _job(admin, case)
+    admin.execute("update app.pipeline_batches set child_job_id = %s where id = %s", (first, batch))
+    admin.execute("delete from app.jobs where id = %s", (first,))
+    assert admin.execute("select child_job_id from app.pipeline_batches where id = %s", (batch,)).fetchone() == (None,)
+    admin.execute("update app.pipeline_batches set child_job_id = %s where id = %s", (second, batch))
+    third = _job(admin, case)
+    with pytest.raises(psycopg.errors.RaiseException):
+        admin.execute("update app.pipeline_batches set child_job_id = %s where id = %s", (third, batch))
+
+
 def test_the_down_file_removes_the_tables_and_the_kind(admin_dsn: str) -> None:
     text = (MIGRATIONS / "down" / "0136_pipeline_page_batches.sql").read_text()
     assert "drop table if exists app.pipeline_batches" in text

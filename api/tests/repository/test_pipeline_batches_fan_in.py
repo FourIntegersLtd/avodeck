@@ -169,6 +169,20 @@ def test_the_window_is_topped_up_one_batch_at_a_time_and_never_twice_for_one_bat
     ).fetchone() == (3,)
 
 
+def test_a_top_up_leaves_the_callers_job_case_setting_as_it_found_it(
+    admin: psycopg.Connection, seed: Seed, case: uuid.UUID
+) -> None:
+    parent = make_job(admin, seed, case)
+    run = add_run(admin, case, parent, "ocr_waiting", window=2)
+    batches = [add_batch(admin, run, case, 0, child=child_job(admin, seed, case, status="running"))]
+    batches.append(add_batch(admin, run, case, 1))
+    complete(admin, case, batches[0])
+    assert admin.execute("select current_setting('app.job_case_id', true)").fetchone() == (str(case),)
+    assert admin.execute(
+        "select count(*) from app.pipeline_batches where run_job_id = %s and child_job_id is not null", (run,)
+    ).fetchone() == (2,)
+
+
 def test_a_rollback_between_completing_and_returning_leaves_nothing_and_the_retry_fires(
     admin_dsn: str, admin: psycopg.Connection, seed: Seed, case: uuid.UUID
 ) -> None:
