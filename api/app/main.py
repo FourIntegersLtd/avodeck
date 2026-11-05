@@ -20,6 +20,7 @@ from app.core.config import (
     database_settings,
     listen_url,
     local_mfa_skip,
+    rate_settings,
     sse_settings,
 )
 from app.core.contracts.reading import PageReadLog
@@ -35,6 +36,7 @@ from app.core.features import DEFAULT_PACKAGE as DEFAULT_FEATURES
 from app.core.features import feature_routers, start_features
 from app.core.notify import CaseNotifier
 from app.core.packs import PackLibrary, default_library
+from app.core.rate_limits import StreamCap
 from app.core.routes.account import account_public, account_router
 from app.core.routes.auth import auth_password, auth_pending, auth_public, auth_signed_in, auth_status
 from app.core.routes.case_events import case_events_router
@@ -185,6 +187,10 @@ def create_app(
     app.state.job_heartbeat_seconds = HEARTBEAT_SECONDS
     app.state.case_notifier = None  # set by the lifespan when DATABASE_URL_LISTEN is set; None keeps the timed loop
     app.state.sse_safety_poll_seconds = sse_settings().safety_poll_seconds
+    limits = rate_settings()  # per-person limits (scalability PR 12): requests per endpoint, open streams
+    app.state.api_rate_per_minute = limits.per_minute
+    app.state.api_max_streams_per_person = limits.streams_per_person
+    app.state.stream_cap = StreamCap(limits.streams_per_person)
     logs.configure(app.state.packs.identifier_finders())
     app.add_middleware(logs.RequestLog)
     # Added last, so it is outermost: a preflight is answered before the session, CSRF and transaction

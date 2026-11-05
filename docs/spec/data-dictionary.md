@@ -1180,6 +1180,14 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | status_code / response_body / response_headers | The first answer (body sealed with the cell key), returned again for a repeat only after the route's access and step-up checks pass |
 | created_at / expires_at | When it was kept and when it is forgotten (24 hours) |
 
+### rate_limit_hits
+| Field | In plain words |
+|---|---|
+| person_id | Whose requests are counted (removed with the person) |
+| endpoint | Which route, as its method and path template; never an id or any text from a request |
+| window_start / hits | The minute being counted and the requests seen in it; a new minute starts again at one |
+| created_at | When the first request for this person and route was counted |
+
 ### ai_calls
 | Field | In plain words |
 |---|---|

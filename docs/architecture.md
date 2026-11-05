@@ -414,6 +414,7 @@ The machinery behind everything: keys, jobs, notifications, logs.
 | `feature_flags` | Switches that turn features on for everyone, a region, an organisation or a person. | key, scope, scope_id, enabled |
 | `audit_log` | Every important action: who, for which organisation, on which case, what. Chained so tampering shows. Kept as metadata after a case is deleted. | person_id, organisation_id, case_id, action, target, at, prev_hash, hash |
 | `idempotency_keys` | The first answer to a request sent with an `Idempotency-Key`, kept for 24 hours so a repeat (double click, retry) does the work once (F27). | person_id, key, case_id, fingerprint, status_code, response_body (sealed), created_at, expires_at |
+| `rate_limit_hits` | How many requests a person has made to each endpoint in the current minute, so a person over `API_RATE_PER_MINUTE` is told to slow down (429 `slow_down`). | person_id, endpoint, window_start, hits, created_at |
 | `ai_calls` | A record of each AI call (which model, which prompt version, how many tokens), never the content. | case_id, person_id, task_id, model_id, region, prompt_version, input_tokens, output_tokens, outcome, at |
 | `transcripts` | Finished dictation text the expert kept (encrypted under the case's key). | case_id, person_id, context, text, duration_seconds |
 | `may_matter` | New records after serving that might affect an answer, for the expert to look at. | case_id, fact_id, question_id, why, seen_at |
@@ -1338,7 +1339,7 @@ Section 4 says what is stored; this section says how it behaves: who can do what
 - **Monitoring data retention:** logs 30 days, metrics 13 months, error reports 30 days.
 - **API and package versions.** The API is `/v1`; breaking changes go to `/v2` with an overlap period. The frontend and API stay compatible one release apart. The offline package format is versioned; older apps refuse newer formats with a clear message.
 - **Migrations.** Expand, migrate, contract; workers drain before the contract step.
-- **Rate limits** per person, per organisation and per endpoint.
+- **Rate limits** per person and per endpoint (`API_RATE_PER_MINUTE`, default 600, 0 is off; 429 `slow_down` with `Retry-After`), kept in `rate_limit_hits`; and at most three open event streams per person (`API_MAX_STREAMS_PER_PERSON`, 429 `too_many_streams`), counted in each API process. Per organisation limits are not built (`docs/decisions/deferred.md`).
 
 ### 10.10 AI
 

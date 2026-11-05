@@ -44,7 +44,7 @@ from fastapi.routing import APIRoute
 from psycopg import AsyncConnection
 from pydantic import BaseModel
 
-from app.core import audit
+from app.core import audit, rate_limits
 from app.core.auth import session as sessions
 from app.core.auth.identity import Identity
 from app.core.crypto import cell_secret_box
@@ -259,12 +259,24 @@ class SessionRoute(APIRoute):
             fingerprint = await _fingerprint(request) if key else ""
             scopes: list[RequestScope] = []  # filled once the session is known
             refusal: ApiError | None = None
+            endpoint = f"{request.method} {self.path_format}"
+            counted = False  # checked and not refused: counted when the request has ended
+
+            async def count_request(conn: AsyncConnection) -> None:
+                if counted:
+                    await rate_limits.count(conn, scopes[0].person_id, endpoint)
+
             try:
                 # One connection, one transaction: the session lookup (which also ends an idle or expired
                 # session and counts activity) shares it with the route's own work.
                 async with (
                     audit.detached(database, lambda: scopes[0] if scopes else None),
-                    database.session_request(sessions.resolve_args(token, touch=self.touch), request_id) as (conn, row),
+                    database.session_request(
+                        sessions.resolve_args(token, touch=self.touch), request_id, count_request
+                    ) as (
+                        conn,
+                        row,
+                    ),
                 ):
                     outcome = sessions.from_row(row)
                     if isinstance(outcome, ApiError):
@@ -284,6 +296,10 @@ class SessionRoute(APIRoute):
                         request.state.scope = scopes[0]  # for streamed bodies, which run after this transaction
                         request.state.identity = identity
                         request.state.session = session
+                        # A person over the limit is turned away before any work; counted once the request ends.
+                        if int(getattr(request.app.state, "api_rate_per_minute", 0)) > 0:
+                            await rate_limits.check(conn, endpoint, int(request.app.state.api_rate_per_minute))
+                            counted = True
                         pending = (
                             _Pending(conn, identity.person_id, key, fingerprint, _case_id(request)) if key else None
                         )

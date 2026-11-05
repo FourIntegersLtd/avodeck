@@ -24,6 +24,9 @@ from typing import Protocol
 
 from fastapi import Request
 from fastapi.responses import StreamingResponse
+from starlette.background import BackgroundTask
+
+from app.core.rate_limits import StreamLease
 
 EDGE_IDLE_SECONDS = 300.0
 EDGE_SILENT_SECONDS = 60.0
@@ -31,6 +34,7 @@ HEARTBEAT_SECONDS = 20.0
 JOB_STREAM_SECONDS = 240.0
 MIN_FETCH_SECONDS = 0.5  # a woken stream looks at most this often, however many notifications arrive
 DEFAULT_SSE_SAFETY_POLL_SECONDS = 30.0  # the net under a lost notification (config: SSE_SAFETY_POLL_SECONDS)
+LEASE_SLACK_SECONDS = 30.0  # a stream's place in the per-person cap outlives the stream by this much at most
 ACCESS_RECHECK_SECONDS = 60.0  # the longest a stream goes without asking again whether the person may see it (rule 9)
 
 
@@ -62,6 +66,24 @@ class AccessRecheck:
         return True
 
 
+def _take_place(request: Request, lifetime: float) -> StreamLease | None:
+    """A place under the person's cap on open streams, or 429 `too_many_streams`.
+
+    Called after the route has checked access to the resource, so a stranger gets 404 before any count (rule 9).
+    A request with no signed-in person or no cap (a bare test app) takes no place."""
+    state = request.app.state
+    cap = getattr(state, "stream_cap", None)
+    if cap is None:
+        return None
+    scope = getattr(getattr(request, "state", None), "scope", None)
+    if scope is None:
+        return None
+    lease: StreamLease = cap.acquire(
+        scope.person_id, lifetime=lifetime, limit=getattr(state, "api_max_streams_per_person", None)
+    )
+    return lease
+
+
 async def sse_stream(
     request: Request,
     fetch: Callable[[], Awaitable[dict[str, object] | None]],
@@ -91,11 +113,17 @@ async def sse_stream(
         safety = min(safety, wake_within)
     min_fetch = float(getattr(state, "sse_min_fetch_seconds", MIN_FETCH_SECONDS))
 
+    lease = _take_place(request, limit + LEASE_SLACK_SECONDS)
+
     async def events() -> AsyncIterator[str]:
-        with watch() if watch is not None else nullcontext() as wake:
-            async with aclosing(_frames(wake)) as frames:
-                async for frame in frames:
-                    yield frame
+        try:
+            with watch() if watch is not None else nullcontext() as wake:
+                async with aclosing(_frames(wake)) as frames:
+                    async for frame in frames:
+                        yield frame
+        finally:
+            if lease is not None:
+                lease.release()
 
     async def _frames(wake: asyncio.Event | None) -> AsyncGenerator[str]:
         loop = asyncio.get_running_loop()
@@ -153,5 +181,9 @@ async def sse_stream(
                 pass
 
     return StreamingResponse(
-        events(), media_type="text/event-stream", headers={"cache-control": "no-store", "x-accel-buffering": "no"}
+        events(),
+        media_type="text/event-stream",
+        headers={"cache-control": "no-store", "x-accel-buffering": "no"},
+        # A body that never started has no `finally` to run; the lease also expires on its own (core/rate_limits.py).
+        background=BackgroundTask(lease.release) if lease is not None else None,
     )

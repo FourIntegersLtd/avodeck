@@ -6,6 +6,8 @@ const SHARED: Record<string, string> = {
   network_error: "errors.network",
   too_many_attempts: "errors.too_many_attempts",
   busy: "errors.busy",
+  slow_down: "errors.slow_down",
+  too_many_streams: "errors.too_many_streams",
   invalid_code: "errors.invalid_code",
   invalid_token: "errors.invalid_token",
   already_confirmed: "errors.already_confirmed",
