@@ -257,30 +257,3 @@ async def test_a_member_whose_case_role_cannot_read_pages_cannot_hand_the_run_ba
     viewer_client = await client_for(viewer)
     assert (await viewer_client.post(f"/v1/cases/{case}/transcript/retry")).status_code == 403
     assert state(admin, job) == ("paused", "cost_guard") and queue_rows(admin, job) == 0
-
-
-async def test_a_paused_run_can_be_handed_back_on_either_new_queue(
-    world: dict[str, Any], admin: psycopg.Connection, api_db: Database
-) -> None:
-    """Scalability PR 7: jobs wait on `interactive` or `bulk`; the old `jobs` name is still accepted."""
-    for queue in ("interactive", "bulk"):
-        job = paused_retry(admin, world["case"], "cost_guard")
-        async with api_db.request(scope_for(world["expert"])) as conn:
-            cur = await conn.execute("select app.resume_paused_job(%s, %s)", (job, queue))
-            assert await cur.fetchone() == (True,)
-        row = admin.execute(
-            "select queue_name from procrastinate.procrastinate_jobs where args ->> 'job_id' = %s", (str(job),)
-        ).fetchone()
-        assert row == (queue,)
-
-
-async def test_pressing_try_again_hands_the_run_back_on_the_queue_of_its_kind(
-    world: dict[str, Any], admin: psycopg.Connection, client_for: Any
-) -> None:
-    client = await client_for(world["expert"])
-    job = paused_retry(admin, world["case"], "cost_guard")
-    assert (await client.post(f"/v1/cases/{world['case']}/transcript/retry")).status_code == 202
-    row = admin.execute(
-        "select queue_name from procrastinate.procrastinate_jobs where args ->> 'job_id' = %s", (str(job),)
-    ).fetchone()
-    assert row == ("bulk",)

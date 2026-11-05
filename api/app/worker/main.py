@@ -23,7 +23,22 @@ from app.core.db import Database
 from app.core.email import Mailer
 from app.core.email_live import mailer_from_env
 from app.core.features import DEFAULT_PACKAGE, WORKER_HOOK, load_features, start_features
-from app.core.jobs import DEFAULT_SHUTDOWN_GRACE_SECONDS, JobWorker, registry
+from app.core.jobs import BULK_QUEUE, DEFAULT_SHUTDOWN_GRACE_SECONDS, INTERACTIVE_QUEUE, JobWorker, registry
+
+
+def worker_queues(source: Mapping[str, str]) -> list[str] | None:
+    """`WORKER_QUEUES`: a comma list of `interactive` and/or `bulk`. Unset takes every queue. The bulk worker
+    also drains the old `jobs` queue (pipeline retries and work queued before the split still use it)."""
+    raw = source.get("WORKER_QUEUES", "").strip()
+    if not raw:
+        return None
+    names = [n.strip() for n in raw.split(",") if n.strip()]
+    known = {INTERACTIVE_QUEUE: registry.interactive_queue, BULK_QUEUE: registry.bulk_queue}
+    unknown = [n for n in names if n not in known]
+    if unknown or not names:
+        raise ConfigError(f"WORKER_QUEUES must list {INTERACTIVE_QUEUE} and/or {BULK_QUEUE}, separated by commas")
+    chosen = [known[n] for n in dict.fromkeys(names)]
+    return chosen + [registry.queue] if BULK_QUEUE in names else chosen
 
 
 def build_worker(
@@ -39,6 +54,7 @@ def build_worker(
         registry,
         database=Database(settings.url_direct, max_size=settings.worker_pool_max),
         queue_pool_max=settings.queue_pool_max,
+        queues=worker_queues(source),
         dsn=settings.url_direct,
         mailer=mailer if mailer is not None else mailer_from_env(env),
         shutdown_grace_seconds=env_int(

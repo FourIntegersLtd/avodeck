@@ -1,18 +1,47 @@
 # Railway: how the API and worker are deployed
 
-ADR 0021. One Docker image (`api/Dockerfile`, built from the repository root), three services in one Railway project (`api`, `worker`, `cron`), region **europe-west4 (Amsterdam)**. There is no `railway.toml`. The same settings are written as config-as-code in `railway/api.json`, `railway/worker.json` and `railway/cron.json`; in the dashboard, set each service's config file path (Settings > Config-as-code) to its file, or copy the values below by hand.
+ADR 0021. One Docker image (`api/Dockerfile`, built from the repository root), four services in one Railway project (`api`, `worker`, `worker-interactive`, `cron`), region **europe-west4 (Amsterdam)**. There is no `railway.toml`. The same settings are written as config-as-code in `railway/api.json`, `railway/worker.json`, `railway/worker-interactive.json` and `railway/cron.json`; in the dashboard, set each service's config file path (Settings > Config-as-code) to its file, or copy the values below by hand.
 
-| Setting | `api` | `worker` | `cron` |
-|---|---|---|---|
-| Source | this repo, branch `main` | same | same |
-| Dockerfile path | `api/Dockerfile` | `api/Dockerfile` | `api/Dockerfile` |
-| Start command | (image default) | `python -m app.worker.main` | `python -m app.worker.schedules` |
-| Cron schedule | none | none | `15 2 * * *` (UTC, daily) |
-| Health check path | `/v1/cell` | none | none |
-| Public networking | yes (generate a domain) | no | no |
-| Pre-deploy command | none | none | none |
-| Volumes | none | none | none |
-| Replicas | 1 | 1 | 1 (runs, then exits) |
+| Setting | `api` | `worker` (bulk) | `worker-interactive` | `cron` |
+|---|---|---|---|---|
+| Source | this repo, branch `main` | same | same | same |
+| Dockerfile path | `api/Dockerfile` | `api/Dockerfile` | `api/Dockerfile` | `api/Dockerfile` |
+| Start command | (image default) | `env WORKER_QUEUES=bulk python -m app.worker.main` | `env WORKER_QUEUES=interactive WORKER_CONCURRENCY=8 WORKER_DB_POOL_MAX=6 python -m app.worker.main` | `python -m app.worker.schedules` |
+| Cron schedule | none | none | none | `15 2 * * *` (UTC, daily) |
+| Health check path | `/v1/cell` | none | none | none |
+| Public networking | yes (generate a domain) | no | no | no |
+| Pre-deploy command | none | none | none | none |
+| Volumes | none | none | none | none |
+| Replicas | 1 | 1 | 1 | 1 (runs, then exits) |
+
+## Job queues (scalability PR 7)
+
+Jobs wait on one of two queues. `interactive` holds work a person is waiting for (`rerun_checks`, `export_case`); `bulk` holds everything else (bundle processing, report builds, deletions). The `worker-interactive` service takes only `interactive`, so a rerun or an export never queues behind a 4,000-page bundle. The `worker` service takes only `bulk`, and also drains the old `jobs` queue (work queued before the split, and pipeline "Try again" retries, which still use it). No database migration is needed.
+
+`WORKER_QUEUES` is a comma list of `interactive` and/or `bulk`; anything else stops the worker at start with a message naming the setting. **Unset, a worker takes every queue**: that is the rollout state of the existing `worker` service, and it is also what a single-service setup (local, or a small cell) should do.
+
+Rollout, in this order:
+
+1. Deploy the new code to the existing `worker` service with `WORKER_QUEUES` still unset. Everything keeps working.
+2. Create the `worker-interactive` service (same repo, config path `railway/worker-interactive.json`, same shared variables as `worker`). It starts taking `interactive` work at once.
+3. Set the `worker` service's config path to `railway/worker.json` (start command `WORKER_QUEUES=bulk`) and redeploy it.
+4. Check `GET /v1/internal/metrics`: `jobs_queued` shows `interactive`, `bulk` and (draining to 0) `jobs`.
+
+### Connection budget
+
+Every process holds database connections: the worker's own pool (`WORKER_DB_POOL_MAX`), the queue library's pool (`WORKER_QUEUE_POOL_MAX`) and, from the live-updates change, one listener connection in each API process. Add them up per pooler role and keep the total **below that role's pooler pool size** (Supabase: Database > Connection pooling), and keep the sum over both roles at least **10 below the database's direct `max_connections`** (Supabase Small: 90 direct, so about 80). Raise the pooler pool size first, then the numbers here.
+
+| Service | Role | Replicas x processes | Pool | Queue pool | Listener | Connections |
+|---|---|---|---|---|---|---|
+| `worker` (bulk) | `app_worker` | 1 x 1 | 10 | 4 | 0 | 14 |
+| `worker-interactive` | `app_worker` | 1 x 1 | 6 | 4 | 0 | 10 |
+| **`app_worker` total** | | | | | | **24** (pooler pool size at least 30) |
+| `api` today | `app_api` | 1 x 1 | 10 | 0 | 0 | 10 |
+| `api` after the live-updates change | `app_api` | 1 x 1 | 10 | 0 | 1 | 11 |
+| `api` after 2 replicas x 2 processes | `app_api` | 2 x 2 | 8 | 0 | 1 | 36 |
+| **`app_api` total, final** | | | | | | **36** (pooler pool size at least 40) |
+
+Final total 24 + 36 = 60, under a Small database's 80. The 15 default pooler pool size is too small for the `app_worker` role as soon as `worker-interactive` exists: **raise it to at least 40 before step 2 of the rollout**, or the pooler answers `EMAXCONNSESSION` and jobs stop. A third worker, or a bigger replica count, adds its own row here first.
 
 The `cron` service runs each daily schedule once for today's date and exits (code 1 if any schedule failed; the others still run). A schedule already run for a date is skipped, so a retry or a second start is harmless. Its logs list schedule names and counts only.
 
@@ -57,7 +86,7 @@ Create these alert rules in Sentry (EU) for the production project. The numbers 
 | Dead-lettered job | any Sentry event with message `job_dead_lettered` (tags `kind`, `job_id`: no case, name or text) | Open the job in the support console; requeue it or tell the expert |
 | Pool exhausted | `pool_waiting` above 0 for 60 s | Raise the Supabase pooler size, then `API_DB_*` limits; check for a slow statement |
 
-Until the interactive and bulk queues are split, there is one queue (`jobs`): use the interactive thresholds for it.
+The queue names in the metrics are `interactive`, `bulk` and, until it drains after the rollout, the old `jobs`. Use the interactive thresholds for `jobs` too.
 
 ## Migrations
 

@@ -55,6 +55,11 @@ logger = logging.getLogger("app.jobs")
 INTERACTIVE_PRIORITY = 10
 BATCH_PRIORITY = 0
 TASK_NAME = "run_job"
+# Queues (scalability PR 7): work a person waits for runs apart from hours of bundle processing. `jobs` is the
+# one queue the app used before the split; it is still read, so work queued before a rollout is picked up.
+INTERACTIVE_QUEUE = "interactive"
+BULK_QUEUE = "bulk"
+LEGACY_QUEUE = "jobs"
 
 JobHandler = Callable[["JobContext"], Awaitable[None]]
 ScheduleHandler = Callable[[AsyncConnection, date], Awaitable[None]]
@@ -82,8 +87,13 @@ class JobKind:
 class JobRegistry:
     """Job kinds and daily schedules, by name. The app's own is `registry`; tests make their own."""
 
-    def __init__(self, queue: str = "jobs") -> None:
+    def __init__(self, queue: str = LEGACY_QUEUE, *, split_queues: bool = False, queue_prefix: str = "") -> None:
+        """`queue` is the one queue everything runs on, or, with `split_queues`, only the old one still read.
+        With `split_queues` an interactive kind runs on `interactive`, every other kind on `bulk`
+        (`queue_prefix` keeps a test's queues apart)."""
         self.queue = queue
+        self.split_queues = split_queues
+        self.queue_prefix = queue_prefix
         self.kinds: dict[str, JobKind] = {}
         self.schedules: dict[str, ScheduleHandler] = {}
 
@@ -109,6 +119,26 @@ class JobRegistry:
 
         return register
 
+    @property
+    def interactive_queue(self) -> str:
+        return f"{self.queue_prefix}{INTERACTIVE_QUEUE}"
+
+    @property
+    def bulk_queue(self) -> str:
+        return f"{self.queue_prefix}{BULK_QUEUE}"
+
+    @property
+    def all_queues(self) -> list[str]:
+        """Every queue a worker with no queue list takes, the old one included."""
+        return [self.interactive_queue, self.bulk_queue, self.queue] if self.split_queues else [self.queue]
+
+    def queue_for(self, kind: str) -> str:
+        """The queue a kind is queued on. A kind this registry does not know stays on the old queue."""
+        found = self.kinds.get(kind)
+        if not self.split_queues or found is None:
+            return self.queue
+        return self.interactive_queue if found.interactive else self.bulk_queue
+
     async def enqueue(self, conn: AsyncConnection, case_id: uuid.UUID, kind: str) -> uuid.UUID:
         """Queue a job on the case. The database decides the case action the kind needs
         (`app.job_kind_actions`; `case.upload` if not listed) and checks the person has it."""
@@ -118,7 +148,7 @@ class JobRegistry:
             (
                 case_id,
                 kind,
-                self.queue,
+                self.queue_for(kind),
                 INTERACTIVE_PRIORITY if found.interactive else BATCH_PRIORITY,
                 found.changes_case,
                 os.environ.get("CODE_VERSION") or None,
@@ -129,7 +159,7 @@ class JobRegistry:
         return row[0]  # type: ignore[no-any-return]
 
 
-registry = JobRegistry()
+registry = JobRegistry(split_queues=True)
 
 SUPPORT_JOB_ACTIONS = ("resume", "requeue")
 
@@ -291,8 +321,11 @@ class JobWorker:
         persist_waits: Sequence[float] = DEFAULT_PERSIST_WAITS,
         orphan_grace_seconds: float | None = None,
         shutdown_grace_seconds: float = DEFAULT_SHUTDOWN_GRACE_SECONDS,
+        queues: Sequence[str] | None = None,
     ) -> None:
+        """`queues`: the queues this worker takes jobs from; none means all of the registry's, the old one too."""
         self.registry = registry
+        self.queues = list(registry.all_queues if queues is None else queues)
         self.mailer: Mailer = mailer or OutboxMailer()
         self.database = database
         self.poll_seconds = poll_seconds
@@ -324,7 +357,7 @@ class JobWorker:
         housekeeping = asyncio.create_task(self._housekeeping())
         try:
             await self.queue.run_worker_async(
-                queues=[self.registry.queue],
+                queues=self.queues,
                 concurrency=concurrency,
                 wait=True,
                 fetch_job_polling_interval=self.poll_seconds,
@@ -356,9 +389,11 @@ class JobWorker:
 
     async def requeue_stalled(self) -> int:
         """Put back the jobs of workers whose heartbeat stopped (F6). Returns how many."""
-        stalled = await self.queue.job_manager.get_stalled_jobs(
-            queue=self.registry.queue, seconds_since_heartbeat=self.stalled_after_seconds
-        )
+        stalled: list[Job] = []
+        for name in self.queues:
+            stalled += await self.queue.job_manager.get_stalled_jobs(
+                queue=name, seconds_since_heartbeat=self.stalled_after_seconds
+            )
         count = 0
         for job in stalled:
             # A stall is not a failure: the next run does not count an attempt (migration 0058).

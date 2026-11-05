@@ -31,8 +31,8 @@ def test_the_queue_names_are_fixed_words() -> None:
 
 def test_an_interactive_kind_goes_to_the_interactive_queue_and_others_to_bulk() -> None:
     reg = JobRegistry(split_queues=True)
-    reg.kind("zz_fast", interactive=True)(_handler)  # type: ignore[arg-type]
-    reg.kind("zz_slow")(_handler)  # type: ignore[arg-type]
+    reg.kind("zz_fast", interactive=True)(_handler)
+    reg.kind("zz_slow")(_handler)
     assert reg.queue_for("zz_fast") == "interactive"
     assert reg.queue_for("zz_slow") == "bulk"
 
@@ -40,7 +40,7 @@ def test_an_interactive_kind_goes_to_the_interactive_queue_and_others_to_bulk() 
 def test_the_apps_registry_splits_its_queues_and_a_test_registry_keeps_one() -> None:
     assert registry.split_queues is True
     single = JobRegistry(queue="zz_one")
-    single.kind("zz_a", interactive=True)(_handler)  # type: ignore[arg-type]
+    single.kind("zz_a", interactive=True)(_handler)
     assert single.queue_for("zz_a") == "zz_one"
 
 
@@ -65,8 +65,9 @@ def test_a_worker_takes_the_queues_in_worker_queues() -> None:
     assert {"interactive", "bulk"} <= set(build_worker({**URLS, "WORKER_QUEUES": "interactive,bulk"}).queues)
 
 
-def test_a_worker_that_serves_one_queue_still_drains_the_old_queue() -> None:
+def test_the_bulk_worker_drains_the_old_queue_and_the_interactive_worker_does_not() -> None:
     assert "jobs" in build_worker({**URLS, "WORKER_QUEUES": "bulk"}).queues
+    assert "jobs" not in build_worker({**URLS, "WORKER_QUEUES": "interactive"}).queues
 
 
 def test_an_unknown_queue_name_is_refused_by_setting_name() -> None:

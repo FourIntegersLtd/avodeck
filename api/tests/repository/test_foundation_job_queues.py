@@ -78,7 +78,7 @@ async def test_a_worker_for_the_interactive_queue_never_takes_a_bulk_job(
     async with api_db.request(scope_for(expert)) as conn:
         fast_job = await registry.enqueue(conn, case, "zz_fast")
         slow_job = await registry.enqueue(conn, case, "zz_slow")
-    async with open_worker(registry, worker_db, worker_dsn, queues=["interactive"]) as worker:
+    async with open_worker(registry, worker_db, worker_dsn, queues=[registry.interactive_queue]) as worker:
         await run_until_finished(worker, admin, [fast_job])
         await asyncio.sleep(0.5)
     assert ran == ["fast"]
@@ -107,8 +107,8 @@ async def test_an_interactive_job_starts_within_a_second_while_four_bulk_jobs_ru
     async with api_db.request(scope_for(expert)) as conn:
         slow_jobs = [await registry.enqueue(conn, c, "zz_slow") for c in cases[:4]]
     async with (
-        open_worker(registry, worker_db, worker_dsn, queues=["bulk"]) as bulk,
-        open_worker(registry, worker_db, worker_dsn, queues=["interactive"]) as interactive,
+        open_worker(registry, worker_db, worker_dsn, queues=[registry.bulk_queue]) as bulk,
+        open_worker(registry, worker_db, worker_dsn, queues=[registry.interactive_queue]) as interactive,
     ):
         bulk_task = asyncio.create_task(run_until_finished(bulk, admin, slow_jobs, concurrency=4))
         try:
