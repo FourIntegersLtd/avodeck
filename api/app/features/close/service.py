@@ -31,7 +31,7 @@ from app.core.iterkit import iter_chunks
 from app.core.jobs import registry
 from app.core.packs import PackLibrary
 from app.core.storage import CaseFileStorage, StorageError, case_prefix
-from app.features.close import repo
+from app.features.close import repo, sealed
 from app.features.close.schemas import (
     EXPORT_KINDS,
     EXPORT_KINDS_BY_DEFAULT,
@@ -42,8 +42,8 @@ from app.features.close.schemas import (
 )
 
 CLOSED = ("settled", "archived", "withdrawn")
-# The download is sent in pieces of this size. CaseCrypto opens a file whole (one AES-GCM seal), so
-# the decrypted ZIP is held in memory once; it is never copied into a single response body.
+# The download is sent in pieces of this size. The sealed copy is opened frame by frame
+# (`sealed.open_sealed`) and the plain ZIP is held in memory once; it is never copied into a single response body.
 DOWNLOAD_CHUNK = 1024 * 1024
 DEFAULT_POLICY = "keep_default"
 
@@ -288,7 +288,7 @@ async def download_export(
         blob = await storage.get(path)
     except StorageError:
         raise ApiError("not_found", "This export has already been downloaded.", 404) from None
-    data = await crypto.decrypt(conn, case_id, blob, purpose=path)
+    data = await sealed.open_sealed(conn, crypto, case_id, blob, purpose=path)
     await _record(conn, case_id, "case.export_downloaded", f"export:{job_id}")
     await storage.delete([path])
     return data
