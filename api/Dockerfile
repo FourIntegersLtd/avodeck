@@ -68,5 +68,7 @@ RUN useradd --system --uid 10001 --shell /usr/sbin/nologin appuser \
 USER appuser
 
 EXPOSE 8000
-# `exec` so Railway's SIGTERM reaches uvicorn. Keep-alive outlasts the proxies in front.
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --timeout-keep-alive 75 --timeout-graceful-shutdown 110"]
+# `exec` so Railway's SIGTERM reaches uvicorn, which passes it to its processes. `WEB_CONCURRENCY` is the number of
+# processes (the api service sets 2; one unless set), each with its own pool of `API_DB_POOL_MAX` connections
+# (docs/runbooks/railway.md, connection budget). Keep-alive outlasts the proxies in front.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --timeout-keep-alive 75 --timeout-graceful-shutdown 110"]
