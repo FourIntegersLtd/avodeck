@@ -33,7 +33,19 @@ class ApiError(Exception):
         self.code = code
         self.message = message
         self.status = status
+        self.headers: dict[str, str] = {}  # sent with the answer (PoolBusy: Retry-After)
         self.extra = extra
+
+
+class PoolBusy(ApiError):
+    """The database pool had no connection in time, or a statement ran past its limit: 503 `busy`.
+
+    Fails fast so a crowd never queues for 30 seconds; the browser tries again after `Retry-After`.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("busy", "Avodeck is busy. Please try again in a moment.", 503)
+        self.headers = {"Retry-After": "2"}
 
 
 class ProcessingPaused(ApiError):
@@ -70,7 +82,9 @@ def error_response(status: int, code: str, message: str, **extra: object) -> JSO
 
 async def _api_error(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, ApiError)
-    return error_response(exc.status, exc.code, exc.message, **exc.extra)
+    response = error_response(exc.status, exc.code, exc.message, **exc.extra)
+    response.headers.update(exc.headers)
+    return response
 
 
 async def _validation_error(_: Request, exc: Exception) -> JSONResponse:

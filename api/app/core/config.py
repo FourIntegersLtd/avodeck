@@ -32,6 +32,20 @@ def env_int(source: Mapping[str, str], name: str, default: int, *, minimum: int 
     return value
 
 
+def env_float(source: Mapping[str, str], name: str, default: float, *, minimum: float | None = None) -> float:
+    """A number setting; unset or empty gives `default`. Anything else is a ConfigError naming it."""
+    raw = source.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ConfigError(f"{name} must be a number") from exc
+    if minimum is not None and value < minimum:
+        raise ConfigError(f"{name} must be at least {minimum}")
+    return value
+
+
 _TRUE_WORDS = frozenset({"1", "true", "yes"})
 _FALSE_WORDS = frozenset({"", "0", "false", "no"})
 
@@ -55,6 +69,11 @@ def env_csv(source: Mapping[str, str], name: str) -> tuple[str, ...]:
 # many clients in (Supabase: 15 by default), and the two together must stay under that number.
 DEFAULT_WORKER_POOL_MAX = 10
 DEFAULT_QUEUE_POOL_MAX = 4
+# The API's pool fails fast (PR 1 of docs/ops/scalability-plan.md): a request waits this long for a connection,
+# at most this many wait at once, and a statement runs at most this long (0 = no limit). The worker has none.
+DEFAULT_API_ACQUIRE_TIMEOUT_SECONDS = 2.0
+DEFAULT_API_MAX_WAITING = 50
+DEFAULT_API_STATEMENT_TIMEOUT_MS = 5000
 
 
 @dataclass(frozen=True)
@@ -69,6 +88,9 @@ class DatabaseSettings:
     url_direct: str | None = field(default=None, repr=False)
     worker_pool_max: int = DEFAULT_WORKER_POOL_MAX
     queue_pool_max: int = DEFAULT_QUEUE_POOL_MAX
+    acquire_timeout_seconds: float = DEFAULT_API_ACQUIRE_TIMEOUT_SECONDS
+    max_waiting: int = DEFAULT_API_MAX_WAITING
+    statement_timeout_ms: int = DEFAULT_API_STATEMENT_TIMEOUT_MS
 
 
 def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
@@ -82,6 +104,13 @@ def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
         url_direct=direct,
         worker_pool_max=env_int(source, "WORKER_DB_POOL_MAX", DEFAULT_WORKER_POOL_MAX, minimum=1),
         queue_pool_max=env_int(source, "WORKER_QUEUE_POOL_MAX", DEFAULT_QUEUE_POOL_MAX, minimum=1),
+        acquire_timeout_seconds=env_float(
+            source, "API_DB_ACQUIRE_TIMEOUT_SECONDS", DEFAULT_API_ACQUIRE_TIMEOUT_SECONDS, minimum=0.1
+        ),
+        max_waiting=env_int(source, "API_DB_MAX_WAITING", DEFAULT_API_MAX_WAITING, minimum=0),
+        statement_timeout_ms=env_int(
+            source, "API_DB_STATEMENT_TIMEOUT_MS", DEFAULT_API_STATEMENT_TIMEOUT_MS, minimum=0
+        ),
     )
 
 
