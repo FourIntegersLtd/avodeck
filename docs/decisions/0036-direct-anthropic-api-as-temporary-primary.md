@@ -25,7 +25,7 @@ Date: 2026-11-03 · Status: accepted, temporary · Decided by: the founder · Bu
 
 | Provider | rpm | pages per call | max output tokens | concurrency |
 |---|---|---|---|---|
-| anthropic | 1000 | 5 | 8000 | 200 |
+| anthropic | 1000 | 5 | 32000 | 50 |
 | bedrock | `bedrock_rpm_limit` (5) | `extraction_batch_size` (10) | 16000 | 3 |
 
 Slice A reads `kit.primary_limits.pages_per_call` and `.concurrency` for batching and fan-out instead of `settings.extraction_batch_size`.
@@ -46,7 +46,7 @@ Slice A reads `kit.primary_limits.pages_per_call` and `.concurrency` for batchin
 
 **Database pools.** The founder's Supabase is the free plan (Nano compute): 60 direct connections, 200 pooler clients, shared CPU. The API pool stays at 10 connections. The worker pool is set by `WORKER_DB_POOL_MAX` (default 10 since the session pooler's 15-client limit refused the 16th client with `EMAXCONNSESSION` when it was 20; the job queue library's pool is `WORKER_QUEUE_POOL_MAX`, default 4), and calls to the model in flight follow it, less a reserve of two connections. These are our numbers, not Supabase's. The worker pool must be kept within Supabase's Max DB Connections and the pooler's pool size for the `app_worker` role; raise it only with a bigger compute. The queue library's own pool and the reseal command's pool are unchanged.
 
-**Known limitation (found in review, not caused by this change).** The slot counts are read under row-level security, so a job may see only the slot rows of its own case; the per-minute ceiling is then held per case, not account-wide. The vendor's own 429 handling (retry, then the fallback) absorbs the difference. Out of scope here.
+**Slot counts (fixed).** An earlier version read the slot counts under row-level security, so each case saw only its own rows. Migration 0056 and "Account-wide counts" above made them account-wide; the per-minute ceiling now holds across every case.
 
 **How to turn it off.** Unset `AI_PRIMARY_PROVIDER` (or set it to `bedrock`) and restart. Nothing else changes: the migration is additive and the default provider of every slot row is `bedrock`.
 

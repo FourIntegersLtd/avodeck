@@ -5,7 +5,7 @@ Date: 2026-10-25 · Status: accepted · Decided by: the founder
 **Problem.** Rule 5 put the API and worker on DigitalOcean App Platform, London. Avodeck's other products (eventtz, osceguide) already run on Railway with one Docker image and a known runbook. Setting up a second host for one product costs time before any expert has tried Avodeck. Railway has no London region; its only European region is Amsterdam (`europe-west4`).
 
 **Decision.**
-- The UK cell's API and worker run on Railway, Amsterdam: one image (`api/Dockerfile`), two services (`api` with the default command, `worker` with `python -m app.worker.main`).
+- The UK cell's API and worker run on Railway, Amsterdam: one image (`api/Dockerfile`), four services (`api`, `worker`, `worker-interactive`, `cron`; `docs/runbooks/railway.md`).
 - Everything that stores data stays in the UK: Supabase (database, auth, files) in London, Bedrock London **in-region** model IDs only, Azure Document Intelligence and Speech in UK South. Railway holds no database, volume or file store.
 - The web app stays on Vercel and calls the API on its own origin through a rewrite of `/v1/*` (web/AGENTS.md, same-origin rule unchanged).
 - Rule 5 now reads: data is stored in the home region; the UK cell's compute may run in the EU (Railway, Amsterdam) under this record. Everything else in rule 5 is unchanged: endpoints and model IDs come from the cell config, never `global.*` or `eu.*` model profiles.
