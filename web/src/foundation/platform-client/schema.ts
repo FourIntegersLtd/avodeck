@@ -3477,7 +3477,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Timeline */
+        /**
+         * Timeline
+         * @description With `limit`, the entries come a page at a time (lanes, list and unplaced hold the page's entries only).
+         *
+         *     Counts, range and filter options always cover the whole record; series bars and gaps are worked out from
+         *     the entries on the page.
+         */
         get: operations["timeline_v1_cases__case_id__timeline_get"];
         put?: never;
         post?: never;
@@ -12790,6 +12796,8 @@ export interface components {
             guidance_changed: string[];
             /** Lanes */
             lanes: components["schemas"]["Lane"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
             range?: components["schemas"]["Range"] | null;
             /**
              * Sources
@@ -23167,6 +23175,10 @@ export interface operations {
                 only?: ("not_linked" | "things_to_look") | null;
                 /** @description Only what had arrived by this day. */
                 as_seen_on?: string | null;
+                /** @description A page of entries in date order; leave out for the whole list. */
+                limit?: number | null;
+                /** @description `next_cursor` of the page before. */
+                cursor?: string | null;
             };
             header?: never;
             path: {

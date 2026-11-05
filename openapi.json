@@ -20409,6 +20409,17 @@
             "title": "Lanes",
             "type": "array"
           },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
           "range": {
             "anyOf": [
               {
@@ -36980,6 +36991,7 @@
     },
     "/v1/cases/{case_id}/timeline": {
       "get": {
+        "description": "With `limit`, the entries come a page at a time (lanes, list and unplaced hold the page's entries only).\n\nCounts, range and filter options always cover the whole record; series bars and gaps are worked out from\nthe entries on the page.",
         "operationId": "timeline_v1_cases__case_id__timeline_get",
         "parameters": [
           {
@@ -37103,6 +37115,44 @@
               ],
               "description": "Only what had arrived by this day.",
               "title": "As Seen On"
+            }
+          },
+          {
+            "description": "A page of entries in date order; leave out for the whole list.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 500,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A page of entries in date order; leave out for the whole list.",
+              "title": "Limit"
+            }
+          },
+          {
+            "description": "`next_cursor` of the page before.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`next_cursor` of the page before.",
+              "title": "Cursor"
             }
           }
         ],
