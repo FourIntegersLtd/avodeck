@@ -30,7 +30,7 @@ from app.core.db import Database
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
 from app.core.storage import CaseFileStorage
-from app.features.pipeline import paths, service
+from app.features.pipeline import paths, repo, service
 from app.features.pipeline.render import Pictures
 from tests.repository.test_pipeline_support import Harness, harness
 from tests.support.files import local_storage
@@ -254,8 +254,8 @@ async def test_only_one_split_runs_at_a_time(monkeypatch: pytest.MonkeyPatch) ->
         inside -= 1
         return []
 
-    monkeypatch.setattr(service.repo, "clean_unsplit", nothing_waiting)
-    monkeypatch.setattr(service.repo, "pages_without_image", nothing_waiting)
+    monkeypatch.setattr(repo, "clean_unsplit", nothing_waiting)
+    monkeypatch.setattr(repo, "pages_without_image", nothing_waiting)
     ctx: Any = FakeContext()
     await asyncio.gather(*(service._split(ctx, None) for _ in range(3)))  # type: ignore[arg-type]
     assert not overlap, "two splits ran at once in one process"
