@@ -71,6 +71,7 @@ DEFAULT_WORKER_POOL_MAX = 10
 DEFAULT_QUEUE_POOL_MAX = 4
 # The API's pool fails fast (PR 1 of docs/ops/scalability-plan.md): a request waits this long for a connection,
 # at most this many wait at once, and a statement runs at most this long (0 = no limit). The worker has none.
+DEFAULT_API_POOL_MAX = 10  # per API process; the API runs several (WEB_CONCURRENCY) on several replicas (PR 16)
 DEFAULT_API_ACQUIRE_TIMEOUT_SECONDS = 2.0
 DEFAULT_API_MAX_WAITING = 50
 DEFAULT_API_STATEMENT_TIMEOUT_MS = 5000
@@ -88,6 +89,7 @@ class DatabaseSettings:
     url_direct: str | None = field(default=None, repr=False)
     worker_pool_max: int = DEFAULT_WORKER_POOL_MAX
     queue_pool_max: int = DEFAULT_QUEUE_POOL_MAX
+    api_pool_max: int = DEFAULT_API_POOL_MAX
     acquire_timeout_seconds: float = DEFAULT_API_ACQUIRE_TIMEOUT_SECONDS
     max_waiting: int = DEFAULT_API_MAX_WAITING
     statement_timeout_ms: int = DEFAULT_API_STATEMENT_TIMEOUT_MS
@@ -125,6 +127,7 @@ def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
         url_direct=direct,
         worker_pool_max=env_int(source, "WORKER_DB_POOL_MAX", DEFAULT_WORKER_POOL_MAX, minimum=1),
         queue_pool_max=env_int(source, "WORKER_QUEUE_POOL_MAX", DEFAULT_QUEUE_POOL_MAX, minimum=1),
+        api_pool_max=env_int(source, "API_DB_POOL_MAX", DEFAULT_API_POOL_MAX, minimum=1),
         acquire_timeout_seconds=env_float(
             source, "API_DB_ACQUIRE_TIMEOUT_SECONDS", DEFAULT_API_ACQUIRE_TIMEOUT_SECONDS, minimum=0.1
         ),

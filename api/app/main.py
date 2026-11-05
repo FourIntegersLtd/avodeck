@@ -73,9 +73,11 @@ def _origins(app: FastAPI, settings: object | None) -> None:
 
 
 def api_database(settings: DatabaseSettings) -> Database:
-    """The API's pool: fails fast when busy (503 `busy`) rather than queueing. The worker's has no such limits."""
+    """One API process's pool (`API_DB_POOL_MAX`; each process has its own): fails fast when busy (503 `busy`)
+    rather than queueing. The worker's has no such limits."""
     return Database(
         settings.url,
+        max_size=settings.api_pool_max,
         acquire_timeout=settings.acquire_timeout_seconds,
         max_waiting=settings.max_waiting,
         statement_timeout_ms=settings.statement_timeout_ms,
