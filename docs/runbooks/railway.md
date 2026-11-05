@@ -41,7 +41,7 @@ Every process holds database connections: the worker's own pool (`WORKER_DB_POOL
 | `api` after 2 replicas x 2 processes | `app_api` | 2 x 2 | 8 | 0 | 1 | 36 |
 | **`app_api` total, final** | | | | | | **36** (pooler pool size at least 40) |
 
-Final total 24 + 36 = 60, under a Small database's 80. The 15 default pooler pool size is too small for the `app_worker` role as soon as `worker-interactive` exists: **raise it to at least 40 before step 2 of the rollout**, or the pooler answers `EMAXCONNSESSION` and jobs stop. A third worker, or a bigger replica count, adds its own row here first.
+Final total 24 + 36 = 60, under a Small database's 80. The 15 default pooler pool size is too small for the `app_worker` role as soon as `worker-interactive` exists: **raise it to at least 30 before step 2 of the rollout** (the `app_api` role needs at least 40 once the API runs 2 replicas x 2 processes: 2 x 2 x (8 + 1) = 36), or the pooler answers `EMAXCONNSESSION` and jobs stop. A third worker, or a bigger replica count, adds its own row here first.
 
 The `cron` service runs each daily schedule once for today's date and exits (code 1 if any schedule failed; the others still run). A schedule already run for a date is skipped, so a retry or a second start is harmless. Its logs list schedule names and counts only.
 
