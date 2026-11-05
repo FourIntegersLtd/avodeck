@@ -39257,6 +39257,35 @@
         ]
       }
     },
+    "/v1/internal/metrics": {
+      "get": {
+        "operationId": "get_metrics_v1_internal_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Metrics",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
     "/v1/invites/{token}/accept": {
       "post": {
         "operationId": "accept_invite_v1_invites__token__accept_post",

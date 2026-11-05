@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from collections.abc import AsyncIterator
@@ -9,7 +10,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
 
-from app.core import logs
+from app.core import logs, metrics
 from app.core.auth.supabase import SupabaseAuth
 from app.core.config import (
     ConfigError,
@@ -42,6 +43,7 @@ from app.core.routes.jobs import HEARTBEAT_SECONDS, JOB_STREAM_SECONDS, jobs_rou
 from app.core.routes.legal import legal_router
 from app.core.routes.me import me_router
 from app.core.routes.notifications import notifications_router
+from app.core.routes.ops import ops_router
 from app.core.routes.packs import case_pack_router, packs_router
 from app.core.routes.support import support_router
 from app.core.routes.today import today_router
@@ -139,10 +141,12 @@ def create_app(
                 await app.state.storage.ensure_bucket()
             except Exception as exc:  # noqa: BLE001 - start-up goes on; file routes answer for themselves
                 logging.getLogger(__name__).warning("storage bucket check failed: %s", type(exc).__name__)
+        lag = asyncio.create_task(metrics.sample_loop_lag())
         try:
             await start_features(features, app)  # each slice's `on_startup(app)`, database ready
             yield
         finally:
+            lag.cancel()
             if owned_storage is not None:
                 await owned_storage.aclose()
             if owned is not None:
@@ -175,6 +179,7 @@ def create_app(
     install_error_handlers(app)
     routers = (
         cell_public_router,
+        ops_router,
         auth_public,
         auth_pending,
         auth_status,

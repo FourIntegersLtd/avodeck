@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import time
 import traceback
@@ -203,11 +204,51 @@ def before_send(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] |
     return event
 
 
+def before_send_transaction(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] | None:
+    """Performance traces (sampled): the same scrubbing as errors, plus the spans' text and data.
+
+    The SDK does not run `before_send` on transactions, so a URL with a query string, a span description
+    (a SQL text, a URL) or span data would otherwise leave the process unscrubbed (rule 6).
+    """
+    request = event.get("request")
+    if isinstance(request, dict):
+        event["request"] = {k: request[k] for k in _REQUEST_KEEP if k in request}
+    for key in ("user", "extra", "breadcrumbs"):
+        event.pop(key, None)
+    if isinstance(event.get("transaction"), str):
+        event["transaction"] = scrub(event["transaction"])
+    for key in ("contexts", "tags"):
+        if key in event:
+            event[key] = _scrub_value(event[key])
+    trace = (event.get("contexts") or {}).get("trace")
+    if isinstance(trace, dict):
+        trace.pop("data", None)  # raw URL, query string and path values
+    for span in event.get("spans") or []:
+        if isinstance(span.get("description"), str):
+            span["description"] = scrub(span["description"])
+        span.pop("data", None)
+        if isinstance(span.get("tags"), dict):
+            span["tags"] = _scrub_value(span["tags"])
+    return event
+
+
 def before_breadcrumb(crumb: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] | None:
     crumb.pop("data", None)
     if isinstance(crumb.get("message"), str):
         crumb["message"] = scrub(crumb["message"])
     return crumb
+
+
+DEFAULT_TRACES_SAMPLE_RATE = 0.05
+
+
+def traces_sample_rate() -> float:
+    """`SENTRY_TRACES_SAMPLE_RATE` (0 to 1); a missing or bad value is the default."""
+    try:
+        rate = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", ""))
+    except ValueError:
+        return DEFAULT_TRACES_SAMPLE_RATE
+    return rate if 0.0 <= rate <= 1.0 else DEFAULT_TRACES_SAMPLE_RATE
 
 
 def sentry_options(dsn: str, *, environment: str) -> dict[str, Any]:
@@ -222,8 +263,9 @@ def sentry_options(dsn: str, *, environment: str) -> dict[str, Any]:
         "max_request_body_size": "never",
         "event_scrubber": EventScrubber(recursive=True),
         "before_send": before_send,
+        "before_send_transaction": before_send_transaction,
         "before_breadcrumb": before_breadcrumb,
-        "traces_sample_rate": 0.0,
+        "traces_sample_rate": traces_sample_rate(),
     }
 
 

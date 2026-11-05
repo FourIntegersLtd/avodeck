@@ -100,6 +100,11 @@ class Database:
             kwargs={"prepare_threshold": None, "autocommit": True, "cursor_factory": _CountingCursor},
         )
 
+    def pool_stats(self) -> dict[str, int]:
+        """The pool's own counters (`pool_size`, `pool_available`, `requests_waiting`): numbers only."""
+        stats = self._pool.get_stats()
+        return {k: int(stats.get(k, 0)) for k in ("pool_size", "pool_available", "requests_waiting")}
+
     async def open(self) -> None:
         """Open the pool and refuse to run as any role that could bypass RLS."""
         await self._pool.open(wait=True)

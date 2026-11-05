@@ -40,6 +40,7 @@ from datetime import UTC, date, datetime, timedelta
 
 import procrastinate
 import psycopg
+import sentry_sdk
 from procrastinate.jobs import Job
 from procrastinate.retry import BaseRetryStrategy, RetryDecision
 from psycopg import AsyncConnection
@@ -260,6 +261,15 @@ class _RetryOnlyWhenAsked(BaseRetryStrategy):
         return None
 
 
+def _dead_letter(kind: str, job: uuid.UUID) -> None:
+    """A job ended `failed` for good: one Sentry event with its kind and id, nothing else (rule 6). Sentry's
+    alert rule on `job_dead_lettered` pages the operators."""
+    with sentry_sdk.new_scope() as scope:
+        scope.set_tag("kind", kind)
+        scope.set_tag("job_id", str(job))
+        sentry_sdk.capture_message("job_dead_lettered", level="error")
+
+
 class JobWorker:
     """Runs a registry's jobs from its queue. Use as `async with JobWorker(...) as worker`."""
 
@@ -437,6 +447,7 @@ class JobWorker:
         kind = self.registry.kinds.get(kind_name)
         if kind is None:
             await self._finish(case, job, "failed", error_code="unknown_kind")
+            _dead_letter(kind_name, job)
             return
         try:
             await kind.handler(JobContext(self.database, job, case, kind_name, attempt, mailer=self.mailer))
@@ -456,6 +467,7 @@ class JobWorker:
                 raise _ResumeLater(self.pause_delays[resumes]) from None
             logger.warning("job %s of kind %s still paused (%s) after back-off: failed", job, kind_name, paused.reason)
             await self._finish(case, job, "failed", error_code=paused.reason)
+            _dead_letter(kind_name, job)
             return
         except Exception as exc:  # noqa: BLE001 - the type only: messages may carry patient text
             logger.warning("job %s of kind %s failed on attempt %d: %s", job, kind_name, attempt, type(exc).__name__)
@@ -479,6 +491,7 @@ class JobWorker:
                 await self._persist(requeue)
                 raise _TryAgain from None
             await self._finish(case, job, "failed", error_code="job_error")
+            _dead_letter(kind_name, job)
             return
         await self._finish(case, job, "done", pct=100)
 
