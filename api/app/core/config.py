@@ -240,6 +240,7 @@ ANTHROPIC_LIMITS = ProviderLimits(
     rpm=1000, pages_per_call=5, max_output_tokens=32000, concurrency=50, widest_output_tokens=64000
 )
 BEDROCK_MAX_OUTPUT_TOKENS = 16000
+# Default for `BEDROCK_CONCURRENCY`: the account-wide cap on Bedrock calls in flight at once (migration 0056).
 BEDROCK_CONCURRENCY = 3
 
 
@@ -280,6 +281,7 @@ class AiSettings:
     min_expected_pages: int = CostGuard.min_expected_pages
     cost_guard_multiple: int = CostGuard.multiple
     bedrock_rpm_limit: int = 5
+    bedrock_concurrency: int = BEDROCK_CONCURRENCY
     extraction_batch_size: int = 10
     # The share of a page's words the entries read from it must cover (env AI_ENTRY_COVERAGE_FLOOR, 0 to 1).
     entry_coverage_floor: float = 0.8
@@ -305,7 +307,7 @@ class AiSettings:
                 rpm=self.bedrock_rpm_limit,
                 pages_per_call=self.extraction_batch_size,
                 max_output_tokens=BEDROCK_MAX_OUTPUT_TOKENS,
-                concurrency=BEDROCK_CONCURRENCY,
+                concurrency=self.bedrock_concurrency,
             )
         }
         if self.primary_provider == "anthropic":
@@ -413,6 +415,7 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
         min_expected_pages=guard.min_expected_pages,
         cost_guard_multiple=guard.multiple,
         bedrock_rpm_limit=number("BEDROCK_RPM_LIMIT", 5),
+        bedrock_concurrency=number("BEDROCK_CONCURRENCY", BEDROCK_CONCURRENCY),
         extraction_batch_size=number("AI_EXTRACTION_BATCH_SIZE", 10),
         entry_coverage_floor=share("AI_ENTRY_COVERAGE_FLOOR", AiSettings.entry_coverage_floor),
         primary_provider=provider,

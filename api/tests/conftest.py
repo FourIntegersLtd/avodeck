@@ -200,3 +200,13 @@ def _zz_kinds_email_in_database_tests(request: pytest.FixtureRequest, monkeypatc
         from app.core import notifications
 
         monkeypatch.setattr(notifications, "EMAIL_KINDS", notifications.EMAIL_KINDS | _ZZ_EMAIL_KINDS)
+
+
+@pytest.fixture(autouse=True)
+def _empty_slot_pool(request: pytest.FixtureRequest) -> None:
+    """The slot scheduler counts the whole account (migration 0056), so a slot another test left behind would
+    count against this one. Tests that run the scheduler start from an empty pool."""
+    name = request.node.path.name
+    if "repository" in request.node.path.parts and ("slot" in name or "pipeline" in name):
+        with psycopg.connect(request.getfixturevalue("admin_dsn"), autocommit=True) as conn:
+            conn.execute("delete from app.ai_request_slots")

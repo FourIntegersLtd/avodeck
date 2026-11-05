@@ -92,8 +92,8 @@ async def test_a_call_that_never_reported_back_stops_counting_after_ten_minutes(
     case_a, case_b = two_cases
     crashed, waiting = seed.job(case_a), seed.job(case_b)
     admin.execute(
-        "insert into app.ai_request_slots (job_id, case_id, requested_at, granted_at)"
-        " values (%s, %s, now() - interval '11 minutes', now() - interval '11 minutes')",
+        "insert into app.ai_request_slots (job_id, case_id, requested_at, granted_at, in_flight)"
+        " values (%s, %s, now() - interval '11 minutes', now() - interval '11 minutes', true)",
         (crashed, case_a),
     )
     admin.commit()
@@ -114,7 +114,8 @@ async def test_a_worker_still_cannot_read_another_cases_slot_rows(
     case_a, case_b = two_cases
     other = seed.job(case_b)
     admin.execute(
-        "insert into app.ai_request_slots (job_id, case_id, requested_at, granted_at) values (%s, %s, now(), now())",
+        "insert into app.ai_request_slots (job_id, case_id, requested_at, granted_at, in_flight)"
+        " values (%s, %s, now(), now(), true)",
         (other, case_b),
     )
     admin.commit()
@@ -122,7 +123,9 @@ async def test_a_worker_still_cannot_read_another_cases_slot_rows(
     async with worker_db.job(case_a) as conn:
         cur = await conn.execute("select count(*) from app.ai_request_slots")
         assert await cur.fetchone() == (0,)
-        cur = await conn.execute("select in_flight, granted_in_window from app.ai_slots_in_use('bedrock', '60 seconds')")
+        cur = await conn.execute(
+            "select in_flight, granted_in_window from app.ai_slots_in_use('bedrock', '60 seconds')"
+        )
         assert await cur.fetchone() == (1, 1)  # the count is account-wide; the rows stay private
 
 
@@ -161,7 +164,7 @@ async def test_a_call_releases_its_slot_whether_it_answers_or_fails(fail: bool) 
     async def no_sleep(_seconds: float) -> None:
         return None
 
-    kit = AiKit(cell(), _Bedrock(fail), retries=0, base_delay=0.0, sleep=no_sleep)  # type: ignore[arg-type]
+    kit = AiKit(cell(), _Bedrock(fail), retries=0, base_delay=0.0, sleep=no_sleep)
     try:
         await kit._invoke_bedrock(_request(), wait)  # type: ignore[arg-type]
     except Exception:
