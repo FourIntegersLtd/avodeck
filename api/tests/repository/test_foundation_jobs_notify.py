@@ -35,9 +35,7 @@ def case(seed: Seed) -> uuid.UUID:
     return seed.case(org, person)
 
 
-def test_a_new_job_notifies_with_exactly_the_case_id(
-    seed: Seed, listener: psycopg.Connection, case: uuid.UUID
-) -> None:
+def test_a_new_job_notifies_with_exactly_the_case_id(seed: Seed, listener: psycopg.Connection, case: uuid.UUID) -> None:
     _drain(listener, 0.2)
     seed.job(case)
     assert _drain(listener) == [str(case)]

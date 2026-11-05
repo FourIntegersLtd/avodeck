@@ -135,9 +135,13 @@ async def test_keepalives_go_every_heartbeat_with_no_notify(
 
 
 async def test_access_is_checked_at_connect_and_only_every_recheck_interval_after(
-    client_for: ClientFor, team: dict[str, uuid.UUID], app: FastAPI, admin: psycopg.Connection, monkeypatch: pytest.MonkeyPatch
+    client_for: ClientFor,
+    team: dict[str, uuid.UUID],
+    app: FastAPI,
+    admin: psycopg.Connection,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app.state.sse_access_recheck_seconds = 0.6
+    app.state.sse_access_recheck_seconds = 1.0
     app.state.sse_safety_poll_seconds = 0.2
     app.state.job_stream_seconds = 1.5
     spy = Spy(monkeypatch)
@@ -146,9 +150,14 @@ async def test_access_is_checked_at_connect_and_only_every_recheck_interval_afte
     admin.execute("update app.jobs set pct = 10 where id = %s", (team["job"],))  # a pushed fetch: no access check
     await asyncio.wait_for(stream, 10)
     checks = [checked for _, checked, _ in spy.calls]
-    assert checks[0] is True, "checked at connect"
-    assert checks.count(True) < len(checks), "a pushed or tick fetch between checks skips the check"
-    assert checks.count(True) <= 3
+    # The check at connect is the route's `require_case_access`; the stream's own first look reuses it.
+    assert checks[0] is False
+    assert 1 <= checks.count(True) <= 3, "checked again once the interval passed, and not on every look"
+    assert checks.count(False) >= 3, "a pushed or tick fetch between checks skips the check"
+
+
+def test_the_default_recheck_interval_is_at_most_sixty_seconds() -> None:
+    assert case_events.ACCESS_RECHECK_SECONDS <= 60.0
 
 
 async def test_removing_a_member_ends_the_stream_within_the_recheck_interval(

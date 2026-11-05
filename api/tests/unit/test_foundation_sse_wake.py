@@ -7,8 +7,8 @@ wake event by hand, as the case notifier does when Postgres says a case's jobs c
 from __future__ import annotations
 
 import asyncio
-from contextlib import contextmanager
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
 
 import pytest
 
@@ -47,7 +47,7 @@ class _Counter:
         return {"n": self.calls}
 
 
-def _watching(wake: asyncio.Event):
+def _watching(wake: asyncio.Event) -> tuple[Callable[[], AbstractContextManager[asyncio.Event]], dict[str, int]]:
     state = {"entered": 0, "left": 0}
 
     @contextmanager
@@ -142,9 +142,9 @@ async def test_the_subscription_is_released_when_the_client_goes_away() -> None:
     counter = _Counter()
     request = _Request(_State(limit=5.0, heartbeat=5.0, safety=30.0))
     resp = await sse_stream(request, counter.fetch, watch=watch)  # type: ignore[arg-type]
-    body = resp.body_iterator  # type: ignore[attr-defined]
+    body = resp.body_iterator.__aiter__()
     await body.__anext__()
-    await body.aclose()
+    await body.aclose()  # type: ignore[attr-defined]
     assert state == {"entered": 1, "left": 1}
 
 

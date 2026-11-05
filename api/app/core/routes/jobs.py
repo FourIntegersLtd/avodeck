@@ -21,6 +21,7 @@ from app.core.auth.access import check_case_access
 from app.core.db import Database, RequestScope
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, router
+from app.core.notify import CaseNotifier
 from app.core.sse import (  # re-exported: main.py and this route's tests import the timing constants here
     EDGE_IDLE_SECONDS,
     EDGE_SILENT_SECONDS,
@@ -90,8 +91,10 @@ async def _progress(database: Database, scope: RequestScope, job_id: uuid.UUID) 
 
 @jobs_router.get("/{job_id}/events", response_class=StreamingResponse)
 async def job_events(job_id: uuid.UUID, request: Request, conn: DbConn, scope: CurrentScope) -> StreamingResponse:
-    await _job(conn, job_id)
+    job = await _job(conn, job_id)
     database: Database = request.app.state.database
+    notifier: CaseNotifier | None = getattr(request.app.state, "case_notifier", None)
+    case_id: uuid.UUID = job["case_id"]  # type: ignore[assignment]
 
     async def fetch() -> dict[str, object] | None:
         return await _progress(database, scope, job_id)
@@ -99,4 +102,8 @@ async def job_events(job_id: uuid.UUID, request: Request, conn: DbConn, scope: C
     def is_finished(current: dict[str, object]) -> bool:
         return current["status"] in _FINISHED
 
-    return await sse_stream(request, fetch, is_finished)
+    if notifier is None:
+        return await sse_stream(request, fetch, is_finished)
+    # Each look runs under row-level security as the person, so a person who loses the case gets no row and the
+    # stream ends; the notifier only says when to look (PR 8).
+    return await sse_stream(request, fetch, is_finished, watch=lambda: notifier.watch(case_id))

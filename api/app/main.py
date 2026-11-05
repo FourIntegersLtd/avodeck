@@ -18,7 +18,9 @@ from app.core.config import (
     auth_settings,
     cell_settings,
     database_settings,
+    listen_url,
     local_mfa_skip,
+    sse_settings,
 )
 from app.core.contracts.reading import PageReadLog
 from app.core.contracts.today import NeedsYouRegistry
@@ -31,6 +33,7 @@ from app.core.email_live import mailer_from_env
 from app.core.errors import install_error_handlers
 from app.core.features import DEFAULT_PACKAGE as DEFAULT_FEATURES
 from app.core.features import feature_routers, start_features
+from app.core.notify import CaseNotifier
 from app.core.packs import PackLibrary, default_library
 from app.core.routes.account import account_public, account_router
 from app.core.routes.auth import auth_password, auth_pending, auth_public, auth_signed_in, auth_status
@@ -141,12 +144,21 @@ def create_app(
                 await app.state.storage.ensure_bucket()
             except Exception as exc:  # noqa: BLE001 - start-up goes on; file routes answer for themselves
                 logging.getLogger(__name__).warning("storage bucket check failed: %s", type(exc).__name__)
+        owned_notifier: CaseNotifier | None = None
+        if app.state.case_notifier is None and (url := listen_url()) is not None:
+            # One dedicated LISTEN connection per process (not from the pool): live streams are pushed, not polled.
+            owned_notifier = CaseNotifier(url)
+            await owned_notifier.start()
+            app.state.case_notifier = owned_notifier
         lag = asyncio.create_task(metrics.sample_loop_lag())
         try:
             await start_features(features, app)  # each slice's `on_startup(app)`, database ready
             yield
         finally:
             lag.cancel()
+            if owned_notifier is not None:
+                app.state.case_notifier = None
+                await owned_notifier.stop()
             if owned_storage is not None:
                 await owned_storage.aclose()
             if owned is not None:
@@ -171,6 +183,8 @@ def create_app(
     # quiet stream from looking silent to the edge (ADR 0031).
     app.state.job_stream_seconds = JOB_STREAM_SECONDS
     app.state.job_heartbeat_seconds = HEARTBEAT_SECONDS
+    app.state.case_notifier = None  # set by the lifespan when DATABASE_URL_LISTEN is set; None keeps the timed loop
+    app.state.sse_safety_poll_seconds = sse_settings().safety_poll_seconds
     logs.configure(app.state.packs.identifier_finders())
     app.add_middleware(logs.RequestLog)
     # Added last, so it is outermost: a preflight is answered before the session, CSRF and transaction

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from contextlib import AbstractContextManager, aclosing, nullcontext
 
 from fastapi import Request
@@ -63,7 +63,7 @@ async def sse_stream(
                 async for frame in frames:
                     yield frame
 
-    async def _frames(wake: asyncio.Event | None) -> AsyncIterator[str]:
+    async def _frames(wake: asyncio.Event | None) -> AsyncGenerator[str]:
         loop = asyncio.get_running_loop()
         deadline = loop.time() + limit
         last: dict[str, object] | None = None

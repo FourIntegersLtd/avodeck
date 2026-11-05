@@ -96,13 +96,19 @@ class DatabaseSettings:
     statement_timeout_ms: int = DEFAULT_API_STATEMENT_TIMEOUT_MS
 
 
+def listen_url(env: Mapping[str, str] | None = None) -> str | None:
+    """`DATABASE_URL_LISTEN`, or None when unset (streams then keep their timed loop)."""
+    source = os.environ if env is None else env
+    return source.get("DATABASE_URL_LISTEN", "").strip() or None
+
+
 def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
     source = os.environ if env is None else env
     url = source.get("DATABASE_URL", "").strip()
     if not url:
         raise ConfigError("DATABASE_URL is not set")
     direct = source.get("DATABASE_URL_DIRECT", "").strip() or None
-    listen = source.get("DATABASE_URL_LISTEN", "").strip() or None
+    listen = listen_url(source)
     return DatabaseSettings(
         url=url,
         url_direct=direct,

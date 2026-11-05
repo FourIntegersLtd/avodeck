@@ -36,7 +36,6 @@ case_events_router = router(prefix="/v1/cases", tags=["jobs"], touch=False)
 RECENT_MINUTES = 10  # how long a finished job stays in the list, so a screen that opens late still sees it end
 MAX_JOBS = 50
 ACCESS_RECHECK_SECONDS = 60.0  # the longest a stream goes without asking again whether the person may see the case
-_RECHECK_SLACK = 0.25  # a wait that wakes a hair early must still count as due
 POLL_FACTOR = 2.0  # looks half as often as a single job's stream: the whole case changes more rarely to a screen
 
 _FIELDS = ("id", "kind", "status", "step", "pct", "eta_seconds", "step_done", "step_total", "error_code")
@@ -72,13 +71,14 @@ async def case_events(
     database: Database = request.app.state.database
     state = request.app.state
     notifier: CaseNotifier | None = getattr(state, "case_notifier", None)
-    recheck = float(getattr(state, "sse_access_recheck_seconds", ACCESS_RECHECK_SECONDS))
+    # Looks land up to one wake apart, so asking at half the limit keeps the gap between checks under the limit.
+    recheck = float(getattr(state, "sse_access_recheck_seconds", ACCESS_RECHECK_SECONDS)) / 2
     checked_at = _MONOTONIC()  # `_access` above is the check at connect
 
     async def fetch() -> dict[str, object] | None:
         nonlocal checked_at
         now = _MONOTONIC()
-        due = notifier is None or now - checked_at >= recheck - _RECHECK_SLACK  # the timed loop checks every look
+        due = notifier is None or now - checked_at >= recheck  # the timed loop checks every look
         if due:
             checked_at = now
         return await _jobs(database, scope, case_id, check_access=due)
