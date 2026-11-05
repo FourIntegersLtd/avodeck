@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Any, NamedTuple
 
 REPO = Path(__file__).resolve().parents[3]
 RUNBOOK = (REPO / "docs" / "runbooks" / "railway.md").read_text()
@@ -18,13 +19,27 @@ DIRECT_MAX_CONNECTIONS = 80  # Supabase Small: 90 direct, 10 kept free
 DEFAULT_WORKER_POOL, DEFAULT_QUEUE_POOL = 10, 4  # api/app/core/config.py
 
 
+class Row(NamedTuple):
+    role: str
+    replicas: int
+    processes: int
+    pool: int
+    queue: int
+    listener: int
+    total: int
+
+
+def deploy_of(name: str) -> dict[str, Any]:
+    deploy: dict[str, Any] = json.loads((REPO / "railway" / f"{name}.json").read_text())["deploy"]
+    return deploy
+
+
 def replicas(name: str) -> int:
-    deploy = json.loads((REPO / "railway" / f"{name}.json").read_text())["deploy"]
-    return sum(region["numReplicas"] for region in deploy["multiRegionConfig"].values())
+    return int(sum(region["numReplicas"] for region in deploy_of(name)["multiRegionConfig"].values()))
 
 
 def start_command(name: str) -> str:
-    return json.loads((REPO / "railway" / f"{name}.json").read_text())["deploy"].get("startCommand", "")
+    return str(deploy_of(name).get("startCommand", ""))
 
 
 def env_in(command: str, name: str, default: int) -> int:
@@ -32,10 +47,10 @@ def env_in(command: str, name: str, default: int) -> int:
     return int(match.group(1)) if match else default
 
 
-def budget_rows() -> dict[str, list[int | str]]:
-    """The connection-budget table: service -> [role, replicas, processes, pool, queue pool, listener, total]."""
+def budget_rows() -> dict[str, Row]:
+    """The connection-budget table: service -> Row."""
     section = RUNBOOK.split("### Connection budget", 1)[1].split("\n## ", 1)[0]
-    rows: dict[str, list[int | str]] = {}
+    rows: dict[str, Row] = {}
     for line in section.splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
         if len(cells) != 7 or not cells[0].startswith("`"):
@@ -43,7 +58,7 @@ def budget_rows() -> dict[str, list[int | str]]:
         service = cells[0].strip("`").split("`")[0]
         shape = re.fullmatch(r"(\d+) x (\d+)", cells[2])
         assert shape, f"{service}: replicas x processes should read '2 x 2'"
-        rows[service] = [cells[1].strip("`"), int(shape[1]), int(shape[2]), *map(int, cells[3:])]
+        rows[service] = Row(cells[1].strip("`"), int(shape[1]), int(shape[2]), *map(int, cells[3:]))
     return rows
 
 
@@ -56,26 +71,26 @@ def api_variable(name: str) -> int:
 def test_every_row_adds_up_from_its_own_columns() -> None:
     rows = budget_rows()
     assert {"api", "worker", "worker-interactive"} <= set(rows)
-    for service, (_role, reps, procs, pool, queue, listener, total) in rows.items():
-        assert total == reps * procs * (pool + queue + listener), service
+    for service, row in rows.items():
+        assert row.total == row.replicas * row.processes * (row.pool + row.queue + row.listener), service
 
 
 def test_the_runbook_rows_match_the_railway_files() -> None:
     rows = budget_rows()
-    assert rows["api"][1] == replicas("api") == 2
+    assert rows["api"].replicas == replicas("api") == 2
     for service in ("worker", "worker-interactive"):
-        _role, reps, procs, pool, queue, listener, _total = rows[service]
+        row = rows[service]
         command = start_command(service)
-        assert (reps, procs, listener) == (replicas(service), 1, 0), service
-        assert pool == env_in(command, "WORKER_DB_POOL_MAX", DEFAULT_WORKER_POOL), service
-        assert queue == env_in(command, "WORKER_QUEUE_POOL_MAX", DEFAULT_QUEUE_POOL), service
+        assert (row.replicas, row.processes, row.listener) == (replicas(service), 1, 0), service
+        assert row.pool == env_in(command, "WORKER_DB_POOL_MAX", DEFAULT_WORKER_POOL), service
+        assert row.queue == env_in(command, "WORKER_QUEUE_POOL_MAX", DEFAULT_QUEUE_POOL), service
 
 
 def test_the_api_row_matches_the_variables_the_runbook_tells_the_service_to_set() -> None:
-    _role, _reps, procs, pool, queue, listener, _total = budget_rows()["api"]
-    assert procs == api_variable("WEB_CONCURRENCY") == 2
-    assert pool == api_variable("API_DB_POOL_MAX") == 8
-    assert (queue, listener) == (0, 1)  # one LISTEN connection per process, none from the queue library
+    row = budget_rows()["api"]
+    assert row.processes == api_variable("WEB_CONCURRENCY") == 2
+    assert row.pool == api_variable("API_DB_POOL_MAX") == 8
+    assert (row.queue, row.listener) == (0, 1)  # one LISTEN connection per process, none from the queue library
 
 
 def test_the_settings_table_states_the_api_replica_count() -> None:
@@ -86,18 +101,20 @@ def test_the_settings_table_states_the_api_replica_count() -> None:
 def test_each_role_total_is_the_sum_of_its_rows_and_fits_the_poolers_pool_size() -> None:
     rows = budget_rows()
     for role, services in (("app_api", ["api"]), ("app_worker", ["worker", "worker-interactive"])):
-        total = sum(int(rows[s][6]) for s in services)
+        total = sum(rows[s].total for s in services)
         match = re.search(rf"\*\*`{role}` total[^|]*\|[^*]*\*\*(\d+)\*\* \(pooler pool size at least (\d+)\)", RUNBOOK)
         assert match, f"{role} total row not found"
         stated, pooler = int(match[1]), int(match[2])
         assert stated == total, role
         assert pooler >= total, role
-        assert all(rows[s][0] == role for s in services), role
+        assert all(rows[s].role == role for s in services), role
 
 
 def test_both_roles_together_stay_under_the_databases_direct_limit() -> None:
     rows = budget_rows()
-    assert sum(int(row[6]) for row in rows.values()) <= DIRECT_MAX_CONNECTIONS
-    assert re.search(r"Final total (\d+) \+ (\d+) = (\d+)", RUNBOOK)
-    first, second, both = map(int, re.search(r"Final total (\d+) \+ (\d+) = (\d+)", RUNBOOK).groups())  # type: ignore[union-attr]
-    assert first + second == both == sum(int(row[6]) for row in rows.values())
+    everything = sum(row.total for row in rows.values())
+    assert everything <= DIRECT_MAX_CONNECTIONS
+    stated = re.search(r"Final total (\d+) \+ (\d+) = (\d+)", RUNBOOK)
+    assert stated, "the runbook should state 'Final total A + B = C'"
+    first, second, both = map(int, stated.groups())
+    assert first + second == both == everything
