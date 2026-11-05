@@ -23,8 +23,7 @@ from collections.abc import Iterable, Mapping, Sequence
 
 from psycopg import AsyncConnection
 
-from app.core.crypto import CaseCrypto
-from app.core.crypto import _open as _open_word  # the AES-GCM step for one word; the seam tests count
+from app.core.crypto import CaseCrypto, _open
 
 
 def word_purpose(page_id: uuid.UUID, word_id: str) -> str:
@@ -116,6 +115,11 @@ def box(
         "x1": share(max(xs), width),
         "y1": share(max(ys), height),
     }
+
+
+def _open_word(key: bytes, blob: bytes, aad: bytes) -> bytes:
+    """The AES-GCM step for one word (the seam tests count)."""
+    return _open(key, blob, aad)
 
 
 def _open_all(key: bytes, case_id: uuid.UUID, rows: Sequence[tuple[uuid.UUID, str, bytes]]) -> list[str]:
