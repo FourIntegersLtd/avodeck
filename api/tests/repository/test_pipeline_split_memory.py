@@ -15,6 +15,7 @@ import hashlib
 import io
 import random
 import tempfile
+import time
 import tracemalloc
 import uuid
 from collections.abc import AsyncIterator, Sequence
@@ -33,16 +34,17 @@ from app.features.pipeline import paths, service
 from app.features.pipeline.render import Pictures
 from tests.repository.test_pipeline_support import Harness, harness
 from tests.support.files import local_storage
+from tests.support.jobs import open_worker
 from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
 
 MB = 1024 * 1024
 PAGES = 1500
-BALLAST = 24 * 1024  # random bytes carried by each page, so the document weighs about 36 MB
-# 40% of the 75 MB the all-in-memory split added at its peak on this document (measured before the change;
-# docs/ops/capacity.md). The plan's own ceiling for a real 1,500-page bundle is 300 MB.
-PEAK_LIMIT = 30 * MB
+BALLAST = 48 * 1024  # random bytes carried by each page, so the document weighs about 72 MB
+# 40% of the 146 MB the all-in-memory split added at its peak on this 72 MB document (measured before the change;
+# docs/ops/capacity.md). One 8 MB stored part, sealed and opened, is most of what the new split holds.
+PEAK_LIMIT = 58 * MB
 
 
 def heavy_pdf(pages: int, ballast: int) -> bytes:
@@ -132,6 +134,26 @@ async def no_pictures(page_pdf: bytes, rotation: int) -> Pictures:
     return Pictures(image=b"i", thumbnail=b"t")
 
 
+async def finish(run: Harness, timeout: float = 120) -> dict[uuid.UUID, str]:
+    """Runs the worker until every job on the case is `done` or `failed`. (`Harness.drain` counts `paused` as
+    finished, and a job the worker was stopped under is paused, so it can return before a slow job is done.)"""
+    deadline = time.monotonic() + timeout
+    async with open_worker(run.registry, run.worker_db, run.worker_dsn) as worker:
+        task = asyncio.create_task(worker.run())
+        try:
+            while True:
+                rows = run.admin.execute("select id, status from app.jobs where case_id = %s", (run.case_id,))
+                found = {r[0]: r[1] for r in rows.fetchall()}
+                if found and all(s in ("done", "failed") for s in found.values()):
+                    return found
+                assert time.monotonic() < deadline, f"jobs not finished in {timeout}s: {sorted(found.values())}"
+                await asyncio.sleep(0.2)
+        finally:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+
 def with_measure(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
     """Wrap the split so the Python memory it adds at its peak is recorded."""
     seen: dict[str, int] = {}
@@ -162,7 +184,7 @@ async def test_splitting_1500_pages_keeps_python_memory_low(
     seen = with_measure(monkeypatch)
     spy.drop = True
 
-    found = await run.drain(timeout=600)
+    found = await finish(run, timeout=600)
 
     states = run.admin.execute("select kind, status, error_code from app.jobs where case_id = %s", (run.case_id,))
     assert set(found.values()) == {"done"}, states.fetchall()
@@ -175,7 +197,7 @@ async def test_the_cut_is_the_same_bytes_as_before(h: tuple[Harness, PageDiscard
     run, _ = h
     document = heavy_pdf(40, 2048)
     await run.upload(document)
-    await run.drain()
+    await finish(run)
 
     expected = [hashlib.sha256(p).hexdigest() for p in split_pages(document)]
     rows = run.admin.execute(
@@ -201,7 +223,7 @@ async def test_a_failed_split_still_deletes_its_temp_file(
 
     monkeypatch.setattr(service, "_pictures", broken)
     await run.upload(heavy_pdf(6, 512))
-    await run.drain(timeout=60)  # the job fails after its attempts; either way the file must be gone
+    await finish(run, timeout=60)  # the job fails after its attempts; either way the file must be gone
 
     assert not list(scratch.iterdir()), "a temp file was left behind after a failure"
 
