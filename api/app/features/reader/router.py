@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import io
 import uuid
+from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
 from fastapi import Depends, Query, Request, Response
@@ -17,7 +18,7 @@ from PIL import Image
 from app.core.ai import provenance
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.contracts import served
-from app.core.contracts.document_words import Correction, apply_corrections, document_words
+from app.core.contracts.document_words import Correction, apply_corrections
 from app.core.contracts.document_words import box as word_box
 from app.core.contracts.fact_flags import POINTS, RECHECK
 from app.core.contracts.pipeline import EntryPointMissing, extract_page_text, process_pages
@@ -29,7 +30,7 @@ from app.core.http import router as make_router
 from app.core.packs import PackLibrary
 from app.core.storage import CaseFileStorage
 from app.features.reader import fields as fact_fields
-from app.features.reader import repo, timeline_date, today  # noqa: F401 (registers the Today providers)
+from app.features.reader import repo, search_cache, timeline_date, today  # noqa: F401 (registers the Today providers)
 from app.features.reader import search as bundle_search
 from app.features.reader.schemas import (
     Box,
@@ -61,6 +62,7 @@ from app.features.reader.schemas import (
     UnreadableQueue,
     VerifyIn,
 )
+from app.features.reader.search_cache import CaseWords
 
 router = make_router(prefix="/v1/cases/{case_id}", tags=["reader"])
 
@@ -623,36 +625,43 @@ async def search_bundle(
     response.headers["cache-control"] = "private, no-store"
     wanted = bundle_search.terms(body.q)
     pages = await repo.searchable_pages(conn, case_id)
-    polygons, sizes = await repo.word_places(conn, case_id)
     crypto = _crypto(request)
-    by_page: dict[uuid.UUID, list[tuple[str, str]]] = {}
-    for document_id in sorted({d for _, d in pages.values()}, key=str):
-        for key, text in await document_words(conn, crypto, case_id, document_id):
-            page_part, word_id = key.split("/", 1)
-            page_id = uuid.UUID(page_part)
-            if page_id in pages:
-                by_page.setdefault(page_id, []).append((word_id, text))
+    # The words are opened once per case and kept for a short time (search_cache); the version, read from the
+    # database on every search, says when they must be opened again. Matching runs off the event loop.
+    cached = await search_cache.get_words(
+        case_id, lambda: repo.search_words(conn, crypto, case_id), version=await repo.search_version(conn, case_id)
+    )
+    found = await asyncio.to_thread(_scan, cached, pages, wanted)
+    return SearchOut(pages=found, total_hits=sum(p.hits for p in found))
+
+
+def _scan(cached: CaseWords, pages: dict[uuid.UUID, tuple[int, uuid.UUID]], wanted: list[str]) -> list[SearchPage]:
+    """The pages (not set aside) with hits, by page number, each hit's box as a share of the page."""
     found: list[SearchPage] = []
-    for page_id, words in by_page.items():
-        hits = bundle_search.find(words, wanted)
+    for page_id, (page_no, _) in pages.items():
+        page = cached.pages.get(page_id)
+        if page is None:
+            continue
+        hits = bundle_search.find(list(zip(page.ids, page.texts, strict=True)), wanted)
         if not hits:
             continue
-        places = polygons.get(page_id, {})
-        width, height = sizes.get(page_id) or _furthest(places)
+        wanted_ids = {w for ids in hits for w in ids}
+        places = {w: list(page.poly[8 * i : 8 * i + 8]) for i, w in enumerate(page.ids) if w in wanted_ids}
+        width, height = cached.sizes.get(page_id) or _furthest(page.poly)
         boxes = []
         for ids in hits:
             placed = [w for w in ids if any(places.get(w, []))]
             if placed:
                 boxes.append(Box(**word_box(placed, places, width, height)))
-        found.append(SearchPage(page_no=pages[page_id][0], hits=len(hits), boxes=boxes))
+        found.append(SearchPage(page_no=page_no, hits=len(hits), boxes=boxes))
     found.sort(key=lambda p: p.page_no)
-    return SearchOut(pages=found, total_hits=sum(p.hits for p in found))
+    return found
 
 
-def _furthest(polygons: dict[str, list[float]]) -> tuple[float, float]:
+def _furthest(poly: Sequence[float]) -> tuple[float, float]:
     """A page with no analysis: its size from its furthest word (as `repo._size`)."""
-    width = max((x for p in polygons.values() for x in p[0::2]), default=1.0) or 1.0
-    height = max((y for p in polygons.values() for y in p[1::2]), default=1.0) or 1.0
+    width = max(poly[0::2], default=1.0) or 1.0
+    height = max(poly[1::2], default=1.0) or 1.0
     return width, height
 
 
