@@ -51,6 +51,7 @@
   "app.case.back": "Back to Today",
   "errors.generic": "Something went wrong. Please try again.",
   "errors.network": "We can't reach Avodeck just now. Please check your internet connection and try again.",
+  "errors.busy": "Avodeck is busy. Please try again in a moment.",
   "errors.too_many_attempts": "Too many tries. Please wait a few minutes and try again.",
   "errors.invalid_code": "That code didn't work. Please check your phone and try again.",
   "errors.invalid_token": "That link has expired or was already used. Please ask for a new one.",
