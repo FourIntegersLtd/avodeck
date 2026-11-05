@@ -22,7 +22,7 @@ from app.core.db import Database
 from app.core.email import Mailer
 from app.core.email_live import mailer_from_env
 from app.core.features import DEFAULT_PACKAGE, WORKER_HOOK, load_features, start_features
-from app.core.jobs import JobWorker, registry
+from app.core.jobs import DEFAULT_SHUTDOWN_GRACE_SECONDS, JobWorker, registry
 
 
 def build_worker(
@@ -33,12 +33,16 @@ def build_worker(
     if not settings.url_direct:
         raise ConfigError("DATABASE_URL_DIRECT is not set")
     load_features(features)
+    source = os.environ if env is None else env
     return JobWorker(
         registry,
         database=Database(settings.url_direct, max_size=settings.worker_pool_max),
         queue_pool_max=settings.queue_pool_max,
         dsn=settings.url_direct,
         mailer=mailer if mailer is not None else mailer_from_env(env),
+        shutdown_grace_seconds=env_int(
+            source, "WORKER_SHUTDOWN_GRACE_SECONDS", DEFAULT_SHUTDOWN_GRACE_SECONDS, minimum=1
+        ),
     )
 
 

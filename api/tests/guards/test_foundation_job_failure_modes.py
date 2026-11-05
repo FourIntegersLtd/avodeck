@@ -77,7 +77,7 @@ async def test_f6_a_crashed_workers_job_is_requeued_and_skips_the_steps_it_finis
 
     assert done == ["second"], "a finished step ran again"
     row = admin.execute("select status, attempts, pct from app.jobs where id = %s", (job,)).fetchone()
-    assert row == ("done", 2, 100)
+    assert row == ("done", 1, 100)  # a stall is not a failure: the attempt it was on is not counted again (PR 5)
     steps = admin.execute("select step from app.job_steps where job_id = %s order by step", (job,)).fetchall()
     assert steps == [("first",), ("second",)]
 

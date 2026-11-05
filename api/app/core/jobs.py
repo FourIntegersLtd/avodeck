@@ -63,6 +63,8 @@ StepWork = Callable[[AsyncConnection], Awaitable[None]]
 RESUMABLE_PAUSES = frozenset({"service_busy", "model_unavailable"})
 # Waits between resumes: doubling from the AI kit's base, F5's 2 hours in all; then the job fails.
 # Waits (seconds) between tries when a status write loses its database connection (the pooler closed it).
+# Seconds a stopping worker lets running jobs finish before it pauses them (they carry on at restart).
+DEFAULT_SHUTDOWN_GRACE_SECONDS = 25
 DEFAULT_PERSIST_WAITS: tuple[float, ...] = (0.25, 1.0, 3.0)
 DEFAULT_PAUSE_DELAYS: tuple[float, ...] = tuple(backoff_delays(64, limit=MAX_WAIT_SECONDS))
 
@@ -278,12 +280,14 @@ class JobWorker:
         queue_pool_max: int = 4,
         persist_waits: Sequence[float] = DEFAULT_PERSIST_WAITS,
         orphan_grace_seconds: float | None = None,
+        shutdown_grace_seconds: float = DEFAULT_SHUTDOWN_GRACE_SECONDS,
     ) -> None:
         self.registry = registry
         self.mailer: Mailer = mailer or OutboxMailer()
         self.database = database
         self.poll_seconds = poll_seconds
         self.heartbeat_seconds = heartbeat_seconds
+        self.shutdown_grace_seconds = shutdown_grace_seconds
         self.stalled_after_seconds = stalled_after_seconds
         self.max_attempts = int(max_attempts)
         self.schedule_seconds = schedule_seconds
@@ -318,6 +322,7 @@ class JobWorker:
                 install_signal_handlers=install_signal_handlers,
                 update_heartbeat_interval=self.heartbeat_seconds,
                 stalled_worker_timeout=self.stalled_after_seconds,
+                shutdown_graceful_timeout=self.shutdown_grace_seconds,
             )
         finally:
             housekeeping.cancel()
@@ -346,6 +351,14 @@ class JobWorker:
         )
         count = 0
         for job in stalled:
+            # A stall is not a failure: the next run does not count an attempt (migration 0058).
+            job_id, case_id = job.task_kwargs.get("job_id"), job.task_kwargs.get("case_id")
+            if isinstance(job_id, str) and isinstance(case_id, str):
+                async with self.database.job(uuid.UUID(case_id)) as conn:
+                    await conn.execute(
+                        "update app.jobs set requeued_stall = true where id = %s and status = 'running'",
+                        (uuid.UUID(job_id),),
+                    )
             await self.queue.job_manager.retry_job(job)
             count += 1
         return count
@@ -410,9 +423,10 @@ class JobWorker:
             if waits is not None and waits[0]:
                 return  # stays queued; `release_case_hold()` puts it back when the case resumes
             cur = await conn.execute(
-                # Resuming from a pause is not a new attempt: `attempts` counts failures and requeues only.
-                "update app.jobs set status = 'running', error_code = null,"
-                " attempts = attempts + case when status = 'paused' then 0 else 1 end,"
+                # Resuming from a pause, or after a stalled worker, is not a new attempt: `attempts` counts
+                # failures only.
+                "update app.jobs set status = 'running', error_code = null, requeued_stall = false,"
+                " attempts = attempts + case when status = 'paused' or requeued_stall then 0 else 1 end,"
                 " started_at = coalesce(started_at, now()) where id = %s returning kind, attempts",
                 (job,),
             )
@@ -426,6 +440,11 @@ class JobWorker:
             return
         try:
             await kind.handler(JobContext(self.database, job, case, kind_name, attempt, mailer=self.mailer))
+        except asyncio.CancelledError:
+            # The worker is stopping and its grace has run out: pause the job (no attempt counted) and put its
+            # queue row back, so it carries on where it stopped when a worker starts again.
+            await self._finish(case, job, "paused", error_code="resuming")
+            raise _ResumeLater(0) from None
         except ProcessingPaused as paused:
             if paused.reason not in RESUMABLE_PAUSES:
                 await self._finish(case, job, "paused", error_code=paused.reason)

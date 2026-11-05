@@ -93,6 +93,9 @@ CPU_CONCURRENCY = min(  # the cores this process may use (not the host's), at mo
     8, len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 2)
 )
 _CPU = ThreadPoolExecutor(max_workers=CPU_CONCURRENCY, thread_name_prefix="pipeline-cpu")  # JPEG and hash work
+# PDFium is not thread-safe, so every call into it goes through this one thread: the event loop stays free
+# (the worker's heartbeat, progress and other pages keep moving) and two calls never overlap.
+_PDFIUM = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pdfium")
 LIMITS = convert.Limits()
 PART_OBJECT = "file"  # the one sealed object under a part's prefix
 log = logging.getLogger(__name__)
@@ -155,7 +158,7 @@ async def _unpack(
 ) -> list[bytes]:
     """Cuts one document into pages; the files inside an email or a zip become documents of their
     own (cut on the next round) and files that cannot be paged become exhibits (F36)."""
-    found = convert.unpack(data, doc.filename, LIMITS)
+    found = await asyncio.to_thread(convert.unpack, data, doc.filename, LIMITS)
     if found.members and await repo.part_depth(conn, doc.id) >= LIMITS.max_depth:
         found = convert.Unpacked(found.media_type, exhibit=True)
     for n, member in enumerate(found.members, start=1):
@@ -185,7 +188,7 @@ async def _unpack(
             storage_path=doc.storage_path,
         )
     await repo.set_media_type(conn, doc.id, found.media_type)
-    return _pages_of(found)
+    return await asyncio.to_thread(_pages_of, found)
 
 
 async def _split(ctx: JobContext, services: PipelineServices) -> None:
@@ -221,7 +224,8 @@ async def _split(ctx: JobContext, services: PipelineServices) -> None:
                 async with ctx.transaction() as conn:
                     prefix, filename = await repo.document_file(conn, page.document_id)
                 data = await _read_document_free(ctx, services, prefix)
-                cache[page.document_id] = _pages_of(convert.unpack(data, filename, LIMITS))
+                unpacked = await asyncio.to_thread(convert.unpack, data, filename, LIMITS)
+                cache[page.document_id] = await asyncio.to_thread(_pages_of, unpacked)
             return cache[page.document_id]
 
     async def make(page: repo.PageRow) -> None:
@@ -248,10 +252,11 @@ async def _split(ctx: JobContext, services: PipelineServices) -> None:
 
 
 async def _pictures(page_pdf: bytes, rotation: int) -> Pictures:
-    """The page picture and thumbnail. PDFium is not thread-safe, so the page is drawn here on the
-    loop's thread; the JPEG encoding, which is most of the work, runs in a worker thread."""
-    image = rasterise(page_pdf, rotation)
-    return await asyncio.get_running_loop().run_in_executor(_CPU, encode, image)
+    """The page picture and thumbnail. PDFium is not thread-safe, so the page is drawn on its one thread
+    (never the event loop's); the JPEG encoding, which is most of the work, runs in a CPU thread."""
+    loop = asyncio.get_running_loop()
+    image = await loop.run_in_executor(_PDFIUM, rasterise, page_pdf, rotation)
+    return await loop.run_in_executor(_CPU, encode, image)
 
 
 async def _seal_all(
@@ -440,7 +445,9 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
         if page_pdf is None:
             page, source = typed((typing or b"").decode()), "expert"
         else:
-            found: OcrPage | None = usable_text_layer(page_pdf)
+            found: OcrPage | None = await asyncio.get_running_loop().run_in_executor(
+                _PDFIUM, usable_text_layer, page_pdf
+            )
             source = "embedded"
             if found is None:
                 if services.ocr is None:
