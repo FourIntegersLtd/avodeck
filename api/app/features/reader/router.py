@@ -24,7 +24,7 @@ from app.core.contracts.pipeline import EntryPointMissing, extract_page_text, pr
 from app.core.contracts.reading import blind_read, require_page_read
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
-from app.core.http import CurrentScope, DbConn, IfMatch, etag, stale
+from app.core.http import CurrentScope, DbConn, IfMatch, etag, release_connection, stale
 from app.core.http import router as make_router
 from app.core.packs import PackLibrary
 from app.core.storage import CaseFileStorage
@@ -197,7 +197,9 @@ async def page_image(
     if r["image_path"] is None:
         raise _not_found()
     path = r["image_path"]
-    picture = await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path)
+    key = await crypto.key(conn, case_id)
+    await release_connection(request)  # the Storage get below can take a while: no connection meanwhile
+    picture = await crypto.open_with(key, case_id, await storage.get(path), purpose=path)
     if size == "small":
         picture = await asyncio.to_thread(_small, picture)  # off the event loop
     return Response(picture, media_type="image/jpeg", headers={"cache-control": "private, no-store"})

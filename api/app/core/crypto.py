@@ -15,6 +15,7 @@ way, bound to their purpose and subject.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import binascii
 import hashlib
@@ -40,6 +41,7 @@ NONCE_BYTES = 12
 BLOB_VERSION = b"\x01"
 SEALED_PREFIX = "av1:"
 MAX_CACHE = timedelta(minutes=5)
+OFF_LOOP_BYTES = 64 * 1024  # sealing or opening more than this runs on a worker thread
 
 
 class CryptoError(Exception):
@@ -236,11 +238,28 @@ class CaseCrypto:
         """Load the case's key into the cache (raises as `decrypt` would if it is missing or destroyed)."""
         await self._key(conn, case_id, create=False)
 
+    async def key(self, conn: AsyncConnection, case_id: uuid.UUID, *, create: bool = False) -> bytes:
+        """The case's data key, for a caller that must give its connection back before the slow part:
+        load it in a short transaction, then seal or open with `seal_with` / `open_with`."""
+        return await self._key(conn, case_id, create=create)
+
+    async def seal_with(self, key: bytes, case_id: uuid.UUID, data: bytes, *, purpose: str = "") -> bytes:
+        aad = self._case_aad(case_id, purpose)
+        if len(data) > OFF_LOOP_BYTES:  # AES-GCM over a large blob would hold up every other request
+            return await asyncio.to_thread(_seal, key, data, aad)
+        return _seal(key, data, aad)
+
+    async def open_with(self, key: bytes, case_id: uuid.UUID, blob: bytes, *, purpose: str = "") -> bytes:
+        aad = self._case_aad(case_id, purpose)
+        if len(blob) > OFF_LOOP_BYTES:
+            return await asyncio.to_thread(_open, key, blob, aad)
+        return _open(key, blob, aad)
+
     async def encrypt(self, conn: AsyncConnection, case_id: uuid.UUID, data: bytes, *, purpose: str = "") -> bytes:
-        return _seal(await self._key(conn, case_id, create=True), data, self._case_aad(case_id, purpose))
+        return await self.seal_with(await self._key(conn, case_id, create=True), case_id, data, purpose=purpose)
 
     async def decrypt(self, conn: AsyncConnection, case_id: uuid.UUID, blob: bytes, *, purpose: str = "") -> bytes:
-        return _open(await self._key(conn, case_id, create=False), blob, self._case_aad(case_id, purpose))
+        return await self.open_with(await self._key(conn, case_id, create=False), case_id, blob, purpose=purpose)
 
     async def destroy(self, conn: AsyncConnection, case_id: uuid.UUID) -> None:
         """Worker only, inside the case's own job (the database refuses anyone else)."""

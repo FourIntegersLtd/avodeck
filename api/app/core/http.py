@@ -294,7 +294,8 @@ class SessionRoute(APIRoute):
                             _PENDING.reset(pending_token)
                         if response.status_code >= 400:
                             raise _Discard(response)
-                        if pending is not None and response.headers.get("idempotent-replayed") is None:
+                        released = getattr(request.state, "conn_released", False)  # no transaction left to record in
+                        if pending is not None and not released and response.headers.get("idempotent-replayed") is None:
                             instead: bytes | None = getattr(request.state, "idempotent_body", None)
                             if instead is not None:
                                 await _remember(conn, pending, response, body=instead)
@@ -378,6 +379,19 @@ CurrentScope = Annotated[RequestScope, Depends(_scope)]
 """Who is acting. A streamed response opens its own `database.request(scope)` per read, since the
 request's transaction has ended by the time the body is sent."""
 CurrentIdentity = Annotated[Identity, Depends(_identity)]
+
+
+async def release_connection(request: Request) -> None:
+    """For a handler about to wait on slow work (Storage, a slow client's body, hashing, encryption):
+    commit what it has done so far and give the request's connection back to the pool.
+
+    The `DbConn` it was handed must not be used again. Later database work opens a short
+    `request.app.state.database.request(scope)` transaction of its own (`CurrentScope`). The answer is not
+    remembered for a repeated Idempotency-Key, which these routes do not need: they are safe to repeat."""
+    await request.app.state.database.release(request.state.conn)
+    request.state.conn_released = True
+
+
 CurrentSession = Annotated[sessions.Session, Depends(sessions.current_session)]
 
 

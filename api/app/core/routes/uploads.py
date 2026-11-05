@@ -16,6 +16,7 @@ the document; slice A subscribes to queue scanning and processing.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import dataclasses
 import hashlib
@@ -37,9 +38,9 @@ from pydantic import BaseModel, Field
 from app.core import audit
 from app.core.auth.access import CaseAccess, check_case_access, require_case_access
 from app.core.case_files import MAX_FILE_SIZE, StoredDocument, StoredFileMissing
-from app.core.crypto import CaseCrypto, StoredFileChanged
+from app.core.crypto import OFF_LOOP_BYTES, CaseCrypto, StoredFileChanged
 from app.core.errors import CONFLICT_SQLSTATE, ApiError
-from app.core.http import CurrentScope, DbConn, router
+from app.core.http import CurrentScope, DbConn, release_connection, router
 from app.core.jobs import registry
 from app.core.storage import CaseFileStorage, upload_prefix
 from app.core.uploads import FINALIZE_UPLOAD
@@ -232,10 +233,29 @@ def _too_large(expected: int) -> ApiError:
     return ApiError("chunk_too_large", "This part is larger than it should be. Send it again.", 413, expected=expected)
 
 
+async def _sha256(data: bytes) -> str:
+    if len(data) > OFF_LOOP_BYTES:  # hashing 8 MB would hold up every other request
+        return await asyncio.to_thread(lambda: hashlib.sha256(data).hexdigest())
+    return hashlib.sha256(data).hexdigest()
+
+
 @uploads_router.put("/v1/uploads/{upload_id}/chunks/{n}", response_model=ChunkReceived)
 async def put_chunk(
-    upload_id: uuid.UUID, n: int, request: Request, conn: DbConn, storage: Storage, crypto: Crypto
+    upload_id: uuid.UUID,
+    n: int,
+    request: Request,
+    conn: DbConn,
+    scope: CurrentScope,
+    storage: Storage,
+    crypto: Crypto,
 ) -> ChunkReceived:
+    # Three steps, so no database connection is held while the body arrives or Storage answers:
+    # (1) a short transaction: access, the upload's state and the case's key; (2) read, hash, seal and put the part
+    # with no connection; (3) a short transaction: take the upload's lock, look again, record the part.
+    #
+    # A part sent again with the same bytes, or a new part, is put before the lock is taken: the stored bytes are the
+    # same whichever call lands last. A part sent again with *other* bytes is put under the lock, as before, so the
+    # stored part and the hash kept for it always agree and a part cannot overwrite one of a finishing upload.
     row = await _load(conn, upload_id)
     _open(row)
     count, size, chunk = int(row["chunk_count"]), int(row["size"]), int(row["chunk_size"])  # type: ignore[call-overload]
@@ -245,6 +265,11 @@ async def put_chunk(
     declared = request.headers.get("content-length", "")
     if declared.isdigit() and int(declared) > expected:  # refused before a byte of the body is read
         raise _too_large(expected)
+    case_id: uuid.UUID = row["case_id"]  # type: ignore[assignment]
+    key = await crypto.key(conn, case_id, create=True)
+    kept_before: str | None = (row["chunk_sha256"] or {}).get(str(n))  # type: ignore[attr-defined]
+    await release_connection(request)
+
     received = bytearray()
     async for piece in request.stream():  # cut off at the expected size, whatever the sender claims
         received += piece
@@ -257,24 +282,32 @@ async def put_chunk(
     if not SHA256_HEX.fullmatch(sent_sha):
         raise ApiError("chunk_sha_missing", "This part was sent without its checksum. Send it again.", 422)
     # The hash of the bytes as received, before they are encrypted; compared in constant time.
-    part_sha = hashlib.sha256(data).hexdigest()
+    part_sha = await _sha256(data)
     if not hmac.compare_digest(part_sha, sent_sha.lower()):
         raise ApiError("chunk_corrupted", "This part was damaged on the way. Send it again.", 422)
-    # Lock, then look again: completing may have finished (or failed) the upload while this part was read.
-    _open(await _load_locked(conn, upload_id))
-    case_id: uuid.UUID = row["case_id"]  # type: ignore[assignment]
-    if n in (row["received"] or []):  # type: ignore[operator]
-        _log.info("upload.chunk_resent", extra={"upload_id": str(upload_id), "case_id": str(case_id), "part": n})
     path = _chunk_path(_prefix(case_id, upload_id), n)
-    await storage.put(path, await crypto.encrypt(conn, case_id, data, purpose=path))
-    with _closed_when_refused():
-        cur = await conn.execute(
-            "update app.uploads set received = array(select distinct unnest(received || %s::int) order by 1),"
-            " chunk_sha256 = chunk_sha256 || jsonb_build_object(%s::text, %s::text)"
-            " where id = %s returning received",
-            (n, str(n), part_sha, upload_id),
-        )
-        updated = await cur.fetchone()
+    sealed = await crypto.seal_with(key, case_id, data, purpose=path)
+    put_early = kept_before is None or kept_before == part_sha
+    if put_early:
+        await storage.put(path, sealed)
+    database = request.app.state.database
+    async with database.request(scope) as locked_conn:
+        # Lock, then look again: completing may have finished (or failed) the upload while this part was read.
+        locked = await _load_locked(locked_conn, upload_id)
+        _open(locked)
+        kept_now: str | None = (locked["chunk_sha256"] or {}).get(str(n))  # type: ignore[attr-defined]
+        if n in (locked["received"] or []):  # type: ignore[operator]
+            _log.info("upload.chunk_resent", extra={"upload_id": str(upload_id), "case_id": str(case_id), "part": n})
+        if not put_early or (kept_now is not None and kept_now != part_sha):
+            await storage.put(path, sealed)
+        with _closed_when_refused():
+            cur = await locked_conn.execute(
+                "update app.uploads set received = array(select distinct unnest(received || %s::int) order by 1),"
+                " chunk_sha256 = chunk_sha256 || jsonb_build_object(%s::text, %s::text)"
+                " where id = %s returning received",
+                (n, str(n), part_sha, upload_id),
+            )
+            updated = await cur.fetchone()
     assert updated is not None
     return ChunkReceived(received=list(updated[0]))
 

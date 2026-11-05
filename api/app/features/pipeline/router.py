@@ -42,6 +42,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import hashlib
 import uuid
@@ -535,8 +536,12 @@ async def draft_request(
     pack = services.packs.for_case(await repo.case_codes(conn, case_id))
     who = await services.identity(conn, case_id)
 
-    def clean(text: str) -> str:
+    def strip(text: str) -> str:
         return pii.strip(text, pack=pack, names=who.names, dates_of_birth=who.dates_of_birth).text
+
+    async def clean(text: str) -> str:
+        # Presidio is CPU work: on a worker thread, so the loop keeps answering other requests.
+        return await asyncio.to_thread(strip, text)
 
     items = await repo.open_missing(conn, case_id)
     lines = []
@@ -544,15 +549,16 @@ async def draft_request(
         words = await crypto.decrypt(
             conn, case_id, item.description, purpose=paths.missing_description_purpose(item.id)
         )
-        lines.append(f"- {clean(words.decode())} ({item.citing_page_no})")
+        lines.append(f"- {await clean(words.decode())} ({item.citing_page_no})")
     unreadable = await repo.clearer_copy_pages(conn, case_id)
     unopened = await repo.unopened_documents(conn, case_id)
     foreign = await repo.foreign_pages(conn, case_id, pack.language)
     label, expert = await repo.request_wording_facts(conn, case_id)
     wording = pack.instructing_party_request(
-        case_reference=clean(label),
+        case_reference=await clean(label),
         missing_items="\n".join(lines) or "-",
-        clearer_copies="\n".join([*(f"- {n}" for _, n in unreadable), *(f"- {clean(f)}" for _, f in unopened)]) or "-",
+        clearer_copies="\n".join([*(f"- {n}" for _, n in unreadable), *[f"- {await clean(f)}" for _, f in unopened]])
+        or "-",
         expert_name=expert,
     )
     notes = []
@@ -574,13 +580,13 @@ async def draft_request(
     response.headers["cache-control"] = "private, no-store"
     return RequestDraft(
         label=wording["label"],
-        subject=clean(wording["subject"]),
-        body=clean(text),
+        subject=await clean(wording["subject"]),
+        body=await clean(text),
         missing_item_ids=[i.id for i in items],
         clearer_copy_page_ids=[p for p, _ in unreadable],
         clearer_copy_page_nos=[n for _, n in unreadable],
         unreadable_document_ids=[i for i, _ in unopened],
-        unreadable_document_names=[clean(f) for _, f in unopened],
+        unreadable_document_names=[await clean(f) for _, f in unopened],
         translation_page_ids=[p for p, _, _ in foreign],
         translation_page_nos=[n for _, n, _ in foreign],
         extension=extension,
