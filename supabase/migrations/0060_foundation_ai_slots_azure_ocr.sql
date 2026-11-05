@@ -1,4 +1,4 @@
--- 0059 foundation: Azure OCR submits share the slot scheduler.
+-- 0060 foundation: Azure OCR submits share the slot scheduler.
 --
 -- One shared limiter for Azure Document Intelligence (scalability plan PR 4): every page sent to OCR takes a
 -- slot with provider `azure_ocr`, counted per second (`AZURE_OCR_TPS`) and in flight (`AZURE_OCR_CONCURRENCY`)
