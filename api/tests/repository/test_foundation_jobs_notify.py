@@ -77,3 +77,12 @@ def test_a_job_without_a_case_does_not_notify(admin: psycopg.Connection, listene
     admin.execute("insert into app.jobs (id, case_id, kind) values (%s, null, 'process_bundle')", (job,))
     admin.execute("update app.jobs set status = 'running' where id = %s", (job,))
     assert _drain(listener, 0.5) == []
+
+
+def test_deleting_a_job_notifies_with_the_case_id_so_the_stream_drops_it(
+    seed: Seed, admin: psycopg.Connection, listener: psycopg.Connection, case: uuid.UUID
+) -> None:
+    job = seed.job(case)
+    _drain(listener, 0.3)
+    admin.execute("delete from app.jobs where id = %s", (job,))
+    assert _drain(listener) == [str(case)]

@@ -156,3 +156,33 @@ async def test_wake_within_caps_the_wait_so_a_caller_can_look_again_in_time() ->
     resp = await sse_stream(request, counter.fetch, watch=watch, wake_within=0.25)  # type: ignore[arg-type]
     await asyncio.wait_for(_run(resp), 3)
     assert counter.calls >= 3, "fetched at connect and about every 0.25 s"
+
+
+async def test_a_stream_whose_listener_is_down_falls_back_to_the_timed_loop() -> None:
+    wake = asyncio.Event()
+    watch, _ = _watching(wake)
+    counter = _Counter()
+    state = _State(limit=0.6, heartbeat=5.0, safety=30.0)
+    state.job_poll_seconds = 0.1
+    resp = await sse_stream(_Request(state), counter.fetch, watch=watch, live=lambda: False)  # type: ignore[arg-type]
+    await asyncio.wait_for(_run(resp), 3)
+    assert counter.calls >= 5, "a down listener must not leave the stream waiting out the 30 s safety tick"
+
+
+async def test_the_stream_goes_back_to_waiting_when_the_listener_returns() -> None:
+    wake = asyncio.Event()
+    watch, _ = _watching(wake)
+    counter = _Counter()
+    up = {"live": False}
+    state = _State(limit=1.2, heartbeat=5.0, safety=30.0)
+    state.job_poll_seconds = 0.1
+    resp = await sse_stream(_Request(state), counter.fetch, watch=watch, live=lambda: up["live"])  # type: ignore[arg-type]
+    task = asyncio.create_task(_run(resp))
+    await asyncio.sleep(0.45)
+    up["live"] = True
+    wake.set()  # what the notifier does on reconnect
+    await asyncio.sleep(0.1)
+    seen = counter.calls
+    await asyncio.sleep(0.5)
+    assert counter.calls == seen, "listening again: no more timed looks"
+    await asyncio.wait_for(task, 3)

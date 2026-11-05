@@ -10,6 +10,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -20,6 +21,7 @@ from fastapi import FastAPI
 from app.core.db import Database
 from app.core.notify import CaseNotifier
 from app.core.routes import case_events
+from app.core.sse import AccessRecheck
 from tests.support.db import ClientFor
 from tests.support.files import build_app
 from tests.support.seed import Seed
@@ -156,8 +158,48 @@ async def test_access_is_checked_at_connect_and_only_every_recheck_interval_afte
     assert checks.count(False) >= 3, "a pushed or tick fetch between checks skips the check"
 
 
-def test_the_default_recheck_interval_is_at_most_sixty_seconds() -> None:
+def test_the_default_recheck_interval_is_at_most_sixty_seconds(notifier: CaseNotifier) -> None:
     assert case_events.ACCESS_RECHECK_SECONDS <= 60.0
+    recheck = AccessRecheck(SimpleNamespace(), notifier)  # a state with none of the settings: the defaults
+    assert recheck.interval <= 60.0, "the gap between checks, with every setting at its default"
+
+
+async def test_when_the_listener_is_down_the_stream_falls_back_to_the_timed_loop(
+    client_for: ClientFor,
+    team: dict[str, uuid.UUID],
+    admin: psycopg.Connection,
+    app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app.state.case_notifier = CaseNotifier("postgresql://nobody:x@127.0.0.1:1/none")  # never started: not ready
+    app.state.job_poll_seconds = 0.05  # the case stream looks every 0.1 s while the listener is down
+    app.state.job_stream_seconds = 1.2
+    app.state.sse_safety_poll_seconds = 30.0
+    spy = Spy(monkeypatch)
+    stream = asyncio.create_task((await client_for(team["expert"])).get(f"/v1/cases/{team['case']}/events"))
+    await asyncio.sleep(0.4)
+    admin.execute("update app.jobs set status = 'running' where id = %s", (team["job"],))
+    resp = await asyncio.wait_for(stream, 10)
+    assert len(spy.calls) >= 6, "timed looks, not one look and a 30 s wait"
+    assert [e["jobs"][0]["status"] for e in _events(resp)] == ["queued", "running"]
+
+
+async def test_removing_a_member_ends_their_job_stream_and_the_reconnect_is_refused(
+    client_for: ClientFor, team: dict[str, uuid.UUID], app: FastAPI, admin: psycopg.Connection
+) -> None:
+    app.state.sse_access_recheck_seconds = 0.5
+    app.state.sse_safety_poll_seconds = 30.0  # the access check must not wait for the safety tick
+    app.state.job_poll_seconds = 30.0
+    app.state.job_stream_seconds = 5.0
+    stream = asyncio.create_task((await client_for(team["viewer"])).get(f"/v1/jobs/{team['job']}/events"))
+    await asyncio.sleep(0.3)
+    admin.execute("delete from app.case_members where case_id = %s and person_id = %s", (team["case"], team["viewer"]))
+    removed = asyncio.get_running_loop().time()
+    resp = await asyncio.wait_for(stream, 5)
+    assert resp.status_code == 200
+    assert asyncio.get_running_loop().time() - removed < 1.2
+    again = await (await client_for(team["viewer"])).get(f"/v1/jobs/{team['job']}/events")
+    assert again.status_code == 404
 
 
 async def test_removing_a_member_ends_the_stream_within_the_recheck_interval(
@@ -173,6 +215,8 @@ async def test_removing_a_member_ends_the_stream_within_the_recheck_interval(
     resp = await asyncio.wait_for(stream, 5)
     assert resp.status_code == 200
     assert asyncio.get_running_loop().time() - removed < 1.2
+    again = await (await client_for(team["viewer"])).get(f"/v1/cases/{team['case']}/events")
+    assert again.status_code == 404, "and the browser's reconnect is refused"
 
 
 async def test_the_job_stream_is_woken_too(
