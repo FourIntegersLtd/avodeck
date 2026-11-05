@@ -10,6 +10,7 @@ import dataclasses
 import uuid
 from collections.abc import AsyncIterator
 from types import SimpleNamespace
+from typing import Any
 
 import psycopg
 import pytest
@@ -122,7 +123,16 @@ async def test_a_scanned_bundle_reads_every_page_through_the_limiter_within_the_
     tps = 20
     scanned.ctx.job_id = seed.job(scanned.ctx.case_id)  # the limiter queues a real job
     kit = AiKit(cell(AZURE_OCR_TPS=str(tps)), object())  # type: ignore[arg-type]
-    services = dataclasses.replace(scanned.services, kit=kit)
+    sent: list[int] = []  # a page with a text layer is never sent to Azure, so it takes no slot
+
+    class Counting:
+        endpoint = scanned.services.ocr.endpoint  # type: ignore[union-attr]
+
+        async def analyse(self, document: bytes, *args: Any, **kwargs: Any) -> Any:
+            sent.append(1)
+            return await scanned.services.ocr.analyse(document, *args, **kwargs)  # type: ignore[union-attr]
+
+    services = dataclasses.replace(scanned.services, kit=kit, ocr=Counting())
     await service.run_step(scanned.ctx, services, "split")
     await service.run_step(scanned.ctx, services, "ocr")
 
@@ -134,7 +144,7 @@ async def test_a_scanned_bundle_reads_every_page_through_the_limiter_within_the_
     rows = scanned.h.admin.execute(
         "select granted_at, in_flight from app.ai_request_slots where provider = %s order by granted_at", (OCR,)
     ).fetchall()
-    assert len(rows) == PAGES
+    assert len(rows) == len(sent) > 0  # one slot per page actually sent
     assert not any(in_flight for _, in_flight in rows)  # every slot released
     times = [granted for granted, _ in rows]
     assert all((times[i + tps] - times[i]).total_seconds() >= 1.0 for i in range(len(times) - tps))
