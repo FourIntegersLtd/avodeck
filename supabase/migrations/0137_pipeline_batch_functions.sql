@@ -105,4 +105,131 @@ $$;
 revoke execute on function app.pipeline_case_busy(uuid, text[]) from public, app_api, app_worker;
 grant execute on function app.pipeline_case_busy(uuid, text[]) to app_worker;
 
+-- Moves every run of the case that is waiting on a finished phase to its ready state and wakes the parked parent.
+-- A run fires only when no batch of its phase is open, its parent is `running`, and no OLDER run of the case that is
+-- still open has a running parent (F69, F59: a paused or failed parent does not hold the case). Oldest run first, so
+-- once one fires the younger ones are held by it. Called inside the run row's transaction by complete and finish, and
+-- by the heal sweep. Not granted to any role.
+create or replace function app.pipeline_fire_next(p_case uuid)
+  returns boolean
+  language plpgsql
+  security definer
+  set search_path = ''
+as $$
+declare
+  r app.pipeline_runs;
+  v_fired boolean := false;
+begin
+  for r in
+    select * from app.pipeline_runs
+     where case_id = p_case and state in ('ocr_waiting', 'sort_waiting')
+     order by created_at, job_id
+       for update
+  loop
+    continue when not exists (select 1 from app.jobs p where p.id = r.job_id and p.status = 'running');
+    continue when exists (
+      select 1 from app.pipeline_batches b
+       where b.run_job_id = r.job_id and b.completed_at is null
+         and b.phase = case when r.state = 'ocr_waiting' then 'ocr' else 'sort' end
+    );
+    continue when exists (
+      select 1
+        from app.pipeline_runs o
+        join app.jobs op on op.id = o.job_id
+       where o.case_id = p_case and o.job_id <> r.job_id
+         and o.state not in ('done', 'closed')
+         and (o.created_at, o.job_id) < (r.created_at, r.job_id)
+         and op.status = 'running'
+    );
+    update app.pipeline_runs
+       set state = replace(state, '_waiting', '_ready'), ready_at = now(), updated_at = now()
+     where job_id = r.job_id;
+    perform app.pipeline_redefer(r.job_id, true);
+    v_fired := true;
+  end loop;
+  return v_fired;
+end
+$$;
+revoke execute on function app.pipeline_fire_next(uuid) from public, app_api, app_worker;
+
+-- Called in a child's own last transaction. Marks the batch done, tops the window up (one child per batch, ever),
+-- and fires the next run when this was the last batch of its phase. True when this call moved a run to ready.
+create or replace function app.pipeline_complete_batch(p_batch uuid)
+  returns boolean
+  language plpgsql
+  security definer
+  set search_path = ''
+as $$
+declare
+  b app.pipeline_batches;
+  r app.pipeline_runs;
+  nb app.pipeline_batches;
+  v_child uuid;
+  v_before text;
+  v_after text;
+begin
+  select * into b from app.pipeline_batches where id = p_batch;
+  if not found then
+    return false;
+  end if;
+  if app.current_job_case_id() is distinct from b.case_id then
+    raise exception using errcode = '42501', message = 'no access to this case';
+  end if;
+  select * into r from app.pipeline_runs where job_id = b.run_job_id for update;
+  update app.pipeline_batches set completed_at = now() where id = p_batch and completed_at is null;
+  v_before := r.state;
+  if r.state = b.phase || '_waiting'
+     and exists (select 1 from app.jobs p where p.id = r.job_id and p.status = 'running') then
+    loop
+      exit when (
+        select count(*) from app.pipeline_batches x
+         where x.run_job_id = r.job_id and x.phase = b.phase and x.child_job_id is not null and x.completed_at is null
+      ) >= r."window";
+      select * into nb from app.pipeline_batches x
+       where x.run_job_id = r.job_id and x.phase = b.phase and x.child_job_id is null
+       order by x.seq limit 1 for update;
+      exit when not found;
+      insert into app.jobs (case_id, kind, priority) values (r.case_id, 'read_page_batch', 0) returning id into v_child;
+      update app.pipeline_batches set child_job_id = v_child where id = nb.id;
+      perform app.pipeline_defer_row(v_child, r.child_queue, null, 0);
+    end loop;
+  end if;
+  perform app.pipeline_fire_next(r.case_id);
+  select state into v_after from app.pipeline_runs where job_id = r.job_id;
+  return v_after <> v_before and v_after like '%\_ready';
+end
+$$;
+revoke execute on function app.pipeline_complete_batch(uuid) from public, app_api, app_worker;
+grant execute on function app.pipeline_complete_batch(uuid) to app_worker;
+
+-- The parent's tail calls this when the run's last step is done: `finishing` -> `done`, then the next waiting run of
+-- the case may fire. False (nothing changed) when the run is not finishing.
+create or replace function app.pipeline_finish_run(p_run uuid)
+  returns boolean
+  language plpgsql
+  security definer
+  set search_path = ''
+as $$
+declare
+  r app.pipeline_runs;
+begin
+  select * into r from app.pipeline_runs where job_id = p_run;
+  if not found then
+    return false;
+  end if;
+  if app.current_job_case_id() is distinct from r.case_id then
+    raise exception using errcode = '42501', message = 'no access to this case';
+  end if;
+  select * into r from app.pipeline_runs where job_id = p_run for update;
+  if r.state <> 'finishing' then
+    return false;
+  end if;
+  update app.pipeline_runs set state = 'done', finished_at = now(), updated_at = now() where job_id = p_run;
+  perform app.pipeline_fire_next(r.case_id);
+  return true;
+end
+$$;
+revoke execute on function app.pipeline_finish_run(uuid) from public, app_api, app_worker;
+grant execute on function app.pipeline_finish_run(uuid) to app_worker;
+
 reset role;

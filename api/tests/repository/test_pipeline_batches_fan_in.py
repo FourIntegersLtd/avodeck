@@ -55,7 +55,9 @@ def two_batches(admin: psycopg.Connection, seed: Seed, case: uuid.UUID, state: s
     return parent, run, batches
 
 
-def test_the_last_batch_of_a_phase_wakes_the_parent_once(admin: psycopg.Connection, seed: Seed, case: uuid.UUID) -> None:
+def test_the_last_batch_of_a_phase_wakes_the_parent_once(
+    admin: psycopg.Connection, seed: Seed, case: uuid.UUID
+) -> None:
     parent, run, (first, second) = two_batches(admin, seed, case)
     add_row(admin, parent, case, status="succeeded")  # the parent's row that ended when it parked
     assert not complete(admin, case, first)
@@ -66,7 +68,9 @@ def test_the_last_batch_of_a_phase_wakes_the_parent_once(admin: psycopg.Connecti
     assert rows_of(admin, parent)[-1] == ("bulk", "todo", WAKE_PRIORITY, f"case:{case}")
     assert len(rows_of(admin, parent)) == 2
     assert job_state(admin, parent)[3] is True  # requeued_stall: a wake is not an attempt
-    assert admin.execute("select count(*) from app.jobs where case_id = %s and kind = 'process_bundle'", (case,)).fetchone() == (1,)
+    assert admin.execute(
+        "select count(*) from app.jobs where case_id = %s and kind = 'process_bundle'", (case,)
+    ).fetchone() == (1,)
     assert not complete(admin, case, second)  # the same call again fires nothing
     assert len(rows_of(admin, parent)) == 2
 
@@ -123,7 +127,9 @@ def test_an_older_run_whose_parent_is_paused_or_failed_does_not_hold_a_younger_o
     assert run_state(admin, run) == "ocr_ready"
 
 
-def test_finishing_a_run_that_is_not_finishing_does_nothing(admin: psycopg.Connection, seed: Seed, case: uuid.UUID) -> None:
+def test_finishing_a_run_that_is_not_finishing_does_nothing(
+    admin: psycopg.Connection, seed: Seed, case: uuid.UUID
+) -> None:
     parent = make_job(admin, seed, case)
     run = add_run(admin, case, parent, "sort_ready")
     as_job_on(admin, case)
@@ -155,7 +161,9 @@ def test_the_window_is_topped_up_one_batch_at_a_time_and_never_twice_for_one_bat
     assert third_child is not None
     assert rows_of(admin, third_child[0]) == [("bulk", "todo", 0, None)]
     complete(admin, case, batches[0])  # again: the window is full, nothing more is queued
-    assert admin.execute("select count(*) from app.pipeline_batches where child_job_id is not null").fetchone() == (3,)
+    assert admin.execute(
+        "select count(*) from app.pipeline_batches where run_job_id = %s and child_job_id is not null", (run,)
+    ).fetchone() == (3,)
 
 
 def test_a_rollback_between_completing_and_returning_leaves_nothing_and_the_retry_fires(
