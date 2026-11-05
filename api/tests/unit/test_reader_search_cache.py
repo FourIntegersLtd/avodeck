@@ -59,7 +59,11 @@ def test_the_defaults_are_eight_cases_ten_minutes_and_a_word_cap() -> None:
 
 def test_the_settings_come_from_the_environment() -> None:
     s = reader_search_cache_settings(
-        {"READER_SEARCH_CACHE_CASES": "2", "READER_SEARCH_CACHE_TTL_SECONDS": "30", "READER_SEARCH_CACHE_MAX_WORDS": "99"}
+        {
+            "READER_SEARCH_CACHE_CASES": "2",
+            "READER_SEARCH_CACHE_TTL_SECONDS": "30",
+            "READER_SEARCH_CACHE_MAX_WORDS": "99",
+        }
     )
     assert (s.cases, s.ttl_seconds, s.max_words) == (2, 30.0, 99)
     with pytest.raises(ConfigError, match="READER_SEARCH_CACHE_CASES"):

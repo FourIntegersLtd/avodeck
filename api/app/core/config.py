@@ -153,6 +153,25 @@ def sse_settings(env: Mapping[str, str] | None = None) -> SseSettings:
 
 
 @dataclass(frozen=True)
+class ReaderSearchCacheSettings:
+    """Bundle search (reader): decrypted words kept per case. At most `cases` cases (least recently used out),
+    for `ttl_seconds`, and `max_words` words in all (the memory bound: about 100 MB per million words)."""
+
+    cases: int = 8
+    ttl_seconds: float = 600.0
+    max_words: int = 3_000_000
+
+
+def reader_search_cache_settings(env: Mapping[str, str] | None = None) -> ReaderSearchCacheSettings:
+    source = os.environ if env is None else env
+    return ReaderSearchCacheSettings(
+        cases=env_int(source, "READER_SEARCH_CACHE_CASES", 8, minimum=1),
+        ttl_seconds=env_float(source, "READER_SEARCH_CACHE_TTL_SECONDS", 600.0, minimum=1.0),
+        max_words=env_int(source, "READER_SEARCH_CACHE_MAX_WORDS", 3_000_000, minimum=1),
+    )
+
+
+@dataclass(frozen=True)
 class CellSettings:
     """The cell this process serves (rule 5): `REGION=uk` first. Stamped on new people and organisations."""
 

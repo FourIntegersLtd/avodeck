@@ -146,7 +146,9 @@ async def test_the_answer_is_the_same_from_the_cache_as_from_a_fresh_load(
     fresh = [(await search(client, world, q)).json() for q in ("metformin", "blood pressure", "pressure of blood")]
     cached = [(await search(client, world, q)).json() for q in ("metformin", "blood pressure", "pressure of blood")]
     assert fresh == cached
-    assert fresh[1]["pages"][0]["boxes"] == [{"x0": 0.0, "y0": 0.0, "x1": 0.2, "y1": pytest.approx(20 / HEIGHT, abs=1e-5)}]
+    assert fresh[1]["pages"][0]["boxes"] == [
+        {"x0": 0.0, "y0": 0.0, "x1": 0.2, "y1": pytest.approx(20 / HEIGHT, abs=1e-5)}
+    ]
 
 
 async def test_a_page_added_to_the_case_is_searched_at_once(
@@ -195,7 +197,9 @@ async def test_clearing_the_case_makes_the_next_search_open_the_words_again(
 async def test_the_cache_only_holds_the_set_number_of_cases(
     client_for: Any, world: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(search_cache, "_cache", search_cache.SearchCache(max_cases=1, ttl_seconds=600.0, max_words=10**6))
+    monkeypatch.setattr(
+        search_cache, "_cache", search_cache.SearchCache(max_cases=1, ttl_seconds=600.0, max_words=10**6)
+    )
     client = await client_for(world["expert"])
     await search(client, world, "metformin")
     assert search_cache.case_ids() == [world["case"]]
@@ -249,7 +253,9 @@ async def test_a_search_of_a_4000_page_bundle_does_not_hold_up_other_requests(
     for page in ids:
         for n in range(1, 26):
             wid = f"w{n}"
-            sealed = await CRYPTO.encrypt(aconn, case, b"routine" if n % 5 else b"warfarin", purpose=word_purpose(page, wid))
+            sealed = await CRYPTO.encrypt(
+                aconn, case, b"routine" if n % 5 else b"warfarin", purpose=word_purpose(page, wid)
+            )
             x0 = 30.0 * (n - 1)
             rows.append((page, bundle, n, wid, sealed, [x0, 0.0, x0 + 30, 0.0, x0 + 30, 20.0, x0, 20.0]))
     await aconn.cursor().executemany(
