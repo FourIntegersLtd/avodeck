@@ -370,4 +370,244 @@ $$;
 revoke execute on function app.pipeline_enter(uuid) from public, app_api, app_worker;
 grant execute on function app.pipeline_enter(uuid) to app_worker;
 
+-- The sweep's mirror: the parent of a parked run shows what its children did. Returns true when it changed the parent.
+-- The caller holds the run row. Under the parent's job row `for update` it re-checks everything, so a resume that got
+-- there first (a queue row, `resuming`) is never overwritten (the resume race), and it does nothing for a parent that
+-- already has a waiting or running queue row (that handler reopens the run itself) or that has `failed` (a failure is
+-- final). Only children of unfinished batches whose last change is newer than the run's `reopened_at` count. Order of
+-- evidence: a failed child fails the parent with its code (a paused parent goes `paused -> running -> failed`, the guard
+-- refuses `paused -> failed`); else a paused child (not `resuming`) pauses a running parent with its code; else a parent
+-- of a `*_waiting` run that is paused with a resumable code, with nothing left to mirror, goes back to `running`. A flip
+-- is a status change only: attempts are counted when a worker starts a job, never here.
+-- Not granted to any role.
+create or replace function app.pipeline_mirror_run(p_run uuid, p_resumable text[])
+  returns boolean
+  language plpgsql
+  security definer
+  set search_path = procrastinate, pg_catalog
+as $$
+declare
+  r app.pipeline_runs;
+  p app.jobs;
+  v_since timestamptz;
+  v_has_failed boolean := false;
+  v_failed_code text;
+  v_has_paused boolean := false;
+  v_paused_code text;
+begin
+  select * into r from app.pipeline_runs where job_id = p_run;
+  if not found or r.state in ('done', 'closed') then
+    return false;
+  end if;
+  select * into p from app.jobs where id = p_run for update;
+  if not found or p.status not in ('running', 'paused') or app.pipeline_has_row(p_run) then
+    return false;
+  end if;
+  v_since := coalesce(r.reopened_at, '-infinity'::timestamptz);
+  select true, j.error_code into v_has_failed, v_failed_code
+    from app.pipeline_batches b
+    join app.jobs j on j.id = b.child_job_id
+   where b.run_job_id = p_run and b.completed_at is null and j.status = 'failed' and j.updated_at > v_since
+   order by b.seq limit 1;
+  if v_has_failed then
+    if p.status = 'paused' then
+      update app.jobs set status = 'running', error_code = null where id = p_run;
+    end if;
+    update app.jobs set status = 'failed', error_code = coalesce(v_failed_code, 'job_error'), finished_at = now()
+     where id = p_run;
+    return true;
+  end if;
+  select true, j.error_code into v_has_paused, v_paused_code
+    from app.pipeline_batches b
+    join app.jobs j on j.id = b.child_job_id
+   where b.run_job_id = p_run and b.completed_at is null and j.status = 'paused'
+     and j.error_code is distinct from 'resuming' and j.updated_at > v_since
+   order by b.seq limit 1;
+  if v_has_paused then
+    if p.status = 'running' then
+      update app.jobs set status = 'paused', error_code = v_paused_code where id = p_run;
+      return true;
+    end if;
+    return false;
+  end if;
+  if p.status = 'paused' and p.error_code = any (p_resumable) and r.state in ('ocr_waiting', 'sort_waiting') then
+    update app.jobs set status = 'running', error_code = null where id = p_run;
+    return true;
+  end if;
+  return false;
+end
+$$;
+revoke execute on function app.pipeline_mirror_run(uuid, text[]) from public, app_api, app_worker;
+
+-- A new bundle job takes over the case's open runs (`plan_ocr` calls this first). For each open run other than its
+-- own, oldest first, under the run row: the mirror runs, so a pause or failure the sweep has not yet written is seen;
+-- then the run is closed when its parent is `paused` or `failed`, or a stop was asked after the parent was created
+-- and after `reopened_at` (a cancel and a start within one sweep round still take over). A parent still `running` is
+-- moved to `paused` (`cancelled`) so it does not look live. A healthy run (parent running or queued, no stop) stays
+-- open. Returns the number of runs closed.
+create or replace function app.pipeline_close_runs(p_case uuid, p_by uuid, p_resumable text[])
+  returns integer
+  language plpgsql
+  security definer
+  set search_path = procrastinate, pg_catalog
+as $$
+declare
+  r app.pipeline_runs;
+  p app.jobs;
+  v_stop timestamptz;
+  v_n integer := 0;
+begin
+  if app.current_job_case_id() is distinct from p_case then
+    raise exception using errcode = '42501', message = 'no access to this case';
+  end if;
+  select cp.cancel_requested_at into v_stop from app.case_processing cp where cp.case_id = p_case;
+  for r in
+    select * from app.pipeline_runs
+     where case_id = p_case and job_id <> p_by and state not in ('done', 'closed')
+     order by created_at, job_id
+       for update
+  loop
+    perform app.pipeline_mirror_run(r.job_id, p_resumable);
+    select * into p from app.jobs where id = r.job_id for update;
+    if not found then
+      continue;
+    end if;
+    if p.status in ('paused', 'failed')
+       or (p.status in ('running', 'queued')
+           and v_stop is not null
+           and v_stop > greatest(p.created_at, coalesce(r.reopened_at, '-infinity'::timestamptz))) then
+      if p.status = 'running' then
+        update app.jobs set status = 'paused', error_code = 'cancelled' where id = r.job_id;
+      end if;
+      update app.pipeline_runs
+         set state = 'closed', closed_at = now(), closed_by_job_id = p_by, updated_at = now()
+       where job_id = r.job_id;
+      v_n := v_n + 1;
+    end if;
+  end loop;
+  return v_n;
+end
+$$;
+revoke execute on function app.pipeline_close_runs(uuid, uuid, text[]) from public, app_api, app_worker;
+grant execute on function app.pipeline_close_runs(uuid, uuid, text[]) to app_worker;
+
+-- The housekeeping sweep, on the anonymous worker connection (no person, no `app.job_case_id`). Skips held and deleted
+-- cases. For each case it first takes ALL the case's open run rows with `skip locked` and leaves the case to the next
+-- round if any is held by a fan-in, so it never waits on a run row while holding another (no deadlock with a fan-in
+-- that holds one run and wants the case's others). Then, per run, oldest first, the pass order is pinned:
+--   mirror -> (i) re-defer paused children that lost their queue row (no lock) -> (ii) re-defer a parent paused with a
+--   resumable code in its own tail (the case lock) -> wake a running parent of a `*_ready` or `finishing` run that has no
+--   queue row -> top-up the window -> keep a silent parked parent alive (touch after 5 minutes);
+-- then fire the case's next run. Last, waiters: a job paused `busy_processing` is handed back once, with its own
+-- priority, when the case is no longer busy, re-checked under the case's run rows. Every write is guarded by its own
+-- recheck (`pipeline_redefer`, `pipeline_has_row`, the jobs row `for update`), so a second sweep is a no-op and a sweep
+-- racing a resume leaves one queue row. Returns the number of changes. Ids, codes and counts only.
+create or replace function app.pipeline_heal_runs(p_resumable text[])
+  returns integer
+  language plpgsql
+  security definer
+  set search_path = procrastinate, pg_catalog
+as $$
+declare
+  v_case uuid;
+  v_open bigint;
+  v_got bigint;
+  r app.pipeline_runs;
+  p app.jobs;
+  c record;
+  cj app.jobs;
+  v_queue text;
+  v_n integer := 0;
+begin
+  for v_case in
+    select distinct pr.case_id
+      from app.pipeline_runs pr
+      join app.cases cs on cs.id = pr.case_id
+     where pr.state not in ('done', 'closed') and not cs.on_hold and cs.status <> 'deleted'
+     order by pr.case_id
+  loop
+    select count(*) into v_open from app.pipeline_runs where case_id = v_case and state not in ('done', 'closed');
+    perform 1 from app.pipeline_runs
+     where case_id = v_case and state not in ('done', 'closed')
+     order by created_at, job_id
+       for update skip locked;
+    get diagnostics v_got = row_count;
+    continue when v_got < v_open;
+    for r in
+      select * from app.pipeline_runs
+       where case_id = v_case and state not in ('done', 'closed') order by created_at, job_id
+    loop
+      if app.pipeline_mirror_run(r.job_id, p_resumable) then
+        v_n := v_n + 1;
+      end if;
+      select * into p from app.jobs where id = r.job_id;
+      if p.status in ('running', 'paused') then
+        for c in
+          select j.id
+            from app.pipeline_batches b
+            join app.jobs j on j.id = b.child_job_id
+           where b.run_job_id = r.job_id and b.completed_at is null and j.status = 'paused'
+             and (j.error_code = any (p_resumable) or j.error_code = 'resuming')
+           order by b.seq
+        loop
+          select * into cj from app.jobs where id = c.id for update;
+          continue when cj.status <> 'paused' or app.pipeline_has_row(cj.id);
+          v_queue := null;
+          select pj.queue_name into v_queue from procrastinate_jobs pj
+           where pj.args ->> 'job_id' = cj.id::text order by pj.id desc limit 1;
+          perform app.pipeline_defer_row(cj.id, coalesce(v_queue, r.child_queue), null, cj.priority);
+          v_n := v_n + 1;
+        end loop;
+      end if;
+      if r.state in ('ocr_ready', 'sort_ready', 'finishing') then
+        if p.status = 'paused' and (p.error_code = any (p_resumable) or p.error_code = 'resuming') then
+          if app.pipeline_redefer(r.job_id, false) then
+            v_n := v_n + 1;
+          end if;
+        elsif p.status = 'running' then
+          if app.pipeline_redefer(r.job_id, true) then
+            v_n := v_n + 1;
+          end if;
+        end if;
+      else
+        perform app.pipeline_topup(r.job_id);
+        update app.jobs set updated_at = now()
+         where id = r.job_id and status = 'running' and updated_at < now() - interval '5 minutes';
+      end if;
+    end loop;
+    if app.pipeline_fire_next(v_case) then
+      v_n := v_n + 1;
+    end if;
+  end loop;
+
+  for v_case in
+    select distinct j.case_id
+      from app.jobs j
+      join app.cases cs on cs.id = j.case_id
+     where j.status = 'paused' and j.error_code = 'busy_processing' and not cs.on_hold and cs.status <> 'deleted'
+     order by j.case_id
+  loop
+    select count(*) into v_open from app.pipeline_runs where case_id = v_case and state not in ('done', 'closed');
+    perform 1 from app.pipeline_runs
+     where case_id = v_case and state not in ('done', 'closed')
+     order by created_at, job_id
+       for update skip locked;
+    get diagnostics v_got = row_count;
+    continue when v_got < v_open or app.pipeline_case_busy(v_case, p_resumable);
+    for c in
+      select j.id from app.jobs j
+       where j.case_id = v_case and j.status = 'paused' and j.error_code = 'busy_processing'
+       order by j.created_at, j.id
+    loop
+      if app.pipeline_redefer(c.id, false) then
+        v_n := v_n + 1;
+      end if;
+    end loop;
+  end loop;
+  return v_n;
+end
+$$;
+revoke execute on function app.pipeline_heal_runs(text[]) from public, app_api, app_worker;
+grant execute on function app.pipeline_heal_runs(text[]) to app_worker;
+
 reset role;

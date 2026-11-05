@@ -2,6 +2,9 @@
 
 set role app_migrator;
 
+drop function if exists app.pipeline_heal_runs(text[]);
+drop function if exists app.pipeline_close_runs(uuid, uuid, text[]);
+drop function if exists app.pipeline_mirror_run(uuid, text[]);
 drop function if exists app.pipeline_enter(uuid);
 drop function if exists app.pipeline_reopen_run(uuid);
 drop function if exists app.pipeline_finish_run(uuid);

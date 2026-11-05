@@ -351,14 +351,15 @@ def test_children_paused_with_sleeping_rows_keep_the_waiter_waiting(
 # --- races ------------------------------------------------------------------------------------------------------
 
 
-def race(worker_dsn: str, case: uuid.UUID, job: uuid.UUID, sweep: Callable[[], int]) -> None:
+def race(api_dsn: str, expert: uuid.UUID, job: uuid.UUID, sweep: Callable[[], int]) -> None:
+    """The expert's "Try again" (the API role, as in production) races one sweep."""
     barrier = threading.Barrier(2)
     errors: list[BaseException] = []
 
     def resume() -> None:
         try:
-            with psycopg.connect(worker_dsn, autocommit=True) as conn:
-                conn.execute("select set_config('app.job_case_id', %s, false)", (str(case),))
+            with psycopg.connect(api_dsn, autocommit=True) as conn:
+                conn.execute("select set_config('app.person_id', %s, false)", (str(expert),))
                 barrier.wait(10)
                 conn.execute("select app.resume_paused_job(%s, 'bulk')", (job,))
         except BaseException as exc:  # noqa: BLE001 - reported by the caller
@@ -379,28 +380,34 @@ def race(worker_dsn: str, case: uuid.UUID, job: uuid.UUID, sweep: Callable[[], i
     assert not errors
 
 
+def expert_of(admin: psycopg.Connection, case: uuid.UUID) -> uuid.UUID:
+    row = admin.execute("select named_expert_id from app.cases where id = %s", (case,)).fetchone()
+    assert row is not None
+    return uuid.UUID(str(row[0]))
+
+
 def live_rows(admin: psycopg.Connection, job: uuid.UUID) -> int:
     return len([r for r in rows_of(admin, job) if r[1] in ("todo", "doing")])
 
 
 def test_heal_racing_resume_paused_job_on_a_paused_child_leaves_one_row(
-    admin: psycopg.Connection, seed: Seed, case: uuid.UUID, sweep: Callable[[], int], worker_dsn: str
+    admin: psycopg.Connection, seed: Seed, case: uuid.UUID, sweep: Callable[[], int], api_dsn: str
 ) -> None:
     run = run_with(admin, seed, case)
     child = child_job(admin, seed, case, status="paused", code="service_busy")
     add_batch(admin, run, case, 0, child=child)
     add_row(admin, child, case, lock=None, status="succeeded")
-    race(worker_dsn, case, child, sweep)
+    race(api_dsn, expert_of(admin, case), child, sweep)
     assert live_rows(admin, child) == 1
 
 
 def test_the_mirrors_wake_racing_resume_paused_job_on_the_parent_leaves_one_row_check_4(
-    admin: psycopg.Connection, seed: Seed, case: uuid.UUID, sweep: Callable[[], int], worker_dsn: str
+    admin: psycopg.Connection, seed: Seed, case: uuid.UUID, sweep: Callable[[], int], api_dsn: str
 ) -> None:
     run = run_with(admin, seed, case, status="paused", code="service_busy")
     kids(admin, seed, case, run, "done", "done")  # the last child finished while the parent was paused (F69)
     add_row(admin, run, case, status="succeeded")
-    race(worker_dsn, case, run, sweep)
+    race(api_dsn, expert_of(admin, case), run, sweep)
     assert live_rows(admin, run) == 1
 
 
