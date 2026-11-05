@@ -140,7 +140,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `feature_flags` | Foundation | Avodeck staff | One per key per scope | Edit; audited | Removed when the feature ships |
 | `audit_log` | Foundation | System (append only) | Many | Hash-chained | Pseudonymised metadata kept 6 years after case deletion |
 | `idempotency_keys` | Foundation | System | One per person per key | Replaced only after it expires | Expired after 24 hours |
-| `rate_limit_hits` | Foundation | System | One per person per endpoint | Counted by one upsert per request; a new minute resets the count; closed to the app roles (only `app.rate_limit_hit()` writes) | Removed with the person |
+| `rate_limit_hits` | Foundation | System | One per person per endpoint | Counted by one upsert per request, after it ends; a new minute resets the count; closed to the app roles (only `app.rate_limit_hit()` writes) | Removed with the person |
 | `ai_calls` | Foundation | System | Many | Append only, no content | Metadata kept 13 months |
 | `transcripts` | Foundation (dictation kit) | The speaker | Many | Kept only if the expert keeps them | Case deletion |
 | `may_matter` | G | Worker; named expert marks seen | Many | Seen state only | Case deletion |

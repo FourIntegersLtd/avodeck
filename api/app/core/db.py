@@ -185,8 +185,9 @@ class Database:
         the function's own writes (it ends an idle or expired session, and counts activity): raising
         rolls them back.
         `app.org_ids`, `app.request_id` and `TimeZone` are the same as `request()` sets.
-        `after`, if given, is awaited on the same connection once the transaction has ended and the connection
-        is still held (never after `release`), for a count that must survive a rollback. It must not raise.
+        `after`, if given, is awaited on an idle connection once the transaction has ended (the same one, or a
+        borrowed one after `release`), for a count that must survive a rollback or must not hold a lock for the
+        request. It must not raise.
         """
         settings = self._with_limits({"app.org_ids": "", "app.request_id": request_id, "TimeZone": "UTC"})
         *lookup, touch = resolve_args
@@ -219,22 +220,34 @@ class Database:
                             await _rollback(conn)
                     raise
             finally:
-                if after is not None and not hold.released:
+                if (after is not None or (touch and row is not None)) and hold.released:
+                    # The connection went back to the pool early: borrow one again for what follows.
                     with anyio.CancelScope(shield=True), suppress(Exception):
-                        await after(conn)
-                if touch and row is not None:
-                    with anyio.CancelScope(shield=True):  # nor skip the count
-                        if hold.released:  # the connection went back to the pool early: borrow one again
-                            with suppress(Exception):
-                                async with self._pool.connection() as again:
-                                    await _count_activity(again, row, idle=lookup[1], max_age=lookup[2])
-                        else:
-                            await _count_activity(conn, row, idle=lookup[1], max_age=lookup[2])
+                        async with self._pool.connection() as again:
+                            await self._finish(again, row, lookup, touch, after)
+                elif after is not None or (touch and row is not None):
+                    with anyio.CancelScope(shield=True):  # nor skip the counts
+                        await self._finish(conn, row, lookup, touch, after)
         finally:
             if not hold.released:
                 self._holds.pop(conn, None)
                 with anyio.CancelScope(shield=True):
                     await stack.aclose()
+
+    @staticmethod
+    async def _finish(
+        conn: AsyncConnection,
+        row: tuple[Any, ...] | None,
+        lookup: Sequence[Any],
+        touch: bool,
+        after: Callable[[AsyncConnection], Awaitable[None]] | None,
+    ) -> None:
+        """On an idle connection, after the request's transaction: the caller's `after`, then session activity."""
+        if after is not None:
+            with suppress(Exception):
+                await after(conn)
+        if touch and row is not None:
+            await _count_activity(conn, row, idle=lookup[1], max_age=lookup[2])
 
     async def release(self, conn: AsyncConnection) -> None:
         """Commit a `session_request` transaction now and give its connection back to the pool, for a route

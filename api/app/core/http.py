@@ -260,19 +260,20 @@ class SessionRoute(APIRoute):
             scopes: list[RequestScope] = []  # filled once the session is known
             refusal: ApiError | None = None
             endpoint = f"{request.method} {self.path_format}"
-            counted = False  # this request's count is in the transaction, which an error rolls back
-            failed = False
+            counted = False  # checked and not refused: counted when the request has ended
 
-            async def recount(conn: AsyncConnection) -> None:
-                if counted and failed:  # the rollback took the count with it: count again, same connection
-                    await rate_limits.keep(conn, scopes[0].person_id, endpoint)
+            async def count_request(conn: AsyncConnection) -> None:
+                if counted:
+                    await rate_limits.count(conn, scopes[0].person_id, endpoint)
 
             try:
                 # One connection, one transaction: the session lookup (which also ends an idle or expired
                 # session and counts activity) shares it with the route's own work.
                 async with (
                     audit.detached(database, lambda: scopes[0] if scopes else None),
-                    database.session_request(sessions.resolve_args(token, touch=self.touch), request_id, recount) as (
+                    database.session_request(
+                        sessions.resolve_args(token, touch=self.touch), request_id, count_request
+                    ) as (
                         conn,
                         row,
                     ),
@@ -295,23 +296,19 @@ class SessionRoute(APIRoute):
                         request.state.scope = scopes[0]  # for streamed bodies, which run after this transaction
                         request.state.identity = identity
                         request.state.session = session
-                        # One upsert, first thing: a person over the limit is turned away before any work.
-                        limit = int(getattr(request.app.state, "api_rate_per_minute", 0))
-                        await rate_limits.hit(conn, endpoint, limit)
-                        counted = True
+                        # A person over the limit is turned away before any work; counted once the request ends.
+                        if int(getattr(request.app.state, "api_rate_per_minute", 0)) > 0:
+                            await rate_limits.check(conn, endpoint, int(request.app.state.api_rate_per_minute))
+                            counted = True
                         pending = (
                             _Pending(conn, identity.person_id, key, fingerprint, _case_id(request)) if key else None
                         )
                         pending_token = _PENDING.set(pending)
                         try:
                             response = await handler(request)
-                        except BaseException:
-                            failed = True
-                            raise
                         finally:
                             _PENDING.reset(pending_token)
                         if response.status_code >= 400:
-                            failed = True
                             raise _Discard(response)
                         released = getattr(request.state, "conn_released", False)  # no transaction left to record in
                         if pending is not None and not released and response.headers.get("idempotent-replayed") is None:

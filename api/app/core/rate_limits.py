@@ -1,14 +1,16 @@
 """Per-person limits on the API (scalability PR 12): requests per endpoint per minute, and open event streams.
 
-Requests. Every signed-in request counts once against its person and endpoint (the method and the route's
-path template, never an id) with one upsert, `app.rate_limit_hit()` (migration 0065), in the request's own
-transaction at the start. No second connection is taken, so a small pool cannot deadlock on it, and nothing
-is held across slow work: the count's row lock ends with the transaction, and a route that gives its
-connection back early (`release_connection`) ends it sooner. Postgres holds the count, so it is shared by
-every process and replica. Over `API_RATE_PER_MINUTE` the answer is 429 `slow_down` with `Retry-After`
-(the seconds left in the minute). A failed request's transaction is rolled back, count and all, so a
-request that ends in an error is counted again in a short transaction of its own: probing ids that are not
-yours is limited like anything else. The refused request itself is not counted again.
+Requests. Every signed-in request is counted once against its person and endpoint (the method and the route's
+path template, never an id) with one upsert, `app.rate_limit_hit()` (migration 0065), and the count is the
+same whatever the answer was: probing ids that are not yours is limited like anything else. At the start of
+a request `check()` reads the count (`app.rate_limit_peek()`, no lock) and, once it has reached
+`API_RATE_PER_MINUTE`, answers 429 `slow_down` with `Retry-After` (the seconds left in the minute); a refused
+request is not counted again. The request is counted when it has ended, in a short transaction of its own
+(`count()`, via `Database.session_request`'s `after`), never inside its own transaction: the row lock would
+make two requests of one person to one endpoint wait for each other, as the parts of an upload do, and a
+rollback would take the count with it. Postgres holds the count, so it is shared by every process and
+replica. Several requests in flight at once may each pass the check, so the limit is soft by the number
+in flight.
 
 Streams. A person may hold `API_MAX_STREAMS_PER_PERSON` live event streams open at once, counted in this
 process (with two processes that is up to twice the number, which is acceptable). A lease is taken when a
@@ -46,28 +48,26 @@ def too_many_streams() -> ApiError:
     return error
 
 
-async def hit(conn: AsyncConnection, endpoint: str, limit: int) -> None:
-    """Count this request; 429 `slow_down` once the person is over `limit` in this minute (0 = no limit)."""
-    if limit <= 0:
-        return
-    cur = await conn.execute("select hits, retry_after from app.rate_limit_hit(%s)", (endpoint,))
+async def check(conn: AsyncConnection, endpoint: str, limit: int) -> None:
+    """Turn the request away (429 `slow_down`) when this person has already made `limit` requests to this
+    endpoint in this minute (0 = no limit). A plain read: it takes no lock."""
+    cur = await conn.execute("select hits, retry_after from app.rate_limit_peek(%s)", (endpoint,))
     row = await cur.fetchone()
-    if row is not None and row[0] > limit:
+    if row is not None and row[0] >= limit:
         raise slow_down(row[1])
 
 
-async def keep(conn: AsyncConnection, person_id: uuid.UUID, endpoint: str) -> None:
-    """Count a request whose own transaction was rolled back (it ended in an error), on the same connection.
-
-    Called once that transaction has ended and the connection is still held (`Database.session_request`'s
-    `after`), so an error answer still takes one connection. Best effort: it never raises."""
+async def count(conn: AsyncConnection, person_id: uuid.UUID, endpoint: str) -> None:
+    """Count one request, in a short transaction of its own on a connection nobody is using: the request's
+    own transaction has ended (or its connection was given back), so the count's row lock is held for this
+    statement only. Best effort: it never raises, and the answer the person was about to get does not change."""
     try:
         async with conn.pipeline():
             await conn.execute("BEGIN")
             await conn.execute("select set_config('app.person_id', %s, true)", (str(person_id),))
             await conn.execute("select hits from app.rate_limit_hit(%s)", (endpoint,))
             await conn.execute("COMMIT")
-    except Exception:  # noqa: BLE001 - the answer the person was about to get must not change
+    except Exception:  # noqa: BLE001
         with suppress(Exception):
             if not conn.closed:
                 await conn.execute("ROLLBACK")
