@@ -5,7 +5,7 @@ Date: 2026-10-16 · Status: accepted for design; confirm with spike 8 before sta
 **Decision.** Page images, OCR text, transcripts and generated documents are encrypted per case with a data key (AES-256-GCM, envelope encryption).
 - Each case's data key is wrapped by a customer master key in **AWS KMS, eu-west-2 (London)**. We already have an AWS account for Bedrock London.
 - Only the wrapped key is stored, in `case_keys` (case_id, wrapped_key, kms_key_arn, created_at, destroyed_at).
-- Unwrapped keys are cached in worker and API memory for at most 5 minutes and never logged.
+- Unwrapped keys are cached in worker and API memory for at most 5 minutes and never logged. A destroyed key leaves every process's cache at once (the database sends the case id to each process's listener, migration 0066), or within 30 seconds if a listener is down (a cached key that old is checked against `destroyed_at`).
 - **Deletion** destroys the wrapped key row and logs the destruction. Any copy left in backups can no longer be decrypted once the key is gone.
 - Each cell uses its own KMS key in its own region (Australia: ap-southeast-2; Canada: ca-central-1).
 

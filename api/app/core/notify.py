@@ -11,6 +11,12 @@ cannot LISTEN: `DATABASE_URL_LISTEN` must be a direct or session-mode URL as `ap
 backoff when it drops, and wakes every stream once after each (re)connect, so a change that landed while it
 was away is not missed. A stream also keeps a slow safety tick, so a lost notification costs seconds, not
 a stuck screen.
+
+The same connection also LISTENs on `case_key_destroyed` (migration 0066: `app.destroy_case_key` sends the case
+id when a key is destroyed) and tells `core/key_events` so this process's key cache and the reader's search cache
+drop that case within moments (PR 15). After each (re)connect every such cache is cleared once, because a message
+sent while the connection was away is gone. If the connection cannot be made at all, a cached key is checked
+against the database once it is 30 seconds old (`crypto.REVALIDATE_AFTER`), so the bound is 30 seconds, not 5 minutes.
 """
 
 from __future__ import annotations
@@ -24,7 +30,12 @@ from contextlib import contextmanager, suppress
 
 from psycopg import AsyncConnection
 
+from app.core.key_events import KeyEvents, key_events
+
 CHANNEL = "case_jobs"
+KEY_CHANNEL = (
+    "case_key_destroyed"  # payload: the case id; every cache holding that case's key or words drops it (PR 15)
+)
 LISTENER_APPLICATION_NAME = "avodeck-case-listener"
 
 _log = logging.getLogger(__name__)
@@ -38,8 +49,10 @@ class CaseNotifier:
         backoff_min: float = 0.5,
         backoff_max: float = 15.0,
         ping_seconds: float = 20.0,
+        key_events: KeyEvents = key_events,
     ) -> None:
         self._dsn = dsn
+        self._key_events = key_events
         self._backoff_min = backoff_min
         self._backoff_max = backoff_max
         self._ping = ping_seconds  # how often a quiet connection is tested, so a silent drop is noticed
@@ -92,6 +105,13 @@ class CaseNotifier:
         for event in tuple(self._events.get(case_id, ())):
             event.set()
 
+    def _key_destroyed(self, payload: str) -> None:
+        try:
+            case_id = uuid.UUID(payload)
+        except ValueError:
+            return  # not a case id: ignored, and never logged
+        self._key_events.destroyed(case_id)
+
     def _wake_all(self) -> None:
         for subscribed in tuple(self._events.values()):
             for event in tuple(subscribed):
@@ -105,12 +125,18 @@ class CaseNotifier:
                     self._dsn, autocommit=True, application_name=LISTENER_APPLICATION_NAME, connect_timeout=10
                 ) as conn:
                     await conn.execute(f"listen {CHANNEL}")
+                    await conn.execute(f"listen {KEY_CHANNEL}")
+                    # A key destroyed while we were away was missed: every cache starts again from the database.
+                    self._key_events.forget_all()
                     delay = self._backoff_min
                     self._ready.set()
                     self._wake_all()  # a change while we were away is not missed
                     while True:
                         async for note in conn.notifies(timeout=self._ping):
-                            self._wake(note.payload)
+                            if note.channel == KEY_CHANNEL:
+                                self._key_destroyed(note.payload)
+                            else:
+                                self._wake(note.payload)
                         await conn.execute("select 1")  # a dead connection raises here
             except asyncio.CancelledError:
                 raise

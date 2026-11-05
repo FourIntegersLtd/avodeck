@@ -26,6 +26,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from app.core.config import reader_search_cache_settings
+from app.core.key_events import key_events
 
 type Version = tuple[object, ...]
 
@@ -162,3 +163,7 @@ def clear_all() -> None:
 
 def case_ids() -> list[uuid.UUID]:
     return _cache.case_ids()
+
+
+# When a case key is destroyed (here or in another process) or the key listener was away, drop the words too.
+key_events.subscribe(clear_case, clear_all)

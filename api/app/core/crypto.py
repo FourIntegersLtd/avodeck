@@ -35,12 +35,16 @@ from psycopg import AsyncConnection
 
 from app.core.config import ConfigError
 from app.core.errors import ProcessingPaused
+from app.core.key_events import KeyEvents, key_events
 
 KEY_BYTES = 32
 NONCE_BYTES = 12
 BLOB_VERSION = b"\x01"
 SEALED_PREFIX = "av1:"
 MAX_CACHE = timedelta(minutes=5)
+# A cached key older than this is checked against `case_keys.destroyed_at` once before it is used again. The
+# listener (`core/notify.py`) clears a destroyed key at once; this is the bound when the listener is down (PR 15).
+REVALIDATE_AFTER = timedelta(seconds=30)
 OFF_LOOP_BYTES = 64 * 1024  # sealing or opening more than this runs on a worker thread
 
 
@@ -184,13 +188,23 @@ class CaseCrypto:
         *,
         ttl: timedelta = MAX_CACHE,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        events: KeyEvents = key_events,
     ) -> None:
         if ttl > MAX_CACHE:
             raise ConfigError("unwrapped case keys may be cached for 5 minutes at most")
         self.provider = provider
         self.ttl = ttl
         self.clock = clock
-        self._cache: dict[uuid.UUID, tuple[bytes, datetime]] = {}
+        self.events = events
+        self._cache: dict[uuid.UUID, tuple[bytes, datetime, datetime]] = {}  # key, expires, last checked
+        events.subscribe(self.forget, self.forget_all)
+
+    def forget(self, case_id: uuid.UUID) -> None:
+        """Drop the case's cached key (it was destroyed, here or in another process)."""
+        self._cache.pop(case_id, None)
+
+    def forget_all(self) -> None:
+        self._cache.clear()
 
     @staticmethod
     def _context(case_id: uuid.UUID) -> dict[str, str]:
@@ -200,7 +214,19 @@ class CaseCrypto:
         now = self.clock()
         cached = self._cache.get(case_id)
         if cached is not None and cached[1] > now:
-            return cached[0]
+            if now - cached[2] < REVALIDATE_AFTER:
+                return cached[0]
+            cur = await conn.execute(
+                "select destroyed_at is not null from app.case_keys where case_id = %s", (case_id,)
+            )
+            row = await cur.fetchone()
+            if row is not None and row[0]:
+                self.events.destroyed(case_id)  # this and the search cache forget it; nothing else will tell them
+                self._cache.pop(case_id, None)
+                raise CaseKeyDestroyed("the case's key was destroyed")
+            if row is not None:
+                self._cache[case_id] = (cached[0], cached[1], now)
+                return cached[0]
         self._cache.pop(case_id, None)
         cur = await conn.execute("select wrapped_key, destroyed_at from app.case_keys where case_id = %s", (case_id,))
         row = await cur.fetchone()
@@ -215,7 +241,7 @@ class CaseCrypto:
                 key = self.provider.decrypt_data_key(bytes(row[0]), self._context(case_id))
         except KeyServiceUnreachable as exc:
             raise _paused() from exc
-        self._cache[case_id] = (key, now + self.ttl)
+        self._cache[case_id] = (key, now + self.ttl, now)
         return key
 
     async def _create(self, conn: AsyncConnection, case_id: uuid.UUID) -> bytes:
@@ -266,6 +292,8 @@ class CaseCrypto:
         self._cache.pop(case_id, None)
         await conn.execute("select app.destroy_case_key(%s)", (case_id,))
         self._cache.pop(case_id, None)
+        # Every other process hears it from the database (it NOTIFYs when the job commits); this one need not wait.
+        self.events.destroyed(case_id)
 
 
 class SecretBox:
