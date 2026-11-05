@@ -207,6 +207,7 @@ def _empty_slot_pool(request: pytest.FixtureRequest) -> None:
     """The slot scheduler counts the whole account (migration 0056), so a slot another test left behind would
     count against this one. Tests that run the scheduler start from an empty pool."""
     name = request.node.path.name
-    if "repository" in request.node.path.parts and ("slot" in name or "pipeline" in name):
+    uses_worker = bool({"worker_db", "worker_dsn"} & set(request.fixturenames))
+    if uses_worker or ("repository" in request.node.path.parts and ("slot" in name or "pipeline" in name)):
         with psycopg.connect(request.getfixturevalue("admin_dsn"), autocommit=True) as conn:
             conn.execute("delete from app.ai_request_slots")
