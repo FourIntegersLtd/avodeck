@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator, Iterator, Sequence
-from contextlib import asynccontextmanager, contextmanager, suppress
+from contextlib import AsyncExitStack, asynccontextmanager, contextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -70,6 +70,15 @@ class RequestScope:
     request_id: str
 
 
+class _Hold:
+    """One request's claim on its pooled connection; `released` once `Database.release` gave it back."""
+
+    released = False
+
+    def __init__(self, checkout: AsyncExitStack) -> None:
+        self.checkout = checkout
+
+
 class Database:
     def __init__(
         self,
@@ -88,6 +97,7 @@ class Database:
         # prepare_threshold=None: Supavisor transaction mode cannot keep prepared statements.
         self.max_size = max_size
         self.statement_timeout_ms = statement_timeout_ms
+        self._holds: dict[AsyncConnection, _Hold] = {}  # request connections that may still be given back early
         self._pool = AsyncConnectionPool(
             dsn,
             min_size=min(DEFAULT_MIN_SIZE, max_size) if min_size is None else min_size,
@@ -173,7 +183,11 @@ class Database:
         settings = self._with_limits({"app.org_ids": "", "app.request_id": request_id, "TimeZone": "UTC"})
         *lookup, touch = resolve_args
         row: tuple[Any, ...] | None = None
-        async with self._pool.connection() as conn:
+        stack = AsyncExitStack()  # holds the pool's checkout, so `release` can end it before the request does
+        conn = await stack.enter_async_context(self._pool.connection())
+        hold = _Hold(stack)
+        self._holds[conn] = hold
+        try:
             try:
                 try:
                     async with conn.pipeline():
@@ -189,15 +203,43 @@ class Database:
                         )
                     row = await cur.fetchone()
                     yield conn, (row[:-1] if row is not None else None)
-                    await conn.execute("COMMIT")
+                    if not hold.released:
+                        await conn.execute("COMMIT")
                 except BaseException:
-                    with anyio.CancelScope(shield=True):  # a dropped client must not leave the transaction open
-                        await _rollback(conn)
+                    if not hold.released:
+                        with anyio.CancelScope(shield=True):  # a dropped client must not leave the transaction open
+                            await _rollback(conn)
                     raise
             finally:
                 if touch and row is not None:
                     with anyio.CancelScope(shield=True):  # nor skip the count
-                        await _count_activity(conn, row, idle=lookup[1], max_age=lookup[2])
+                        if hold.released:  # the connection went back to the pool early: borrow one again
+                            with suppress(Exception):
+                                async with self._pool.connection() as again:
+                                    await _count_activity(again, row, idle=lookup[1], max_age=lookup[2])
+                        else:
+                            await _count_activity(conn, row, idle=lookup[1], max_age=lookup[2])
+        finally:
+            if not hold.released:
+                self._holds.pop(conn, None)
+                with anyio.CancelScope(shield=True):
+                    await stack.aclose()
+
+    async def release(self, conn: AsyncConnection) -> None:
+        """Commit a `session_request` transaction now and give its connection back to the pool, for a route
+        about to do slow work (Storage, a slow client's body, CPU) that needs no database meanwhile.
+
+        Only for a connection from `session_request`. The caller must not use `conn` again; its later
+        database work opens `request(scope)` as a new, short transaction. Leaving the request normally
+        afterwards commits nothing twice and touches nothing, and a second call does nothing."""
+        hold = self._holds.get(conn)
+        if hold is None or hold.released:
+            return
+        await conn.execute("COMMIT")
+        hold.released = True
+        del self._holds[conn]
+        with anyio.CancelScope(shield=True):
+            await hold.checkout.aclose()
 
     @asynccontextmanager
     async def anonymous(self, request_id: str = "") -> AsyncIterator[AsyncConnection]:
