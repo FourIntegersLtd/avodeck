@@ -274,7 +274,7 @@ async def suggest_links(ctx: JobContext) -> None:
             )
 
 
-@registry.kind("rerun_checks", interactive=False, changes_case=False)
+@registry.kind("rerun_checks", interactive=True, changes_case=False)
 async def rerun_checks(ctx: JobContext) -> None:
     """Work out availability, then run the named expert's checks on checked facts and write the findings."""
     async with ctx.transaction() as conn:
