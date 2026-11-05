@@ -30,7 +30,9 @@ def make_job(
     if status == "paused":
         admin.execute("update app.jobs set status = 'paused', error_code = %s where id = %s", (code, job))
     elif status == "failed":
-        admin.execute("update app.jobs set status = 'failed', error_code = %s where id = %s", (code or "zz_failed", job))
+        admin.execute(
+            "update app.jobs set status = 'failed', error_code = %s where id = %s", (code or "zz_failed", job)
+        )
     elif status == "done":
         admin.execute("update app.jobs set status = 'done' where id = %s", (job,))
     return job
@@ -59,7 +61,8 @@ def add_row(
     row_id = int(row[0])
     if delay_seconds:
         admin.execute(
-            "update procrastinate.procrastinate_jobs set scheduled_at = now() + make_interval(secs => %s) where id = %s",
+            "update procrastinate.procrastinate_jobs set scheduled_at = now() + make_interval(secs => %s)"
+            " where id = %s",
             (delay_seconds, row_id),
         )
     if status in ("doing", "succeeded"):
@@ -126,7 +129,9 @@ def rows_of(admin: psycopg.Connection, job: uuid.UUID) -> list[tuple[str, str, i
 
 
 def job_state(admin: psycopg.Connection, job: uuid.UUID) -> tuple[str, str | None, int, bool]:
-    row = admin.execute("select status, error_code, attempts, requeued_stall from app.jobs where id = %s", (job,)).fetchone()
+    row = admin.execute(
+        "select status, error_code, attempts, requeued_stall from app.jobs where id = %s", (job,)
+    ).fetchone()
     assert row is not None
     return (str(row[0]), row[1], int(row[2]), bool(row[3]))
 

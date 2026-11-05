@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import threading
 import uuid
+from typing import Any
 
 import psycopg
 import pytest
@@ -44,11 +45,13 @@ def complete(conn: psycopg.Connection, case: uuid.UUID, batch: uuid.UUID) -> boo
     return bool(row[0])
 
 
-def two_batches(admin: psycopg.Connection, seed: Seed, case: uuid.UUID, state: str = "ocr_waiting", **kw: str):
+def two_batches(
+    admin: psycopg.Connection, seed: Seed, case: uuid.UUID, state: str = "ocr_waiting", **kw: Any
+) -> tuple[uuid.UUID, uuid.UUID, list[uuid.UUID]]:
     parent = make_job(admin, seed, case, **kw)
     run = add_run(admin, case, parent, state)
     phase = "ocr" if state.startswith("ocr") else "sort"
-    batches = []
+    batches: list[uuid.UUID] = []
     for seq in range(2):
         child = child_job(admin, seed, case, status="running")
         batches.append(add_batch(admin, run, case, seq, phase=phase, child=child))

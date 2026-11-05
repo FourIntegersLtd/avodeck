@@ -10,6 +10,7 @@ from __future__ import annotations
 import threading
 import uuid
 from collections.abc import Callable
+from typing import Any
 
 import psycopg
 import pytest
@@ -59,7 +60,7 @@ def end_rows(admin: psycopg.Connection, job: uuid.UUID) -> None:
 
 
 def run_with(
-    admin: psycopg.Connection, seed: Seed, case: uuid.UUID, state: str = "ocr_waiting", *, window: int = 2, **kw: str
+    admin: psycopg.Connection, seed: Seed, case: uuid.UUID, state: str = "ocr_waiting", *, window: int = 2, **kw: Any
 ) -> uuid.UUID:
     parent = make_job(admin, seed, case, **kw)
     return add_run(admin, case, parent, state, window=window)
@@ -67,8 +68,8 @@ def run_with(
 
 def kids(
     admin: psycopg.Connection, seed: Seed, case: uuid.UUID, run: uuid.UUID, *statuses: str, code: str | None = None
-):
-    out = []
+) -> list[uuid.UUID]:
+    out: list[uuid.UUID] = []
     for seq, status in enumerate(statuses):
         child = child_job(admin, seed, case, status=status, code=code)
         add_batch(admin, run, case, seq, child=child, done=status == "done")

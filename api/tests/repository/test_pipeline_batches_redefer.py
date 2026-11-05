@@ -46,7 +46,11 @@ def busy(admin: psycopg.Connection, case: uuid.UUID) -> bool:
 
 
 def test_only_the_worker_may_call_the_functions(admin: psycopg.Connection, worker_dsn: str, api_dsn: str) -> None:
-    for name in ("pipeline_redefer(uuid, boolean)", "pipeline_case_busy(uuid, text[])", "pipeline_defer_row(uuid, text, text, integer)"):
+    for name in (
+        "pipeline_redefer(uuid, boolean)",
+        "pipeline_case_busy(uuid, text[])",
+        "pipeline_defer_row(uuid, text, text, integer)",
+    ):
         row = admin.execute(
             "select has_function_privilege('app_worker', %s::regprocedure, 'execute'),"
             " has_function_privilege('app_api', %s::regprocedure, 'execute'),"
@@ -155,7 +159,12 @@ def test_a_child_with_a_queue_row_makes_the_case_busy(admin: psycopg.Connection,
 def test_a_parent_paused_with_a_resumable_code_is_busy_but_a_stop_or_a_failure_is_not(
     admin: psycopg.Connection, seed: Seed, case: uuid.UUID
 ) -> None:
-    for code, expected in (("service_busy", True), ("model_unavailable", True), ("cancelled", False), ("cost_guard", False)):
+    for code, expected in (
+        ("service_busy", True),
+        ("model_unavailable", True),
+        ("cancelled", False),
+        ("cost_guard", False),
+    ):
         parent = make_job(admin, seed, case, status="paused", code=code)
         add_run(admin, case, parent, "finishing")
         assert busy(admin, case) is expected, code

@@ -113,6 +113,8 @@ Root checklist, plus: the synthetic bundle processes end to end on staging; `mak
 
 ## Page-batch jobs (scalability PR 17: design; build is a later PR)
 
+Build status (flag off, behaviour unchanged): steps 1-2 landed as migration 0136 (tables, purge lock, `batches.plan`); the SQL half of steps 3-6 as 0137 (`pipeline_redefer`, `pipeline_case_busy`, `pipeline_complete_batch`, `pipeline_finish_run`, `pipeline_reopen_run`, `pipeline_enter`, `pipeline_mirror_run`, `pipeline_close_runs`, `pipeline_heal_runs`) and 0138 (orphan sweep). `pipeline_report_progress` needs the page tables' schema and comes with the child job (PR 4) as migration 0139. Steps 7-14 (write guard, range arguments, child job, parent parking, routes, concurrency tests) are still to do.
+
 Status: design for review (revised after the Opus review). ADR `docs/decisions/0038-page-batch-jobs.md`. Today one `process_bundle` job (kind `process_bundle` or `process_pages`) holds the lock `case:<id>` and one worker slot for the whole bundle (split, ocr, sort, duplicates, missing, embed, ready), so the expert's own `rerun_checks` and `build_report` wait for hours and one 4,000-page bundle holds a slot for 75 minutes or more. Goal: read the pages in about 100-page child jobs on the `bulk` queue that take no case lock, keep the cross-page steps under the lock, and leave the browser, the API and the SSE stream as they are.
 
 ### Switch and numbers (scalability rule 9: the default equals today)

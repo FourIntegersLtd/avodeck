@@ -4,6 +4,7 @@ healthy, after running the sweep's mirror on each, and leaves healthy runs open.
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 import psycopg
 import pytest
@@ -43,7 +44,7 @@ def stop(admin: psycopg.Connection, case: uuid.UUID) -> None:
     )
 
 
-def open_run(admin: psycopg.Connection, seed: Seed, case: uuid.UUID, **kw: str) -> uuid.UUID:
+def open_run(admin: psycopg.Connection, seed: Seed, case: uuid.UUID, **kw: Any) -> uuid.UUID:
     return add_run(admin, case, make_job(admin, seed, case, **kw), "ocr_waiting")
 
 

@@ -8,6 +8,7 @@ the run row lock, and says what to do (`end`, `wake_a`, `tail` or `park`) withou
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 import psycopg
 import pytest
@@ -48,7 +49,7 @@ def reopen(conn: psycopg.Connection, case: uuid.UUID, run: uuid.UUID) -> None:
     conn.execute("select app.pipeline_reopen_run(%s)", (run,))
 
 
-def parent_with_row(admin: psycopg.Connection, seed: Seed, case: uuid.UUID, state: str, **kw: int) -> uuid.UUID:
+def parent_with_row(admin: psycopg.Connection, seed: Seed, case: uuid.UUID, state: str, **kw: Any) -> uuid.UUID:
     """A running parent whose own queue row is `doing` (the handler is running), and its run."""
     parent = make_job(admin, seed, case)
     add_row(admin, parent, case, status="doing", **kw)
