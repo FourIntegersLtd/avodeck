@@ -11,7 +11,14 @@ from fastapi import APIRouter, FastAPI
 
 from app.core import logs
 from app.core.auth.supabase import SupabaseAuth
-from app.core.config import ConfigError, auth_settings, cell_settings, database_settings, local_mfa_skip
+from app.core.config import (
+    ConfigError,
+    DatabaseSettings,
+    auth_settings,
+    cell_settings,
+    database_settings,
+    local_mfa_skip,
+)
 from app.core.contracts.reading import PageReadLog
 from app.core.contracts.today import NeedsYouRegistry
 from app.core.contracts.today import needs_you as default_needs_you
@@ -58,6 +65,16 @@ def _origins(app: FastAPI, settings: object | None) -> None:
     app.state.cookie_domain = getattr(settings, "cookie_domain", None)
 
 
+def api_database(settings: DatabaseSettings) -> Database:
+    """The API's pool: fails fast when busy (503 `busy`) rather than queueing. The worker's has no such limits."""
+    return Database(
+        settings.url,
+        acquire_timeout=settings.acquire_timeout_seconds,
+        max_waiting=settings.max_waiting,
+        statement_timeout_ms=settings.statement_timeout_ms,
+    )
+
+
 def create_app(
     *,
     database: Database | None = None,
@@ -102,7 +119,7 @@ def create_app(
             app.state.auth = SupabaseAuth(auth_settings())
             _origins(app, app.state.auth.settings)
         if app.state.database is None:
-            owned = Database(database_settings().url)
+            owned = api_database(database_settings())
             await owned.open()
             app.state.database = owned
         owned_storage: CaseFileStorage | None = None
