@@ -6,6 +6,7 @@ Every function runs on the request's or job's connection, so row-level security 
 from __future__ import annotations
 
 import uuid
+from array import array
 from typing import Any
 
 from psycopg import AsyncConnection
@@ -18,11 +19,14 @@ from app.core.contracts.document_words import (
     box,
     correction_purpose,
     current_corrections,
+    open_words,
+    read_as_corrected,
     word_purpose,
 )
 from app.core.contracts.fact_flags import POINTS, RECHECK
 from app.core.contracts.pipeline import transcription_purpose
 from app.core.crypto import CaseCrypto
+from app.features.reader.search_cache import CaseWords, PageWords
 
 
 async def record_read(
@@ -608,25 +612,65 @@ async def searchable_pages(conn: AsyncConnection, case_id: uuid.UUID) -> dict[uu
     return {p: (int(n), d) for p, n, d in await cur.fetchall()}
 
 
-async def word_places(
-    conn: AsyncConnection, case_id: uuid.UUID
-) -> tuple[dict[uuid.UUID, dict[str, list[float]]], dict[uuid.UUID, tuple[float, float]]]:
-    """Every word's polygon by page (pages not set aside), and each page's size from its analysis."""
+async def search_version(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[object, ...]:
+    """What the case's searchable words depend on, cheaply (no word is read): changes whenever pages are added or
+    set aside, the words of a page are read again (OCR or the expert's own typing), or the expert's readings of
+    misread words change. The search cache is valid only while this is unchanged."""
     cur = await conn.execute(
-        "select w.page_id, w.word_id, w.polygon from app.ocr_words w join app.pages p on p.id = w.page_id"
+        "select count(*), count(*) filter (where p.text_source = 'expert'), coalesce(sum(p.ocr_confidence), 0)::float8,"
+        " coalesce(sum(a.word_count), 0), max(a.updated_at)"
+        " from app.pages p left join app.page_analysis a on a.page_id = p.id"
         " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined",
         (case_id,),
     )
-    polygons: dict[uuid.UUID, dict[str, list[float]]] = {}
-    for page, word, polygon in await cur.fetchall():
-        polygons.setdefault(page, {})[word] = [float(v) for v in polygon or []]
+    pages = await cur.fetchone()
+    cur = await conn.execute(
+        "select count(*), max(greatest(c.created_at, coalesce(c.superseded_at, c.created_at)))"
+        " from app.word_corrections c join app.pages p on p.id = c.page_id"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined",
+        (case_id,),
+    )
+    corrections = await cur.fetchone()
+    return (*(pages or ()), *(corrections or ()))
+
+
+SEARCH_BATCH_PAGES = 200
+
+
+async def search_words(conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID) -> CaseWords:
+    """Every searchable word of the case as the expert reads it, opened a batch of pages at a time (each batch's
+    opening runs in a thread), with each word's polygon and each page's size. Patient text: search cache only."""
+    pages = await searchable_pages(conn, case_id)
+    order = sorted(pages, key=lambda p: pages[p][0])
+    out: dict[uuid.UUID, PageWords] = {}
+    for start in range(0, len(order), SEARCH_BATCH_PAGES):
+        batch = order[start : start + SEARCH_BATCH_PAGES]
+        cur = await conn.execute(
+            "select page_id, word_id, text, polygon from app.ocr_words where page_id = any (%s) order by page_id, n",
+            (batch,),
+        )
+        rows = await cur.fetchall()
+        texts = await open_words(conn, crypto, case_id, [(r[0], r[1], r[2]) for r in rows])
+        polygons: dict[uuid.UUID, dict[str, list[float]]] = {}
+        by_page: dict[uuid.UUID, list[tuple[str, str]]] = {}
+        for (page, word, _, polygon), text in zip(rows, texts, strict=True):
+            by_page.setdefault(page, []).append((word, text))
+            polygons.setdefault(page, {})[word] = [float(v) for v in polygon or []]
+        corrections = await current_corrections(conn, crypto, case_id, by_page)
+        for page, words in by_page.items():
+            read = read_as_corrected(words, corrections.get(page, []))
+            places = polygons[page]
+            poly: array = array("f")  # type: ignore[type-arg]
+            for word, _ in read:
+                poly.extend(places[word] if len(places[word]) == 8 else [0.0] * 8)
+            out[page] = PageWords(ids=[w for w, _ in read], texts=[t.lower() for _, t in read], poly=poly)
     cur = await conn.execute(
         "select a.page_id, a.width, a.height from app.page_analysis a join app.pages p on p.id = a.page_id"
         " where p.bundle_id = (select bundle_id from app.cases where id = %s) and a.width > 0 and a.height > 0",
         (case_id,),
     )
-    sizes = {page: (float(wd), float(ht)) for page, wd, ht in await cur.fetchall()}
-    return polygons, sizes
+    sizes = {page: (float(wd), float(ht)) for page, wd, ht in await cur.fetchall() if page in out}
+    return CaseWords(pages=out, sizes=sizes)
 
 
 # The person's own bookmarks and notes (S09) ---------------------------------------------------------

@@ -176,12 +176,18 @@ class SupportJobOutcome:
 
 
 async def support_job_action(
-    conn: AsyncConnection, job_id: uuid.UUID, action: str, reason_code: str, *, queue: str = registry.queue
+    conn: AsyncConnection, job_id: uuid.UUID, action: str, reason_code: str, *, queue: str | None = None
 ) -> SupportJobOutcome:
-    """Support resumes a paused job (`resume`) or requeues a failed one (`requeue`) on `queue`
-    (`app.support_job_action()`, migration 0035). Raises 42501 for anyone not current support staff."""
+    """Support resumes a paused job (`resume`) or requeues a failed one (`requeue`)
+    (`app.support_job_action()`, migration 0035). Raises 42501 for anyone not current support staff.
+    A job still waiting in the queue is brought forward on the queue it is on. A job that needs a new queue row goes
+    on `queue`, else on the queue its kind runs on (an interactive kind such as export_case on `interactive`)."""
     if action not in SUPPORT_JOB_ACTIONS:
         raise ValueError(f"unknown support job action {action!r}")
+    if queue is None:
+        cur = await conn.execute("select app.support_job_kind(%s)", (job_id,))
+        found = await cur.fetchone()
+        queue = registry.queue_for(found[0]) if found and found[0] else registry.queue
     cur = await conn.execute(
         "select outcome, case_id, status, expert_email from app.support_job_action(%s, %s, %s, %s)",
         (job_id, action, reason_code, queue),
