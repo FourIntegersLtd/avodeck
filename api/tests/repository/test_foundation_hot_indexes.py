@@ -17,13 +17,31 @@ import pytest
 from tests.support.seed import Seed
 
 
-def _plan_indexes(admin: psycopg.Connection, sql: str, params: tuple[object, ...]) -> set[str]:
-    """Names of every index the plan for `sql` reads, with sequential and bitmap scans switched off."""
-    with admin.transaction():
-        admin.execute("set local enable_seqscan = off")
-        admin.execute("set local enable_bitmapscan = off")
-        row = admin.execute("explain (format json) " + sql, params).fetchone()
-        assert row is not None
+class _Rollback(Exception):
+    """Raised to undo the transaction that dropped the older index."""
+
+
+def _plan_indexes(
+    admin: psycopg.Connection, sql: str, params: tuple[object, ...], *, without: str | None = None
+) -> set[str]:
+    """Names of every index the plan for `sql` reads, with sequential and bitmap scans switched off.
+
+    `without` names an older index that is dropped for the length of the plan and then rolled back. The new index
+    serves the same filter as the old one plus the order, but on a populated table the planner may still prefer the
+    old one and sort; dropping it asks the real question, whether the new index can serve the query on its own.
+    """
+    row = None
+    try:
+        with admin.transaction():
+            if without:
+                admin.execute(f"drop index app.{without}")  # noqa: S608 - a fixed name from this file
+            admin.execute("set local enable_seqscan = off")
+            admin.execute("set local enable_bitmapscan = off")
+            row = admin.execute("explain (format json) " + sql, params).fetchone()
+            raise _Rollback
+    except _Rollback:
+        pass
+    assert row is not None
     names: set[str] = set()
 
     def walk(node: dict[str, object]) -> None:
@@ -65,6 +83,7 @@ def test_the_case_stream_reads_a_cases_jobs_through_the_new_index(admin: psycopg
         " and (finished_at is null or finished_at > now() - make_interval(mins => %s))"
         " order by created_at desc, id limit %s",
         (case, 10, 50),
+        without="jobs_case",
     )
     assert "jobs_case_created_idx" in used
 
