@@ -1,4 +1,4 @@
--- Undo 0059: slots may again be for Bedrock or the direct Anthropic API only.
+-- Undo 0060: slots may again be for Bedrock or the direct Anthropic API only.
 set role app_migrator;
 
 delete from app.ai_request_slots where provider = 'azure_ocr';
