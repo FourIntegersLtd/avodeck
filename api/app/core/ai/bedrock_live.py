@@ -25,6 +25,7 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.core import metrics
 from app.core.ai.bedrock import ModelRequest, ModelRequestRefused, ModelResponse, ModelUnavailable, ServiceBusy
 from app.core.ai.cell import check_endpoint, check_model
 from app.core.config import AiSettings
@@ -114,6 +115,8 @@ class LiveBedrock:
                 request.max_tokens,
                 len(request.text),
             )
+            if code == "ThrottlingException" or status == 429:
+                metrics.count_429("bedrock")
             if code in _BUSY:
                 raise ServiceBusy(_retry_after(exc.response)) from None
             if code in _GONE:

@@ -23,9 +23,9 @@ These are the numbers the build is tested against. Each has an owner slice and a
 |---|---|---|
 | C1 | Largest single upload | 500 MB, 4,000 pages |
 | C2 | Largest case | 8,000 pages across all documents |
-| C3 | Concurrent bundle jobs per cell at launch | 5 (queue beyond that, with an honest wait estimate) |
+| C3 | Concurrent bundle jobs per cell at launch | 50 (queue beyond that, with an honest wait estimate; ADR 0037) |
 | C4 | Active cases per expert | 50 |
-| C5 | Experts per cell before scaling review | 200 |
+| C5 | Experts per cell before scaling review | 1,000 registered, 300 online at peak (ADR 0037) |
 
 ## Availability and recovery
 

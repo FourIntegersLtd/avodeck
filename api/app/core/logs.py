@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import time
 import traceback
@@ -210,6 +211,18 @@ def before_breadcrumb(crumb: dict[str, Any], hint: dict[str, Any]) -> dict[str, 
     return crumb
 
 
+DEFAULT_TRACES_SAMPLE_RATE = 0.05
+
+
+def traces_sample_rate() -> float:
+    """`SENTRY_TRACES_SAMPLE_RATE` (0 to 1); a missing or bad value is the default."""
+    try:
+        rate = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", ""))
+    except ValueError:
+        return DEFAULT_TRACES_SAMPLE_RATE
+    return rate if 0.0 <= rate <= 1.0 else DEFAULT_TRACES_SAMPLE_RATE
+
+
 def sentry_options(dsn: str, *, environment: str) -> dict[str, Any]:
     from sentry_sdk.scrubber import EventScrubber
 
@@ -223,7 +236,7 @@ def sentry_options(dsn: str, *, environment: str) -> dict[str, Any]:
         "event_scrubber": EventScrubber(recursive=True),
         "before_send": before_send,
         "before_breadcrumb": before_breadcrumb,
-        "traces_sample_rate": 0.0,
+        "traces_sample_rate": traces_sample_rate(),
     }
 
 

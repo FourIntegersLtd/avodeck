@@ -23,6 +23,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from app.core import metrics
 from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import EndpointNotAllowed, check_endpoint
 from app.core.ai.ocr import OcrFailed, OcrModel, OcrPage, OcrResult, OcrWord, word_id
@@ -150,6 +151,8 @@ class AzureOcr:
                         raise OcrFailed(f"http_{response.status_code}")
                     return response
                 status, retry_after = str(response.status_code), _retry_after(response)
+                if response.status_code == 429:
+                    metrics.count_429("azure_ocr")
             if attempt == self._retries:
                 logger.error("ocr service still busy (%s) after %d attempts", status, attempt + 1)
                 raise ServiceBusy(retry_after)

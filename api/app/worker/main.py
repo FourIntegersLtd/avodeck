@@ -17,6 +17,7 @@ import app.core.housekeeping  # noqa: F401 - registers the foundation's daily sc
 import app.core.notifications  # noqa: F401 - the daily messages schedule
 import app.core.uploads  # noqa: F401 - the finalize_upload job
 import app.features.pipeline  # noqa: F401 - slice A's job kinds and its DocumentUploaded subscriber
+from app.core import metrics
 from app.core.config import ConfigError, database_settings, env_int
 from app.core.db import Database
 from app.core.email import Mailer
@@ -54,7 +55,15 @@ async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_P
     try:
         await start_features(features, worker, hook=WORKER_HOOK)  # each slice's `on_worker_start(worker)`
         async with worker:
-            await worker.run(concurrency=concurrency, install_signal_handlers=True)
+            sampling = [
+                asyncio.create_task(metrics.sample_loop_lag()),
+                asyncio.create_task(metrics.log_snapshots(worker.database)),
+            ]
+            try:
+                await worker.run(concurrency=concurrency, install_signal_handlers=True)
+            finally:
+                for task in sampling:
+                    task.cancel()
     finally:
         await worker.database.close()
 

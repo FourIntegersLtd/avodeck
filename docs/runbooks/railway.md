@@ -33,6 +33,8 @@ Copy every name from `api/.env.example` into both services (Railway "shared vari
   Supabase pool size, then `WORKER_DB_POOL_MAX` / `WORKER_QUEUE_POOL_MAX`, keeping every replica's two pools together
   below the pooler's pool size. More model calls at once need a bigger `WORKER_DB_POOL_MAX`, never a bigger reserve.
 - `API_DB_ACQUIRE_TIMEOUT_SECONDS` (default 2), `API_DB_MAX_WAITING` (default 50), `API_DB_STATEMENT_TIMEOUT_MS` (default 5000, 0 = off): the API pool fails fast. A request that cannot get a connection in time, finds more than that many already waiting, or runs a statement past the limit gets 503 `busy` with `Retry-After: 2` (failure mode F53). The worker's pool has none of these limits.
+- `OPS_METRICS_TOKEN`: long random string. `GET /v1/internal/metrics` with `Authorization: Bearer <token>` returns the API's pool, event-loop lag and provider 429 counts, plus queue depth, oldest wait and job run times from the database (numbers only). Unset, the route answers 404. The worker logs the same snapshot every 60 seconds. Generate with `openssl rand -base64 32`; never paste it into chat.
+- `SENTRY_TRACES_SAMPLE_RATE` (default 0.05, 0 to 1): the share of requests Sentry traces. Events are still scrubbed.
 - `AI_ENTRY_COVERAGE_FLOOR` (default 0.8, more than 0 and at most 1): the share of a page's words the entries read from it must cover.
 - `AI_COST_GUARD_MULTIPLE` (default 3), `AI_EXPECTED_TOKENS_PER_PAGE` (4000), `AI_MIN_EXPECTED_PAGES` (100): the cost guard
   (F11). The worker pauses a case once its tokens pass multiple x tokens per page x max(pages, minimum pages), and the
@@ -43,6 +45,19 @@ Copy every name from `api/.env.example` into both services (Railway "shared vari
 - `APP_ORIGIN`: the web app's public origins, comma-separated (`https://avodeck.com`). Never a wildcard; start-up refuses one.
 - `COOKIE_DOMAIN`: `avodeck.com`, so the page on `avodeck.com` can read the `av_csrf` cookie the API sets (ADR 0031). Empty locally.
 - `PACKS_APPROVED_ONLY=1` once the launch packs are approved.
+
+## Alerts (Sentry)
+
+Create these alert rules in Sentry (EU) for the production project. The numbers come from `GET /v1/internal/metrics` (see `OPS_METRICS_TOKEN` above); point an uptime check or a scheduled job at it and send the values to Sentry as metrics, or read them by hand during a bundle run.
+
+| Alert | Condition | What to do |
+|---|---|---|
+| Interactive queue waiting | `oldest_queued_seconds` for the interactive queue over 120 s | A person is waiting: check the worker is up, `jobs_queued`, and `provider_429_total` |
+| Bulk queue waiting | `oldest_queued_seconds` for the bulk queue over 900 s | Add worker capacity or check the provider limits |
+| Dead-lettered job | any Sentry event with message `job_dead_lettered` (tags `kind`, `job_id`: no case, name or text) | Open the job in the support console; requeue it or tell the expert |
+| Pool exhausted | `pool_waiting` above 0 for 60 s | Raise the Supabase pooler size, then `API_DB_*` limits; check for a slow statement |
+
+Until the interactive and bulk queues are split, there is one queue (`jobs`): use the interactive thresholds for it.
 
 ## Migrations
 

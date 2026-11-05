@@ -15,13 +15,15 @@ TOKEN = "ops-token-synthetic-0123456789"
 
 
 @pytest.fixture
-def ops_app(api_db: Database, auth_env: dict[str, str]) -> FastAPI:
-    from app.core.auth.supabase import SupabaseAuth
-    from app.core.config import auth_settings
-    from app.core.email import OutboxMailer
+def ops_app(api_db: Database) -> FastAPI:
+    from types import SimpleNamespace
+
     from app.main import create_app
 
-    return create_app(database=api_db, region="zz", auth=SupabaseAuth(auth_settings(auth_env)), mailer=OutboxMailer())
+    auth = SimpleNamespace(
+        settings=SimpleNamespace(app_origin="https://test", app_origins=("https://test",), cookie_domain="test")
+    )
+    return create_app(database=api_db, region="zz", auth=auth)  # type: ignore[arg-type]
 
 
 def client(app: FastAPI, **headers: str) -> httpx.AsyncClient:

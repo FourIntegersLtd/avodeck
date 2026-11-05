@@ -26,6 +26,7 @@ from typing import Any
 import anthropic
 import httpx2
 
+from app.core import metrics
 from app.core.ai.bedrock import (
     CALL_ATTEMPT,
     ModelCallFailure,
@@ -211,6 +212,8 @@ def _classify(exc: anthropic.APIStatusError) -> ModelCallFailure:
         if code in _BUSY_CODES or error_type in _BUSY_CODES:
             return ServiceBusy().annotated(**fields)
         return ModelRequestRefused(code).annotated(**fields)
+    if status == 429:
+        metrics.count_429("anthropic")
     if status == 429 or status >= 500:
         return ServiceBusy(parse_retry_after(exc.response.headers.get("retry-after"))).annotated(**fields)
     if status in _UNAVAILABLE:
