@@ -10,6 +10,7 @@ direct connection (`DATABASE_URL_DIRECT`), never through the pooler and never as
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from collections.abc import Mapping
 
@@ -18,13 +19,15 @@ import app.core.notifications  # noqa: F401 - the daily messages schedule
 import app.core.uploads  # noqa: F401 - the finalize_upload job
 import app.features.pipeline  # noqa: F401 - slice A's job kinds and its DocumentUploaded subscriber
 from app.core import metrics
-from app.core.config import ConfigError, database_settings, env_int, job_max_stall_requeues
+from app.core.config import ConfigError, database_settings, env_int, job_max_stall_requeues, pipeline_batch_settings
 from app.core.db import Database
 from app.core.email import Mailer
 from app.core.email_live import mailer_from_env
 from app.core.features import DEFAULT_PACKAGE, WORKER_HOOK, load_features, start_features
 from app.core.jobs import BULK_QUEUE, DEFAULT_SHUTDOWN_GRACE_SECONDS, INTERACTIVE_QUEUE, JobWorker, registry
 from app.core.notify import CaseNotifier
+
+logger = logging.getLogger("app.worker")
 
 
 def worker_queues(source: Mapping[str, str]) -> list[str] | None:
@@ -40,6 +43,20 @@ def worker_queues(source: Mapping[str, str]) -> list[str] | None:
         raise ConfigError(f"WORKER_QUEUES must list {INTERACTIVE_QUEUE} and/or {BULK_QUEUE}, separated by commas")
     chosen = [known[n] for n in dict.fromkeys(names)]
     return chosen + [registry.queue] if BULK_QUEUE in names else chosen
+
+
+def check_pipeline_window(source: Mapping[str, str], *, concurrency: int) -> str | None:
+    """Warn when page batching is on and its window leaves no slot for the parent run (ADR 0038): the window must be
+    at most `WORKER_CONCURRENCY - 1`. Returns the warning, or None. Never refuses to start."""
+    settings = pipeline_batch_settings(source)
+    if not settings.enabled or settings.window <= concurrency - 1:
+        return None
+    message = (
+        f"PIPELINE_BATCH_WINDOW is above WORKER_CONCURRENCY - 1: window {settings.window}, concurrency {concurrency};"
+        " children can fill every slot and starve the parent"
+    )
+    logger.warning(message)
+    return message
 
 
 def build_worker(
@@ -69,6 +86,7 @@ async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_P
     worker = build_worker(env, features=features)
     source = os.environ if env is None else env
     concurrency = env_int(source, "WORKER_CONCURRENCY", 4, minimum=1)
+    check_pipeline_window(source, concurrency=concurrency)
     await worker.database.open()
     # One LISTEN connection (on the direct URL) so a case key destroyed in another process leaves this
     # process's key cache at once, not after 5 minutes (PR 15); without it the cache is checked every 30 seconds.

@@ -50,13 +50,18 @@ def test_a_bad_value_is_refused(env: dict[str, str]) -> None:
 
 def test_a_window_above_the_concurrency_less_one_warns_with_the_numbers(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.WARNING):
-        assert check_pipeline_window({"PIPELINE_BATCH_WINDOW": "4"}, concurrency=4) is not None
+        assert (
+            check_pipeline_window({"PIPELINE_BATCH_PAGES": "100", "PIPELINE_BATCH_WINDOW": "4"}, concurrency=4)
+            is not None
+        )
     assert "window 4" in caplog.text and "concurrency 4" in caplog.text
 
 
 def test_a_window_within_the_limit_or_a_flag_that_is_off_says_nothing(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.WARNING):
-        assert check_pipeline_window({"PIPELINE_BATCH_PAGES": "100", "PIPELINE_BATCH_WINDOW": "3"}, concurrency=4) is None
+        assert (
+            check_pipeline_window({"PIPELINE_BATCH_PAGES": "100", "PIPELINE_BATCH_WINDOW": "3"}, concurrency=4) is None
+        )
         assert check_pipeline_window({"PIPELINE_BATCH_WINDOW": "9"}, concurrency=4) is None, "off: nothing to check"
     assert caplog.text == ""
 

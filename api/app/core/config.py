@@ -146,6 +146,36 @@ def job_max_stall_requeues(env: Mapping[str, str] | None = None) -> int:
     return env_int(source, "JOB_MAX_STALL_REQUEUES", DEFAULT_JOB_MAX_STALL_REQUEUES, minimum=0)
 
 
+DEFAULT_PIPELINE_BATCH_WINDOW = 2
+
+
+@dataclass(frozen=True)
+class PipelineBatchSettings:
+    """Page-batch jobs (ADR 0038). `pages` is the pages in one batch; 0 keeps today's single `process_bundle` job.
+    `window` is how many batches of one run read at once (at most `WORKER_CONCURRENCY - 1`, so the parent and a
+    waiting job always have a slot). `min_pages` is the fewest pages that make a bundle worth batching."""
+
+    pages: int = 0
+    window: int = DEFAULT_PIPELINE_BATCH_WINDOW
+    min_pages: int = 0
+
+    @property
+    def enabled(self) -> bool:
+        return self.pages > 0
+
+
+def pipeline_batch_settings(env: Mapping[str, str] | None = None) -> PipelineBatchSettings:
+    """`PIPELINE_BATCH_PAGES` (default 0: off), `PIPELINE_BATCH_WINDOW` (default 2), `PIPELINE_BATCH_MIN_PAGES`
+    (default: the pages setting)."""
+    source = os.environ if env is None else env
+    pages = env_int(source, "PIPELINE_BATCH_PAGES", 0, minimum=0)
+    return PipelineBatchSettings(
+        pages=pages,
+        window=env_int(source, "PIPELINE_BATCH_WINDOW", DEFAULT_PIPELINE_BATCH_WINDOW, minimum=1),
+        min_pages=env_int(source, "PIPELINE_BATCH_MIN_PAGES", pages, minimum=0),
+    )
+
+
 DEFAULT_SSE_SAFETY_POLL_SECONDS = 30.0
 
 

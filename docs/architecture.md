@@ -1053,6 +1053,8 @@ Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for s
 8. **Indexing:** Supabase Postgres full-text + pgvector; timeline view.
 9. **Notify:** Resend email (no patient data) + in-app update via server-sent events from FastAPI.
 
+**Page-batch jobs (flag `PIPELINE_BATCH_PAGES`, default 0 = off; ADR 0038).** The worker offers small hooks for a parent job that reads pages in child jobs: a handler raises `JobParked` to leave its job `running` with no queue row; a queue row for a `done` job is ended unrun; `registry.sweep(name)` runs a handler in every housekeeping round; `ctx.limit_checkouts(cap)` bounds the pool connections one job holds (`checkout_cap(pool_max, concurrency)`); `ctx.progress(..., monotone=True, job_id=...)` never lowers `pct`. Settings: `PIPELINE_BATCH_PAGES`, `PIPELINE_BATCH_WINDOW` (default 2, at most `WORKER_CONCURRENCY - 1`; the worker warns at start otherwise) and `PIPELINE_BATCH_MIN_PAGES`. A pause `busy_processing` is not resumable (the job keeps no queue row). Migration 9003 re-queues a batch child with no case lock; 9004 puts `pipeline_batches` and `pipeline_runs` first in the purge order.
+
 **Real-time vs batch:** real-time for dictation, linting, fact chips, filters, report assembly and final checks; batch for OCR, extraction, duplicates, checks, court-bundle matching and opposing-report verification. Use Bedrock batch where the in-region model supports it, otherwise on-demand with prompt caching (stable system prompt + schema at the head of each call).
 
 ---

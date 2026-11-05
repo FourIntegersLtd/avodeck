@@ -106,7 +106,9 @@ async def test_a_child_can_report_on_another_job_of_its_case_only(
     ctx = JobContext(worker_db, child, case, "read_page_batch", 1)
     await ctx.progress(45, monotone=True, job_id=parent)
     await ctx.progress(45, monotone=True, job_id=stranger)  # the worker role sees its own case only
-    pcts = {j: admin.execute("select pct from app.jobs where id = %s", (j,)).fetchone() for j in (parent, child, stranger)}
+    pcts = {
+        j: admin.execute("select pct from app.jobs where id = %s", (j,)).fetchone() for j in (parent, child, stranger)
+    }
     assert pcts[parent] == (45,)
     assert pcts[stranger] == (10,), "another case's row is invisible to this job"
     assert pcts[child] != (45,), "its own row is left alone"

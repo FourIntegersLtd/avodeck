@@ -27,6 +27,12 @@
   staff only, in the database): a resumed job goes back on the queue and the worker moves it
   paused -> running; a requeued one goes failed -> queued with `attempts` 0, and what it was is kept in
   `job_support_actions`.
+- Page-batch jobs (ADR 0038) lean on small hooks: a handler raises `JobParked` to leave its job `running` with
+  no queue row (something else wakes it); a queue row for a job already `done` is ended without running;
+  `registry.sweep(name)` runs a handler `(conn)` every housekeeping round; `ctx.limit_checkouts(cap)` caps the
+  pool connections one job holds at once (`Database.job()` waits for a permit), ending with the handler call;
+  `ctx.progress(..., monotone=True, job_id=...)` never lowers `pct` and may report on another job of the case.
+  A pause with `busy_processing` is deliberately not in `RESUMABLE_PAUSES`: the job ends `paused` with no queue row.
 """
 
 from __future__ import annotations
@@ -49,7 +55,7 @@ from psycopg import AsyncConnection
 
 from app.core.ai.kit import MAX_WAIT_SECONDS, backoff_delays
 from app.core.config import DEFAULT_JOB_MAX_STALL_REQUEUES
-from app.core.db import Database
+from app.core.db import Database, job_checkouts
 from app.core.email import Mailer, OutboxMailer
 from app.core.errors import ProcessingPaused
 
@@ -67,6 +73,7 @@ LEGACY_QUEUE = "jobs"
 JobHandler = Callable[["JobContext"], Awaitable[None]]
 ScheduleHandler = Callable[[AsyncConnection, date], Awaitable[None]]
 StepWork = Callable[[AsyncConnection], Awaitable[None]]
+SweepHandler = Callable[[AsyncConnection], Awaitable[None]]
 
 # F5: pauses the worker resumes by itself, because the service comes back without anyone acting.
 RESUMABLE_PAUSES = frozenset({"service_busy", "model_unavailable"})
@@ -77,6 +84,21 @@ DEFAULT_SHUTDOWN_GRACE_SECONDS = 25
 # The code of a job failed because its worker stalled more often than `max_stall_requeues` allows (F6).
 STALLED_TOO_OFTEN = "stalled_too_often"
 DEFAULT_PERSIST_WAITS: tuple[float, ...] = (0.25, 1.0, 3.0)
+# Pool connections kept back from capped jobs for the worker's own status writes and sweeps (ADR 0038).
+POOL_RESERVE = 2
+
+
+class JobParked(Exception):  # noqa: N818 - a signal to the worker, not an error
+    """Raised by a handler to park its job: it stays `running`, its queue row ends, nothing is recorded. Something
+    else (a child's last write, the heal sweep) later defers a new queue row for the same job (ADR 0038)."""
+
+
+def checkout_cap(*, pool_max: int, concurrency: int) -> int:
+    """How many pool connections one capped job may hold: the pool less its reserve, shared by the jobs the worker
+    runs at once, never below one."""
+    return max(1, (pool_max - POOL_RESERVE) // max(1, concurrency))
+
+
 DEFAULT_PAUSE_DELAYS: tuple[float, ...] = tuple(backoff_delays(64, limit=MAX_WAIT_SECONDS))
 
 
@@ -101,6 +123,7 @@ class JobRegistry:
         self.queue_prefix = queue_prefix
         self.kinds: dict[str, JobKind] = {}
         self.schedules: dict[str, ScheduleHandler] = {}
+        self.sweeps: dict[str, SweepHandler] = {}
 
     def kind(
         self, name: str, *, interactive: bool = False, changes_case: bool = True, runs_on_hold: bool = False
@@ -120,6 +143,17 @@ class JobRegistry:
             if name in self.schedules:
                 raise ValueError(f"schedule {name!r} is registered twice")
             self.schedules[name] = handler
+            return handler
+
+        return register
+
+    def sweep(self, name: str) -> Callable[[SweepHandler], SweepHandler]:
+        """Register a handler `(conn)` that runs on an anonymous worker connection in every housekeeping round."""
+
+        def register(handler: SweepHandler) -> SweepHandler:
+            if name in self.sweeps:
+                raise ValueError(f"sweep {name!r} is registered twice")
+            self.sweeps[name] = handler
             return handler
 
         return register
@@ -226,6 +260,13 @@ class JobContext:
         """A transaction as `app_worker` that sees this job's case only."""
         return self.database.job(self.case_id)
 
+    def limit_checkouts(self, cap: int) -> None:
+        """From now on this job's tasks hold at most `cap` pool connections at once (`Database.job()` waits for a
+        permit). Ends with the handler call; the worker's own checkouts are never capped."""
+        if cap < 1:
+            raise ValueError("a checkout cap is at least one")
+        job_checkouts.set(asyncio.Semaphore(cap))
+
     async def progress(
         self,
         pct: int,
@@ -234,12 +275,16 @@ class JobContext:
         step: str | None = None,
         step_done: int | None = None,
         step_total: int | None = None,
+        monotone: bool = False,
+        job_id: uuid.UUID | None = None,
     ) -> None:
         """Store progress. Counts ("40 of 900") belong to the step: a call that leaves them out keeps
-        them, and a call that names a different step starts them again."""
+        them, and a call that names a different step starts them again. `monotone`: `pct` never goes down.
+        `job_id`: report on another job of this case (a batch child on its parent)."""
         async with self.transaction() as conn:
             await conn.execute(
-                "update app.jobs set pct = %s, eta_seconds = %s, step = coalesce(%s, step),"
+                "update app.jobs set pct = case when %s then greatest(coalesce(pct, 0), %s::int) else %s::int end,"
+                " eta_seconds = %s, step = coalesce(%s, step),"
                 " step_done = case when %s::int is not null then %s::int"
                 "                  when %s::text is not null and %s::text is distinct from step then null"
                 "                  else step_done end,"
@@ -248,6 +293,8 @@ class JobContext:
                 "                   else step_total end"
                 " where id = %s",
                 (
+                    monotone,
+                    pct,
                     pct,
                     eta_seconds,
                     step,
@@ -259,7 +306,7 @@ class JobContext:
                     step_total,
                     step,
                     step,
-                    self.job_id,
+                    job_id or self.job_id,
                 ),
             )
 
@@ -393,6 +440,7 @@ class JobWorker:
             try:
                 await self.requeue_stalled()
                 await self.requeue_orphaned()
+                await self.run_sweeps()
                 if loop.time() - last_catch_up >= self.schedule_seconds:
                     last_catch_up = loop.time()
                     for name in self.registry.schedules:
@@ -400,6 +448,19 @@ class JobWorker:
             except Exception as exc:  # noqa: BLE001 - keep working; the type is enough to investigate
                 logger.error("worker housekeeping failed: %s", type(exc).__name__)
             await asyncio.sleep(max(self.stalled_after_seconds / 2, self.poll_seconds))
+
+    async def run_sweeps(self) -> int:
+        """Run every registered sweep once, each on its own anonymous connection. One that fails logs only its name
+        and the exception type (rule 6) and does not stop the others. Returns how many ran without failing."""
+        ok = 0
+        for name, handler in self.registry.sweeps.items():
+            try:
+                async with self.database.anonymous() as conn:
+                    await handler(conn)
+                ok += 1
+            except Exception as exc:  # noqa: BLE001 - the type only: messages may carry patient text
+                logger.error("worker sweep %s failed: %s", name, type(exc).__name__)
+        return ok
 
     async def requeue_stalled(self) -> int:
         """Put back the jobs of workers whose heartbeat stopped (F6). Returns how many were put back.
@@ -484,8 +545,10 @@ class JobWorker:
     async def _run_job(self, queued: procrastinate.JobContext, job_id: str, case_id: str) -> None:
         job, case = uuid.UUID(job_id), uuid.UUID(case_id)
         async with self.database.job(case) as conn:
-            cur = await conn.execute("select kind from app.jobs where id = %s", (job,))
+            cur = await conn.execute("select kind, status from app.jobs where id = %s", (job,))
             known = await cur.fetchone()
+            if known is not None and known[1] == "done":
+                return  # a second queue row for a job that already finished (a parent woken twice): end it, F60
             found = self.registry.kinds.get(known[0]) if known else None
             runs_on_hold = found is not None and found.runs_on_hold
             cur = await conn.execute("select app.job_waits_for_hold(%s, %s)", (job, runs_on_hold))
@@ -510,7 +573,14 @@ class JobWorker:
             _dead_letter(kind_name, job)
             return
         try:
-            await kind.handler(JobContext(self.database, job, case, kind_name, attempt, mailer=self.mailer))
+            try:
+                await kind.handler(JobContext(self.database, job, case, kind_name, attempt, mailer=self.mailer))
+            finally:
+                # The checkout limit ends with the handler call, before the status below is written: a handler that
+                # raises while holding all its permits must not leave the worker waiting for one.
+                job_checkouts.set(None)
+        except JobParked:
+            return  # stays `running`; the queue row ends; whoever parked it wakes it
         except asyncio.CancelledError:
             # The worker is stopping and its grace has run out: pause the job (no attempt counted) and put its
             # queue row back, so it carries on where it stopped when a worker starts again.

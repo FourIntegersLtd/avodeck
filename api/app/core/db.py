@@ -18,6 +18,7 @@ transaction is rolled back before the connection goes back to the pool.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager, contextmanager, suppress
@@ -51,6 +52,9 @@ class UnsafeDatabaseRole(RuntimeError):
 # Server-Timing header). A one-item list, so statements run in child tasks are counted too. Only the
 # number is kept, never the SQL or its parameters (rule 6).
 statement_count: ContextVar[list[int]] = ContextVar("statement_count")
+# A job's limit on the pool connections it holds at once (`JobContext.limit_checkouts`): `Database.job()` takes a
+# permit while the connection is held. Set inside the handler's context, so only that job's tasks see it.
+job_checkouts: ContextVar[asyncio.Semaphore | None] = ContextVar("job_checkouts", default=None)
 
 
 class _CountingCursor(AsyncCursor[Any]):
@@ -275,7 +279,13 @@ class Database:
 
     @asynccontextmanager
     async def job(self, case_id: uuid.UUID) -> AsyncIterator[AsyncConnection]:
-        async with self._transaction({"app.job_case_id": str(case_id), "TimeZone": "UTC"}) as conn:
+        settings = {"app.job_case_id": str(case_id), "TimeZone": "UTC"}
+        permits = job_checkouts.get()
+        if permits is None:
+            async with self._transaction(settings) as conn:
+                yield conn
+            return
+        async with permits, self._transaction(settings) as conn:
             yield conn
 
     async def anonymous_one(

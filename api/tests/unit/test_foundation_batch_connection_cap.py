@@ -106,7 +106,7 @@ async def test_a_job_that_did_not_ask_is_not_capped(
                 in_flight += 1
                 uncapped_peak = max(uncapped_peak, in_flight)
                 await conn.execute("select 1")
-                await asyncio.sleep(0.05)
+                await asyncio.sleep(0.5)  # long enough for the pool to open a sixth connection
                 in_flight -= 1
 
         await asyncio.gather(*[one() for _ in range(6)])
@@ -186,7 +186,10 @@ async def test_the_limit_does_not_leak_into_the_next_job_on_the_same_worker(
         await hold_briefly(ctx)
 
     async with api_db.request(scope_for(expert)) as conn:
-        jobs = [await registry.enqueue(conn, case, "zz_first_capped"), await registry.enqueue(conn, case, "zz_then_plain")]
+        jobs = [
+            await registry.enqueue(conn, case, "zz_first_capped"),
+            await registry.enqueue(conn, case, "zz_then_plain"),
+        ]
     async with open_worker(registry, worker_db, worker_dsn) as worker:
         assert set((await run_until_finished(worker, admin, jobs)).values()) == {"done"}
     assert spy.total == 0
