@@ -18,7 +18,7 @@ import app.core.notifications  # noqa: F401 - the daily messages schedule
 import app.core.uploads  # noqa: F401 - the finalize_upload job
 import app.features.pipeline  # noqa: F401 - slice A's job kinds and its DocumentUploaded subscriber
 from app.core import metrics
-from app.core.config import ConfigError, database_settings, env_int
+from app.core.config import ConfigError, database_settings, env_int, job_max_stall_requeues
 from app.core.db import Database
 from app.core.email import Mailer
 from app.core.email_live import mailer_from_env
@@ -58,6 +58,7 @@ def build_worker(
         queues=worker_queues(source),
         dsn=settings.url_direct,
         mailer=mailer if mailer is not None else mailer_from_env(env),
+        max_stall_requeues=job_max_stall_requeues(source),
         shutdown_grace_seconds=env_int(
             source, "WORKER_SHUTDOWN_GRACE_SECONDS", DEFAULT_SHUTDOWN_GRACE_SECONDS, minimum=1
         ),
@@ -71,8 +72,11 @@ async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_P
     await worker.database.open()
     # One LISTEN connection (on the direct URL) so a case key destroyed in another process leaves this
     # process's key cache at once, not after 5 minutes (PR 15); without it the cache is checked every 30 seconds.
-    key_listener = CaseNotifier(database_settings(env).url_direct or "")  # build_worker has checked it is set
-    await key_listener.start()
+    # Without the URL no listener is started and the 30 second check bounds the cache, so the worker still runs.
+    listen_url = source.get("DATABASE_URL_DIRECT", "").strip()
+    key_listener = CaseNotifier(listen_url) if listen_url else None
+    if key_listener is not None:
+        await key_listener.start()
     try:
         await start_features(features, worker, hook=WORKER_HOOK)  # each slice's `on_worker_start(worker)`
         async with worker:
@@ -86,7 +90,8 @@ async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_P
                 for task in sampling:
                     task.cancel()
     finally:
-        await key_listener.stop()
+        if key_listener is not None:
+            await key_listener.stop()
         await worker.database.close()
 
 
