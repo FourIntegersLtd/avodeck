@@ -61,7 +61,10 @@ def wait_blocked(admin: psycopg.Connection, name: str, timeout: float = 15) -> N
 class Contender:
     """One statement run on its own connection and thread; its outcome is kept for the test to read."""
 
-    def __init__(self, dsn: str, case: uuid.UUID, sql: str, params: tuple[Any, ...]) -> None:
+    def __init__(
+        self, dsn: str, case: uuid.UUID, sql: str, params: tuple[Any, ...], setup: tuple[str, tuple[Any, ...]] | None = None
+    ) -> None:
+        self.setup = setup
         self.name = f"zz_lock_{uuid.uuid4().hex[:12]}"
         self.error: BaseException | None = None
         self.result: Any = None
@@ -72,6 +75,8 @@ class Contender:
         try:
             with psycopg.connect(dsn, autocommit=True, application_name=self.name) as conn:
                 conn.execute("select set_config('app.job_case_id', %s, false)", (str(case),))
+                if self.setup is not None:
+                    conn.execute(*self.setup)
                 row = conn.execute(sql, params).fetchone()
                 self.result = None if row is None else row[0]
                 self.done = True
@@ -208,3 +213,75 @@ def test_a_younger_run_with_nothing_open_waits_for_an_older_run_with_a_running_p
     admin.execute("update app.pipeline_runs set state = 'done' where job_id = %s", (older,))
     assert enter(admin, case, younger) == "wake_a"
     assert run_state(admin, younger) == "ocr_ready"
+
+
+# --- the purge and the fan-in take the case's run rows in ONE order (review of #284) -------------------------------
+
+PURGE = "with d as (delete from app.pipeline_batches where case_id = %s returning 1) select count(*) from d"
+
+
+def runs_against_uuid_order(admin: psycopg.Connection, seed: Seed, case: uuid.UUID, second_state: str):
+    """(older run, its batch, younger run, its batch): the older run has the LARGER uuid, so an order by uuid and an
+    order by age disagree. The younger run is `second_state` (open, or closed)."""
+    first, second = sorted((make_job(admin, seed, case), make_job(admin, seed, case)))
+    older = add_run(admin, case, second, "ocr_waiting")
+    older_batch = add_batch(admin, older, case, 0, child=child_job(admin, seed, case, status="running"))
+    time.sleep(0.01)
+    younger = add_run(admin, case, first, second_state)
+    younger_batch = add_batch(admin, younger, case, 0, child=child_job(admin, seed, case, status="running"))
+    return older, older_batch, younger, younger_batch
+
+
+@pytest.mark.parametrize("second_state", ["ocr_waiting", "closed"])
+def test_the_purge_and_a_completion_take_the_run_rows_in_the_same_order(
+    admin: psycopg.Connection, admin_dsn: str, seed: Seed, case: uuid.UUID, second_state: str
+) -> None:
+    """Runs of one case whose uuid order is the reverse of their age order, the younger one open or closed: the
+    completion (of the younger run's batch) and the purge's batch delete must not each hold one and want the other."""
+    older, _, _, younger_batch = runs_against_uuid_order(admin, seed, case, second_state)
+    holder = hold(admin_dsn, older)
+    completer = Contender(admin_dsn, case, COMPLETE, (younger_batch,))
+    purger = Contender(
+        admin_dsn, case, PURGE, (case,), setup=("select set_config('app.purging_case_id', %s, false)", (str(case),))
+    )
+    try:
+        completer.start(admin)  # first in line for the older run's row, holding nothing
+        purger.start(admin)  # takes whatever it can reach, then waits behind the completer
+    finally:
+        holder.rollback()
+        holder.close()
+    completer.finish()
+    purger.finish()
+    assert completer.error is None, type(completer.error).__name__
+    assert purger.error is None, type(purger.error).__name__
+
+
+# --- the sweep lets go of what it could lock when it skips a case (review of #284) ----------------------------------
+
+
+def unlocked(admin_dsn: str, run: uuid.UUID) -> bool:
+    with psycopg.connect(admin_dsn, autocommit=True) as probe:
+        row = probe.execute(
+            "select job_id from app.pipeline_runs where job_id = %s for update skip locked", (run,)
+        ).fetchone()
+    return row is not None
+
+
+def test_a_skipped_case_leaves_none_of_its_run_rows_locked_by_the_sweep(
+    admin: psycopg.Connection, admin_dsn: str, seed: Seed, case: uuid.UUID
+) -> None:
+    """The older run is held by a completion, so the sweep skips the case; the younger run's row, which it could
+    lock, must not stay locked until the sweep's transaction ends (that would stall a completion or a close). A
+    paused waiter makes the second pass (the waiters) look at the case too."""
+    (_, older, _), (_, younger, _) = two_runs(admin, seed, case)
+    make_job(admin, seed, case, kind="reprocess_case", status="paused", code="busy_processing")
+    holder = hold(admin_dsn, older)
+    sweeper = psycopg.connect(admin_dsn, autocommit=False)
+    try:
+        sweeper.execute("select app.pipeline_heal_runs(%s)", (RESUMABLE,))
+        assert unlocked(admin_dsn, younger), "the sweep kept the younger run's row after skipping the case"
+    finally:
+        sweeper.rollback()
+        sweeper.close()
+        holder.rollback()
+        holder.close()
