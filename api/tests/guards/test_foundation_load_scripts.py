@@ -50,11 +50,13 @@ def _check(url: str | None) -> dict[str, object]:
     if node is None:
         pytest.skip("node is not installed")
     env = {} if url is None else {"STAGING_URL": url}
+    module, given = json.dumps(TARGET.as_uri()), json.dumps(env)
     script = (
-        "import {requireStaging} from %s;"
-        "let out;try{out={ok:true,base:requireStaging(%s)}}catch(e){out={ok:false,error:String(e.message)}}"
+        "import {requireStaging} from " + module + ";"
+        "let out;try{out={ok:true,base:requireStaging(" + given + ")}}"
+        "catch(e){out={ok:false,error:String(e.message)}}"
         "console.log(JSON.stringify(out))"
-    ) % (json.dumps(TARGET.as_uri()), json.dumps(env))
+    )
     done = subprocess.run(
         [node, "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30, check=True
     )
