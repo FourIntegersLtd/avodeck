@@ -18,11 +18,15 @@ if TYPE_CHECKING:
 FINISHED = ("done", "failed", "paused")
 
 
-def isolated_registry() -> JobRegistry:
-    """A registry on its own queue, so a test's worker never picks up another test's jobs."""
+def isolated_registry(*, split_queues: bool = False) -> JobRegistry:
+    """A registry on its own queue (or, with `split_queues`, its own interactive and bulk queues), so a test's
+    worker never picks up another test's jobs."""
     from app.core.jobs import JobRegistry
 
-    return JobRegistry(queue=f"test_{uuid.uuid4().hex[:12]}")
+    name = f"test_{uuid.uuid4().hex[:12]}"
+    if split_queues:
+        return JobRegistry(queue=name, split_queues=True, queue_prefix=f"{name}_")
+    return JobRegistry(queue=name)
 
 
 @contextlib.asynccontextmanager
