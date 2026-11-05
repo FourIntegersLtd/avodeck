@@ -695,7 +695,7 @@ async def retry_processing(
             blocked = True  # the running job holds the case's lock: a job queued now could only wait
             continue
         priority = INTERACTIVE_PRIORITY if kind.interactive else BATCH_PRIORITY
-        if await repo.requeue_failed(conn, job_id, registry.queue, priority, kind.changes_case):
+        if await repo.requeue_failed(conn, job_id, registry.queue_for(name), priority, kind.changes_case):
             requeued += 1
     if requeued:
         await audit.record(conn, action="bundle.processing_retried", target=f"case:{case_id}", case_id=case_id)
