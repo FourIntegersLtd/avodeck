@@ -24,6 +24,7 @@ from app.core.email import Mailer
 from app.core.email_live import mailer_from_env
 from app.core.features import DEFAULT_PACKAGE, WORKER_HOOK, load_features, start_features
 from app.core.jobs import BULK_QUEUE, DEFAULT_SHUTDOWN_GRACE_SECONDS, INTERACTIVE_QUEUE, JobWorker, registry
+from app.core.notify import CaseNotifier
 
 
 def worker_queues(source: Mapping[str, str]) -> list[str] | None:
@@ -69,6 +70,13 @@ async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_P
     source = os.environ if env is None else env
     concurrency = env_int(source, "WORKER_CONCURRENCY", 4, minimum=1)
     await worker.database.open()
+    # One LISTEN connection (on the direct URL) so a case key destroyed in another process leaves this
+    # process's key cache at once, not after 5 minutes (PR 15); without it the cache is checked every 30 seconds.
+    # Without the URL no listener is started and the 30 second check bounds the cache, so the worker still runs.
+    listen_url = source.get("DATABASE_URL_DIRECT", "").strip()
+    key_listener = CaseNotifier(listen_url) if listen_url else None
+    if key_listener is not None:
+        await key_listener.start()
     try:
         await start_features(features, worker, hook=WORKER_HOOK)  # each slice's `on_worker_start(worker)`
         async with worker:
@@ -82,6 +90,8 @@ async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_P
                 for task in sampling:
                     task.cancel()
     finally:
+        if key_listener is not None:
+            await key_listener.stop()
         await worker.database.close()
 
 
