@@ -18,7 +18,7 @@ import app.core.notifications  # noqa: F401 - the daily messages schedule
 import app.core.uploads  # noqa: F401 - the finalize_upload job
 import app.features.pipeline  # noqa: F401 - slice A's job kinds and its DocumentUploaded subscriber
 from app.core import metrics
-from app.core.config import ConfigError, database_settings, env_int
+from app.core.config import ConfigError, database_settings, env_int, job_max_stall_requeues
 from app.core.db import Database
 from app.core.email import Mailer
 from app.core.email_live import mailer_from_env
@@ -57,6 +57,7 @@ def build_worker(
         queues=worker_queues(source),
         dsn=settings.url_direct,
         mailer=mailer if mailer is not None else mailer_from_env(env),
+        max_stall_requeues=job_max_stall_requeues(source),
         shutdown_grace_seconds=env_int(
             source, "WORKER_SHUTDOWN_GRACE_SECONDS", DEFAULT_SHUTDOWN_GRACE_SECONDS, minimum=1
         ),

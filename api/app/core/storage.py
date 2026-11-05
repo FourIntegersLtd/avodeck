@@ -15,7 +15,7 @@ from collections.abc import AsyncIterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import urlparse
 
 import boto3
@@ -25,6 +25,10 @@ from botocore.exceptions import BotoCoreError, ClientError
 from app.core.config import ConfigError
 
 DEFAULT_BUCKET = "case-files"
+
+# One part of a streamed upload (`put_file`). S3 needs every part but the last to be at least 5 MiB and takes at
+# most 10,000 parts, so this holds a file of up to 80 GB while keeping one part in memory at a time.
+PART_SIZE = 8 * 1024 * 1024
 
 # Hosts that are definitely this machine, so a test S3_ENDPOINT_URL is accepted and production
 # endpoints are refused (guard: `test_foundation_storage_region.py`).
@@ -39,6 +43,12 @@ def case_prefix(case_id: object) -> str:
 def upload_prefix(case_id: object, upload_id: object) -> str:
     """Where an upload's chunks are kept until it completes or expires."""
     return f"{case_prefix(case_id)}/uploads/{upload_id}"
+
+
+class SupportsRead(Protocol):
+    """What `put_file` needs of a source: a file object or anything that hands back bytes in order."""
+
+    def read(self, size: int = -1, /) -> bytes: ...
 
 
 _POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="case-files")
@@ -196,6 +206,9 @@ class CaseFileStorage:
                 self._raise(exc)
 
     async def put(self, path: str, data: bytes) -> None:
+        await self._put_object(path, data)
+
+    async def _put_object(self, path: str, data: bytes) -> None:
         try:
             await _run(
                 self._client.put_object,
@@ -208,6 +221,93 @@ class CaseFileStorage:
             self._raise(exc)
         except BotoCoreError as exc:
             raise StorageError(f"storage: {type(exc).__name__}") from exc
+
+    async def put_file(self, path: str, source: SupportsRead, *, part_size: int = PART_SIZE) -> None:
+        """Store `source` (read from its current position) at `path`, `part_size` bytes in memory at a time.
+
+        A file of one part or less goes up in one call. A larger one is an S3 multipart upload, aborted if any
+        step fails or the task is cancelled, so no half-written upload is left behind. Same encryption at rest
+        as `put`; the cell's endpoint and bucket come from the settings, like every other call.
+        """
+        first = await self._read_part(source, part_size)
+        try:
+            if len(first) < part_size:
+                await self._put_object(path, first)
+                return
+            upload_id = (
+                await _run(
+                    self._client.create_multipart_upload,
+                    Bucket=self.settings.bucket,
+                    Key=path,
+                    ServerSideEncryption="AES256",
+                )
+            )["UploadId"]
+        except ClientError as exc:
+            self._raise(exc)
+            raise  # unreachable, but keeps mypy happy
+        except BotoCoreError as exc:
+            raise StorageError(f"storage: {type(exc).__name__}") from exc
+        try:
+            parts: builtins.list[dict[str, Any]] = []
+            current: bytes | None = first
+            del first  # one part is held at a time: this one goes before the next is read
+            while current:
+                number = len(parts) + 1
+                sent = await _run(
+                    self._client.upload_part,
+                    Bucket=self.settings.bucket,
+                    Key=path,
+                    UploadId=upload_id,
+                    PartNumber=number,
+                    Body=current,
+                )
+                parts.append({"ETag": sent["ETag"], "PartNumber": number})
+                last = len(current) < part_size
+                current = None  # let go of the part just sent before the next is read
+                if not last:
+                    current = await self._read_part(source, part_size)
+            await _run(
+                self._client.complete_multipart_upload,
+                Bucket=self.settings.bucket,
+                Key=path,
+                UploadId=upload_id,
+                MultipartUpload={"Parts": parts},
+            )
+        except BaseException as exc:
+            await self._abort(path, upload_id)
+            if isinstance(exc, ClientError):
+                self._raise(exc)
+            if isinstance(exc, BotoCoreError):
+                raise StorageError(f"storage: {type(exc).__name__}") from exc
+            raise
+
+    @staticmethod
+    async def _read_part(source: SupportsRead, size: int) -> bytes:
+        """Exactly `size` bytes from `source`, fewer only at its end (a source may give short reads)."""
+        chunks: builtins.list[bytes] = []
+        left = size
+        while left > 0:
+            chunk = await _run(source.read, left)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            left -= len(chunk)
+        return chunks[0] if len(chunks) == 1 else b"".join(chunks)
+
+    async def _abort(self, path: str, upload_id: str) -> None:
+        """Ends a multipart upload; shielded so a cancelled task still cleans up. Never raises: the first
+        error is the one that matters."""
+        try:
+            await asyncio.shield(
+                _run(
+                    self._client.abort_multipart_upload,
+                    Bucket=self.settings.bucket,
+                    Key=path,
+                    UploadId=upload_id,
+                )
+            )
+        except (ClientError, BotoCoreError, asyncio.CancelledError):
+            pass
 
     async def get(self, path: str) -> bytes:
         try:
