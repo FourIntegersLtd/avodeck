@@ -458,6 +458,27 @@ A joint expert is one with two or more current instructing parties; no separate 
 | embedding | The search vector, made from the page's words with names and identifiers taken out |
 | created_at / updated_at | When it was first made and last remade |
 
+### pipeline_runs
+| Field | In plain words |
+|---|---|
+| job_id | The bundle job that was cut into page batches (one run per job) |
+| state | Where the run is: waiting for the reading batches, ready for the next step, finishing, done, or closed |
+| batch_pages / window | How many pages a batch has and how many batches may run at once |
+| child_queue | The queue the batches run on |
+| date_anchor | The latest printed date found when the run was planned, used to read two-digit years |
+| planned_at / ready_at / reopened_at / finished_at / closed_at | When each thing happened |
+| closed_by_job_id | The newer bundle job that took the run over |
+
+### pipeline_batches
+| Field | In plain words |
+|---|---|
+| run_job_id | The run this batch belongs to |
+| phase | Reading the words (`ocr`) or finding what is on the pages (`sort`) |
+| seq | The batch's place in its phase |
+| first_page_no / last_page_no / page_count | The page numbers it covers and how many pages still needed work |
+| child_job_id | The job that reads it (empty until queued; set once) |
+| completed_at | When it finished |
+
 ### page_quarantines
 | Field | In plain words |
 |---|---|

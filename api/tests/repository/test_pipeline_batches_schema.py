@@ -21,9 +21,7 @@ from tests.support.seed import Seed
 pytestmark = pytest.mark.anyio
 
 MIGRATIONS = REPO / "supabase" / "migrations"
-INSERT_RUN = (
-    'insert into app.pipeline_runs (job_id, case_id, state, batch_pages, "window") values (%s, %s, %s, 100, 2)'
-)
+INSERT_RUN = 'insert into app.pipeline_runs (job_id, case_id, state, batch_pages, "window") values (%s, %s, %s, 100, 2)'
 
 
 @pytest.fixture
@@ -38,11 +36,11 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
 
 def _job(admin: psycopg.Connection, case_id: uuid.UUID) -> uuid.UUID:
     row = admin.execute(
-        "insert into app.jobs (case_id, kind, status) values (%s, 'process_bundle', 'running') returning id",
+        "insert into app.jobs (case_id, kind) values (%s, 'process_bundle') returning id",
         (case_id,),
     ).fetchone()
     assert row is not None
-    return row[0]
+    return uuid.UUID(str(row[0]))
 
 
 def _run(admin: psycopg.Connection, case_id: uuid.UUID, state: str = "ocr_waiting") -> uuid.UUID:
@@ -51,14 +49,16 @@ def _run(admin: psycopg.Connection, case_id: uuid.UUID, state: str = "ocr_waitin
     return job
 
 
-def _batch(admin: psycopg.Connection, run: uuid.UUID, case_id: uuid.UUID, seq: int = 0, phase: str = "ocr") -> uuid.UUID:
+def _batch(
+    admin: psycopg.Connection, run: uuid.UUID, case_id: uuid.UUID, seq: int = 0, phase: str = "ocr"
+) -> uuid.UUID:
     row = admin.execute(
         "insert into app.pipeline_batches (run_job_id, case_id, phase, seq, first_page_no, last_page_no, page_count)"
         " values (%s, %s, %s, %s, 1, 100, 100) returning id",
         (run, case_id, phase, seq),
     ).fetchone()
     assert row is not None
-    return row[0]
+    return uuid.UUID(str(row[0]))
 
 
 def _case(seed: Seed) -> uuid.UUID:
