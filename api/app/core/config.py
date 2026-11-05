@@ -93,6 +93,27 @@ class DatabaseSettings:
     statement_timeout_ms: int = DEFAULT_API_STATEMENT_TIMEOUT_MS
 
 
+TRANSACTION_MODE_PORT = "6543"  # Supabase's pooler in transaction mode: it cannot LISTEN
+
+
+def listen_url(env: Mapping[str, str] | None = None) -> str | None:
+    """`DATABASE_URL_LISTEN`, or None when unset (streams then keep their timed loop).
+
+    It is `app_api` on a direct or session-mode connection (port 5432), never transaction mode, which cannot
+    LISTEN: a URL on the transaction-mode port is refused at start-up rather than failing silently later (PR 8).
+    """
+    source = os.environ if env is None else env
+    url = source.get("DATABASE_URL_LISTEN", "").strip()
+    if not url:
+        return None
+    if urlsplit(url).port == int(TRANSACTION_MODE_PORT):
+        raise ConfigError(
+            "DATABASE_URL_LISTEN is on the transaction-mode port (6543), which cannot LISTEN;"
+            " use the direct or session-mode URL (port 5432)"
+        )
+    return url
+
+
 def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
     source = os.environ if env is None else env
     url = source.get("DATABASE_URL", "").strip()
@@ -111,6 +132,23 @@ def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
         statement_timeout_ms=env_int(
             source, "API_DB_STATEMENT_TIMEOUT_MS", DEFAULT_API_STATEMENT_TIMEOUT_MS, minimum=0
         ),
+    )
+
+
+DEFAULT_SSE_SAFETY_POLL_SECONDS = 30.0
+
+
+@dataclass(frozen=True)
+class SseSettings:
+    """Live-update streams: with a listener running, a stream looks again when told, and at least this often."""
+
+    safety_poll_seconds: float = DEFAULT_SSE_SAFETY_POLL_SECONDS
+
+
+def sse_settings(env: Mapping[str, str] | None = None) -> SseSettings:
+    source = os.environ if env is None else env
+    return SseSettings(
+        safety_poll_seconds=env_float(source, "SSE_SAFETY_POLL_SECONDS", DEFAULT_SSE_SAFETY_POLL_SECONDS, minimum=0.1)
     )
 
 

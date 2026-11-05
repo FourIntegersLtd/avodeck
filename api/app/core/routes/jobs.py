@@ -21,11 +21,13 @@ from app.core.auth.access import check_case_access
 from app.core.db import Database, RequestScope
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, router
+from app.core.notify import CaseNotifier
 from app.core.sse import (  # re-exported: main.py and this route's tests import the timing constants here
     EDGE_IDLE_SECONDS,
     EDGE_SILENT_SECONDS,
     HEARTBEAT_SECONDS,
     JOB_STREAM_SECONDS,
+    AccessRecheck,
     sse_stream,
 )
 
@@ -78,8 +80,15 @@ async def get_job(job_id: uuid.UUID, conn: DbConn) -> Job:
     return Job(**await _job(conn, job_id))  # type: ignore[arg-type]
 
 
-async def _progress(database: Database, scope: RequestScope, job_id: uuid.UUID) -> dict[str, object] | None:
+async def _progress(
+    database: Database, scope: RequestScope, job_id: uuid.UUID, case_id: uuid.UUID, *, check_access: bool = False
+) -> dict[str, object] | None:
     async with database.request(scope) as conn:
+        if check_access:
+            try:
+                await check_case_access(conn, case_id, "case.view_metadata")
+            except ApiError:
+                return None  # access is gone: the stream ends (rule 9)
         cur = await conn.execute(
             "select status, step, pct, eta_seconds, step_done, step_total, error_code from app.jobs where id = %s",
             (job_id,),
@@ -90,13 +99,28 @@ async def _progress(database: Database, scope: RequestScope, job_id: uuid.UUID) 
 
 @jobs_router.get("/{job_id}/events", response_class=StreamingResponse)
 async def job_events(job_id: uuid.UUID, request: Request, conn: DbConn, scope: CurrentScope) -> StreamingResponse:
-    await _job(conn, job_id)
+    job = await _job(conn, job_id)
     database: Database = request.app.state.database
+    notifier: CaseNotifier | None = getattr(request.app.state, "case_notifier", None)
+    case_id: uuid.UUID = job["case_id"]  # type: ignore[assignment]
+
+    recheck = AccessRecheck(request.app.state, notifier)  # `_job` above is the check at connect
 
     async def fetch() -> dict[str, object] | None:
-        return await _progress(database, scope, job_id)
+        return await _progress(database, scope, job_id, case_id, check_access=recheck.due())
 
     def is_finished(current: dict[str, object]) -> bool:
         return current["status"] in _FINISHED
 
-    return await sse_stream(request, fetch, is_finished)
+    if notifier is None:
+        return await sse_stream(request, fetch, is_finished)
+    # Access is asked again at least every minute, and every look runs under row-level security as the person, so
+    # a person who loses the case gets no row and the stream ends; the notifier only says when to look (PR 8).
+    return await sse_stream(
+        request,
+        fetch,
+        is_finished,
+        watch=lambda: notifier.watch(case_id),
+        wake_within=recheck.interval,
+        live=lambda: notifier.ready,
+    )
