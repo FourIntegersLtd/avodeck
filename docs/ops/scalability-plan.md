@@ -232,6 +232,8 @@ Steps:
 Test: a test that `main.py` reads `API_DB_POOL_MAX`. Then deploy to staging and run the PR 18 load test.
 
 ## PR 17. Bundle split into page-batch jobs; narrow the case lock (pipeline + foundation, L; last)
+
+Design: `docs/slices/A-pipeline.md` "Page-batch jobs" and `docs/decisions/0038-page-batch-jobs.md` (build plan, migrations 0136-0138, 1024 and foundation 9002 next free, failure modes F55-F69).
 Branch `feat/pipeline-batch-jobs`. **Design first**: pipeline-owner writes a one-page design in `docs/slices/A-pipeline.md` (Opus session, per CLAUDE.md), the reviewer checks it, then build.
 Shape to design toward:
 - `process_bundle` keeps the steps that change shared case state (split, dedupe, finish, timeline publish) under `case:<id>`.
