@@ -3,7 +3,7 @@
   "build": { "builder": "DOCKERFILE", "dockerfilePath": "api/Dockerfile" },
   "deploy": {
     "healthcheckPath": "/v1/cell",
-    "multiRegionConfig": { "europe-west4-drams3a": { "numReplicas": 1 } },
+    "multiRegionConfig": { "europe-west4-drams3a": { "numReplicas": 2 } },
     "restartPolicyType": "ON_FAILURE"
   }
 }

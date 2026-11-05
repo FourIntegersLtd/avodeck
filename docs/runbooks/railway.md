@@ -6,13 +6,13 @@ ADR 0021. One Docker image (`api/Dockerfile`, built from the repository root), f
 |---|---|---|---|---|
 | Source | this repo, branch `main` | same | same | same |
 | Dockerfile path | `api/Dockerfile` | `api/Dockerfile` | `api/Dockerfile` | `api/Dockerfile` |
-| Start command | (image default) | `env WORKER_QUEUES=bulk python -m app.worker.main` | `env WORKER_QUEUES=interactive WORKER_CONCURRENCY=8 WORKER_DB_POOL_MAX=6 python -m app.worker.main` | `python -m app.worker.schedules` |
+| Start command | (image default; 2 uvicorn processes, see `WEB_CONCURRENCY` below) | `env WORKER_QUEUES=bulk python -m app.worker.main` | `env WORKER_QUEUES=interactive WORKER_CONCURRENCY=8 WORKER_DB_POOL_MAX=6 python -m app.worker.main` | `python -m app.worker.schedules` |
 | Cron schedule | none | none | none | `15 2 * * *` (UTC, daily) |
 | Health check path | `/v1/cell` | none | none | none |
 | Public networking | yes (generate a domain) | no | no | no |
 | Pre-deploy command | none | none | none | none |
 | Volumes | none | none | none | none |
-| Replicas | 1 | 1 | 1 | 1 (runs, then exits) |
+| Replicas | 2 | 1 | 1 | 1 (runs, then exits) |
 
 ## Job queues (scalability PR 7)
 
@@ -36,12 +36,18 @@ Every process holds database connections: the worker's own pool (`WORKER_DB_POOL
 | `worker` (bulk) | `app_worker` | 1 x 1 | 10 | 4 | 0 | 14 |
 | `worker-interactive` | `app_worker` | 1 x 1 | 6 | 4 | 0 | 10 |
 | **`app_worker` total** | | | | | | **24** (pooler pool size at least 30) |
-| `api` today | `app_api` | 1 x 1 | 10 | 0 | 0 | 10 |
-| `api` after the live-updates change | `app_api` | 1 x 1 | 10 | 0 | 1 | 11 |
-| `api` after 2 replicas x 2 processes | `app_api` | 2 x 2 | 8 | 0 | 1 | 36 |
-| **`app_api` total, final** | | | | | | **36** (pooler pool size at least 40) |
+| `api` | `app_api` | 2 x 2 | 8 | 0 | 1 | 36 |
+| **`app_api` total** | | | | | | **36** (pooler pool size at least 40) |
 
-Final total 24 + 36 = 60, under a Small database's 80. The 15 default pooler pool size is too small for the `app_worker` role as soon as `worker-interactive` exists: **raise it to at least 30 before step 2 of the rollout** (the `app_api` role needs at least 40 once the API runs 2 replicas x 2 processes: 2 x 2 x (8 + 1) = 36), or the pooler answers `EMAXCONNSESSION` and jobs stop. A third worker, or a bigger replica count, adds its own row here first.
+The `api` service sets `WEB_CONCURRENCY=2` (uvicorn processes per replica, read by the image's start command; one if unset) and `API_DB_POOL_MAX=8` (each process's own pool). Each process holds its pool plus one listener, so 2 replicas x 2 processes x (8 + 1) = 36. `railway/api.json` sets 2 replicas; Railway variables cannot live in that file, so set the two variables by hand on the `api` service. `api/tests/guards/test_foundation_pool_budget.py` fails if this table, the two variables and the `railway/*.json` files disagree.
+
+Final total 24 + 36 = 60, under a Small database's 80. The 15 default pooler pool size is too small for the `app_worker` role as soon as `worker-interactive` exists: **raise it to at least 30 before step 2 of the rollout**, and raise the `app_api` role's to at least 40 **before** the API goes to 2 replicas x 2 processes, or the pooler answers `EMAXCONNSESSION` and requests fail. A third worker, a bigger replica count or a bigger `WEB_CONCURRENCY` adds its own row here first.
+
+What is per process, and what is not (scalability PR 16):
+
+- In each process: the pool, the `CaseNotifier` listener, the decrypted-words search cache and the case key cache. A case key destroyed in one process is forgotten in all of them by the Postgres notification (PR 15, migration 0066); the search cache is cleared the same way. Streams are pushed by the process that holds them, so a browser reconnecting to the other process still gets its updates.
+- In Postgres, so shared by every process and replica: per-person rate limits and the cap of three open streams per person (PR 12, migration 0065), job state and progress.
+- `GET /v1/internal/metrics` answers for the one process that took the request; the pool, loop-lag and 429 numbers are that process's. Read it several times, or add the numbers up, when judging the whole API.
 
 The `cron` service runs each daily schedule once for today's date and exits (code 1 if any schedule failed; the others still run). A schedule already run for a date is skipped, so a retry or a second start is harmless. Its logs list schedule names and counts only.
 
@@ -52,7 +58,7 @@ Copy every name from `api/.env.example` into both services (Railway "shared vari
 - `DATABASE_URL` and `DATABASE_URL_DIRECT`: the Supabase **session pooler**, not the direct host (IPv6 only):
   `postgresql://<role>.<project-ref>:<password>@aws-0-eu-west-2.pooler.supabase.com:5432/postgres?sslmode=require`
   with `app_api` for `DATABASE_URL` and `app_worker` for `DATABASE_URL_DIRECT`.
-- `DATABASE_URL_LISTEN` (API only, optional): `app_api` on the same Supabase **session pooler** URL as `DATABASE_URL` (port 5432) or a direct URL, **never transaction mode (port 6543)**, which cannot `LISTEN` (a 6543 URL stops the API at start-up with a clear error). With it set, each API process keeps one extra dedicated connection that Postgres notifies when a job on a case changes (migration 0062; the notification carries only the case id), so open screens update at once, a case key destroyed in another process is forgotten at once (migration 0066; without a listener a cached key is re-checked every 30 seconds) and the API stops looking at the database once a second per open screen. Count that one connection in the pool budget (API pool + 1 per API replica) against the pooler's pool size. Unset, or if the connection drops, streams fall back to looking on a timer, so nothing breaks. `SSE_SAFETY_POLL_SECONDS` (default 30) is how often a pushed stream still looks on its own; every stream re-checks the person's access to the case at least every 60 seconds.
+- `DATABASE_URL_LISTEN` (API only, optional): `app_api` on the same Supabase **session pooler** URL as `DATABASE_URL` (port 5432) or a direct URL, **never transaction mode (port 6543)**, which cannot `LISTEN` (a 6543 URL stops the API at start-up with a clear error). With it set, each API process keeps one extra dedicated connection that Postgres notifies when a job on a case changes (migration 0062; the notification carries only the case id), so open screens update at once, a case key destroyed in another process is forgotten at once (migration 0066; without a listener a cached key is re-checked every 30 seconds) and the API stops looking at the database once a second per open screen. Count that one connection in the pool budget (API pool + 1 per API process) against the pooler's pool size. Unset, or if the connection drops, streams fall back to looking on a timer, so nothing breaks. `SSE_SAFETY_POLL_SECONDS` (default 30) is how often a pushed stream still looks on its own; every stream re-checks the person's access to the case at least every 60 seconds.
 - `READER_SEARCH_CACHE_CASES` (default 8), `READER_SEARCH_CACHE_TTL_SECONDS` (default 600) and `READER_SEARCH_CACHE_MAX_WORDS` (default 3000000), API only: the bundle search keeps each case's opened words in API memory (about 100 MB per million words, so the default holds about 300 MB at most), per process. Lower the word cap if API memory gets tight; the words are patient text and never leave the process or reach a log.
 - `WORKER_DB_POOL_MAX` (default 10) and `WORKER_QUEUE_POOL_MAX` (default 4): the worker's two connection pools. The session
   pooler lets only its **pool size** of clients in at once per role (Supabase default 15, set under Database > Connection
@@ -63,6 +69,7 @@ Copy every name from `api/.env.example` into both services (Railway "shared vari
   role (`app_worker`), adds its own connections to the same pool of 15 and needs more pooler capacity first: raise the
   Supabase pool size, then `WORKER_DB_POOL_MAX` / `WORKER_QUEUE_POOL_MAX`, keeping every replica's two pools together
   below the pooler's pool size. More model calls at once need a bigger `WORKER_DB_POOL_MAX`, never a bigger reserve.
+- `WEB_CONCURRENCY` (default 1) and `API_DB_POOL_MAX` (default 10), API only: uvicorn processes per replica, and the database pool of each process. The `api` service sets 2 and 8 (connection budget above); change them only together with that table.
 - `API_DB_ACQUIRE_TIMEOUT_SECONDS` (default 2), `API_DB_MAX_WAITING` (default 50), `API_DB_STATEMENT_TIMEOUT_MS` (default 5000, 0 = off): the API pool fails fast. A request that cannot get a connection in time, finds more than that many already waiting, or runs a statement past the limit gets 503 `busy` with `Retry-After: 2` (failure mode F53). The worker's pool has none of these limits.
 - `OPS_METRICS_TOKEN`: long random string. `GET /v1/internal/metrics` with `Authorization: Bearer <token>` returns the API's pool, event-loop lag and provider 429 counts, plus queue depth, oldest wait and job run times from the database (numbers only). Unset, the route answers 404. The worker logs the same snapshot every 60 seconds. Generate with `openssl rand -base64 32`; never paste it into chat.
 - `SENTRY_TRACES_SAMPLE_RATE` (default 0.05, 0 to 1): the share of requests Sentry traces. Events are still scrubbed.
