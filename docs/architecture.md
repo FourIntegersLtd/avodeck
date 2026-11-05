@@ -595,7 +595,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does |
 |---|---|---|
-| GET | `/cases/{case_id}/timeline?from=&to=&status=&question_id=&only=&as_seen_on=` | Events by lane with verification status and links |
+| GET | `/cases/{case_id}/timeline?from=&to=&status=&question_id=&only=&as_seen_on=&limit=&cursor=` | Events by lane with verification status and links; filters run in SQL; with `limit` (1-500) a page at a time in date order and `next_cursor` |
 | GET | `/cases/{case_id}/timeline/overview?as_seen_on=` | The ribbon: the whole record counted per lane per month, with pins for things to look at and question links |
 | GET | `/cases/{case_id}/fact-links?status=` | Fact–question links (`stale` when the fact was rejected) |
 | POST | `/cases/{case_id}/fact-links/suggest` | Run T-11 (202 + job) |

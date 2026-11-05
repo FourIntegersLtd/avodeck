@@ -108,6 +108,8 @@ class Timeline(BaseModel):
     """Every entry shown, in date order (undated last, then by page)."""
     status_options: list[str] = []
     """The status filters worth offering: those with something in them, and the one chosen."""
+    next_cursor: str | None = None
+    """Only with a `limit`: pass it as `cursor` for the next page; null on the last page (and with no `limit`)."""
 
 
 class OverviewLane(BaseModel):
