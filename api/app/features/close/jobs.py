@@ -13,6 +13,7 @@ import io
 import json
 import logging
 import tempfile
+import time
 import uuid
 import zipfile
 from datetime import UTC, date, datetime
@@ -33,6 +34,7 @@ from app.core.jobs import JobContext, JobRegistry, registry
 from app.core.notifications import notify
 from app.core.packs import PackLibrary, default_library
 from app.core.storage import CaseFileStorage, StorageError, case_prefix, storage_settings
+from app.features.close import sealed
 from app.features.close.schemas import EXPORT_KINDS
 from app.features.close.service import DEFAULT_POLICY, delete_after, export_path, selection_path
 
@@ -260,6 +262,10 @@ async def finish_certificate(
 # --- export_case ------------------------------------------------------------------------------------
 
 
+ZIP_SLICE = 1024 * 1024
+ZIP_SLICE_LIMIT = 1 << 30
+
+
 def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -284,6 +290,18 @@ def _finish_zip(archive: zipfile.ZipFile, names: list[str], hashes: list[dict[st
     archive.close()
 
 
+def _write_entry(archive: zipfile.ZipFile, name: str, data: bytes) -> None:
+    """Like `ZipFile.writestr`, but compressing a slice at a time: `writestr` holds the whole compressed
+    entry in memory beside the source (about 3 times a file that does not compress)."""
+    info = zipfile.ZipInfo(name, date_time=time.localtime(time.time())[:6])
+    info.compress_type = archive.compression
+    info.external_attr = 0o600 << 16
+    view = memoryview(data)
+    with archive.open(info, "w", force_zip64=len(data) > ZIP_SLICE_LIMIT) as entry:
+        for start in range(0, len(view), ZIP_SLICE):
+            entry.write(view[start : start + ZIP_SLICE])
+
+
 async def _deleting(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
     """Locks the case against a deletion run starting (FOR SHARE) and says whether one has started."""
     case = await _one(conn, "select status from app.cases where id = %s for share", (case_id,))
@@ -300,8 +318,8 @@ async def export_case(ctx: JobContext) -> None:
 
     The case row stays share-locked until the copies are stored, so a deletion run starts either
     before (and this writes nothing) or after (and its Storage sweep finds the copies). Each copy is
-    written to a temporary file one source file at a time; only the finished ZIP is read back to be
-    encrypted (CaseCrypto seals a file whole)."""
+    written to a temporary file one source file at a time; the finished ZIP is sealed, a frame at a
+    time, into a second temporary file (`sealed.seal_file`) and stored."""
     storage, crypto = services.get_storage(), services.get_crypto()
     async with ctx.transaction() as conn:
         if await _deleting(conn, ctx.case_id):
@@ -338,7 +356,7 @@ async def export_case(ctx: JobContext) -> None:
             def add(name: str, recorded: str | None, data: bytes) -> None:
                 row = _hash_row(name, recorded, data)
                 for v in variants:
-                    archives[v].writestr(name, data)
+                    _write_entry(archives[v], name, data)
                     names[v].append(name)
                     hashes[v].append(row)
 
@@ -366,18 +384,26 @@ async def export_case(ctx: JobContext) -> None:
                 for r in reports:
                     for path, ext, recorded in ((r["pdf_path"], "pdf", r["sha256"]), (r["docx_path"], "docx", None)):
                         if path is not None:
-                            data = await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path)
-                            add(f"report-versions/v{r['version_no']}.{ext}", recorded, data)
+                            add(
+                                f"report-versions/v{r['version_no']}.{ext}",
+                                recorded,
+                                await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path),
+                            )
                 for d in documents if "full" in variants else []:
                     path = d["storage_path"]
-                    data = await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path)
-                    add(f"bundle/{d['id']}{PurePosixPath(path).suffix}", d["sha256"], data)
+                    add(
+                        f"bundle/{d['id']}{PurePosixPath(path).suffix}",
+                        d["sha256"],
+                        await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path),
+                    )  # the file is held only while it is written into the ZIP
             for variant in variants:
                 _finish_zip(archives[variant], names[variant], hashes[variant], ctx.case_id, variant)
                 files[variant].seek(0)
                 target = export_path(ctx.case_id, ctx.job_id, variant)
-                blob = await crypto.encrypt(conn, ctx.case_id, files[variant].read(), purpose=target)
-                await storage.put(target, blob)
+                with tempfile.TemporaryFile() as sealed_file:  # sealed frame by frame, then stored
+                    await sealed.seal_file(conn, crypto, ctx.case_id, files[variant], sealed_file, purpose=target)
+                    sealed_file.seek(0)
+                    await storage.put(target, sealed_file.read())
 
 
 async def _chosen_kinds(
