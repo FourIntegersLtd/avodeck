@@ -257,6 +257,7 @@ class ProviderLimits:
     max_output_tokens: int  # the largest answer a call to this provider may ask for
     concurrency: int  # calls in flight at once
     widest_output_tokens: int = 0  # the wider answer a page cut off alone may ask for once; 0 = no wider ask
+    window_seconds: int = 60  # the window `rpm` is counted over (Azure OCR counts submits per second: 1)
 
 
 # temporary, dummy data only (ADR 0036): many small calls in parallel, not a few big ones
@@ -271,6 +272,10 @@ ANTHROPIC_LIMITS = ProviderLimits(
 BEDROCK_MAX_OUTPUT_TOKENS = 16000
 # Default for `BEDROCK_CONCURRENCY`: the account-wide cap on Bedrock calls in flight at once (migration 0056).
 BEDROCK_CONCURRENCY = 3
+# Defaults for `AZURE_OCR_TPS` (submits a second, under the S0 tier's 15) and `AZURE_OCR_CONCURRENCY` (submits in
+# flight at once): both counted across the whole account, like Bedrock's (scalability plan PR 4).
+AZURE_OCR_TPS = 12
+AZURE_OCR_CONCURRENCY = 30
 
 
 @dataclass(frozen=True)
@@ -311,6 +316,8 @@ class AiSettings:
     cost_guard_multiple: int = CostGuard.multiple
     bedrock_rpm_limit: int = 5
     bedrock_concurrency: int = BEDROCK_CONCURRENCY
+    azure_ocr_tps: int = AZURE_OCR_TPS
+    azure_ocr_concurrency: int = AZURE_OCR_CONCURRENCY
     extraction_batch_size: int = 10
     # The share of a page's words the entries read from it must cover (env AI_ENTRY_COVERAGE_FLOOR, 0 to 1).
     entry_coverage_floor: float = 0.8
@@ -337,7 +344,15 @@ class AiSettings:
                 pages_per_call=self.extraction_batch_size,
                 max_output_tokens=BEDROCK_MAX_OUTPUT_TOKENS,
                 concurrency=self.bedrock_concurrency,
-            )
+            ),
+            # The OCR limiter reuses the slot scheduler; pages and tokens do not apply to it.
+            "azure_ocr": ProviderLimits(
+                rpm=self.azure_ocr_tps,
+                pages_per_call=1,
+                max_output_tokens=0,
+                concurrency=self.azure_ocr_concurrency,
+                window_seconds=1,
+            ),
         }
         if self.primary_provider == "anthropic":
             found["anthropic"] = ANTHROPIC_LIMITS
@@ -445,6 +460,8 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
         cost_guard_multiple=guard.multiple,
         bedrock_rpm_limit=number("BEDROCK_RPM_LIMIT", 5),
         bedrock_concurrency=number("BEDROCK_CONCURRENCY", BEDROCK_CONCURRENCY),
+        azure_ocr_tps=number("AZURE_OCR_TPS", AZURE_OCR_TPS),
+        azure_ocr_concurrency=number("AZURE_OCR_CONCURRENCY", AZURE_OCR_CONCURRENCY),
         extraction_batch_size=number("AI_EXTRACTION_BATCH_SIZE", 10),
         entry_coverage_floor=share("AI_ENTRY_COVERAGE_FLOOR", AiSettings.entry_coverage_floor),
         primary_provider=provider,

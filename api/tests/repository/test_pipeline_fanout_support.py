@@ -209,7 +209,7 @@ async def world(
                     holding.reset(token)
 
         h.worker_db.job = tracked  # type: ignore[method-assign,assignment]
-        ctx = JobContext(h.worker_db, uuid.uuid4(), case_id, "process_bundle", 1)
+        ctx = JobContext(h.worker_db, seed.job(case_id), case_id, "process_bundle", 1)  # a real job: OCR takes slots
         await h.upload(scanned_document())
         with pipeline.wiring.use(services):
             store.repeat = scan_chunks
