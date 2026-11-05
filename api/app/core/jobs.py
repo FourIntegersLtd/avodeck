@@ -17,7 +17,9 @@
   date since the last run exactly once (F28).
 - A job of a case on hold is not run: it stays `queued` with `case_on_hold` until the case resumes
   (`app.core.case_hold.release_case_hold`), unless its kind is registered with `runs_on_hold=True`.
-- A worker that dies stops its heartbeat; `JobWorker.requeue_stalled()` puts its jobs back (F6).
+- A worker that dies stops its heartbeat; `JobWorker.requeue_stalled()` puts its jobs back (F6), counted in
+  `jobs.stall_requeues` (migration 9002): after `JOB_MAX_STALL_REQUEUES` (default 5) the next stall fails the job
+  with `stalled_too_often` and dead-letters it instead.
 - A job left `running` after its database connection dropped while the worker recorded how it ended is
   recorded again on a fresh connection (`DEFAULT_PERSIST_WAITS`); if that fails too, `requeue_orphaned()`
   (at worker start and every housekeeping round, migration 0134) puts it back within `max_attempts` (F52).
@@ -41,11 +43,12 @@ from datetime import UTC, date, datetime, timedelta
 import procrastinate
 import psycopg
 import sentry_sdk
-from procrastinate.jobs import Job
+from procrastinate.jobs import Job, Status
 from procrastinate.retry import BaseRetryStrategy, RetryDecision
 from psycopg import AsyncConnection
 
 from app.core.ai.kit import MAX_WAIT_SECONDS, backoff_delays
+from app.core.config import DEFAULT_JOB_MAX_STALL_REQUEUES
 from app.core.db import Database
 from app.core.email import Mailer, OutboxMailer
 from app.core.errors import ProcessingPaused
@@ -71,6 +74,8 @@ RESUMABLE_PAUSES = frozenset({"service_busy", "model_unavailable"})
 # Waits (seconds) between tries when a status write loses its database connection (the pooler closed it).
 # Seconds a stopping worker lets running jobs finish before it pauses them (they carry on at restart).
 DEFAULT_SHUTDOWN_GRACE_SECONDS = 25
+# The code of a job failed because its worker stalled more often than `max_stall_requeues` allows (F6).
+STALLED_TOO_OFTEN = "stalled_too_often"
 DEFAULT_PERSIST_WAITS: tuple[float, ...] = (0.25, 1.0, 3.0)
 DEFAULT_PAUSE_DELAYS: tuple[float, ...] = tuple(backoff_delays(64, limit=MAX_WAIT_SECONDS))
 
@@ -328,8 +333,10 @@ class JobWorker:
         orphan_grace_seconds: float | None = None,
         shutdown_grace_seconds: float = DEFAULT_SHUTDOWN_GRACE_SECONDS,
         queues: Sequence[str] | None = None,
+        max_stall_requeues: int = DEFAULT_JOB_MAX_STALL_REQUEUES,
     ) -> None:
-        """`queues`: the queues this worker takes jobs from; none means all of the registry's, the old one too."""
+        """`queues`: the queues this worker takes jobs from; none means all of the registry's, the old one too.
+        `max_stall_requeues`: how many times a job's stalls are put back before the next one fails it."""
         self.registry = registry
         self.queues = list(registry.all_queues if queues is None else queues)
         self.mailer: Mailer = mailer or OutboxMailer()
@@ -339,6 +346,7 @@ class JobWorker:
         self.shutdown_grace_seconds = shutdown_grace_seconds
         self.stalled_after_seconds = stalled_after_seconds
         self.max_attempts = int(max_attempts)
+        self.max_stall_requeues = max_stall_requeues
         self.schedule_seconds = schedule_seconds
         self.pause_delays = tuple(pause_delays)
         self.persist_waits = tuple(persist_waits)
@@ -394,7 +402,10 @@ class JobWorker:
             await asyncio.sleep(max(self.stalled_after_seconds / 2, self.poll_seconds))
 
     async def requeue_stalled(self) -> int:
-        """Put back the jobs of workers whose heartbeat stopped (F6). Returns how many."""
+        """Put back the jobs of workers whose heartbeat stopped (F6). Returns how many were put back.
+
+        A job that has already been put back `max_stall_requeues` times is not put back again: it ends `failed`
+        (`stalled_too_often`) through the dead-letter path, and its queue row ends with it."""
         stalled: list[Job] = []
         for name in self.queues:
             stalled += await self.queue.job_manager.get_stalled_jobs(
@@ -406,10 +417,18 @@ class JobWorker:
             job_id, case_id = job.task_kwargs.get("job_id"), job.task_kwargs.get("case_id")
             if isinstance(job_id, str) and isinstance(case_id, str):
                 async with self.database.job(uuid.UUID(case_id)) as conn:
-                    await conn.execute(
-                        "update app.jobs set requeued_stall = true where id = %s and status = 'running'",
+                    cur = await conn.execute(
+                        "update app.jobs set requeued_stall = true, stall_requeues = stall_requeues + 1"
+                        " where id = %s and status = 'running' returning kind, stall_requeues",
                         (uuid.UUID(job_id),),
                     )
+                    noted = await cur.fetchone()
+                if noted is not None and noted[1] > self.max_stall_requeues:
+                    logger.warning("job %s of kind %s stalled %d times: failed", job_id, noted[0], noted[1])
+                    await self._finish(uuid.UUID(case_id), uuid.UUID(job_id), "failed", error_code=STALLED_TOO_OFTEN)
+                    await self.queue.job_manager.finish_job(job, Status.FAILED, delete_job=False)
+                    _dead_letter(noted[0], uuid.UUID(job_id))
+                    continue
             await self.queue.job_manager.retry_job(job)
             count += 1
         return count
