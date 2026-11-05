@@ -36,18 +36,21 @@ def _save(pdf: pikepdf.Pdf) -> bytes:
     return out.getvalue()
 
 
+def cut_page(source: pikepdf.Pdf, index: int) -> bytes:
+    """Page `index` (0-based) of an open document as its own PDF, with no metadata; the same bytes every time.
+    A caller that holds a big document on disk cuts one page at a time with this, never all of them at once."""
+    single = pikepdf.new()
+    single.pages.append(source.pages[index])
+    single.docinfo = single.make_indirect(pikepdf.Dictionary())
+    if pikepdf.Name.Metadata in single.Root:
+        del single.Root.Metadata
+    return _save(single)
+
+
 def split_pages(document: bytes) -> list[bytes]:
     """One single-page PDF per page, in order, with no metadata; the same bytes every time."""
-    out: list[bytes] = []
     with pikepdf.open(io.BytesIO(document)) as source:
-        for page in source.pages:
-            single = pikepdf.new()
-            single.pages.append(page)
-            single.docinfo = single.make_indirect(pikepdf.Dictionary())
-            if pikepdf.Name.Metadata in single.Root:
-                del single.Root.Metadata
-            out.append(_save(single))
-    return out
+        return [cut_page(source, n) for n in range(len(source.pages))]
 
 
 def render_page(page_pdf: bytes, rotation: int = 0) -> bytes:
