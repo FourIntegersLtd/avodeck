@@ -24,6 +24,7 @@ logs carry numbers and step codes only (rule 6).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import logging
@@ -453,7 +454,10 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                 if services.ocr is None:
                     raise ProcessingPaused("model_unavailable")
                 try:
-                    found = (await services.ocr.analyse(page_pdf, "layout", locale=locale)).pages[0]
+                    # One account-wide slot per page sent: the submits a second and the pages in flight are
+                    # shared by every bundle (no connection is held while waiting for it).
+                    async with _ocr_slot(ctx, services):
+                        found = (await services.ocr.analyse(page_pdf, "layout", locale=locale)).pages[0]
                 except OcrFailed as exc:  # F4: this page alone is marked unreadable; the rest carry on
                     if run is not None:
                         run.page_failed(numbers.get(page_id), exc, "failed")
@@ -514,7 +518,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
             if before:
                 await _settle(conn, ctx.case_id, page_id, before, page, placed=source != "expert")
 
-    await bounded(waiting, read, OCR_CONCURRENCY, _stop(ctx), label=lambda page_id: numbers.get(page_id))
+    await bounded(waiting, read, ocr_concurrency(services), _stop(ctx), label=lambda page_id: numbers.get(page_id))
 
     async def name_language(page_id: uuid.UUID) -> None:
         async with ctx.transaction() as conn:
@@ -1137,12 +1141,28 @@ async def _ready(ctx: JobContext, services: PipelineServices) -> None:
 
 STEP_CONCURRENCY = {
     "split": STORAGE_CONCURRENCY,
-    "ocr": OCR_CONCURRENCY,
+    "ocr": OCR_CONCURRENCY,  # the default; `ocr_concurrency(services)` is what the step uses
     "sort": CONCURRENCY,
     "duplicates": STORAGE_CONCURRENCY,
     "missing": CONCURRENCY,
     "embed": DB_CONCURRENCY,
 }
+
+
+def ocr_concurrency(services: PipelineServices) -> int:
+    """Pages of one job sent to OCR at once: the cell's `AZURE_OCR_CONCURRENCY` (the account-wide cap on the same
+    thing is enforced by the slot limiter), or the default without a kit."""
+    return services.kit.settings.azure_ocr_concurrency if services.kit is not None else OCR_CONCURRENCY
+
+
+def _step_concurrency(step: str, services: PipelineServices) -> int:
+    return ocr_concurrency(services) if step == "ocr" else STEP_CONCURRENCY[step]
+
+
+def _ocr_slot(ctx: JobContext, services: PipelineServices) -> contextlib.AbstractAsyncContextManager[None]:
+    if services.kit is None:  # no limiter wired (a stand-in OCR in a test)
+        return contextlib.nullcontext()
+    return services.kit.slot(ctx.database, ctx.case_id, ctx.job_id, "azure_ocr")
 
 
 def _extract_concurrency(ctx: JobContext, services: PipelineServices) -> int:
@@ -1183,7 +1203,8 @@ async def run_step(ctx: JobContext, services: PipelineServices, step: str) -> No
         "missing": _missing_step,
         "embed": _embed,
     }
-    concurrency = _extract_concurrency(ctx, services) if step == "sort" else STEP_CONCURRENCY[step]  # as logged
+    # as logged:
+    concurrency = _extract_concurrency(ctx, services) if step == "sort" else _step_concurrency(step, services)
     async with steplog.logged_step(ctx, step, _pending(services, step), concurrency):
         await stages[step](ctx, services)
 
