@@ -62,7 +62,12 @@ class Contender:
     """One statement run on its own connection and thread; its outcome is kept for the test to read."""
 
     def __init__(
-        self, dsn: str, case: uuid.UUID, sql: str, params: tuple[Any, ...], setup: tuple[str, tuple[Any, ...]] | None = None
+        self,
+        dsn: str,
+        case: uuid.UUID,
+        sql: str,
+        params: tuple[Any, ...],
+        setup: tuple[str, tuple[Any, ...]] | None = None,
     ) -> None:
         self.setup = setup
         self.name = f"zz_lock_{uuid.uuid4().hex[:12]}"
@@ -220,7 +225,9 @@ def test_a_younger_run_with_nothing_open_waits_for_an_older_run_with_a_running_p
 PURGE = "with d as (delete from app.pipeline_batches where case_id = %s returning 1) select count(*) from d"
 
 
-def runs_against_uuid_order(admin: psycopg.Connection, seed: Seed, case: uuid.UUID, second_state: str):
+def runs_against_uuid_order(
+    admin: psycopg.Connection, seed: Seed, case: uuid.UUID, second_state: str
+) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID]:
     """(older run, its batch, younger run, its batch): the older run has the LARGER uuid, so an order by uuid and an
     order by age disagree. The younger run is `second_state` (open, or closed)."""
     first, second = sorted((make_job(admin, seed, case), make_job(admin, seed, case)))

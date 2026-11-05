@@ -105,9 +105,11 @@ $$;
 revoke execute on function app.pipeline_case_busy(uuid, text[]) from public, app_api, app_worker;
 grant execute on function app.pipeline_case_busy(uuid, text[]) to app_worker;
 
--- Takes ALL the case's open run rows `for update`, oldest first. Every function that locks a run row calls this first,
--- so two of them never hold one run row while waiting for another (the lock order is the age order: no `40P01`). A
--- second call in the same transaction waits for nothing. Not granted to any role.
+-- Takes EVERY run row of the case `for update` (open, done and closed alike), oldest first. Every function that locks a
+-- run row calls this first, and so does the purge trigger on `pipeline_batches` (0140), so two of them never hold one
+-- run row while waiting for another (one set, one order, the age order: no `40P01`). A closed run is in the set because
+-- the purge and `reopen_run` lock it too. A second call in the same transaction waits for nothing. Not granted to any
+-- role.
 create or replace function app.pipeline_lock_runs(p_case uuid)
   returns void
   language plpgsql
@@ -116,12 +118,44 @@ create or replace function app.pipeline_lock_runs(p_case uuid)
 as $$
 begin
   perform 1 from app.pipeline_runs
-   where case_id = p_case and state not in ('done', 'closed')
+   where case_id = p_case
    order by created_at, job_id
      for update;
 end
 $$;
 revoke execute on function app.pipeline_lock_runs(uuid) from public, app_api, app_worker;
+
+-- The sweep's version: true when it took EVERY run row of the case (same set, same order as `pipeline_lock_runs`),
+-- false when any is held, and then it holds NONE: the rows `skip locked` did reach are released by raising inside a
+-- sub-block, so a skipped case never stalls a completion or a close until the sweep's transaction ends. Not granted to
+-- any role.
+create or replace function app.pipeline_try_lock_runs(p_case uuid)
+  returns boolean
+  language plpgsql
+  security definer
+  set search_path = ''
+as $$
+declare
+  v_all bigint;
+  v_got bigint;
+begin
+  select count(*) into v_all from app.pipeline_runs where case_id = p_case;
+  begin
+    perform 1 from app.pipeline_runs
+     where case_id = p_case
+     order by created_at, job_id
+       for update skip locked;
+    get diagnostics v_got = row_count;
+    if v_got < v_all then
+      raise exception 'case runs held' using errcode = '55P03';
+    end if;
+  exception when lock_not_available then
+    return false;
+  end;
+  return true;
+end
+$$;
+revoke execute on function app.pipeline_try_lock_runs(uuid) from public, app_api, app_worker;
 
 -- True when an OLDER open run of the case has a `running` parent (F61, F69: a paused or failed parent does not hold
 -- the case). The one ordering rule: fire_next and enter both ask it before they move a run to ready.
@@ -545,9 +579,9 @@ revoke execute on function app.pipeline_close_runs(uuid, uuid, text[]) from publ
 grant execute on function app.pipeline_close_runs(uuid, uuid, text[]) to app_worker;
 
 -- The housekeeping sweep, on the anonymous worker connection (no person, no `app.job_case_id`). Skips held and deleted
--- cases. For each case it first takes ALL the case's open run rows with `skip locked` and leaves the case to the next
--- round if any is held by a fan-in, so it never waits on a run row while holding another (no deadlock with a fan-in
--- that holds one run and wants the case's others). Then, per run, oldest first, the pass order is pinned:
+-- cases. For each case it first try-locks ALL the case's run rows (`pipeline_try_lock_runs`) and leaves the case to the next
+-- round, holding none of them, if any is held by a fan-in, so it never waits on a run row while holding another (no
+-- deadlock with a fan-in that holds one run and wants the case's others). Then, per run, oldest first, the pass order is pinned:
 --   mirror -> (i) re-defer paused children that lost their queue row (no lock) -> (ii) re-defer a parent paused with a
 --   resumable code in its own tail (the case lock) -> wake a running parent of a `*_ready` or `finishing` run that has no
 --   queue row -> top-up the window -> keep a silent parked parent alive (touch after 5 minutes);
@@ -563,8 +597,6 @@ create or replace function app.pipeline_heal_runs(p_resumable text[])
 as $$
 declare
   v_case uuid;
-  v_open bigint;
-  v_got bigint;
   r app.pipeline_runs;
   p app.jobs;
   c record;
@@ -579,13 +611,7 @@ begin
      where pr.state not in ('done', 'closed') and not cs.on_hold and cs.status <> 'deleted'
      order by pr.case_id
   loop
-    select count(*) into v_open from app.pipeline_runs where case_id = v_case and state not in ('done', 'closed');
-    perform 1 from app.pipeline_runs
-     where case_id = v_case and state not in ('done', 'closed')
-     order by created_at, job_id
-       for update skip locked;
-    get diagnostics v_got = row_count;
-    continue when v_got < v_open;
+    continue when not app.pipeline_try_lock_runs(v_case);
     for r in
       select * from app.pipeline_runs
        where case_id = v_case and state not in ('done', 'closed') order by created_at, job_id
@@ -640,13 +666,7 @@ begin
      where j.status = 'paused' and j.error_code = 'busy_processing' and not cs.on_hold and cs.status <> 'deleted'
      order by j.case_id
   loop
-    select count(*) into v_open from app.pipeline_runs where case_id = v_case and state not in ('done', 'closed');
-    perform 1 from app.pipeline_runs
-     where case_id = v_case and state not in ('done', 'closed')
-     order by created_at, job_id
-       for update skip locked;
-    get diagnostics v_got = row_count;
-    continue when v_got < v_open or app.pipeline_case_busy(v_case, p_resumable);
+    continue when not app.pipeline_try_lock_runs(v_case) or app.pipeline_case_busy(v_case, p_resumable);
     for c in
       select j.id from app.jobs j
        where j.case_id = v_case and j.status = 'paused' and j.error_code = 'busy_processing'
