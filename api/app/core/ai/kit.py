@@ -56,7 +56,9 @@ MAX_WAIT_SECONDS = 2 * 60 * 60
 SLOT_LOCK = "app.ai_request_slots"
 DIRECT_RETRIES = 3  # temporary, dummy data only (ADR 0036): busy retries on the direct API before Bedrock
 DIRECT_MAX_WAIT_SECONDS = 30.0
-_Wait = Callable[[str], Awaitable[None]]
+# A granted slot's release: called once the call it was granted for has answered or failed.
+_Release = Callable[[], Awaitable[None]]
+_Wait = Callable[[str], Awaitable[_Release | None]]
 
 
 @dataclass(frozen=True)
@@ -299,8 +301,9 @@ class AiKit:
             image=None,
         )
 
-        async def wait(slot_provider: str) -> None:
-            await self._wait_for_slot_detached(database, case_id, job_id, slot_provider)
+        async def wait(slot_provider: str) -> _Release:
+            slot_id = await self._wait_for_slot_detached(database, case_id, job_id, slot_provider)
+            return lambda: self._release_slot_detached(database, case_id, slot_id)
 
         validator = jsonschema_rs.validator_for(dict(task.schema))
         for attempt in range(2):
@@ -321,7 +324,7 @@ class AiKit:
         raise InvalidOutput(task.task_id)
 
     async def _try_overflow(
-        self, request: ModelRequest, wait_for_slot: Callable[[], Awaitable[None]] | None
+        self, request: ModelRequest, wait_for_slot: Callable[[], Awaitable[_Release | None]] | None
     ) -> ModelResponse | None:
         """The primary model is throttled: try each in-region overflow model once (its own quota bucket).
         A busy or unavailable overflow model is skipped. None when none answered."""
@@ -330,9 +333,11 @@ class AiKit:
             if model_id == request.model_id:
                 continue
             try:
-                if wait_for_slot is not None:
-                    await wait_for_slot()
-                answer = await self.bedrock.invoke(replace(request, model_id=model_id))
+                release = await wait_for_slot() if wait_for_slot is not None else None
+                try:
+                    answer = await self.bedrock.invoke(replace(request, model_id=model_id))
+                finally:
+                    await self._release(release)
             except (ServiceBusy, ModelUnavailable) as exc:
                 logger.warning("overflow model %s skipped (%s)", model_id, type(exc).__name__)
                 continue
@@ -368,8 +373,9 @@ class AiKit:
         wait: _Wait | None = None
         if job_id is not None:
 
-            async def wait_for_slot(slot_provider: str) -> None:
-                await self._wait_for_slot(conn, job_id, slot_provider)
+            async def wait_for_slot(slot_provider: str) -> _Release:
+                slot_id = await self._wait_for_slot(conn, job_id, slot_provider)
+                return lambda: self._release_slot(conn, slot_id)
 
             wait = wait_for_slot
 
@@ -498,9 +504,10 @@ class AiKit:
         wait: _Wait | None = None
         if conn is not None and job_id is not None:
 
-            async def wait_for_slot(slot_provider: str) -> None:
+            async def wait_for_slot(slot_provider: str) -> _Release:
                 assert conn is not None and job_id is not None
-                await self._wait_for_slot(conn, job_id, slot_provider)
+                slot_id = await self._wait_for_slot(conn, job_id, slot_provider)
+                return lambda: self._release_slot(conn, slot_id)
 
             wait = wait_for_slot
         return await self._invoke_bedrock(request, wait)
@@ -511,14 +518,14 @@ class AiKit:
         assert self.direct is not None
         for attempt in range(self.direct_retries + 1):
             try:
-                if wait is not None:
-                    await wait("anthropic")
+                release = await wait("anthropic") if wait is not None else None
                 # The client's one log line per attempt says which attempt this is.
                 token = CALL_ATTEMPT.set(f"{attempt + 1}/{self.direct_retries + 1}")
                 try:
                     return await self.direct.invoke(request)
                 finally:
                     CALL_ATTEMPT.reset(token)
+                    await self._release(release)
             except ServiceBusy as busy:
                 if attempt == self.direct_retries:
                     raise
@@ -542,9 +549,11 @@ class AiKit:
         overflow_tried = False  # overflow models are tried once per call, after the first busy answer
         for attempt in range(len(delays) + 1):
             try:
-                if wait is not None:
-                    await wait("bedrock")
-                return replace(await self.bedrock.invoke(request), model_id=request.model_id)
+                release = await wait("bedrock") if wait is not None else None
+                try:
+                    return replace(await self.bedrock.invoke(request), model_id=request.model_id)
+                finally:
+                    await self._release(release)
             except ServiceBusy as busy:
                 if not overflow_tried:
                     overflow_tried = True
@@ -564,11 +573,14 @@ class AiKit:
                 raise ProcessingPaused("model_unavailable") from None
         raise AssertionError("unreachable")  # pragma: no cover
 
-    async def _wait_for_slot(self, conn: AsyncConnection, job_id: uuid.UUID, provider: str = "bedrock") -> None:
+    async def _wait_for_slot(self, conn: AsyncConnection, job_id: uuid.UUID, provider: str = "bedrock") -> uuid.UUID:
         """Wait until this job may make its next call to `provider`, under that provider's own
         requests-per-minute ceiling (`settings.limits[provider].rpm`; for Bedrock the account-wide
-        on-demand ceiling `bedrock_rpm_limit`, not raisable per tenant or per case). Providers never
-        share a pool: each slot row says which provider it is for (migration 0055).
+        on-demand ceiling `bedrock_rpm_limit`, not raisable per tenant or per case) and its in-flight
+        ceiling (`concurrency`; for Bedrock `BEDROCK_CONCURRENCY`). Providers never share a pool: each
+        slot row says which provider it is for (migration 0055). Both counts cover every case on the
+        account, through `app.ai_slots_in_use` (migration 0056), because the table's policy shows a job
+        only its own case's rows. Returns the granted slot's id, to release once the call has ended.
 
         A session-level advisory lock (not `pg_advisory_xact_lock`, used elsewhere: that variant
         cannot be released before the transaction ends, and this check must release it between
@@ -583,30 +595,50 @@ class AiKit:
         """
         started = time.monotonic()
         waited = False
-        while not await self._slot_attempt(conn, job_id, provider):
+        while (slot_id := await self._slot_attempt(conn, job_id, provider)) is None:
             if not waited:
                 self._log_wait(provider)
             waited = True
             await self.sleep(self.slot_poll_seconds)
         self._log_slot(provider, started, waited)
+        return slot_id
 
     async def _wait_for_slot_detached(
         self, database: Database, case_id: uuid.UUID, job_id: uuid.UUID, provider: str = "bedrock"
-    ) -> None:
+    ) -> uuid.UUID:
         """Like ``_wait_for_slot``, but opens a short-lived transaction for each poll so no
         connection is held during the sleep between iterations."""
         started = time.monotonic()
         waited = False
         while True:
             async with database.job(case_id) as conn:
-                if await self._slot_attempt(conn, job_id, provider):
-                    break
+                slot_id = await self._slot_attempt(conn, job_id, provider)
+            if slot_id is not None:
+                break
             # Connection is back in the pool here. Sleep holds nothing.
             if not waited:
                 self._log_wait(provider)
             waited = True
             await self.sleep(self.slot_poll_seconds)
         self._log_slot(provider, started, waited)
+        return slot_id
+
+    async def _release(self, release: _Release | None) -> None:
+        """End a granted slot. A failure to release never hides the call's own answer or error: the slot
+        stops counting as in flight after ten minutes anyway (migration 0056)."""
+        if release is None:
+            return
+        try:
+            await release()
+        except Exception as exc:
+            logger.warning("slot release failed: %s", type(exc).__name__)
+
+    async def _release_slot(self, conn: AsyncConnection, slot_id: uuid.UUID) -> None:
+        await conn.execute("update app.ai_request_slots set in_flight = false where id = %s", (slot_id,))
+
+    async def _release_slot_detached(self, database: Database, case_id: uuid.UUID, slot_id: uuid.UUID) -> None:
+        async with database.job(case_id) as conn:
+            await self._release_slot(conn, slot_id)
 
     def _log_wait(self, provider: str) -> None:
         """The first poll that did not get a slot: once per wait, numbers only."""
@@ -628,9 +660,10 @@ class AiKit:
             self.settings.limits[provider].rpm,
         )
 
-    async def _slot_attempt(self, conn: AsyncConnection, job_id: uuid.UUID, provider: str) -> bool:
+    async def _slot_attempt(self, conn: AsyncConnection, job_id: uuid.UUID, provider: str) -> uuid.UUID | None:
         """One poll: queue this job for a slot of `provider` if it is not queued, grant it if the
-        provider's window has room and it is next in fair order. True when granted."""
+        provider's window and in-flight count have room (across every case) and it is next in fair
+        order. The granted slot's id, or None while it must wait."""
         lock = SLOT_LOCK if provider == "bedrock" else f"{SLOT_LOCK}:{provider}"
         await conn.execute("select pg_advisory_lock(hashtextextended(%s, 0))", (lock,))
         try:
@@ -651,15 +684,15 @@ class AiKit:
             slot_id = row[0]
 
             cur = await conn.execute(
-                "select count(*) from app.ai_request_slots"
-                " where provider = %s and granted_at > now() - interval '60 seconds'",
+                "select in_flight, granted_in_window from app.ai_slots_in_use(%s, interval '60 seconds')",
                 (provider,),
             )
             count_row = await cur.fetchone()
             assert count_row is not None
-            (granted_count,) = count_row
+            in_flight, granted_count = count_row
             self._last_grants[provider] = granted_count
-            if granted_count < self.settings.limits[provider].rpm:
+            limits = self.settings.limits[provider]
+            if granted_count < limits.rpm and in_flight < limits.concurrency:
                 cur = await conn.execute(
                     "select s.job_id from app.ai_request_slots s join app.jobs j on j.id = s.job_id"
                     " where s.granted_at is null and s.provider = %s"
@@ -669,9 +702,11 @@ class AiKit:
                 )
                 next_up = await cur.fetchone()
                 if next_up is not None and next_up[0] == job_id:
-                    await conn.execute("update app.ai_request_slots set granted_at = now() where id = %s", (slot_id,))
+                    await conn.execute(
+                        "update app.ai_request_slots set granted_at = now(), in_flight = true where id = %s", (slot_id,)
+                    )
                     await conn.execute("update app.jobs set last_granted_at = now() where id = %s", (job_id,))
-                    return True
+                    return slot_id  # type: ignore[no-any-return]
             await conn.execute("update app.jobs set step = 'waiting_for_capacity' where id = %s", (job_id,))
             logger.debug(
                 "slot waiting: provider=%s grants_60s=%d limit=%d",
@@ -679,7 +714,7 @@ class AiKit:
                 granted_count,
                 self.settings.limits[provider].rpm,
             )
-            return False
+            return None
         finally:
             await conn.execute("select pg_advisory_unlock(hashtextextended(%s, 0))", (lock,))
 
