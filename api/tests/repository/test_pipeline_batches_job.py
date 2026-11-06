@@ -157,10 +157,15 @@ def outcome(h: Harness) -> dict[str, Any]:
             " where bundle_id = (select bundle_id from app.cases where id = %s) order by 1",
             case,
         ).fetchall(),
-        "facts": [
-            (f["bundle_page_no"], f["kind"], f["status"], f["event_date"], sorted(f["word_ids"] or []))
-            for f in facts_of(h)
-        ],
+        # Facts of one page are written in one transaction (equal `created_at`), so their order is not defined: compare
+        # them as a set per page.
+        "facts": sorted(
+            (
+                (f["bundle_page_no"], f["kind"], f["status"], f["event_date"], sorted(f["word_ids"] or []))
+                for f in facts_of(h)
+            ),
+            key=repr,
+        ),
         "analysis": q(
             "select p.bundle_page_no, a.reason, a.printed_dates from app.page_analysis a"
             " join app.pages p on p.id = a.page_id"
