@@ -108,6 +108,22 @@ def parent_id(h: Harness) -> uuid.UUID:
     return uuid.UUID(str(row[0]))
 
 
+def job_row(h: Harness, job: uuid.UUID) -> tuple[str, str | None]:
+    """(status, error code) of a job."""
+    row = h.admin.execute("select status, error_code from app.jobs where id = %s", (job,)).fetchone()
+    assert row is not None
+    return (str(row[0]), row[1])
+
+
+def child_statuses(h: Harness) -> list[str]:
+    return [
+        str(r[0])
+        for r in h.admin.execute(
+            "select status from app.jobs where case_id = %s and kind = 'read_page_batch'", (h.case_id,)
+        ).fetchall()
+    ]
+
+
 async def processing(h: Harness) -> dict[str, Any]:
     got = await h.client.get(f"/v1/cases/{h.case_id}/process")
     assert got.status_code == 200
@@ -149,6 +165,15 @@ async def test_the_status_routes_show_the_parent_while_children_run_and_cancel_w
                 assert summary.status_code == 200
                 stopped = await h.client.post(f"/v1/cases/{h.case_id}/process/cancel")
                 assert stopped.status_code == 202 and stopped.json() == {"cancelled": True}
+                release.set()
+                await until(
+                    lambda: job_row(h, parent) == ("paused", "cancelled"),
+                    "the parent to end paused with the reason cancelled",
+                )
+                await until(
+                    lambda: all(s in ("paused", "done") for s in child_statuses(h)),
+                    "the children to stop (none queued or running)",
+                )
             finally:
                 release.set()
                 task.cancel()
