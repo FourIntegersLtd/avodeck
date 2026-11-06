@@ -95,8 +95,8 @@ async def opened(
         yield h
 
 
-def widths_of_bounded(monkeypatch: pytest.MonkeyPatch) -> list[int]:
-    """Every width `bounded()` is asked for while it has something to do."""
+def widths_of_bounded(monkeypatch: pytest.MonkeyPatch, *, when: Callable[[], bool] = lambda: True) -> list[int]:
+    """Every width `bounded()` is asked for while it has something to do and `when()` holds."""
     seen: list[int] = []
     real = service.bounded
 
@@ -108,7 +108,7 @@ def widths_of_bounded(monkeypatch: pytest.MonkeyPatch) -> list[int]:
         *,
         label: Any = None,
     ) -> None:
-        if items:
+        if items and when():
             seen.append(limit)
         await real(items, work, limit, stop, label=label)
 
@@ -144,7 +144,12 @@ async def test_a_batch_mode_bundle_holds_at_most_its_cap_and_every_width_is_with
         storage=storage,
     ) as h:
         spy = CheckoutSpy(h.worker_db).install(monkeypatch)
-        widths = widths_of_bounded(monkeypatch)
+
+        def a_run_exists() -> bool:  # the split, before any run, is the old job's step and is not capped
+            row = h.admin.execute("select 1 from app.pipeline_runs where case_id = %s", (h.case_id,)).fetchone()
+            return row is not None
+
+        widths = widths_of_bounded(monkeypatch, when=a_run_exists)
         await run_bundle(h)
     assert spy.total > 0, "the parent and the children asked for a limit"
     assert spy.peak <= ON.window * CAP + CAP, "one bundle: its window of children plus the parent, each within its cap"
@@ -171,3 +176,29 @@ async def test_without_the_flag_nothing_is_capped_as_today(
         await run_bundle(h)
     assert spy.total == 0, "no limit was set"
     assert max(widths) > CAP, "the single job keeps its own widths"
+
+
+async def test_a_bundle_too_small_to_batch_reads_in_line_at_its_own_widths_with_the_flag_on(
+    recordings: FixtureStore, admin: psycopg.Connection, api_db: Database, worker_dsn: str,
+    auth_env: dict[str, str], seed: Seed, storage: CaseFileStorage, monkeypatch: pytest.MonkeyPatch,
+) -> None:  # fmt: skip
+    """With the flag on but no run planned (the bundle is under `min_pages`), the job is the old single job: it is
+    not capped, or its OCR would drop from the usual width to the cap."""
+    too_big_a_minimum = PipelineBatchSettings(pages=5, window=2, min_pages=100_000)
+    async with opened(
+        too_big_a_minimum,
+        recordings,
+        admin=admin,
+        api_db=api_db,
+        worker_dsn=worker_dsn,
+        auth_env=auth_env,
+        seed=seed,
+        storage=storage,
+    ) as h:
+        spy = CheckoutSpy(h.worker_db).install(monkeypatch)
+        widths = widths_of_bounded(monkeypatch)
+        await run_bundle(h)
+        runs = h.admin.execute("select count(*) from app.pipeline_runs where case_id = %s", (h.case_id,)).fetchone()
+    assert runs == (0,), "a run was planned for a bundle under the minimum"
+    assert spy.total == 0, "an in-line job was given a checkout limit"
+    assert max(widths) > CAP, "the in-line job's widths were cut to the cap"

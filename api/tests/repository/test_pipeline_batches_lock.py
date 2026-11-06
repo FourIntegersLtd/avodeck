@@ -23,6 +23,7 @@ from app.core.db import Database
 from app.core.jobs import JobContext
 from app.core.storage import CaseFileStorage
 from app.features.pipeline import service
+from tests.repository.test_pipeline_batches_support import add_run, make_job
 from tests.repository.test_pipeline_support import (
     Harness,
     expected,
@@ -191,3 +192,107 @@ async def test_a_job_queued_during_the_tail_waits_for_the_case_lock_and_runs_aft
         release.set()
         await until(lambda: status_of(h, probe) == "done", "the case job to run after the tail", timeout=120)
         assert status_of(h, parent[0]) == "done", "the case job finished before the tail"
+
+
+def parent_of(h: Harness, *, not_this: uuid.UUID) -> uuid.UUID:
+    row = h.admin.execute(
+        "select id from app.jobs where case_id = %s and kind in ('process_bundle', 'process_pages') and id <> %s"
+        " order by created_at limit 1",
+        (h.case_id, not_this),
+    ).fetchone()
+    assert row is not None
+    return uuid.UUID(str(row[0]))
+
+
+def lock_waiters(h: Harness) -> int:
+    """Backends of this database waiting for a lock (a count only)."""
+    row = h.admin.execute(
+        "select count(*) from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'"
+    ).fetchone()
+    assert row is not None
+    return int(row[0])
+
+
+async def test_planning_the_sort_takes_every_run_lock_before_it_changes_its_own_run(
+    h: Harness, admin_dsn: str, seed: Seed, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F62: the parent's wake A used to change its own run row first and wait for the other runs' rows after. A child
+    of an older run that completes meanwhile takes the older row, then waits for this one: a deadlock. The parent
+    must hold nothing while it waits for the case's run rows, so the holder of an older row can still take its row."""
+    older = make_job(h.admin, seed, h.case_id, status="done")
+    add_run(h.admin, h.case_id, older, "done")
+    holder = psycopg.connect(admin_dsn, autocommit=False)
+    taken = asyncio.Event()
+    real = service._name_language
+
+    async def hold_the_older_run(*args: Any, **kwargs: Any) -> Any:
+        await asyncio.to_thread(
+            holder.execute, "select 1 from app.pipeline_runs where job_id = %s for update", (older,)
+        )
+        taken.set()
+        return await real(*args, **kwargs)
+
+    monkeypatch.setattr(service, "_name_language", hold_the_older_run)
+    try:
+        await h.upload(subset_document())
+        async with running(h):
+            await asyncio.wait_for(taken.wait(), 300)
+            waiting_before = lock_waiters(h)
+            await until(lambda: lock_waiters(h) > waiting_before, "the parent to wait for the older run's row")
+            parent = parent_of(h, not_this=older)
+            try:
+                await asyncio.to_thread(
+                    holder.execute, "select 1 from app.pipeline_runs where job_id = %s for update nowait", (parent,)
+                )
+            except psycopg.errors.LockNotAvailable:
+                pytest.fail("the parent holds its own run row while it waits for an older run's row")
+            finally:
+                await asyncio.to_thread(holder.rollback)
+            await until(
+                lambda: all(status_of(h, j) == "done" for j in h.job_ids() if j != older),
+                "the bundle to finish",
+                timeout=300,
+            )
+    finally:
+        holder.close()
+
+
+async def test_children_that_finish_before_the_parent_parks_do_not_need_another_wake(
+    h: Harness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F57: a child that completes while the parent's own queue row is still held cannot wake it (a wake is refused
+    while the row is held). The parent looks again before it parks, so the tail runs in the same wake and nothing
+    waits for the heal sweep."""
+    real_plan = service._plan_sort
+    real_mode = service._batch_mode
+    exits: list[str] = []
+
+    def finish_the_sort_batches(job: uuid.UUID) -> None:
+        h.admin.execute("select set_config('app.job_case_id', %s, false)", (str(h.case_id),))
+        try:
+            for (batch,) in h.admin.execute(
+                "select id from app.pipeline_batches where run_job_id = %s and phase = 'sort' order by seq", (job,)
+            ).fetchall():
+                h.admin.execute("select app.pipeline_complete_batch(%s)", (batch,))
+        finally:
+            h.admin.execute("reset app.job_case_id")
+
+    async def children_finish_first(ctx: JobContext, services: Any) -> bool:
+        planned: bool = await real_plan(ctx, services)
+        if planned:
+            finish_the_sort_batches(ctx.job_id)
+        return planned
+
+    async def watched(ctx: JobContext, services: Any) -> None:
+        try:
+            await real_mode(ctx, services)
+        finally:
+            row = h.admin.execute("select state from app.pipeline_runs where job_id = %s", (ctx.job_id,)).fetchone()
+            exits.append(str(row[0]) if row else "gone")
+
+    monkeypatch.setattr(service, "_plan_sort", children_finish_first)
+    monkeypatch.setattr(service, "_batch_mode", watched)
+    await h.upload(subset_document())
+    async with running(h):
+        await until(lambda: len(exits) >= 2, "the parent's second wake to end", timeout=300)
+    assert exits[1] == "done", f"the second wake ended with the run {exits[1]!r}: nothing woke the parent"
