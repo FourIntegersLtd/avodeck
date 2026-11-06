@@ -8,6 +8,7 @@ of birth `pii.strip` removes before any model call (rule 7).
 from __future__ import annotations
 
 import contextlib
+import os
 import uuid
 from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
@@ -19,6 +20,7 @@ from app.core import jobs
 from app.core.ai.embed import Embedder, RecordedEmbedder
 from app.core.ai.kit import AiKit
 from app.core.ai.ocr import OcrClient
+from app.core.config import PipelineBatchSettings, env_int, pipeline_batch_settings
 from app.core.contracts.case_identity import Identity, identity_for
 from app.core.crypto import CaseCrypto
 from app.core.email import Mailer
@@ -57,6 +59,8 @@ class PipelineServices:
     identity: IdentityFor = no_identity
     mailer: Mailer = field(default_factory=lambda: _default_mailer())
     embedder: Embedder = field(default_factory=RecordedEmbedder)
+    batches: PipelineBatchSettings = field(default_factory=PipelineBatchSettings)  # page-batch jobs: off by default
+    worker_concurrency: int = 4  # jobs the worker runs at once (`WORKER_CONCURRENCY`): a batch job's share of the pool
 
 
 def _default_mailer() -> Mailer:
@@ -99,6 +103,8 @@ def from_env() -> PipelineServices:
         registry=jobs.registry,
         embedder=embedder_from_env(),
         identity=identity_with(crypto),
+        batches=pipeline_batch_settings(),
+        worker_concurrency=env_int(os.environ, "WORKER_CONCURRENCY", 4, minimum=1),
     )
 
 

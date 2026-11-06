@@ -36,6 +36,26 @@ plan, and record the RSS below.
 |---|---|---|---|
 | | | | |
 
+## Page-batch jobs (scalability plan PR 17, flag `PIPELINE_BATCH_PAGES`, default 0 = off)
+
+With the flag on, a bundle is split into `read_page_batch` child jobs of about `PIPELINE_BATCH_PAGES` pages (two phases:
+OCR, then extraction and embedding) on the bulk queue with no case lock, and the parent `process_bundle` is parked
+between phases and woken to plan the sort and to run the whole-bundle tail (duplicates, missing items). See ADR 0038.
+
+| Number | Value | Where it comes from |
+|---|---|---|
+| Pages per batch | `PIPELINE_BATCH_PAGES` (100 in production once PR 18 has measured it) | env |
+| Batches reading at once per bundle (window) | `PIPELINE_BATCH_WINDOW`, default 2, at most `WORKER_CONCURRENCY - 1` | env; the worker warns at start when above |
+| Pool checkouts per batch-mode job (cap) | `max(1, (WORKER_DB_POOL_MAX - 2) // WORKER_CONCURRENCY)` = 2 at pool 10, concurrency 4 | `app.core.jobs.checkout_cap` |
+| Pool checkouts per bundle | at most `window x cap + cap` = 6 | the parent is parked while children run |
+| Pool checkouts, four batch-kind jobs | at most 4 x cap = 8, the pool less its reserve | |
+| Widest `bounded()` in batch mode | `cap` | `pipeline.service._width` |
+
+A lone bundle is slower per page than today unless the pool grows (about 4 OCR pages in flight against about 8); the
+trade is that fifty bundles no longer queue behind each other's whole run. PR 18 measures the 4,000-page time against the
+75-minute target and tunes `WORKER_DB_POOL_MAX`, `WORKER_CONCURRENCY` and the window together before the flag is set in
+production. The bulk queue's oldest age (`GET /v1/internal/metrics`) shows a backlog of children.
+
 ## Load test (scalability plan PR 18)
 
 Scripts: `scripts/load/` (k6; read its README first). Targets: ADR 0037, NFR C3 (50 bundles at once), C5 (300

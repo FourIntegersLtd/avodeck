@@ -341,6 +341,8 @@ async def harness(
     wired_identity: bool = False,
     batch_size: str = "1",
     settings: Mapping[str, str] | None = None,
+    batches: Any = None,
+    pool_max: int = 4,
 ) -> AsyncIterator[Harness]:
     """The pipeline wired to stand-ins, its job kinds on a registry of their own."""
     from app.core.packs import default_library
@@ -377,10 +379,11 @@ async def harness(
         registry=registry,
         identity=wiring_module.identity_with(crypto) if wired_identity else identity,
         **({"embedder": embedder} if embedder is not None else {}),
+        **({"batches": batches} if batches is not None else {}),
     )
     app = build_app(api_db, auth_env, storage=storage, crypto=crypto)
     pipeline.mount_on(app)
-    worker_db = Database(worker_dsn, max_size=4)
+    worker_db = Database(worker_dsn, max_size=pool_max)
     await worker_db.open()
     from tests.support.seed import Seed
 
