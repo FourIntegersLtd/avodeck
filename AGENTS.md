@@ -13,7 +13,7 @@ These are enforced by tests in `api/tests/guards/` and `web/src/foundation/guard
 3. **Blind read is enforced by the server.** `GET /cases/{id}/pages/{n}/facts` returns 423 until `POST /cases/{id}/pages/{n}/read` is recorded. Never rely on the frontend to hide suggestions.
 4. **The browser talks only to FastAPI.** No Supabase, Azure or AWS calls, keys or direct storage links in the frontend, and no product logic in the browser. Only two things work on the device itself: drawing the signature (sent to FastAPI as an image) and the offline witness-box search (`S25-Lookup`), which works with no connection.
 5. **Data stays in the home region.** Each region is a separate cell (UK first: Supabase London, Bedrock London **in-region** model IDs only, never `global.*` or `eu.*` profiles, Azure UK South). The UK cell's API and worker run on Railway, Amsterdam, holding no data at rest (ADR 0021). Code reads every endpoint and model ID from the cell config; nothing region-specific is hard-coded.
-6. **No patient text in logs.** Never log page text, OCR output, prompts, AI responses, names, identifier numbers (e.g. NHS numbers) or dates of birth. This includes Sentry, DigitalOcean logs and test output.
+6. **No patient text in logs.** Never log page text, OCR output, prompts, AI responses, names, identifier numbers (e.g. NHS numbers) or dates of birth. This includes Sentry, Railway logs and test output.
 7. **Identifiers out before AI.** Presidio identifier stripping (`app/core/ai/pii.py`) runs before every Claude call.
 8. **Served reports are locked.** A served `report_versions` row is immutable (409 on change). Corrections and changes of opinion go through the supplementary report flow (screen 21b).
 9. **Access check on every case route.** Every `/cases/{case_id}/…` route calls `require_case_access(action)` (`docs/spec/permissions.md`): the named expert, a case member whose case role allows the action, or an organisation owner/admin for administrative actions only. Anyone else gets 404. Only the named expert verifies facts, writes opinions, signs and serves. Row-level security repeats the check: FastAPI connects as a restricted role with `SET LOCAL app.person_id` per request, never as the service role (ADR 0013).
@@ -25,7 +25,7 @@ These are enforced by tests in `api/tests/guards/` and `web/src/foundation/guard
 | Part | Choice |
 |---|---|
 | Frontend | React + TypeScript on Vercel; renders screens only; typed client generated from OpenAPI |
-| API + worker | FastAPI (Python 3.12) on DigitalOcean App Platform, London; worker consumes a Postgres job queue |
+| API + worker | FastAPI (Python 3.12) on Railway, Amsterdam (ADR 0021); two worker services (`worker` bulk, `worker-interactive`) consume Postgres job queues |
 | Database, auth | Supabase (London): Postgres + pgvector, Auth (called only by FastAPI) |
 | Case files | AWS S3 (London, eu-west-2): private bucket, SSE-S3 + per-case envelope encryption (ADR 0032) |
 | LLM | Claude Sonnet 5 / Opus 5.5 via AWS Bedrock, London in-region |
