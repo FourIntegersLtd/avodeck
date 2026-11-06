@@ -345,13 +345,23 @@ async def set_image(conn: AsyncConnection, page_id: uuid.UUID, image_path: str) 
     await conn.execute("update app.pages set image_path = %s where id = %s", (image_path, page_id))
 
 
-async def pages_without_words(conn: AsyncConnection, case_id: uuid.UUID) -> list[uuid.UUID]:
+_IN_RANGE = (
+    " and (%(first)s::int is null or {p}bundle_page_no >= %(first)s)"
+    " and (%(last)s::int is null or {p}bundle_page_no <= %(last)s)"
+)
+
+
+async def pages_without_words(
+    conn: AsyncConnection, case_id: uuid.UUID, *, first: int | None = None, last: int | None = None
+) -> list[uuid.UUID]:
+    """Pages with an image and no words yet; `first` and `last` (page numbers, both ends included) narrow it to a
+    page-batch child's range (ADR 0038)."""
     cur = await conn.execute(
         "select id from app.pages"
-        " where bundle_id = (select bundle_id from app.cases where id = %s)"
+        " where bundle_id = (select bundle_id from app.cases where id = %(case)s)"
         " and text_source is null and image_path is not null"
-        " and not quarantined order by bundle_page_no",
-        (case_id,),
+        " and not quarantined" + _IN_RANGE.format(p="") + " order by bundle_page_no",
+        {"case": case_id, "first": first, "last": last},
     )
     return [r[0] for r in await cur.fetchall()]
 
@@ -367,6 +377,48 @@ async def pages_without_language(conn: AsyncConnection, case_id: uuid.UUID, min_
         (case_id, min_words),
     )
     return [r[0] for r in await cur.fetchall()]
+
+
+async def batch_write_allowed(conn: AsyncConnection, batch_id: uuid.UUID, page_id: uuid.UUID) -> bool:
+    """The first statement of every page write of a page-batch child (ADR 0038, F64). False means: write nothing.
+
+    Lock order: the batch's run row `for share` (a purge takes the case's run rows `for update` and so waits for the
+    write), then the page row `for share` (a quarantine confirm takes it `for update`). The quarantine status is
+    read in a later statement, once both locks are held, so a confirm that committed meanwhile is seen. Refused
+    when the run is missing or closed, or the page is gone, outside the batch's page range, superseded, set aside as
+    quarantined or a confirmed or deleted quarantine."""
+    cur = await conn.execute(
+        "select 1 from app.pipeline_batches b join app.pipeline_runs r on r.job_id = b.run_job_id"
+        " where b.id = %s and r.closed_at is null and r.state <> 'closed' for share of r",
+        (batch_id,),
+    )
+    if await cur.fetchone() is None:
+        return False
+    cur = await conn.execute(
+        "select 1 from app.pages p join app.pipeline_batches b on b.id = %s"
+        " where p.id = %s and p.bundle_page_no between b.first_page_no and b.last_page_no"
+        " and not p.quarantined and p.superseded_by_page_id is null for share of p",
+        (batch_id, page_id),
+    )
+    if await cur.fetchone() is None:
+        return False
+    cur = await conn.execute(
+        "select exists (select 1 from app.page_quarantines where page_id = %s and status in ('confirmed', 'purged'))",
+        (page_id,),
+    )
+    row = await cur.fetchone()
+    return not (row and row[0])
+
+
+async def batch_run_open(conn: AsyncConnection, batch_id: uuid.UUID) -> bool:
+    """Whether the batch's run still exists and is open: told apart from one refused page after a refused guard, so
+    a child whose run is gone ends its step instead of reading on (every further call would be wasted)."""
+    cur = await conn.execute(
+        "select 1 from app.pipeline_batches b join app.pipeline_runs r on r.job_id = b.run_job_id"
+        " where b.id = %s and r.closed_at is null and r.state <> 'closed'",
+        (batch_id,),
+    )
+    return await cur.fetchone() is not None
 
 
 WordRow = tuple[uuid.UUID, uuid.UUID, int, str, bytes, list[float], float, bool, bool, str]
@@ -425,15 +477,18 @@ async def case_codes(conn: AsyncConnection, case_id: uuid.UUID) -> dict[str, str
     return {"jurisdiction": row[0], "case_type": row[1], "specialty": row[2]}
 
 
-async def pages_to_extract(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, int]]:
+async def pages_to_extract(
+    conn: AsyncConnection, case_id: uuid.UUID, *, first: int | None = None, last: int | None = None
+) -> list[tuple[uuid.UUID, int]]:
     """Pages with their words read, not set aside as copies, and not yet extracted, with their
-    bundle page number (T-07b batches pages by number, so the model is told which is which)."""
+    bundle page number (T-07b batches pages by number, so the model is told which is which).
+    `first` and `last` narrow it to a page-batch child's range."""
     cur = await conn.execute(
         "select p.id, p.bundle_page_no from app.pages p left join app.page_analysis a on a.page_id = p.id"
-        " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %(case)s)"
         " and p.text_source is not null and p.duplicate_of_page_id is null"
-        " and not p.quarantined and a.extracted_at is null order by p.bundle_page_no",
-        (case_id,),
+        " and not p.quarantined and a.extracted_at is null" + _IN_RANGE.format(p="p.") + " order by p.bundle_page_no",
+        {"case": case_id, "first": first, "last": last},
     )
     return [(r[0], r[1]) for r in await cur.fetchall()]
 
@@ -1034,14 +1089,18 @@ async def case_people(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[uuid.U
 # --- embeddings ----------------------------------------------------------------------------------
 
 
-async def pages_to_embed(conn: AsyncConnection, case_id: uuid.UUID, model: str) -> list[uuid.UUID]:
-    """Pages with no embedding from the current model (none yet, or one from an older model)."""
+async def pages_to_embed(
+    conn: AsyncConnection, case_id: uuid.UUID, model: str, *, first: int | None = None, last: int | None = None
+) -> list[uuid.UUID]:
+    """Pages with no embedding from the current model (none yet, or one from an older model); `first` and `last`
+    narrow it to a page-batch child's range."""
     cur = await conn.execute(
         "select p.id from app.pages p left join app.page_embeddings e on e.page_id = p.id"
-        " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
-        " and not p.quarantined and (e.page_id is null or e.model <> %s)"
-        " order by p.bundle_page_no",
-        (case_id, model),
+        " where p.bundle_id = (select bundle_id from app.cases where id = %(case)s)"
+        " and not p.quarantined and (e.page_id is null or e.model <> %(model)s)"
+        + _IN_RANGE.format(p="p.")
+        + " order by p.bundle_page_no",
+        {"case": case_id, "model": model, "first": first, "last": last},
     )
     return [r[0] for r in await cur.fetchall()]
 
@@ -1367,6 +1426,7 @@ async def latest_processing(
     cur = await conn.execute(
         "select id, kind, status, step, pct, eta_seconds, step_done, step_total, error_code, updated_at"
         " from app.jobs where case_id = %s and kind = any(%s)"
+        " and not (status = 'paused' and error_code = 'busy_processing')"
         f" order by (status = 'running' and updated_at > now() - interval '{LIVE_MINUTES} minutes') desc,"
         " created_at desc, id desc limit 1",
         (case_id, list(kinds)),
@@ -1387,19 +1447,24 @@ async def latest_processing(
     return None if row is None else dict(zip(names, row, strict=True))
 
 
+# When a job's work began: its creation, or the last reopen of its page-batch run if later (migration 0141).
+_SINCE = "greatest(j.created_at, coalesce(app.pipeline_reopened_at(j.id), j.created_at))"
+
+
 async def request_cancel(conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UUID) -> bool:
     """Asks the bundle jobs queued or running now to stop at the next page boundary. False when nothing
-    is processing or a stop is already asked for every such job."""
+    is processing or a stop is already asked for every such job. A job counts from its creation or, for a
+    page-batch run reopened by Try again, from the reopen: a stop made before it is old news."""
     cur = await conn.execute(
-        "with live as (select max(created_at) as since from app.jobs"
-        "   where case_id = %(case)s and kind = any(%(kinds)s) and status in ('queued', 'running'))"
+        f"with live as (select max({_SINCE}) as since from app.jobs j"
+        "   where j.case_id = %(case)s and j.kind = any(%(kinds)s) and j.status in ('queued', 'running'))"
         " insert into app.case_processing (case_id, cancel_requested_at, cancel_requested_by)"
         " select %(case)s, now(), %(person)s from live where live.since is not null"
         " on conflict (case_id) do update set cancel_requested_at = now(),"
         "   cancel_requested_by = excluded.cancel_requested_by, updated_at = now()"
         " where app.case_processing.cancel_requested_at is null or app.case_processing.cancel_requested_at <"
-        "   (select max(created_at) from app.jobs where case_id = %(case)s and kind = any(%(kinds)s)"
-        "    and status in ('queued', 'running'))"
+        f"   (select max({_SINCE}) from app.jobs j where j.case_id = %(case)s and j.kind = any(%(kinds)s)"
+        "    and j.status in ('queued', 'running'))"
         " returning case_id",
         {"case": case_id, "person": person_id, "kinds": list(BUNDLE_JOBS)},
     )
@@ -1430,6 +1495,15 @@ async def has_live_bundle_job(conn: AsyncConnection, case_id: uuid.UUID) -> bool
     return bool(row and row[0])
 
 
+async def case_busy(conn: AsyncConnection, case_id: uuid.UUID, resumable: Sequence[str]) -> bool:
+    """A page-batch run of the case is busy (ADR 0038): its parent running or queued, paused with a resumable code,
+    or a child with a queue row (a sleeping one included). A run left open by a Stop, a failure or a cost-guard
+    pause is not busy, and a case with no run at all never is."""
+    cur = await conn.execute("select app.pipeline_case_busy(%s, %s)", (case_id, list(resumable)))
+    row = await cur.fetchone()
+    return bool(row and row[0])
+
+
 async def requeue_failed(
     conn: AsyncConnection, job_id: uuid.UUID, queue: str, priority: int, changes_case: bool
 ) -> bool:
@@ -1440,10 +1514,10 @@ async def requeue_failed(
 
 
 async def cancel_requested(conn: AsyncConnection, job_id: uuid.UUID) -> bool:
-    """Whether a stop was asked for after this job was queued."""
+    """Whether a stop was asked for after this job was queued (or, for a page-batch run, last reopened)."""
     cur = await conn.execute(
         "select exists (select 1 from app.jobs j join app.case_processing c on c.case_id = j.case_id"
-        " where j.id = %s and c.cancel_requested_at > j.created_at)",
+        f" where j.id = %s and c.cancel_requested_at > {_SINCE})",
         (job_id,),
     )
     row = await cur.fetchone()
@@ -1547,13 +1621,15 @@ async def retry_progress(
     # A paused run handed back by "Try again" (code `resuming`) is waiting for the worker: it counts as running,
     # but only while a queue row is there to be picked up (a hold placed before the pickup leaves none).
     handed_back = job[1] == "paused" and job[3] == "resuming" and await _waits_in_queue(conn, job[0])
-    paused = job[1] == "paused" and not handed_back
+    # A retry paused `busy_processing` only waits for a page-batch run to end; the sweep hands it back (ADR 0038).
+    waiting_turn = job[1] == "paused" and job[3] == "busy_processing"
+    paused = job[1] == "paused" and not handed_back and not waiting_turn
     over = False
     if paused and job[3] == "cost_guard" and guard is not None:
         # The guard's own test (`used >= allowance`): Try again cannot work while the case is still over it.
         over = await record_entries.case_over_allowance(conn, case_id, guard)
     return RetryProgress(
-        running=job[1] in ("queued", "running") or handed_back,
+        running=job[1] in ("queued", "running") or handed_back or waiting_turn,
         paused=paused,
         total=done + failed + waiting,
         done=done,
@@ -1646,7 +1722,11 @@ async def suggest_quarantine(
 
 
 async def confirm_quarantine(conn: AsyncConnection, q: Quarantine, reason: str, person_id: uuid.UUID) -> None:
-    """The page is quarantined and every fact on it rejected; their earlier statuses are kept for undo."""
+    """The page is quarantined and every fact on it rejected; their earlier statuses are kept for undo.
+
+    The page row is locked first: a page-batch child's write holds it `for share` (`batch_write_allowed`), so a
+    confirm and a child write on one page take turns and no suggestion is left on a quarantined page (F64)."""
+    await conn.execute("select 1 from app.pages where id = %s for update", (q.page_id,))
     cur = await conn.execute(
         "select id, status from app.facts where page_id = %s and status <> 'rejected'", (q.page_id,)
     )

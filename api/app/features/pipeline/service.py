@@ -56,7 +56,7 @@ from app.core.contracts.fact_verifications import log_remaps
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcription_purpose
 from app.core.contracts.record_entries import RETRY_UNREAD
 from app.core.errors import ProcessingPaused
-from app.core.jobs import JobContext
+from app.core.jobs import RESUMABLE_PAUSES, JobContext
 from app.core.pdf import cut_page
 from app.core.scan import ScanUnavailable
 from app.features.pipeline import (
@@ -75,6 +75,7 @@ from app.features.pipeline import (
     steplog,
 )
 from app.features.pipeline.asking import answer_group
+from app.features.pipeline.batches import BatchRunClosed, BatchScope
 from app.features.pipeline.render import Pictures, encode, rasterise
 from app.features.pipeline.straighten import quarter_turn
 from app.features.pipeline.wiring import PipelineServices, current
@@ -416,14 +417,38 @@ async def bounded[T](
         raise ProcessingPaused("cancelled")
 
 
-def _stop(ctx: JobContext) -> Stop:
-    """Whether the expert asked to stop processing after this job was queued."""
+def _stop(ctx: JobContext, scope: BatchScope | None = None) -> Stop:
+    """Whether the expert asked to stop processing after this job was queued. A page-batch child asks about its
+    run's parent (`scope.run_job_id`), so the parent's check and the children's are one rule."""
+    job = ctx.job_id if scope is None else scope.run_job_id
 
     async def asked() -> bool:
         async with ctx.transaction() as conn:
-            return await repo.cancel_requested(conn, ctx.job_id)
+            return await repo.cancel_requested(conn, job)
 
     return asked
+
+
+async def _may_write(conn: AsyncConnection, scope: BatchScope, page_id: uuid.UUID) -> bool:
+    """The write guard for a page-batch child. False: this page is set aside, skip it. `BatchRunClosed`: the run is
+    closed or purged, so the child ends its step rather than read the rest of its pages for nothing (F64)."""
+    if await repo.batch_write_allowed(conn, scope.batch_id, page_id):
+        return True
+    if not await repo.batch_run_open(conn, scope.batch_id):
+        raise BatchRunClosed
+    return False
+
+
+async def _hold_for_run(ctx: JobContext) -> None:
+    """The first step of every job that used the case lock to wait for the bundle (ADR 0038, build step 9).
+
+    While a page-batch run is busy the job pauses `busy_processing`: the worker ends its queue row and leaves it
+    `paused` (the code is not resumable), and the sweep hands it back once the case is no longer busy. With no run
+    (the flag off) nothing is ever busy and the job starts at once."""
+    async with ctx.transaction() as conn:
+        busy = await repo.case_busy(conn, ctx.case_id, sorted(RESUMABLE_PAUSES))
+    if busy:
+        raise ProcessingPaused("busy_processing")
 
 
 async def _page_pdf(conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, page_id: uuid.UUID) -> bytes:
@@ -496,9 +521,12 @@ async def _settle(
         await flag_for_recheck(conn, case_id, lost)
 
 
-async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
+async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchScope | None = None) -> None:
+    """Reads the words of every page without them. A page-batch child passes its `scope`: only its page range is
+    read, every page write goes through the write guard, and the case-wide language pass is left to the parent."""
+    first, last = (None, None) if scope is None else (scope.first_page_no, scope.last_page_no)
     async with ctx.transaction() as conn:
-        waiting = await repo.pages_without_words(conn, ctx.case_id)
+        waiting = await repo.pages_without_words(conn, ctx.case_id, first=first, last=last)
         case_pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
         spoken, locale = case_pack.language, case_pack.locale
         numbers = await repo.page_numbers_by_id(conn, ctx.case_id)
@@ -560,6 +588,8 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
             ):
                 await services.storage.put(path, blob)  # S3 with no connection held
         async with ctx.transaction() as conn:
+            if scope is not None and not await _may_write(conn, scope, page_id):
+                return  # the page was set aside meanwhile: write nothing (F64)
             rows: list[repo.WordRow] = []
             for n, word in enumerate(page.words, start=1):
                 sealed = await services.crypto.encrypt(
@@ -596,7 +626,14 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
             if before:
                 await _settle(conn, ctx.case_id, page_id, before, page, placed=source != "expert")
 
-    await bounded(waiting, read, ocr_concurrency(services), _stop(ctx), label=lambda page_id: numbers.get(page_id))
+    try:
+        await bounded(
+            waiting, read, ocr_concurrency(services), _stop(ctx, scope), label=lambda page_id: numbers.get(page_id)
+        )
+    except BatchRunClosed:
+        return
+    if scope is not None:
+        return
 
     async def name_language(page_id: uuid.UUID) -> None:
         async with ctx.transaction() as conn:
@@ -667,14 +704,26 @@ class _LoadedPage:
     subject: str
 
 
+_ASK_THE_BUNDLE: Any = object()  # `_load_page`'s default: ask the bundle for its latest printed date
+
+
 async def _load_page(
-    ctx: JobContext, services: PipelineServices, pack: Any, who: Any, page_id: uuid.UUID
+    ctx: JobContext,
+    services: PipelineServices,
+    pack: Any,
+    who: Any,
+    page_id: uuid.UUID,
+    *,
+    anchor: date | None = _ASK_THE_BUNDLE,
 ) -> _LoadedPage:
-    """A page's words opened, and the identifier-stripped one-word-per-line text T-07b is asked about."""
+    """A page's words opened, and the identifier-stripped one-word-per-line text T-07b is asked about.
+
+    A page-batch child passes `anchor`, the latest printed date fixed when the run was planned (`None` when the
+    bundle had none): the page is read against that, never against a query across the whole case."""
     async with ctx.transaction() as conn:
         stored = await repo.words_of(conn, page_id)
         size = await repo.page_size(conn, page_id)
-        latest = await latest_printed_date(conn, ctx.case_id)
+        latest = await latest_printed_date(conn, ctx.case_id) if anchor is _ASK_THE_BUNDLE else anchor
         texts = {
             w.word_id: (
                 await services.crypto.decrypt(
@@ -745,7 +794,7 @@ def _entries_of(
     return entries, sorted_entries.rejected
 
 
-async def _extract(ctx: JobContext, services: PipelineServices) -> int:
+async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScope | None = None) -> int:
     """Extracts every page waiting for it, in batches of up to `extract.pages_per_call` pages sent to
     the model in one call (one call per batch, not per page, to stay inside the account-wide Bedrock
     on-demand throughput ceiling). Returns how many pages were extracted.
@@ -757,10 +806,16 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
     A page with enough words but little or nothing kept (`coverage.reason_for`'s `no_facts` or
     `low_coverage`) is asked once more, on its own; the second answer replaces the first only when
     it keeps strictly more facts and is not itself refused.
+
+    A page-batch child passes its `scope`: only its page range is extracted, the bundle's latest date is the one
+    fixed at planning (`scope.date_anchor`), pages brought back from quarantine were reset by the parent, every
+    page write goes through the write guard, and no progress is reported on the child's own row.
     """
+    first, last = (None, None) if scope is None else (scope.first_page_no, scope.last_page_no)
     async with ctx.transaction() as conn:
-        await repo.reset_undone(conn, ctx.case_id)
-        waiting = await repo.pages_to_extract(conn, ctx.case_id)
+        if scope is None:
+            await repo.reset_undone(conn, ctx.case_id)
+        waiting = await repo.pages_to_extract(conn, ctx.case_id, first=first, last=last)
         if not waiting:
             return 0
         pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
@@ -781,9 +836,12 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         loaded: dict[uuid.UUID, _LoadedPage] = {}
 
         async def load(item: tuple[uuid.UUID, int]) -> None:
-            loaded[item[0]] = await _load_page(ctx, services, pack, who, item[0])
+            if scope is None:
+                loaded[item[0]] = await _load_page(ctx, services, pack, who, item[0])
+            else:
+                loaded[item[0]] = await _load_page(ctx, services, pack, who, item[0], anchor=scope.date_anchor)
 
-        await bounded(list(batch), load, stop=_stop(ctx))
+        await bounded(list(batch), load, stop=_stop(ctx, scope))
         askable = [(page_id, page_no) for page_id, page_no in batch if loaded[page_id].stored]
         answers: dict[int, Mapping[str, Any]] = {}
         asked = False
@@ -936,6 +994,8 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                     )
                 )
             async with ctx.transaction() as conn:
+                if scope is not None and not await _may_write(conn, scope, page_id):
+                    continue  # the page was set aside meanwhile: write nothing (F64)
                 sealed = None
                 if output is not None:
                     sealed = await services.crypto.encrypt(
@@ -959,13 +1019,17 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                     entries_rejected=entries_rejected,
                 )
             done += 1
-            if done % 25 == 0:
+            if scope is None and done % 25 == 0:
                 await ctx.progress(
                     min(55, 40 + 15 * done // len(waiting)), step="sort", step_done=done, step_total=len(waiting)
                 )
 
-    await bounded(batches, one_batch, _extract_concurrency(ctx, services), _stop(ctx))
-    await ctx.progress(55, step="sort", step_done=len(waiting), step_total=len(waiting))
+    try:
+        await bounded(batches, one_batch, _extract_concurrency(ctx, services), _stop(ctx, scope))
+    except BatchRunClosed:
+        return 0
+    if scope is None:
+        await ctx.progress(55, step="sort", step_done=len(waiting), step_total=len(waiting))
     return len(waiting)
 
 
@@ -1161,12 +1225,14 @@ async def _missing_step(ctx: JobContext, services: PipelineServices) -> None:
     await _missing(ctx, services)
 
 
-async def _embed(ctx: JobContext, services: PipelineServices) -> None:
+async def _embed(ctx: JobContext, services: PipelineServices, scope: BatchScope | None = None) -> None:
     """Embeds each page not yet embedded by the cell's embedder, from its text with identifiers
-    stripped (rule 7). A page embedded by an older model is embedded again."""
+    stripped (rule 7). A page embedded by an older model is embedded again. A page-batch child passes its `scope`:
+    only its page range, and every page write goes through the write guard."""
     embedder = services.embedder
+    first, last = (None, None) if scope is None else (scope.first_page_no, scope.last_page_no)
     async with ctx.transaction() as conn:
-        waiting = await repo.pages_to_embed(conn, ctx.case_id, embedder.model)
+        waiting = await repo.pages_to_embed(conn, ctx.case_id, embedder.model, first=first, last=last)
         if not waiting:
             return
         pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
@@ -1193,15 +1259,20 @@ async def _embed(ctx: JobContext, services: PipelineServices) -> None:
     async def read(page_id: uuid.UUID) -> None:
         texts[page_id] = await prepare(page_id)
 
-    for start in range(0, len(waiting), embed.BATCH):
-        chunk = waiting[start : start + embed.BATCH]
-        texts.clear()
-        await bounded(chunk, read, DB_CONCURRENCY, _stop(ctx))
-        ready = [page_id for page_id in chunk if page_id in texts]
-        vectors = await embed.embed_batches(embedder, [texts[page_id] for page_id in ready])
-        async with ctx.transaction() as conn:
-            for page_id, vector in zip(ready, vectors, strict=True):
-                await repo.store_embedding(conn, ctx.case_id, page_id, embedder.model, vector)
+    try:
+        for start in range(0, len(waiting), embed.BATCH):
+            chunk = waiting[start : start + embed.BATCH]
+            texts.clear()
+            await bounded(chunk, read, DB_CONCURRENCY, _stop(ctx, scope))
+            ready = [page_id for page_id in chunk if page_id in texts]
+            vectors = await embed.embed_batches(embedder, [texts[page_id] for page_id in ready])
+            async with ctx.transaction() as conn:
+                for page_id, vector in zip(ready, vectors, strict=True):
+                    if scope is not None and not await _may_write(conn, scope, page_id):
+                        continue  # the page was set aside meanwhile: write nothing (F64)
+                    await repo.store_embedding(conn, ctx.case_id, page_id, embedder.model, vector)
+    except BatchRunClosed:
+        return
 
 
 async def _ready(ctx: JobContext, services: PipelineServices) -> None:
@@ -1302,6 +1373,7 @@ async def process_bundle(ctx: JobContext) -> None:
 async def reprocess_case(ctx: JobContext) -> None:
     """Extracts again every page extracted before the expert opted in (`POST /reprocess`). Words are
     not read again; verified facts never change; new suggestions carry the current model ID."""
+    await _hold_for_run(ctx)
     services = current()
     async with ctx.transaction() as conn:
         await repo.reset_for_reprocess(conn, ctx.case_id)
@@ -1315,6 +1387,7 @@ async def retry_unread_pages(ctx: JobContext) -> None:
 
     Their failed marker is cleared and they are extracted the way they were first; pages that read well and
     every verified fact are left alone. A page that fails again is left for a person, and nothing asks again."""
+    await _hold_for_run(ctx)
     services = current()
     async with ctx.transaction() as conn:
         await repo.reset_unread(conn, ctx.case_id, ctx.job_id)
@@ -1327,6 +1400,7 @@ async def extract_entries(ctx: JobContext) -> None:
     """Reads entries for pages that have none yet; facts and the page's notes are left as they are.
 
     Idempotent: a page whose entries are read is skipped, so a rerun asks the model about nothing."""
+    await _hold_for_run(ctx)
     services = current()
     async with ctx.transaction() as conn:
         waiting = await repo.pages_to_read_entries(conn, ctx.case_id)
@@ -1376,6 +1450,7 @@ async def repair_fact_dates(ctx: JobContext) -> None:
     An entry that has a date of its own is left alone; one dated with a birth date (recorded, or printed after a
     birth label) is dated again, and a card that holds two or more lines starting with different dates is split
     into one entry per dated line. A birth date is never used as an entry's date."""
+    await _hold_for_run(ctx)
     services = current()
     async with ctx.transaction() as conn:
         pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
