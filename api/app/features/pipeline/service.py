@@ -56,9 +56,10 @@ from app.core.contracts.fact_verifications import log_remaps
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcription_purpose
 from app.core.contracts.record_entries import RETRY_UNREAD
 from app.core.errors import ProcessingPaused
-from app.core.jobs import RESUMABLE_PAUSES, JobContext
+from app.core.jobs import RESUMABLE_PAUSES, JobContext, JobParked
 from app.core.pdf import cut_page
 from app.core.scan import ScanUnavailable
+from app.features.pipeline import batches as page_batches
 from app.features.pipeline import (
     convert,
     coverage,
@@ -79,6 +80,7 @@ from app.features.pipeline.batches import BatchRunClosed, BatchScope
 from app.features.pipeline.render import Pictures, encode, rasterise
 from app.features.pipeline.straighten import quarter_turn
 from app.features.pipeline.wiring import PipelineServices, current
+from app.features.pipeline.wiring import registry as job_registry
 from app.features.pipeline.words import assess, turned, typed, usable_text_layer
 
 SCAN_DOCUMENT = "scan_document"
@@ -86,6 +88,7 @@ REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page a
 RETRY_UNREAD_PAGES = RETRY_UNREAD  # extract again only the pages the model could not read
 EXTRACT_ENTRIES = "extract_entries"  # read entries only, for a case extracted before entries existed (ADR 0028)
 REPAIR_FACT_DATES = "repair_fact_dates"  # fill event_date from printed words when extraction left it null
+READ_PAGE_BATCH = "read_page_batch"  # a page-batch child of a bundle job (ADR 0038); no case lock
 PURGE_QUARANTINED = "purge_quarantined_pages"  # the daily deletion of quarantined pages' images and text
 # How many pages run at once, by what the work waits on. No setting: a limit is a fact about the vendor
 # or the machine, not a choice for whoever runs the cell.
@@ -417,6 +420,13 @@ async def bounded[T](
         raise ProcessingPaused("cancelled")
 
 
+async def _tick(ctx: JobContext, scope: BatchScope) -> None:
+    """A page-batch child puts the run's progress on the parent's row (its own transaction, never the one that
+    completes its batch). Counts and codes only."""
+    async with ctx.transaction() as conn:
+        await repo.report_progress(conn, scope.run_job_id)
+
+
 def _stop(ctx: JobContext, scope: BatchScope | None = None) -> Stop:
     """Whether the expert asked to stop processing after this job was queued. A page-batch child asks about its
     run's parent (`scope.run_job_id`), so the parent's check and the children's are one rule."""
@@ -634,6 +644,15 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
         return
     if scope is not None:
         return
+    await _name_language(ctx, services, spoken)
+
+
+async def _name_language(ctx: JobContext, services: PipelineServices, spoken: str | None = None) -> None:
+    """Names the language of every page read that has enough words and none yet. Case-wide, so a page-batch run's
+    parent does it once, after every child has read its pages (and looks up the pack's language itself)."""
+    if spoken is None:
+        async with ctx.transaction() as conn:
+            spoken = services.packs.for_case(await repo.case_codes(conn, ctx.case_id)).language
 
     async def name_language(page_id: uuid.UUID) -> None:
         async with ctx.transaction() as conn:
@@ -1023,6 +1042,8 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
                 await ctx.progress(
                     min(55, 40 + 15 * done // len(waiting)), step="sort", step_done=done, step_total=len(waiting)
                 )
+            elif scope is not None and done % 25 == 0:
+                await _tick(ctx, scope)
 
     try:
         await bounded(batches, one_batch, _extract_concurrency(ctx, services), _stop(ctx, scope))
@@ -1358,16 +1379,148 @@ async def run_step(ctx: JobContext, services: PipelineServices, step: str) -> No
         await stages[step](ctx, services)
 
 
-async def process_bundle(ctx: JobContext) -> None:
-    services = current()
-    starts = {"split": 0, "ocr": 30, "sort": 40, "duplicates": 55, "missing": 70}
-    for step in STEPS:
-        await ctx.progress(starts[step], step=step)
+STEP_STARTS = {"split": 0, "ocr": 30, "sort": 40, "duplicates": 55, "missing": 70}
+
+
+async def _run_steps(ctx: JobContext, services: PipelineServices, steps: Sequence[str]) -> None:
+    for step in steps:
+        await ctx.progress(STEP_STARTS[step], step=step)
         await run_step(ctx, services, step)
         await ctx.step(step, _noop)
+
+
+async def _finish(ctx: JobContext, services: PipelineServices) -> None:
     await run_step(ctx, services, "embed")
     await _ready(ctx, services)
     await ctx.progress(100, step=STEPS[-1])
+
+
+async def process_bundle(ctx: JobContext) -> None:
+    """The bundle job. With no page-batch run for this job (the flag off, the default) it is one job that does every
+    step under the case lock. With `PIPELINE_BATCH_PAGES` set it splits, plans the OCR phase and parks;
+    `read_page_batch` children read the pages without the case lock; the parent is woken twice more, to plan the
+    sort and to run the tail (ADR 0038)."""
+    services = current()
+    async with ctx.transaction() as conn:
+        state = await repo.run_state(conn, ctx.job_id)
+    if state is not None:
+        await _batch_mode(ctx, services)
+        return
+    if not services.batches.enabled:
+        await _run_steps(ctx, services, STEPS)
+        await _finish(ctx, services)
+        return
+    await _run_steps(ctx, services, STEPS[:1])
+    if not await _plan_ocr(ctx, services):
+        await _run_steps(ctx, services, STEPS[1:])
+        await _finish(ctx, services)
+        return
+    await _batch_mode(ctx, services)
+
+
+async def _plan_ocr(ctx: JobContext, services: PipelineServices) -> bool:
+    """Plans the run when enough pages still need work: the run, and a batch for every run of pages without words.
+    Returns False (nothing written) when the bundle is too small to be worth it; the job then reads inline."""
+    settings = services.batches
+    async with ctx.transaction() as conn:
+        waiting = await repo.pages_to_plan(conn, ctx.case_id)
+        if not page_batches.worth_batching(waiting, size=settings.pages, min_pages=settings.min_pages):
+            return False
+        numbers = await repo.page_numbers_waiting_for_words(conn, ctx.case_id)
+        planned = page_batches.plan(
+            numbers, size=settings.pages, open_ranges=await repo.open_ranges(conn, ctx.case_id, ctx.job_id)
+        )
+        await repo.create_run(
+            conn,
+            ctx.job_id,
+            ctx.case_id,
+            batch_pages=settings.pages,
+            window=settings.window,
+            child_queue=job_registry().queue_for(READ_PAGE_BATCH),
+        )
+        if planned:
+            await repo.add_batches(conn, ctx.job_id, ctx.case_id, "ocr", planned)
+            await repo.start_phase(conn, ctx.job_id)
+        else:
+            await repo.set_run_state(conn, ctx.job_id, "ocr_ready")
+    if planned:
+        await ctx.progress(STEP_STARTS["ocr"], step="ocr")
+    return True
+
+
+async def _plan_sort(ctx: JobContext, services: PipelineServices) -> bool:
+    """The parent's first wake: every child has read its pages. Names the languages, brings pages back from
+    quarantine into the queue, fixes the bundle's latest date for the children and plans the sort batches. Returns
+    True when children were queued (the parent parks again)."""
+    settings = services.batches
+    await _name_language(ctx, services)
+    async with ctx.transaction() as conn:
+        await repo.reset_undone(conn, ctx.case_id)
+        numbers = [n for _, n in await repo.pages_to_extract(conn, ctx.case_id)]
+        anchor = await latest_printed_date(conn, ctx.case_id)
+        planned = page_batches.plan(
+            numbers, size=settings.pages, open_ranges=await repo.open_ranges(conn, ctx.case_id, ctx.job_id)
+        )
+        await repo.add_batches(conn, ctx.job_id, ctx.case_id, "sort", planned)
+        await repo.set_run_state(
+            conn, ctx.job_id, "sort_waiting" if planned else "sort_ready", date_anchor=anchor, set_anchor=True
+        )
+        if planned:
+            await repo.start_phase(conn, ctx.job_id)
+    if planned:
+        await ctx.progress(STEP_STARTS["sort"], step="sort", monotone=True)
+    return bool(planned)
+
+
+async def _batch_mode(ctx: JobContext, services: PipelineServices) -> None:
+    """One wake of a batch-mode parent: the database says what to do (`pipeline_enter`)."""
+    while True:
+        async with ctx.transaction() as conn:
+            verdict = await repo.enter_run(conn, ctx.job_id)
+        if verdict == "end":
+            return
+        if verdict == "park":
+            raise JobParked
+        if verdict == "wake_a":
+            if await _plan_sort(ctx, services):
+                raise JobParked
+            continue
+        await _tail(ctx, services)
+        return
+
+
+async def _tail(ctx: JobContext, services: PipelineServices) -> None:
+    """The steps that look across the whole bundle, under the case lock once every child is done."""
+    async with ctx.transaction() as conn:
+        extracted = await repo.sort_batch_count(conn, ctx.job_id)
+    if extracted:
+        await ctx.progress(STEP_STARTS["sort"], step="sort", monotone=True)
+        await _suggest_quarantine(ctx, services)
+    await _run_steps(ctx, services, STEPS[3:])
+    await run_step(ctx, services, "embed")  # the children embedded their pages; this catches any left
+    await _ready(ctx, services)
+    async with ctx.transaction() as conn:
+        await repo.finish_run(conn, ctx.job_id)
+    await ctx.progress(100, step=STEPS[-1])
+
+
+async def read_page_batch(ctx: JobContext) -> None:
+    """One page-batch child (ADR 0038): reads its pages' words, or extracts them and embeds them, with no case lock,
+    then completes its batch (first statement of its own transaction: see `repo.complete_batch`)."""
+    services = current()
+    async with ctx.transaction() as conn:
+        found = await repo.batch_scope(conn, ctx.job_id)
+    if found is None:
+        return  # done on an earlier attempt, or its run was closed or purged
+    phase, scope = found
+    if phase == "ocr":
+        await _read_words(ctx, services, scope)
+    else:
+        await _extract(ctx, services, scope)
+        await _embed(ctx, services, scope)
+    async with ctx.transaction() as conn:
+        await repo.complete_batch(conn, scope.batch_id)
+    await _tick(ctx, scope)
 
 
 async def reprocess_case(ctx: JobContext) -> None:

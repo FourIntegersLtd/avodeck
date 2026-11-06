@@ -18,11 +18,13 @@ from app.core.contracts.pipeline import (
     register_extract_page_text,
     register_process_pages,
 )
+from app.core.jobs import RESUMABLE_PAUSES
 from app.features.pipeline import date_repair, record_gaps_reader, repo, wiring
 from app.features.pipeline.router import pipeline_router
 from app.features.pipeline.service import (
     EXTRACT_ENTRIES,
     PURGE_QUARANTINED,
+    READ_PAGE_BATCH,
     REPAIR_FACT_DATES,
     REPROCESS_CASE,
     RETRY_UNREAD_PAGES,
@@ -32,6 +34,7 @@ from app.features.pipeline.service import (
     purge_quarantined,
     queue_page_text,
     queue_pages,
+    read_page_batch,
     repair_fact_dates,
     reprocess_case,
     retry_unread_pages,
@@ -41,9 +44,17 @@ from app.features.pipeline.service import (
 __all__ = ["mount_on", "pipeline_router", "record_gaps_reader", "register", "wiring"]
 
 
+async def heal_runs(conn: AsyncConnection) -> None:
+    """The housekeeping round for page-batch runs: re-queue what lost its queue row, wake parents, fire the next run
+    (`app.pipeline_heal_runs`). The codes that may resume are the worker's own list."""
+    await repo.heal_runs(conn, sorted(RESUMABLE_PAUSES))
+
+
 def register(registry: jobs.JobRegistry) -> None:
     registry.kind(SCAN_DOCUMENT)(scan_document)
     registry.kind(PROCESS_BUNDLE)(process_bundle)
+    registry.kind(READ_PAGE_BATCH, changes_case=False)(read_page_batch)
+    registry.sweep("pipeline_heal_runs")(heal_runs)
     registry.kind(PROCESS_PAGES)(process_bundle)
     registry.kind(REPROCESS_CASE)(reprocess_case)
     registry.kind(REPAIR_FACT_DATES)(repair_fact_dates)

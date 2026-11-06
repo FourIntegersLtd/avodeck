@@ -14,6 +14,7 @@ from psycopg.types.json import Jsonb
 from app.core.config import CostGuard
 from app.core.contracts import record_entries
 from app.features.pipeline import gaps
+from app.features.pipeline.batches import BatchScope, PlannedBatch
 
 RECORDS_KIND = "records"  # the core document kind that becomes numbered pages
 
@@ -2045,3 +2046,152 @@ async def set_fact_event_date(
         (when, basis, list(word_ids) if word_ids is not None else None, case_id, fact_id),
     )
     return (await cur.fetchone()) is not None
+
+
+# --- page-batch runs (ADR 0038) ------------------------------------------------------------------------------------
+# Every function here is a thin call to one statement or one SQL function (0136, 0137, 0142). The lock order is the
+# database's: the case lock, run rows, page rows, batch rows, job rows, queue rows.
+
+
+async def run_state(conn: AsyncConnection, job_id: uuid.UUID) -> str | None:
+    """The state of the job's page-batch run, or None when it has none (the flag was off, or it is not planned yet)."""
+    cur = await conn.execute("select state from app.pipeline_runs where job_id = %s", (job_id,))
+    row = await cur.fetchone()
+    return str(row[0]) if row else None
+
+
+async def open_ranges(conn: AsyncConnection, case_id: uuid.UUID, run: uuid.UUID) -> list[tuple[int, int]]:
+    """The page ranges of the batches of the case's other runs that are not finished: those pages belong to them."""
+    cur = await conn.execute(
+        "select b.first_page_no, b.last_page_no from app.pipeline_batches b"
+        " join app.pipeline_runs r on r.job_id = b.run_job_id"
+        " where b.case_id = %s and b.run_job_id <> %s and r.state not in ('done', 'closed') and r.closed_at is null"
+        " order by b.first_page_no",
+        (case_id, run),
+    )
+    return [(int(r[0]), int(r[1])) for r in await cur.fetchall()]
+
+
+async def pages_to_plan(conn: AsyncConnection, case_id: uuid.UUID) -> int:
+    """Pages that still need words or still need extracting: what a run would have to do (`worth_batching`)."""
+    cur = await conn.execute(
+        "select count(*) from app.pages p left join app.page_analysis a on a.page_id = p.id"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined"
+        " and ((p.text_source is null and p.image_path is not null)"
+        "      or (p.text_source is not null and p.duplicate_of_page_id is null and a.extracted_at is null))",
+        (case_id,),
+    )
+    row = await cur.fetchone()
+    return int(row[0]) if row else 0
+
+
+async def page_numbers_waiting_for_words(conn: AsyncConnection, case_id: uuid.UUID) -> list[int]:
+    cur = await conn.execute(
+        "select bundle_page_no from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and text_source is null and image_path is not null and not quarantined order by bundle_page_no",
+        (case_id,),
+    )
+    return [int(r[0]) for r in await cur.fetchall()]
+
+
+async def create_run(
+    conn: AsyncConnection, job_id: uuid.UUID, case_id: uuid.UUID, *, batch_pages: int, window: int, child_queue: str
+) -> None:
+    await conn.execute(
+        'insert into app.pipeline_runs (job_id, case_id, batch_pages, "window", child_queue)'
+        " values (%s, %s, %s, %s, %s)",
+        (job_id, case_id, batch_pages, window, child_queue),
+    )
+
+
+async def add_batches(
+    conn: AsyncConnection, run: uuid.UUID, case_id: uuid.UUID, phase: str, planned: Sequence[PlannedBatch]
+) -> None:
+    for b in planned:
+        await conn.execute(
+            "insert into app.pipeline_batches"
+            " (run_job_id, case_id, phase, seq, first_page_no, last_page_no, page_count)"
+            " values (%s, %s, %s, %s, %s, %s, %s)",
+            (run, case_id, phase, b.seq, b.first_page_no, b.last_page_no, b.page_count),
+        )
+
+
+async def set_run_state(
+    conn: AsyncConnection, run: uuid.UUID, state: str, *, date_anchor: dt.date | None = None, set_anchor: bool = False
+) -> None:
+    """Moves the run to `state` (`ocr_ready`, `sort_waiting` or `sort_ready`: the planning steps). The anchor is
+    written with the state that fixes it."""
+    await conn.execute(
+        "update app.pipeline_runs set state = %s, updated_at = now(),"
+        " ready_at = case when right(%s, 6) = '_ready' then now() else ready_at end,"
+        " date_anchor = case when %s then %s else date_anchor end"
+        " where job_id = %s and state in ('ocr_waiting', 'ocr_ready')",
+        (state, state, set_anchor, date_anchor, run),
+    )
+
+
+async def sort_batch_count(conn: AsyncConnection, run: uuid.UUID) -> int:
+    """How many sort batches the run planned: none means no page was extracted in it."""
+    cur = await conn.execute(
+        "select count(*) from app.pipeline_batches where run_job_id = %s and phase = 'sort'", (run,)
+    )
+    row = await cur.fetchone()
+    return int(row[0]) if row else 0
+
+
+async def start_phase(conn: AsyncConnection, run: uuid.UUID) -> None:
+    """Queues the first children of the phase just planned (up to the run's window)."""
+    await conn.execute("select app.pipeline_start_phase(%s)", (run,))
+
+
+async def enter_run(conn: AsyncConnection, run: uuid.UUID) -> str:
+    """What a batch-mode parent does now: `end`, `wake_a`, `tail` or `park`."""
+    cur = await conn.execute("select app.pipeline_enter(%s)", (run,))
+    row = await cur.fetchone()
+    return str(row[0]) if row else "end"
+
+
+async def batch_scope(conn: AsyncConnection, child_job_id: uuid.UUID) -> tuple[str, BatchScope] | None:
+    """The batch a child job was queued for (phase and scope), or None when the batch is finished or its run is
+    closed or gone: a retry of a child that already did its work, or one whose run was stopped, has nothing to do."""
+    cur = await conn.execute(
+        "select b.phase, b.id, b.run_job_id, b.first_page_no, b.last_page_no, r.date_anchor"
+        " from app.pipeline_batches b join app.pipeline_runs r on r.job_id = b.run_job_id"
+        " where b.child_job_id = %s and b.completed_at is null and r.closed_at is null and r.state <> 'closed'",
+        (child_job_id,),
+    )
+    row = await cur.fetchone()
+    if row is None:
+        return None
+    return str(row[0]), BatchScope(row[2], row[1], int(row[3]), int(row[4]), row[5])
+
+
+async def complete_batch(conn: AsyncConnection, batch_id: uuid.UUID) -> bool:
+    """Marks the batch finished and tops up or wakes the run (`app.pipeline_complete_batch`).
+
+    CALLER RULE (reviewer, PR 17): call this FIRST in its own transaction, before touching any job row there. The
+    function takes the run, page and batch rows and only then job rows, the order the heal sweep waits in; a
+    transaction that had updated a job row before calling it could deadlock with the sweep."""
+    cur = await conn.execute("select app.pipeline_complete_batch(%s)", (batch_id,))
+    row = await cur.fetchone()
+    return bool(row and row[0])
+
+
+async def report_progress(conn: AsyncConnection, run: uuid.UUID) -> None:
+    """Puts the run's step, bar and counts on the parent's row from live page counts."""
+    await conn.execute("select app.pipeline_report_progress(%s)", (run,))
+
+
+async def finish_run(conn: AsyncConnection, run: uuid.UUID) -> bool:
+    """`finishing` -> `done`; False when the run was not finishing (closed, say)."""
+    cur = await conn.execute("select app.pipeline_finish_run(%s)", (run,))
+    row = await cur.fetchone()
+    return bool(row and row[0])
+
+
+async def heal_runs(conn: AsyncConnection, resumable: Sequence[str]) -> int:
+    """The housekeeping sweep over every case's runs (`app.pipeline_heal_runs`); the number of changes."""
+    cur = await conn.execute("select app.pipeline_heal_runs(%s)", (list(resumable),))
+    row = await cur.fetchone()
+    return int(row[0]) if row else 0
