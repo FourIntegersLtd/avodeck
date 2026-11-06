@@ -140,6 +140,8 @@
   "ui.code_label": "6-digit code",
   "ui.back": "Back",
   "ui.cancel": "Cancel",
+  "ui.confirm.title": "Are you sure?",
+  "ui.confirm.yes": "Confirm",
   "ui.qchip": "Q{{n}}",
   "ui.page_ref": "p.{{page}}",
   "ui.status_row.ok": "Done",

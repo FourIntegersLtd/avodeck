@@ -240,6 +240,7 @@ const WORDS = {
   "home.not_numbered": "Not numbered",
   "home.delete": "Remove",
   "home.delete_file": "Remove {{name}}",
+  "home.delete_case": "Delete this case",
   "home.delete_confirm": "Remove this file and all its pages? This cannot be undone.",
   "home.keep_numbers": "Pages keep the numbers they were given, even when you add more papers later.",
   "home.where": "Where you are",
