@@ -1,4 +1,4 @@
-"""The api service's process count, pool size and draining time are set in railway/api.json, not by hand in the dashboard."""
+"""The api service's process count, pool size and draining time are set in railway/api.json, not by hand."""
 
 import json
 from pathlib import Path
