@@ -292,3 +292,20 @@ def test_a_skipped_case_leaves_none_of_its_run_rows_locked_by_the_sweep(
         sweeper.close()
         holder.rollback()
         holder.close()
+
+
+def test_a_plain_sweep_with_nothing_held_does_lock_the_younger_run_row(
+    admin: psycopg.Connection, admin_dsn: str, seed: Seed, case: uuid.UUID
+) -> None:
+    """The control for the test above: with nothing held the sweep works on the case and keeps every run row until
+    its transaction ends, so the "left unlocked" assertion cannot pass because the probe never sees a lock."""
+    (_, older, _), (_, younger, _) = two_runs(admin, seed, case)
+    make_job(admin, seed, case, kind="reprocess_case", status="paused", code="busy_processing")
+    sweeper = psycopg.connect(admin_dsn, autocommit=False)
+    try:
+        sweeper.execute("select app.pipeline_heal_runs(%s)", (RESUMABLE,))
+        assert not unlocked(admin_dsn, younger), "the sweep did not lock the younger run's row"
+        assert not unlocked(admin_dsn, older), "the sweep did not lock the older run's row"
+    finally:
+        sweeper.rollback()
+        sweeper.close()
