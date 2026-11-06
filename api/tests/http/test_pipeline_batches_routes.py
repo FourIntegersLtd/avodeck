@@ -1,7 +1,8 @@
 """The routes S07 and S08 follow, with page-batch jobs on (ADR 0038, build step 12).
 
 `GET /process` and the summary show the parent only, with the same status values as before, while children run, after
-a child failed for good and after Try again; `POST /process/retry` puts back the parent and only the failed batch is
+a child failed for good and after Try again, and with two parents of one case (an old closed one, a parked one with
+an old `updated_at`: the newest is shown); `POST /process/retry` puts back the parent and only the failed batch is
 read again; `POST /process/cancel` works while the parent is parked. Counts, ids and codes only (rule 6).
 """
 
@@ -25,6 +26,7 @@ from app.core.config import PipelineBatchSettings
 from app.core.db import Database
 from app.core.jobs import RESUMABLE_PAUSES
 from app.core.storage import CaseFileStorage
+from tests.repository.test_pipeline_batches_support import make_job
 from tests.repository.test_pipeline_support import (
     Harness,
     expected,
@@ -190,10 +192,12 @@ async def test_try_again_after_a_child_failed_puts_back_the_parent_and_reads_onl
             task = asyncio.create_task(worker.run(concurrency=3))
             try:
                 await until(
-                    lambda: h.admin.execute(
-                        "select 1 from app.jobs where case_id = %s and kind = any(%s)", (h.case_id, list(PARENTS))
-                    ).fetchone()
-                    is not None,
+                    lambda: (
+                        h.admin.execute(
+                            "select 1 from app.jobs where case_id = %s and kind = any(%s)", (h.case_id, list(PARENTS))
+                        ).fetchone()
+                        is not None
+                    ),
                     "the bundle job to be queued",
                 )
                 parent = parent_id(h)
@@ -212,8 +216,10 @@ async def test_try_again_after_a_child_failed_puts_back_the_parent_and_reads_onl
                     h.admin.execute, "select app.pipeline_heal_runs(%s)", (sorted(RESUMABLE_PAUSES),)
                 )
                 await until(
-                    lambda: h.admin.execute("select status from app.jobs where id = %s", (parent,)).fetchone()
-                    == ("failed",),
+                    lambda: (
+                        h.admin.execute("select status from app.jobs where id = %s", (parent,)).fetchone()
+                        == ("failed",)
+                    ),
                     "the sweep to fail the parent",
                 )
                 job = await processing(h)
@@ -223,8 +229,9 @@ async def test_try_again_after_a_child_failed_puts_back_the_parent_and_reads_onl
                 retried = await h.client.post(f"/v1/cases/{h.case_id}/process/retry")
                 assert retried.status_code == 200 and retried.json()["requeued"] == 1
                 await until(
-                    lambda: h.admin.execute("select status from app.jobs where id = %s", (parent,)).fetchone()
-                    == ("done",),
+                    lambda: (
+                        h.admin.execute("select status from app.jobs where id = %s", (parent,)).fetchone() == ("done",)
+                    ),
                     "the parent to finish after Try again",
                     timeout=300,
                 )
@@ -236,3 +243,31 @@ async def test_try_again_after_a_child_failed_puts_back_the_parent_and_reads_onl
         assert len(h.ocr.sent) <= baseline + 3 * ON.pages
         job = await processing(h)
         assert job["status"] == "done"
+
+
+async def test_with_two_parents_the_newest_is_shown_even_when_it_is_parked_with_an_old_updated_at(
+    recordings: FixtureStore,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: CaseFileStorage,
+) -> None:
+    async with opened(recordings, admin, api_db, worker_dsn, auth_env, seed, storage) as h:
+        old = make_job(admin, seed, h.case_id, status="paused", code="cancelled")
+        new = make_job(admin, seed, h.case_id, status="running")
+        admin.execute("update app.jobs set created_at = now() - interval '2 days' where id = %s", (old,))
+        admin.execute(
+            "update app.jobs set created_at = now() - interval '1 hour', updated_at = now() - interval '40 minutes'"
+            " where id = %s",
+            (new,),
+        )
+        job = await processing(h)
+        assert uuid.UUID(str(job["id"])) == new and job["status"] == "running", "a parked parent is shown"
+        # a parent kept running by the sweep (updated lately) is the one shown, and the old closed one never is
+        admin.execute("update app.jobs set updated_at = now() where id = %s", (new,))
+        job = await processing(h)
+        assert uuid.UUID(str(job["id"])) == new
+        summary = await h.client.get(f"/v1/cases/{h.case_id}/bundle/summary")
+        assert summary.status_code == 200
