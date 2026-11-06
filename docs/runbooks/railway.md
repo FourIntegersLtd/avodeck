@@ -215,3 +215,5 @@ adopts it (threat-model T-spool).
 - `curl https://<api-service>.up.railway.app/v1/cell` returns the cell.
 - The `cron` service's last run shows `exit 0` in its deployment list.
 - The worker's logs show it waiting for jobs; upload a small test bundle and watch it move through Preparing.
+
+`WEB_CONCURRENCY=2`, `API_DB_POOL_MAX=8` and the 30 s draining time for the `api` service are set in `railway/api.json` (start command and `drainingSeconds`), so there is nothing to set by hand for them. `DATABASE_URL_LISTEN`, `DATABASE_URL_DIRECT` and `OPS_METRICS_TOKEN` hold credentials and are set in the Railway dashboard only.
