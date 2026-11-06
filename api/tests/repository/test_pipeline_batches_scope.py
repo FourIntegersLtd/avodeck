@@ -21,13 +21,14 @@ from typing import Any
 import psycopg
 import pytest
 
+from app.core.ai import embed
 from app.core.ai.embed import RecordedEmbedder
 from app.core.db import Database
 from app.core.jobs import JobContext
 from app.core.packs import default_library
 from app.core.pdf import embedded_words, split_pages
 from app.core.storage import CaseFileStorage
-from app.features.pipeline import repo, service
+from app.features.pipeline import extract, repo, service
 from app.features.pipeline.batches import BatchScope
 from app.features.pipeline.wiring import PipelineServices, current
 from tests.repository.test_pipeline_batches_support import add_batch, add_run, child_job, make_job
@@ -361,7 +362,7 @@ async def test_a_closed_run_ends_the_child_at_the_first_refused_extraction(
 ) -> None:
     forget_extraction(h)
     monkeypatch.setattr(service, "_extract_concurrency", lambda ctx, services: 1)
-    monkeypatch.setattr(service.extract, "pages_per_call", lambda *args, **kwargs: 1)
+    monkeypatch.setattr(extract, "pages_per_call", lambda *args, **kwargs: 1)
     guard = GuardCalls(monkeypatch)
     ctx, batch = scope(h, seed, first=1, last=3, state="closed")
     await service._extract(ctx, services_of(h), batch)
@@ -373,7 +374,7 @@ async def test_a_closed_run_ends_the_child_at_the_first_refused_embedding(
     h: Harness, seed: Seed, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     forget_embeddings(h)
-    monkeypatch.setattr(service.embed, "BATCH", 1)
+    monkeypatch.setattr(embed, "BATCH", 1)
     guard = GuardCalls(monkeypatch)
     ctx, batch = scope(h, seed, first=1, last=3, state="closed")
     await service._embed(ctx, services_of(h), batch)
@@ -386,7 +387,7 @@ async def test_a_page_set_aside_is_skipped_and_the_child_carries_on(
 ) -> None:
     """The control: one refused page (not the run) skips that page only."""
     forget_embeddings(h)
-    monkeypatch.setattr(service.embed, "BATCH", 1)
+    monkeypatch.setattr(embed, "BATCH", 1)
     guard = GuardCalls(monkeypatch)
     ctx, batch = scope(h, seed, first=1, last=3, state="sort_waiting")
     h.admin.execute(
