@@ -127,9 +127,7 @@ async def test_cancel_then_start_closes_the_old_run_and_finishes_what_is_left(h:
         task = asyncio.create_task(worker.run(concurrency=3))
         try:
             await asyncio.wait_for(entered.wait(), 120)
-            old = h.admin.execute(
-                "select job_id from app.pipeline_runs where case_id = %s", (h.case_id,)
-            ).fetchone()
+            old = h.admin.execute("select job_id from app.pipeline_runs where case_id = %s", (h.case_id,)).fetchone()
             assert old is not None
             stopped = await h.client.post(f"/v1/cases/{h.case_id}/process/cancel")
             assert stopped.status_code == 202 and stopped.json() == {"cancelled": True}

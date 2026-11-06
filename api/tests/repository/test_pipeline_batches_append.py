@@ -123,7 +123,8 @@ async def test_a_start_while_a_healthy_run_is_open_leaves_it_open_and_waits_for_
             assert started.status_code == 202
             new = uuid.UUID(started.json()["job_id"])
             await until(lambda: state_of(h, new) is not None, "the newer run to be planned")
-            assert state_of(h, old[0]) is not None and state_of(h, old[0])[0] != "closed", "the healthy run was closed"
+            old_state = state_of(h, old[0])
+            assert old_state is not None and old_state[0] != "closed", "the healthy run was closed"
             batches = h.admin.execute("select count(*) from app.pipeline_batches where run_job_id = %s", (new,))
             assert batches.fetchone() == (0,), "the newer run planned pages that are inside the older run's range"
             release.set()

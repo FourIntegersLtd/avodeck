@@ -23,8 +23,15 @@ from app.core.db import Database
 from app.core.jobs import JobContext
 from app.core.storage import CaseFileStorage
 from app.features.pipeline import service
-from tests.repository.test_pipeline_support import Harness, harness, expected, recorded_book, rekeyed_store
-from tests.repository.test_pipeline_support import subset_document, subset_page_bytes
+from tests.repository.test_pipeline_support import (
+    Harness,
+    expected,
+    harness,
+    recorded_book,
+    rekeyed_store,
+    subset_document,
+    subset_page_bytes,
+)
 from tests.support.files import local_storage
 from tests.support.jobs import open_worker
 from tests.support.packs import LAUNCH
@@ -158,10 +165,7 @@ async def test_a_case_job_starts_and_finishes_while_a_child_holds_the_ocr_open(h
         assert children and all(c[0] != "done" for c in children), "a child finished though the OCR was held"
         release.set()
         await until(
-            lambda: all(
-                status_of(h, j) == "done"
-                for j in h.job_ids()
-            ),
+            lambda: all(status_of(h, j) == "done" for j in h.job_ids()),
             "the bundle to finish",
             timeout=300,
         )
