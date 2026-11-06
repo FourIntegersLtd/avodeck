@@ -116,7 +116,7 @@ async def test_the_api_role_reads_no_run_row_to_decide_it(api_db: Database, worl
     """The stop is written by the API role, which has no access to `pipeline_runs`; the rule goes through a
     function that returns the reopen time and nothing else."""
     async with api_db.request(scope_for(world.expert)) as conn:
-        with pytest.raises(psycopg.errors.InsufficientPrivilege):
-            await conn.execute("select 1 from app.pipeline_runs")
         row = await (await conn.execute("select app.pipeline_reopened_at(%s)", (world.parent,))).fetchone()
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            await conn.execute("select 1 from app.pipeline_runs")  # last: a refused statement aborts the transaction
     assert row == (None,)

@@ -8,6 +8,20 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from datetime import date
+from uuid import UUID
+
+
+@dataclass(frozen=True)
+class BatchScope:
+    """What a page-batch child works on: its run (the parent's job id), its batch, its page range (both ends
+    included) and the bundle's latest printed date fixed when the run was planned (None when it had none)."""
+
+    run_job_id: UUID
+    batch_id: UUID
+    first_page_no: int
+    last_page_no: int
+    date_anchor: date | None
 
 
 @dataclass(frozen=True)
