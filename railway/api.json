@@ -1,9 +1,18 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
-  "build": { "builder": "DOCKERFILE", "dockerfilePath": "api/Dockerfile" },
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "api/Dockerfile"
+  },
   "deploy": {
+    "startCommand": "env WEB_CONCURRENCY=2 API_DB_POOL_MAX=8 sh -c 'exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY} --timeout-keep-alive 75 --timeout-graceful-shutdown 110'",
+    "drainingSeconds": 30,
     "healthcheckPath": "/v1/cell",
-    "multiRegionConfig": { "europe-west4-drams3a": { "numReplicas": 2 } },
+    "multiRegionConfig": {
+      "europe-west4-drams3a": {
+        "numReplicas": 2
+      }
+    },
     "restartPolicyType": "ON_FAILURE"
   }
 }
