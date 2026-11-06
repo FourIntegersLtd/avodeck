@@ -147,7 +147,8 @@ def outcome(h: Harness) -> dict[str, Any]:
     case = (h.case_id,)
     return {
         "words": q(
-            "select p.bundle_page_no, w.word_id, w.struck, w.n from app.ocr_words w join app.pages p on p.id = w.page_id"
+            "select p.bundle_page_no, w.word_id, w.struck, w.n from app.ocr_words w"
+            " join app.pages p on p.id = w.page_id"
             " where p.bundle_id = (select bundle_id from app.cases where id = %s) order by 1, 4",
             case,
         ).fetchall(),
@@ -161,7 +162,8 @@ def outcome(h: Harness) -> dict[str, Any]:
             for f in facts_of(h)
         ],
         "analysis": q(
-            "select p.bundle_page_no, a.reason, a.printed_dates from app.page_analysis a join app.pages p on p.id = a.page_id"
+            "select p.bundle_page_no, a.reason, a.printed_dates from app.page_analysis a"
+            " join app.pages p on p.id = a.page_id"
             " where a.bundle_id = (select bundle_id from app.cases where id = %s) order by 1",
             case,
         ).fetchall(),
@@ -235,7 +237,8 @@ async def test_children_run_without_the_case_lock_and_the_parent_is_woken_twice(
         )
         assert phases == {"ocr": BATCHES, "sort": BATCHES}
         rows = h.admin.execute(
-            "select pj.lock, pj.queue_name from procrastinate.procrastinate_jobs pj where pj.args ->> 'job_id' = any(%s)",
+            "select pj.lock, pj.queue_name from procrastinate.procrastinate_jobs pj"
+            " where pj.args ->> 'job_id' = any(%s)",
             ([str(k) for k in kids],),
         ).fetchall()
         assert len(rows) == len(kids) and {r[0] for r in rows} == {None}, "a child took the case lock"
