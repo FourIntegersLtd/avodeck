@@ -10,6 +10,8 @@ waiter back once the case is no longer busy, and it then runs once. Ids and code
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 
@@ -175,11 +177,30 @@ async def test_a_waiter_ends_paused_with_no_queue_row_and_runs_once_when_handed_
     parent = h.admin.execute("select job_id from app.pipeline_runs where case_id = %s", (h.case_id,)).fetchone()
     assert parent is not None
     h.admin.execute("update app.jobs set status = 'paused', error_code = 'cancelled' where id = %s", (parent[0],))
+    # The sweep above re-queued the parent (its run was waiting with no queue row); the real worker consumes that row
+    # when it ends the stopped parent. Take it away here, or it would hold the case lock ahead of the waiter's row.
+    h.admin.execute("set search_path to procrastinate, public")  # its status trigger names unqualified types
+    h.admin.execute(
+        "update procrastinate_jobs set status = 'succeeded' where status = 'todo' and args ->> 'job_id' = %s",
+        (str(parent[0]),),
+    )
+    h.admin.execute("reset search_path")
     h.admin.execute("select app.pipeline_heal_runs(%s)", (RESUMABLE,))
     assert len([r for r in rows_of(h.admin, job) if r[1] == "todo"]) == 1
 
+    # `run_until_finished` would return at once here (the job is still `paused` until the worker takes the new row),
+    # so the wait is for `done` itself.
     async with open_worker(h.registry, h.worker_db, h.worker_dsn) as worker:
-        found = await run_until_finished(worker, h.admin, [job])
-    assert found[job] == "done"
+        task = asyncio.create_task(worker.run(concurrency=1))
+        try:
+            for _ in range(600):
+                if job_state(h.admin, job)[0] == "done" or task.done():
+                    break
+                await asyncio.sleep(0.05)
+        finally:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+    assert job_state(h.admin, job)[0] == "done"
     h.admin.execute("select app.pipeline_heal_runs(%s)", (RESUMABLE,))
     assert [r for r in rows_of(h.admin, job) if r[1] == "todo"] == []
