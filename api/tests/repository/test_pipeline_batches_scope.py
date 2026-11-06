@@ -325,3 +325,76 @@ async def test_a_closed_run_refuses_the_embeddings_and_nothing_is_written(h: Har
     ctx, batch = scope(h, seed, state="closed")
     await service._embed(ctx, services_of(h), batch)
     assert embedded_numbers(h) == []
+
+
+# --- a closed run ends the child (review of #288: a refusal because the run is gone is not one skipped page) -----
+
+
+class GuardCalls:
+    """How many page writes asked the guard: with one page in flight at a time, each is a page of work done."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.asked = 0
+        original = repo.batch_write_allowed
+
+        async def spy(*args: Any, **kwargs: Any) -> bool:
+            self.asked += 1
+            return await original(*args, **kwargs)
+
+        monkeypatch.setattr(repo, "batch_write_allowed", spy)
+
+
+async def test_a_closed_run_ends_the_child_at_the_first_refused_word_write(
+    h: Harness, seed: Seed, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    forget_words(h)
+    monkeypatch.setattr(service, "ocr_concurrency", lambda services: 1)
+    guard = GuardCalls(monkeypatch)
+    ctx, batch = scope(h, seed, first=1, last=3, state="closed")
+    await service._read_words(ctx, services_of(h), batch)
+    assert guard.asked == 1, f"{guard.asked} pages were read for a run that was already closed"
+    assert read_numbers(h) == []
+
+
+async def test_a_closed_run_ends_the_child_at_the_first_refused_extraction(
+    h: Harness, seed: Seed, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    forget_extraction(h)
+    monkeypatch.setattr(service, "_extract_concurrency", lambda ctx, services: 1)
+    monkeypatch.setattr(service.extract, "pages_per_call", lambda *args, **kwargs: 1)
+    guard = GuardCalls(monkeypatch)
+    ctx, batch = scope(h, seed, first=1, last=3, state="closed")
+    await service._extract(ctx, services_of(h), batch)
+    assert guard.asked == 1, f"{guard.asked} model calls were made for a run that was already closed"
+    assert extracted_numbers(h) == []
+
+
+async def test_a_closed_run_ends_the_child_at_the_first_refused_embedding(
+    h: Harness, seed: Seed, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    forget_embeddings(h)
+    monkeypatch.setattr(service.embed, "BATCH", 1)
+    guard = GuardCalls(monkeypatch)
+    ctx, batch = scope(h, seed, first=1, last=3, state="closed")
+    await service._embed(ctx, services_of(h), batch)
+    assert guard.asked == 1, f"{guard.asked} pages were embedded for a run that was already closed"
+    assert embedded_numbers(h) == []
+
+
+async def test_a_page_set_aside_is_skipped_and_the_child_carries_on(
+    h: Harness, seed: Seed, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control: one refused page (not the run) skips that page only."""
+    forget_embeddings(h)
+    monkeypatch.setattr(service.embed, "BATCH", 1)
+    guard = GuardCalls(monkeypatch)
+    ctx, batch = scope(h, seed, first=1, last=3, state="sort_waiting")
+    h.admin.execute(
+        "update app.pages set superseded_by_page_id = (select id from app.pages where bundle_page_no = 3"
+        " and bundle_id = (select bundle_id from app.cases where id = %s)) where bundle_page_no = 1"
+        " and bundle_id = (select bundle_id from app.cases where id = %s)",
+        (h.case_id, h.case_id),
+    )
+    await service._embed(ctx, services_of(h), batch)
+    assert guard.asked == 3
+    assert embedded_numbers(h) == [2, 3]

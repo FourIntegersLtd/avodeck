@@ -169,7 +169,7 @@ async def test_a_waiter_ends_paused_with_no_queue_row_and_runs_once_when_handed_
     assert [r for r in rows_of(h.admin, job) if r[1] in ("todo", "doing")] == []
 
     # While the run is busy the sweep leaves it alone.
-    assert h.admin.execute("select app.pipeline_heal_runs(%s)", (RESUMABLE,)).fetchone() is not None
+    h.admin.execute("select app.pipeline_heal_runs(%s)", (RESUMABLE,))  # its effect is asserted below, not its count
     assert job_state(h.admin, job)[0] == "paused"
     assert [r for r in rows_of(h.admin, job) if r[1] in ("todo", "doing")] == []
 

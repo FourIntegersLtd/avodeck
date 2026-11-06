@@ -112,11 +112,19 @@ async def test_a_job_with_no_run_is_stopped_as_before(
     assert not await stop(api_db, plain)
 
 
-async def test_the_api_role_reads_no_run_row_to_decide_it(api_db: Database, world: World) -> None:
+async def test_the_api_role_reads_no_run_row_to_decide_it(
+    admin: psycopg.Connection, api_db: Database, seed: Seed, world: World
+) -> None:
     """The stop is written by the API role, which has no access to `pipeline_runs`; the rule goes through a
-    function that returns the reopen time and nothing else."""
+    function that returns the reopen time and nothing else, for a person who may see the case."""
+    reopen(admin, world)
+    stored = admin.execute("select reopened_at from app.pipeline_runs where job_id = %s", (world.parent,)).fetchone()
+    assert stored is not None and stored[0] is not None
     async with api_db.request(scope_for(world.expert)) as conn:
-        row = await (await conn.execute("select app.pipeline_reopened_at(%s)", (world.parent,))).fetchone()
+        seen = await (await conn.execute("select app.pipeline_reopened_at(%s)", (world.parent,))).fetchone()
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             await conn.execute("select 1 from app.pipeline_runs")  # last: a refused statement aborts the transaction
-    assert row == (None,)
+    assert seen == (stored[0],)
+    async with api_db.request(scope_for(seed.person())) as conn:
+        hidden = await (await conn.execute("select app.pipeline_reopened_at(%s)", (world.parent,))).fetchone()
+    assert hidden == (None,), "a person with no access to the case read when its run was reopened"

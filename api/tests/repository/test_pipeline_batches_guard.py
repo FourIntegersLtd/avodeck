@@ -238,3 +238,15 @@ async def test_a_child_that_holds_the_lock_first_finishes_before_the_confirm_pro
     assert left == (0,)
     total = admin.execute("select count(*) from app.facts where page_id = %s", (page,)).fetchone()
     assert total == (1,)
+
+
+async def test_a_page_outside_the_batchs_range_is_refused_and_the_edges_are_allowed(
+    admin: psycopg.Connection, worker_db: Database, world: World
+) -> None:
+    admin.execute("update app.pipeline_batches set first_page_no = 2, last_page_no = 2 where id = %s", (world.batch,))
+    assert not await allowed(worker_db, world, world.pages[0]), "page 1 is just before the batch's range"
+    assert await allowed(worker_db, world, world.pages[1])
+    assert not await allowed(worker_db, world, world.pages[2]), "page 3 is just after the batch's range"
+    admin.execute("update app.pipeline_batches set first_page_no = 1, last_page_no = 3 where id = %s", (world.batch,))
+    assert await allowed(worker_db, world, world.pages[0])
+    assert await allowed(worker_db, world, world.pages[2])
