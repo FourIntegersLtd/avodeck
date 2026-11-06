@@ -2095,6 +2095,14 @@ async def page_numbers_waiting_for_words(conn: AsyncConnection, case_id: uuid.UU
     return [int(r[0]) for r in await cur.fetchall()]
 
 
+async def close_runs(conn: AsyncConnection, case_id: uuid.UUID, by_job: uuid.UUID, resumable: Sequence[str]) -> int:
+    """A new bundle job takes over the case's open runs that are not healthy (parent paused or failed, or a stop asked
+    after the parent was created): they are closed, oldest first. A healthy run stays open. Returns how many closed."""
+    cur = await conn.execute("select app.pipeline_close_runs(%s, %s, %s)", (case_id, by_job, list(resumable)))
+    row = await cur.fetchone()
+    return int(row[0]) if row else 0
+
+
 async def create_run(
     conn: AsyncConnection, job_id: uuid.UUID, case_id: uuid.UUID, *, batch_pages: int, window: int, child_queue: str
 ) -> None:

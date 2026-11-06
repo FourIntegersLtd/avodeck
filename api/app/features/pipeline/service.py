@@ -1423,6 +1423,7 @@ async def _plan_ocr(ctx: JobContext, services: PipelineServices) -> bool:
     Returns False (nothing written) when the bundle is too small to be worth it; the job then reads inline."""
     settings = services.batches
     async with ctx.transaction() as conn:
+        await repo.close_runs(conn, ctx.case_id, ctx.job_id, sorted(RESUMABLE_PAUSES))
         waiting = await repo.pages_to_plan(conn, ctx.case_id)
         if not page_batches.worth_batching(waiting, size=settings.pages, min_pages=settings.min_pages):
             return False
@@ -1441,8 +1442,7 @@ async def _plan_ocr(ctx: JobContext, services: PipelineServices) -> bool:
         if planned:
             await repo.add_batches(conn, ctx.job_id, ctx.case_id, "ocr", planned)
             await repo.start_phase(conn, ctx.job_id)
-        else:
-            await repo.set_run_state(conn, ctx.job_id, "ocr_ready")
+        # With nothing to read the run stays `ocr_waiting`: `pipeline_enter` moves it on, or parks it behind an older run.
     if planned:
         await ctx.progress(STEP_STARTS["ocr"], step="ocr")
     return True
@@ -1462,9 +1462,7 @@ async def _plan_sort(ctx: JobContext, services: PipelineServices) -> bool:
             numbers, size=settings.pages, open_ranges=await repo.open_ranges(conn, ctx.case_id, ctx.job_id)
         )
         await repo.add_batches(conn, ctx.job_id, ctx.case_id, "sort", planned)
-        await repo.set_run_state(
-            conn, ctx.job_id, "sort_waiting" if planned else "sort_ready", date_anchor=anchor, set_anchor=True
-        )
+        await repo.set_run_state(conn, ctx.job_id, "sort_waiting", date_anchor=anchor, set_anchor=True)
         if planned:
             await repo.start_phase(conn, ctx.job_id)
     if planned:
