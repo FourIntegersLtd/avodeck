@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import contextvars
 import hashlib
 import io
 import json
@@ -55,8 +56,9 @@ from app.core.contracts.fact_flags import flag_for_recheck
 from app.core.contracts.fact_verifications import log_remaps
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcription_purpose
 from app.core.contracts.record_entries import RETRY_UNREAD
+from app.core.db import job_checkouts
 from app.core.errors import ProcessingPaused
-from app.core.jobs import RESUMABLE_PAUSES, JobContext, JobParked
+from app.core.jobs import RESUMABLE_PAUSES, JobContext, JobParked, checkout_cap
 from app.core.pdf import cut_page
 from app.core.scan import ScanUnavailable
 from app.features.pipeline import batches as page_batches
@@ -332,7 +334,7 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
             await ctx.progress(min(30, 30 * finished // len(waiting)), step="split")
 
     try:
-        await bounded(waiting, make, STORAGE_CONCURRENCY, _stop(ctx), label=lambda page: page.bundle_page_no)
+        await bounded(waiting, make, _width(STORAGE_CONCURRENCY), _stop(ctx), label=lambda page: page.bundle_page_no)
     finally:
         for source in sources.values():
             await source.close()
@@ -366,6 +368,25 @@ async def _chunks_free(ctx: JobContext, services: PipelineServices, prefix: str)
 
 
 Stop = Callable[[], Awaitable[bool]]
+
+
+_batch_cap: contextvars.ContextVar[int | None] = contextvars.ContextVar("pipeline_batch_cap", default=None)
+
+
+def cap_checkouts(ctx: JobContext, services: PipelineServices) -> None:
+    """A page-batch job (the parent with the flag on, or a child) holds at most its share of the worker's pool: the
+    pool less its reserve over the jobs the worker runs at once (`ctx.limit_checkouts`). `_width` keeps every
+    `bounded()` width inside the same number (ADR 0038, "Bounds on concurrency")."""
+    cap = checkout_cap(pool_max=ctx.database.max_size, concurrency=services.worker_concurrency)
+    ctx.limit_checkouts(cap)
+    _batch_cap.set(cap)
+
+
+def _width(wanted: int) -> int:
+    """`wanted` in an ordinary job; at most the checkout cap while the job is capped (the worker clears its limit when
+    the handler ends, so a stale cap on a reused context is ignored)."""
+    cap = _batch_cap.get()
+    return wanted if cap is None or job_checkouts.get() is None else min(wanted, cap)
 
 
 async def bounded[T](
@@ -638,7 +659,11 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
 
     try:
         await bounded(
-            waiting, read, ocr_concurrency(services), _stop(ctx, scope), label=lambda page_id: numbers.get(page_id)
+            waiting,
+            read,
+            _width(ocr_concurrency(services)),
+            _stop(ctx, scope),
+            label=lambda page_id: numbers.get(page_id),
         )
     except BatchRunClosed:
         return
@@ -671,7 +696,7 @@ async def _name_language(ctx: JobContext, services: PipelineServices, spoken: st
 
     async with ctx.transaction() as conn:
         unnamed = await repo.pages_without_language(conn, ctx.case_id, language.MIN_WORDS)
-    await bounded(unnamed, name_language, DB_CONCURRENCY, _stop(ctx))
+    await bounded(unnamed, name_language, _width(DB_CONCURRENCY), _stop(ctx))
 
 
 async def _ask(
@@ -860,7 +885,7 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
             else:
                 loaded[item[0]] = await _load_page(ctx, services, pack, who, item[0], anchor=scope.date_anchor)
 
-        await bounded(list(batch), load, stop=_stop(ctx, scope))
+        await bounded(list(batch), load, _width(CONCURRENCY), _stop(ctx, scope))
         askable = [(page_id, page_no) for page_id, page_no in batch if loaded[page_id].stored]
         answers: dict[int, Mapping[str, Any]] = {}
         asked = False
@@ -1046,7 +1071,7 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
                 await _tick(ctx, scope)
 
     try:
-        await bounded(batches, one_batch, _extract_concurrency(ctx, services), _stop(ctx, scope))
+        await bounded(batches, one_batch, _width(_extract_concurrency(ctx, services)), _stop(ctx, scope))
     except BatchRunClosed:
         return 0
     if scope is None:
@@ -1080,7 +1105,7 @@ async def _suggest_quarantine(ctx: JobContext, services: PipelineServices) -> No
             ]
         found[page_id] = quarantine.identifiers(extract.plain_text(ordered), pack)
 
-    await bounded(candidates, one, DB_CONCURRENCY, _stop(ctx))
+    await bounded(candidates, one, _width(DB_CONCURRENCY), _stop(ctx))
     flagged = quarantine.suggest({p: found[p] for p in candidates}, quarantine.known(who.dates_of_birth))
     if flagged:
         async with ctx.transaction() as conn:
@@ -1123,7 +1148,9 @@ async def _duplicates(ctx: JobContext, services: PipelineServices) -> None:
         async with ctx.transaction() as conn:
             await repo.store_hashes(conn, page_id, picture, duplicates.word_hash(words), typed)
 
-    await bounded(unhashed, hash_one, STORAGE_CONCURRENCY, _stop(ctx), label=lambda page_id: numbers.get(page_id))
+    await bounded(
+        unhashed, hash_one, _width(STORAGE_CONCURRENCY), _stop(ctx), label=lambda page_id: numbers.get(page_id)
+    )
     async with ctx.transaction() as conn:
         states = await repo.copy_states(conn, ctx.case_id)
     new: set[object] = {s.page_id for s in states if not s.checked}
@@ -1141,7 +1168,11 @@ async def _duplicates(ctx: JobContext, services: PipelineServices) -> None:
         async with ctx.transaction() as conn:
             words[page_id] = await _compared_words(conn, services, ctx.case_id, page_id)
 
-    await bounded(sorted({p.page_id for pair in pairs for p in pair}, key=str), load, DB_CONCURRENCY)  # type: ignore[arg-type]
+    await bounded(
+        sorted({p.page_id for pair in pairs for p in pair}, key=str),
+        load,  # type: ignore[arg-type]
+        _width(DB_CONCURRENCY),
+    )
     common = duplicates.edge_runs(words.values())  # a header or footer is a run that starts or ends several pages
     same = [
         (a.page_id, b.page_id)
@@ -1238,7 +1269,7 @@ async def _missing(ctx: JobContext, services: PipelineServices) -> None:
         async with ctx.transaction() as conn:
             await repo.add_missing(conn, ctx.case_id, page_id, items)
 
-    await bounded(waiting, one, CONCURRENCY, _stop(ctx), label=lambda item: item[1])
+    await bounded(waiting, one, _width(CONCURRENCY), _stop(ctx), label=lambda item: item[1])
 
 
 async def _missing_step(ctx: JobContext, services: PipelineServices) -> None:
@@ -1284,7 +1315,7 @@ async def _embed(ctx: JobContext, services: PipelineServices, scope: BatchScope 
         for start in range(0, len(waiting), embed.BATCH):
             chunk = waiting[start : start + embed.BATCH]
             texts.clear()
-            await bounded(chunk, read, DB_CONCURRENCY, _stop(ctx, scope))
+            await bounded(chunk, read, _width(DB_CONCURRENCY), _stop(ctx, scope))
             ready = [page_id for page_id in chunk if page_id in texts]
             vectors = await embed.embed_batches(embedder, [texts[page_id] for page_id in ready])
             async with ctx.transaction() as conn:
@@ -1403,6 +1434,8 @@ async def process_bundle(ctx: JobContext) -> None:
     services = current()
     async with ctx.transaction() as conn:
         state = await repo.run_state(conn, ctx.job_id)
+    if state is not None or services.batches.enabled:
+        cap_checkouts(ctx, services)
     if state is not None:
         await _batch_mode(ctx, services)
         return
@@ -1442,7 +1475,8 @@ async def _plan_ocr(ctx: JobContext, services: PipelineServices) -> bool:
         if planned:
             await repo.add_batches(conn, ctx.job_id, ctx.case_id, "ocr", planned)
             await repo.start_phase(conn, ctx.job_id)
-        # With nothing to read the run stays `ocr_waiting`: `pipeline_enter` moves it on, or parks it behind an older run.
+        # With nothing to read the run stays `ocr_waiting`: `pipeline_enter` moves it on,
+        # or parks it behind an older run.
     if planned:
         await ctx.progress(STEP_STARTS["ocr"], step="ocr")
     return True
@@ -1506,6 +1540,7 @@ async def read_page_batch(ctx: JobContext) -> None:
     """One page-batch child (ADR 0038): reads its pages' words, or extracts them and embeds them, with no case lock,
     then completes its batch (first statement of its own transaction: see `repo.complete_batch`)."""
     services = current()
+    cap_checkouts(ctx, services)
     async with ctx.transaction() as conn:
         found = await repo.batch_scope(conn, ctx.job_id)
     if found is None:
