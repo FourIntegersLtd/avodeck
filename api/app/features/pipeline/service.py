@@ -1434,9 +1434,8 @@ async def process_bundle(ctx: JobContext) -> None:
     services = current()
     async with ctx.transaction() as conn:
         state = await repo.run_state(conn, ctx.job_id)
-    if state is not None or services.batches.enabled:
-        cap_checkouts(ctx, services)
     if state is not None:
+        cap_checkouts(ctx, services)  # a run exists: this job is a batch-mode parent
         await _batch_mode(ctx, services)
         return
     if not services.batches.enabled:
@@ -1445,9 +1444,10 @@ async def process_bundle(ctx: JobContext) -> None:
         return
     await _run_steps(ctx, services, STEPS[:1])
     if not await _plan_ocr(ctx, services):
-        await _run_steps(ctx, services, STEPS[1:])
+        await _run_steps(ctx, services, STEPS[1:])  # too small to batch: the old single job, at its own widths
         await _finish(ctx, services)
         return
+    cap_checkouts(ctx, services)
     await _batch_mode(ctx, services)
 
 
@@ -1485,10 +1485,14 @@ async def _plan_ocr(ctx: JobContext, services: PipelineServices) -> bool:
 async def _plan_sort(ctx: JobContext, services: PipelineServices) -> bool:
     """The parent's first wake: every child has read its pages. Names the languages, brings pages back from
     quarantine into the queue, fixes the bundle's latest date for the children and plans the sort batches. Returns
-    True when children were queued (the parent parks again)."""
+    True when children were queued (the caller then asks `pipeline_enter` again: it parks the parent unless they
+    have already finished)."""
     settings = services.batches
     await _name_language(ctx, services)
     async with ctx.transaction() as conn:
+        # Lock order (F62): every run row of the case first, oldest first, before anything else is changed. The run is
+        # `ocr_ready` here, so the top-up inside does nothing; the second call below queues the first sort children.
+        await repo.start_phase(conn, ctx.job_id)
         await repo.reset_undone(conn, ctx.case_id)
         numbers = [n for _, n in await repo.pages_to_extract(conn, ctx.case_id)]
         anchor = await latest_printed_date(conn, ctx.case_id)
@@ -1514,8 +1518,9 @@ async def _batch_mode(ctx: JobContext, services: PipelineServices) -> None:
         if verdict == "park":
             raise JobParked
         if verdict == "wake_a":
-            if await _plan_sort(ctx, services):
-                raise JobParked
+            # Whether or not children were queued, ask again: a child that finished before this row is released
+            # could not wake the parent (F57), and `pipeline_enter` says `park` when children are still reading.
+            await _plan_sort(ctx, services)
             continue
         await _tail(ctx, services)
         return
