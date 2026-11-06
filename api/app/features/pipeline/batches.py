@@ -66,3 +66,7 @@ def plan(pages: Iterable[int], *, size: int, open_ranges: Sequence[tuple[int, in
             chunk = segment[start : start + size]
             result.append(PlannedBatch(len(result), chunk[0], chunk[-1], len(chunk)))
     return result
+
+
+class BatchRunClosed(Exception):  # noqa: N818 - a signal to the child's helpers, not an error
+    """The child's run was closed or purged while it worked: it ends its step at once and writes nothing more."""

@@ -75,7 +75,7 @@ from app.features.pipeline import (
     steplog,
 )
 from app.features.pipeline.asking import answer_group
-from app.features.pipeline.batches import BatchScope
+from app.features.pipeline.batches import BatchRunClosed, BatchScope
 from app.features.pipeline.render import Pictures, encode, rasterise
 from app.features.pipeline.straighten import quarter_turn
 from app.features.pipeline.wiring import PipelineServices, current
@@ -429,6 +429,16 @@ def _stop(ctx: JobContext, scope: BatchScope | None = None) -> Stop:
     return asked
 
 
+async def _may_write(conn: AsyncConnection, scope: BatchScope, page_id: uuid.UUID) -> bool:
+    """The write guard for a page-batch child. False: this page is set aside, skip it. `BatchRunClosed`: the run is
+    closed or purged, so the child ends its step rather than read the rest of its pages for nothing (F64)."""
+    if await repo.batch_write_allowed(conn, scope.batch_id, page_id):
+        return True
+    if not await repo.batch_run_open(conn, scope.batch_id):
+        raise BatchRunClosed
+    return False
+
+
 async def _hold_for_run(ctx: JobContext) -> None:
     """The first step of every job that used the case lock to wait for the bundle (ADR 0038, build step 9).
 
@@ -578,8 +588,8 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
             ):
                 await services.storage.put(path, blob)  # S3 with no connection held
         async with ctx.transaction() as conn:
-            if scope is not None and not await repo.batch_write_allowed(conn, scope.batch_id, page_id):
-                return  # the run was closed, or the page set aside, meanwhile: write nothing (F64)
+            if scope is not None and not await _may_write(conn, scope, page_id):
+                return  # the page was set aside meanwhile: write nothing (F64)
             rows: list[repo.WordRow] = []
             for n, word in enumerate(page.words, start=1):
                 sealed = await services.crypto.encrypt(
@@ -616,9 +626,12 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
             if before:
                 await _settle(conn, ctx.case_id, page_id, before, page, placed=source != "expert")
 
-    await bounded(
-        waiting, read, ocr_concurrency(services), _stop(ctx, scope), label=lambda page_id: numbers.get(page_id)
-    )
+    try:
+        await bounded(
+            waiting, read, ocr_concurrency(services), _stop(ctx, scope), label=lambda page_id: numbers.get(page_id)
+        )
+    except BatchRunClosed:
+        return
     if scope is not None:
         return
 
@@ -981,8 +994,8 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
                     )
                 )
             async with ctx.transaction() as conn:
-                if scope is not None and not await repo.batch_write_allowed(conn, scope.batch_id, page_id):
-                    continue  # the run was closed, or the page set aside, meanwhile: write nothing (F64)
+                if scope is not None and not await _may_write(conn, scope, page_id):
+                    continue  # the page was set aside meanwhile: write nothing (F64)
                 sealed = None
                 if output is not None:
                     sealed = await services.crypto.encrypt(
@@ -1011,7 +1024,10 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
                     min(55, 40 + 15 * done // len(waiting)), step="sort", step_done=done, step_total=len(waiting)
                 )
 
-    await bounded(batches, one_batch, _extract_concurrency(ctx, services), _stop(ctx, scope))
+    try:
+        await bounded(batches, one_batch, _extract_concurrency(ctx, services), _stop(ctx, scope))
+    except BatchRunClosed:
+        return 0
     if scope is None:
         await ctx.progress(55, step="sort", step_done=len(waiting), step_total=len(waiting))
     return len(waiting)
@@ -1243,17 +1259,20 @@ async def _embed(ctx: JobContext, services: PipelineServices, scope: BatchScope 
     async def read(page_id: uuid.UUID) -> None:
         texts[page_id] = await prepare(page_id)
 
-    for start in range(0, len(waiting), embed.BATCH):
-        chunk = waiting[start : start + embed.BATCH]
-        texts.clear()
-        await bounded(chunk, read, DB_CONCURRENCY, _stop(ctx, scope))
-        ready = [page_id for page_id in chunk if page_id in texts]
-        vectors = await embed.embed_batches(embedder, [texts[page_id] for page_id in ready])
-        async with ctx.transaction() as conn:
-            for page_id, vector in zip(ready, vectors, strict=True):
-                if scope is not None and not await repo.batch_write_allowed(conn, scope.batch_id, page_id):
-                    continue  # the run was closed, or the page set aside, meanwhile: write nothing (F64)
-                await repo.store_embedding(conn, ctx.case_id, page_id, embedder.model, vector)
+    try:
+        for start in range(0, len(waiting), embed.BATCH):
+            chunk = waiting[start : start + embed.BATCH]
+            texts.clear()
+            await bounded(chunk, read, DB_CONCURRENCY, _stop(ctx, scope))
+            ready = [page_id for page_id in chunk if page_id in texts]
+            vectors = await embed.embed_batches(embedder, [texts[page_id] for page_id in ready])
+            async with ctx.transaction() as conn:
+                for page_id, vector in zip(ready, vectors, strict=True):
+                    if scope is not None and not await _may_write(conn, scope, page_id):
+                        continue  # the page was set aside meanwhile: write nothing (F64)
+                    await repo.store_embedding(conn, ctx.case_id, page_id, embedder.model, vector)
+    except BatchRunClosed:
+        return
 
 
 async def _ready(ctx: JobContext, services: PipelineServices) -> None:

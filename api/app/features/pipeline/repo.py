@@ -385,8 +385,8 @@ async def batch_write_allowed(conn: AsyncConnection, batch_id: uuid.UUID, page_i
     Lock order: the batch's run row `for share` (a purge takes the case's run rows `for update` and so waits for the
     write), then the page row `for share` (a quarantine confirm takes it `for update`). The quarantine status is
     read in a later statement, once both locks are held, so a confirm that committed meanwhile is seen. Refused
-    when the run is missing or closed, or the page is gone, superseded, set aside as quarantined or a confirmed or
-    deleted quarantine."""
+    when the run is missing or closed, or the page is gone, outside the batch's page range, superseded, set aside as
+    quarantined or a confirmed or deleted quarantine."""
     cur = await conn.execute(
         "select 1 from app.pipeline_batches b join app.pipeline_runs r on r.job_id = b.run_job_id"
         " where b.id = %s and r.closed_at is null and r.state <> 'closed' for share of r",
@@ -395,8 +395,10 @@ async def batch_write_allowed(conn: AsyncConnection, batch_id: uuid.UUID, page_i
     if await cur.fetchone() is None:
         return False
     cur = await conn.execute(
-        "select 1 from app.pages where id = %s and not quarantined and superseded_by_page_id is null for share",
-        (page_id,),
+        "select 1 from app.pages p join app.pipeline_batches b on b.id = %s"
+        " where p.id = %s and p.bundle_page_no between b.first_page_no and b.last_page_no"
+        " and not p.quarantined and p.superseded_by_page_id is null for share of p",
+        (batch_id, page_id),
     )
     if await cur.fetchone() is None:
         return False
@@ -406,6 +408,17 @@ async def batch_write_allowed(conn: AsyncConnection, batch_id: uuid.UUID, page_i
     )
     row = await cur.fetchone()
     return not (row and row[0])
+
+
+async def batch_run_open(conn: AsyncConnection, batch_id: uuid.UUID) -> bool:
+    """Whether the batch's run still exists and is open: told apart from one refused page after a refused guard, so
+    a child whose run is gone ends its step instead of reading on (every further call would be wasted)."""
+    cur = await conn.execute(
+        "select 1 from app.pipeline_batches b join app.pipeline_runs r on r.job_id = b.run_job_id"
+        " where b.id = %s and r.closed_at is null and r.state <> 'closed'",
+        (batch_id,),
+    )
+    return await cur.fetchone() is not None
 
 
 WordRow = tuple[uuid.UUID, uuid.UUID, int, str, bytes, list[float], float, bool, bool, str]
