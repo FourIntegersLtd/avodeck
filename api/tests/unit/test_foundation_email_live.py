@@ -434,3 +434,22 @@ async def test_the_live_mailer_sends_the_logo_in_the_html() -> None:
     live = ResendMailer(KEY, SENDER, transport=httpx.MockTransport(script), sleep=no_sleep, logo_url=LOGO)
     await live.send(Mail("a@example.test", "org.invite", params_for("org.invite")))
     assert "email-logo.png" in json.loads(script.requests[0].content)["html"]
+
+
+def test_the_certificate_speaks_plainly_and_never_names_a_database_table() -> None:
+    params = {**params_for("deletion.certificate"), "counts": "ocr_words:1200,pages:3,page_analysis:3"}
+    mail = render(Mail("a@example.test", "deletion.certificate", params))
+    for part in (mail.subject, mail.text, mail.html):
+        for table in ("ocr_words", "ocr words", "page_analysis", "page analysis", "ocr_words:1200"):
+            assert table not in part
+    for part in (mail.text, mail.html):
+        assert "3 pages" in part  # the one number an expert recognises
+        assert "1,203" in part  # everything else, as one total with a thousands separator
+        assert "permanently" in part and "cannot be recovered" in part
+        assert "Case reference" in part or "case reference" in part
+
+
+def test_a_certificate_without_a_page_count_shows_one_total() -> None:
+    params = {**params_for("deletion.certificate"), "counts": "facts:40,jobs:2"}
+    mail = render(Mail("a@example.test", "deletion.certificate", params))
+    assert "42 items" in mail.text and "facts" not in mail.text and "jobs" not in mail.text
