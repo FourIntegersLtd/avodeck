@@ -19,9 +19,9 @@
   "notification.digest.headline": "Your messages for today",
   "notification.digest.body": "You have {count} new messages waiting for you in Avodeck.\n\nPlease sign in when you have a moment to read them.",
   "notification.digest.action": "Open Avodeck",
-  "deletion.certificate.subject": "Your certificate of deletion",
+  "deletion.certificate.subject": "Your case has been deleted",
   "deletion.certificate.headline": "The case has been deleted",
-  "deletion.certificate.body": "As requested, a case has been deleted from Avodeck. Please keep this email as your record.\n\nCase reference: {case_ref}\nDeleted on: {deleted_at}\nWhat was deleted, by number of items: {counts}\nLast backup copy gone by: {backup_expiry_on}",
+  "deletion.certificate.body": "You asked Avodeck to delete this case, and it is done. The records you uploaded, every page, and everything Avodeck made from them have been permanently removed. They cannot be recovered.\n\nDeleted: {deleted_at}\nWhat was removed: {counts}\nLast backup copy gone by: {backup_expiry_on} (we keep backups for a short time in case of a fault; after this date no copy exists anywhere)\n\nPlease keep this email as your record of the deletion. If anyone asks, the case reference is {case_ref}.",
   "invoice.sent.subject": "Invoice {invoice_no} has been sent",
   "invoice.sent.headline": "Your invoice has been sent",
   "invoice.sent.body": "Invoice {invoice_no} for {amount} {currency} has been sent. The case reference is {case_ref}.\n\nYou can download a copy from Avodeck whenever you need it. Thank you.",
@@ -74,5 +74,7 @@
   "role.admin": "an administrator",
   "role.expert": "an expert",
   "role.assistant": "an assistant",
-  "role.viewer": "a viewer"
+  "role.viewer": "a viewer",
+  "counts.pages_and_items": "{pages} pages of records and {items} other items",
+  "counts.items": "{items} items"
 }

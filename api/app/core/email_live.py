@@ -82,11 +82,21 @@ def _display(params: Mapping[str, str], w: Mapping[str, str]) -> dict[str, str]:
         elif name in _DATE_PARAMS:
             shown[name] = _date(date.fromisoformat(value), w)
         elif name == "counts":
-            pairs = (item.split(":") for item in value.split(","))
-            shown[name] = ", ".join(f"{table.replace('_', ' ')} {n}" for table, n in pairs)
+            shown[name] = _counts(value, w)
         elif name == "role":
             shown[name] = w[f"role.{value}"]
     return shown
+
+
+def _counts(value: str, w: Mapping[str, str]) -> str:
+    """Row counts per table as one plain phrase: the pages (the number an expert recognises) and everything
+    else as a total. Table names are ours, not the reader's, and never appear."""
+    counts = {table: int(n) for table, n in (item.split(":") for item in value.split(","))}
+    pages = counts.pop("pages", None)
+    items = sum(counts.values())
+    if pages is None:
+        return w["counts.items"].format(items=f"{items:,}")
+    return w["counts.pages_and_items"].format(pages=f"{pages:,}", items=f"{items:,}")
 
 
 def _fill(template: str, values: Mapping[str, str], escape: Callable[[str], str]) -> str:
