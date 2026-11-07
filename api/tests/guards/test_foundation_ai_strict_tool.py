@@ -104,7 +104,9 @@ def test_a_conditional_shape_becomes_one_branch_per_condition() -> None:
         "allOf": [
             {
                 "if": {"properties": {"kind": {"const": key}}},
-                "then": {"properties": {"fields": {"type": "object", "properties": {name: {"type": ["string", "null"]}}}}},
+                "then": {
+                    "properties": {"fields": {"type": "object", "properties": {name: {"type": ["string", "null"]}}}}
+                },
             }
             for key, name in (("k1", "date"), ("k2", "drug"))
         ],
