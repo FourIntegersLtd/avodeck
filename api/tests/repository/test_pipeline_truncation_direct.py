@@ -158,11 +158,11 @@ async def test_a_page_too_big_even_for_the_wider_cap_is_asked_exactly_twice_then
 async def test_a_direct_failure_part_way_keeps_the_answers_found_and_only_the_failing_part_goes_to_bedrock(
     opened_args: tuple[Any, ...],  # noqa: F811
 ) -> None:
-    # Five pages together are cut off (8,000 tokens each, more than the cap), so the batch is split: pages 1 and 2
-    # are answered; the other three then meet a direct API that is gone for any call that holds page 5.
-    direct, bedrock, h, finished = await run(opened_args, lambda numbers: 8000 * len(numbers), unavailable=5)
+    # Three pages together are cut off (12,000 tokens each, more than the cap), so the batch is split: page 1 is
+    # answered; pages 2 and 3 then meet a direct API that is gone for any call that holds page 3.
+    direct, bedrock, h, finished = await run(opened_args, lambda numbers: 12000 * len(numbers), unavailable=3)
     assert set(finished.values()) == {"done"}
     assert len(facts_of(h)) == PAGES  # no page lost
-    assert [numbers for numbers in direct.asked() if numbers == [1, 2]] == [[1, 2]]  # answered once, kept
-    assert bedrock.asked() == [[3, 4, 5]]  # only the failing part is asked of Bedrock
+    assert [numbers for numbers in direct.asked() if numbers == [1]] == [[1]]  # answered once, kept
+    assert bedrock.asked() == [[2, 3]]  # only the failing part is asked of Bedrock
     assert {tokens for _, tokens in bedrock.calls} == {BEDROCK_MAX_OUTPUT_TOKENS}

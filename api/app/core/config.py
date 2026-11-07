@@ -393,7 +393,7 @@ class ProviderLimits:
 # The API reserves each call's max_tokens against the per-minute output allowance when it admits the call, so
 # concurrency x cap (50 x 32000 = 1.6M) is kept at the old 200 x 8000.
 ANTHROPIC_LIMITS = ProviderLimits(
-    rpm=1000, pages_per_call=5, max_output_tokens=32000, concurrency=50, widest_output_tokens=64000
+    rpm=1000, pages_per_call=3, max_output_tokens=32000, concurrency=50, widest_output_tokens=64000
 )
 BEDROCK_MAX_OUTPUT_TOKENS = 16000
 # Default for `BEDROCK_CONCURRENCY`: the account-wide cap on Bedrock calls in flight at once (migration 0056).

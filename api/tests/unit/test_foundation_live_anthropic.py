@@ -139,6 +139,7 @@ async def test_the_schema_is_the_only_tool_forced_and_its_input_comes_back() -> 
         {
             "name": "record_output",
             "description": "Record the task output.",
+            "strict": True,
             "input_schema": SCHEMA,
             "cache_control": {"type": "ephemeral"},
         }

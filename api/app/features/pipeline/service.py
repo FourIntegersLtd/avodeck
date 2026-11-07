@@ -34,6 +34,7 @@ import os
 import tempfile
 import time
 import uuid
+import weakref
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
@@ -439,6 +440,35 @@ async def bounded[T](
         raise
     if stopped:
         raise ProcessingPaused("cancelled")
+
+
+class _SortReport:
+    """The highest count the sort step has put on its job row, and the lock that keeps the writes in order."""
+
+    def __init__(self) -> None:
+        self.done = 0
+        self.lock = asyncio.Lock()
+
+
+_sort_reports: weakref.WeakKeyDictionary[Any, _SortReport] = weakref.WeakKeyDictionary()
+
+
+async def _report_batch(ctx: JobContext, scope: BatchScope | None, done: int, total: int) -> None:
+    """The sort step's progress after every finished batch, whatever the page count: the bundle's own job puts
+    `done` of `total` on its row; a page-batch child puts the run's live counts on the parent's. Batches run
+    side by side and can finish out of order, so a count lower than one already written is not written (the
+    core writes `step_done` as given, only `pct` can be held up), and `pct` is sent monotone."""
+    if scope is None:
+        report = _sort_reports.setdefault(ctx, _SortReport())
+        async with report.lock:
+            if done < report.done:
+                return
+            report.done = done
+            await ctx.progress(
+                min(55, 40 + 15 * done // total), step="sort", step_done=done, step_total=total, monotone=True
+            )
+    else:
+        await _tick(ctx, scope)
 
 
 async def _tick(ctx: JobContext, scope: BatchScope) -> None:
@@ -866,6 +896,7 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
         who = await services.identity(conn, ctx.case_id)
     if services.kit is None:
         raise ProcessingPaused("model_unavailable")
+    steplog.tap_usage(services.kit)
     limits = services.kit.primary_limits  # the first-choice provider's own ceilings
     task = extract.task_for(pack, limits.max_output_tokens)
     bedrock_task = extract.task_for(pack)  # a re-split call goes to Bedrock, whose answer limit is the default
@@ -876,6 +907,10 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
     done = 0
 
     async def one_batch(batch: Sequence[tuple[uuid.UUID, int]]) -> None:
+        with steplog.batch_usage([page_no for _, page_no in batch]) as usage:
+            await batch_body(batch, usage)
+
+    async def batch_body(batch: Sequence[tuple[uuid.UUID, int]], usage: steplog.BatchUsage) -> None:
         nonlocal done
         loaded: dict[uuid.UUID, _LoadedPage] = {}
 
@@ -919,6 +954,7 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
                 asked of Bedrock, in groups it can, and what the other parts already gave is kept."""
 
                 async def on_bedrock(sub: Sequence[tuple[uuid.UUID, int]]) -> Mapping[str, Any] | None:
+                    usage.asked(len(sub))
                     return await _ask(
                         ctx, services, bedrock_task, pack, who, text_of(sub), subject_of(sub), "bedrock",
                         cut_off_raises=True,
@@ -931,6 +967,7 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
                 return {"pages": list(found.values())} if found else None
 
             async def ask_group(part: Sequence[tuple[uuid.UUID, int]]) -> Mapping[str, Any] | None:
+                usage.asked(len(part))
                 text, part_subject = text_of(part), subject_of(part)
                 try:
                     try:
@@ -1063,12 +1100,8 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
                     entries_rejected=entries_rejected,
                 )
             done += 1
-            if scope is None and done % 25 == 0:
-                await ctx.progress(
-                    min(55, 40 + 15 * done // len(waiting)), step="sort", step_done=done, step_total=len(waiting)
-                )
-            elif scope is not None and done % 25 == 0:
-                await _tick(ctx, scope)
+        usage.log(ctx.job_id, ctx.case_id)
+        await _report_batch(ctx, scope, done, len(waiting))
 
     try:
         await bounded(batches, one_batch, _width(_extract_concurrency(ctx, services)), _stop(ctx, scope))
