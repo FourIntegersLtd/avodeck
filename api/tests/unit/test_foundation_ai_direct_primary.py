@@ -133,7 +133,7 @@ def test_bedrock_primary_gives_the_same_clients_as_before(tmp_path: Path) -> Non
 def test_bedrock_limits_follow_their_own_variables_and_never_the_directs() -> None:
     settings = ai_settings(cell_env(**ON, BEDROCK_RPM_LIMIT="7", AI_EXTRACTION_BATCH_SIZE="4"))
     assert settings.limits["bedrock"].rpm == 7 and settings.limits["bedrock"].pages_per_call == 4
-    assert settings.limits["anthropic"].rpm == 1000 and settings.limits["anthropic"].pages_per_call == 5
+    assert settings.limits["anthropic"].rpm == 1000 and settings.limits["anthropic"].pages_per_call == 3
 
 
 def test_anthropic_gives_the_kit_both_clients_each_on_its_own_endpoint(caplog: pytest.LogCaptureFixture) -> None:
