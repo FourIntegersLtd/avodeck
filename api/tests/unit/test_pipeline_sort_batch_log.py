@@ -103,7 +103,12 @@ async def test_a_retried_and_a_split_batch_are_told_apart(caplog: pytest.LogCapt
         await kit._log(None, None, "m", CASE, ok, "ok")
         split.log(JOB, CASE)
     first, second = (fields(line) for line in batch_lines(caplog))
-    assert (first["calls"], first["invalid"], first["input_tokens"], first["output_tokens"]) == ("2", "1", "200", "8392")
+    assert (first["calls"], first["invalid"], first["input_tokens"], first["output_tokens"]) == (
+        "2",
+        "1",
+        "200",
+        "8392",
+    )
     assert (first["retried"], first["split"], first["asked"]) == ("yes", "no", "4,4")
     assert (second["calls"], second["invalid"], second["retried"], second["split"]) == ("3", "1", "no", "yes")
     assert second["asked"] == "4,2,2"
