@@ -27,6 +27,37 @@ export function bandHeights(pages: number[]): number[] {
   return raw.map((h, i) => (small[i] ? MIN_BAND : h * scale));
 }
 
+const TALL_BLOCK = 44; // a name line over a count line
+const SHORT_BLOCK = LINE; // name and count on one line
+
+export interface LabelBlock {
+  top: number;
+  height: number;
+  /** Two lines (name over count) for a band tall enough; otherwise one. */
+  tall: boolean;
+}
+
+/** Where each band's label sits: centred on its band, then nudged apart so no two labels overlap and none
+ * leaves the drawing. One pass pushes labels down out of each other's way; a second pushes them back up when
+ * the last one would run off the bottom. */
+export function labelBlocks(heights: number[]): LabelBlock[] {
+  const blocks = heights.map((h, i) => {
+    const tall = h >= SHORT_BAND;
+    const height = tall ? TALL_BLOCK : SHORT_BLOCK;
+    const centre = heights.slice(0, i).reduce((sum, x) => sum + x, 0) + h / 2;
+    return { top: centre - height / 2, height, tall };
+  });
+  for (let i = 0; i < blocks.length; i += 1) {
+    const floor = i === 0 ? 0 : blocks[i - 1]!.top + blocks[i - 1]!.height;
+    blocks[i]!.top = Math.max(blocks[i]!.top, floor);
+  }
+  for (let i = blocks.length - 1; i >= 0; i -= 1) {
+    const ceiling = i === blocks.length - 1 ? HEIGHT : blocks[i + 1]!.top;
+    blocks[i]!.top = Math.max(0, Math.min(blocks[i]!.top, ceiling - blocks[i]!.height));
+  }
+  return blocks;
+}
+
 interface Props {
   rows: StackRow[];
   /** What the picture says to assistive technology. */
@@ -42,9 +73,7 @@ export function SourceStack({ rows, label, unit, format }: Props) {
   const clip = `${id}-clip`;
   const heights = bandHeights(rows.map((r) => r.pages));
   const tops = heights.map((_, i) => heights.slice(0, i).reduce((sum, h) => sum + h, 0));
-  const compact = rows.filter((_, i) => heights[i]! < SHORT_BAND);
-  const firstCompact = compact.length;
-  const lines = compact.map((r, i) => ({ r, y: HEIGHT - 12 - (firstCompact - 1 - i) * LINE }));
+  const blocks = labelBlocks(heights);
   return (
     <div className="pl-stack">
       <svg className="pl-stack__drawing" viewBox="0 0 370 452" role="img" aria-label={label}>
@@ -61,20 +90,20 @@ export function SourceStack({ rows, label, unit, format }: Props) {
           ))}
         </g>
         <rect className="pl-stack__edge" x="0.5" y="0.5" width={WIDTH - 1} height={HEIGHT - 1} rx="10" />
-        {rows.map((r, i) =>
-          heights[i]! >= SHORT_BAND ? (
+        {rows.map((r, i) => {
+          const b = blocks[i]!;
+          return b.tall ? (
             <g key={r.key} aria-hidden="true">
-              <text className="pl-stack__name" x="184" y={tops[i]! + heights[i]! / 2 - 2}>{r.label}</text>
-              <text className="pl-stack__count" x="184" y={tops[i]! + heights[i]! / 2 + 18}>{`${format(r.pages)} ${unit(r.pages)}`}</text>
+              <text className="pl-stack__name" x="184" y={b.top + 16}>{r.label}</text>
+              <text className="pl-stack__count" x="184" y={b.top + 36}>{`${format(r.pages)} ${unit(r.pages)}`}</text>
             </g>
-          ) : null,
-        )}
-        {lines.map(({ r, y }) => (
-          <text key={r.key} className="pl-stack__name pl-stack__name--short" x="184" y={y} aria-hidden="true">
-            {r.label}
-            <tspan className="pl-stack__count" dx="8">{format(r.pages)}</tspan>
-          </text>
-        ))}
+          ) : (
+            <text key={r.key} className="pl-stack__name pl-stack__name--short" x="184" y={b.top + 18} aria-hidden="true">
+              {r.label}
+              <tspan className="pl-stack__count" dx="8">{format(r.pages)}</tspan>
+            </text>
+          );
+        })}
       </svg>
       <ul className="av-visually-hidden" aria-label={label}>
         {rows.map((r) => (
