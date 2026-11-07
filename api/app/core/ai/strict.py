@@ -13,10 +13,14 @@ Schema (https://platform.claude.com/docs/en/build-with-claude/structured-outputs
 `strict_schema` returns a copy (the task's schema is never changed, and the kit still validates every answer
 against it afterwards: that is the backstop for lengths and ranges) in which
 
-- every object is closed and requires all its properties (an optional property stays expressible as a nullable one);
+- every object is closed and requires all its properties; a property that was optional also accepts `null`, so
+  the model is not forced to invent a value (a map with a schema for its values keeps `additionalProperties` as
+  it is: strict mode will refuse it and `LiveAnthropic` then sends the task's own schema);
 - the unsupported constraints are dropped;
 - a conditional shape `allOf: [{if: {kind: {const: K}}, then: {properties: ...}}]` becomes an `anyOf` with one
-  branch per condition, the condition's property narrowed to that value.
+  branch per condition, the condition's property narrowed to that value (plus one branch with the base shape
+  for any other value, when the property has no `enum`). At the schema's root the conditions are dropped
+  instead, as the root must stay an object; the kit's check afterwards covers them.
 
 Anthropic also limits strict schemas (20 strict tools, 24 optional properties, 16 union-typed properties, grammar
 size). A schema over a limit is refused with a 400; `LiveAnthropic` then sends it once without strict.
@@ -53,11 +57,11 @@ _LISTS = ("anyOf", "allOf", "oneOf", "prefixItems")
 
 def strict_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
     """`schema` in strict-mode form; see the module note. The given schema is not changed."""
-    return _schema(copy.deepcopy(dict(schema)))
+    return _schema(copy.deepcopy(dict(schema)), root=True)
 
 
-def _schema(node: dict[str, Any]) -> dict[str, Any]:
-    node = _split_conditions(node)
+def _schema(node: dict[str, Any], root: bool = False) -> dict[str, Any]:
+    node = _split_conditions(node, root)
     for key in _DROPPED:
         node.pop(key, None)
     if node.get("minItems", 0) > 1:
@@ -71,8 +75,33 @@ def _schema(node: dict[str, Any]) -> dict[str, Any]:
     if isinstance(node.get("items"), dict):
         node["items"] = _schema(node["items"])
     if node.get("type") == "object" or "properties" in node:
-        node["additionalProperties"] = False
-        node["required"] = list(node.get("properties", {}))
+        if not isinstance(node.get("additionalProperties"), dict):
+            node["additionalProperties"] = False
+        properties = node.get("properties", {})
+        optional = set(properties) - set(node.get("required", []))
+        for name in optional:
+            if isinstance(properties[name], dict):
+                properties[name] = _nullable(properties[name])
+        node["required"] = list(properties)
+    return node
+
+
+def _nullable(node: dict[str, Any]) -> dict[str, Any]:
+    """`node` also accepting `null`."""
+    kind = node.get("type")
+    if "anyOf" in node:
+        if not any(isinstance(b, dict) and b.get("type") == "null" for b in node["anyOf"]):
+            node["anyOf"] = [*node["anyOf"], {"type": "null"}]
+        return node
+    if isinstance(kind, str) and "const" not in node:
+        node["type"] = [kind, "null"] if kind != "null" else kind
+    elif isinstance(kind, list) and "const" not in node:
+        if "null" not in kind:
+            node["type"] = [*kind, "null"]
+    else:
+        return {"anyOf": [node, {"type": "null"}]}
+    if "enum" in node and None not in node["enum"]:
+        node["enum"] = [*node["enum"], None]
     return node
 
 
@@ -91,8 +120,9 @@ def _condition(entry: Any) -> tuple[str, Any] | None:
     return name, test["const"]
 
 
-def _split_conditions(node: dict[str, Any]) -> dict[str, Any]:
-    """An object carrying `allOf` if/then entries on one property becomes an `anyOf` of one branch per value."""
+def _split_conditions(node: dict[str, Any], root: bool = False) -> dict[str, Any]:
+    """An object carrying `allOf` if/then entries on one property becomes an `anyOf` of one branch per value.
+    At the root the entries are dropped instead (the root must stay an object; the kit's check covers them)."""
     entries = node.get("allOf")
     if not isinstance(entries, list):
         return node
@@ -103,6 +133,8 @@ def _split_conditions(node: dict[str, Any]) -> dict[str, Any]:
     name = found[0][1][0] if found[0][1] else ""
     base = {key: value for key, value in node.items() if key != "allOf"}
     rest = [entry for entry, cond in conditions if cond is None]
+    if root:
+        return {**base, **({"allOf": rest} if rest else {})}
     branches: list[dict[str, Any]] = []
     covered: list[Any] = []
     for entry, cond in found:
@@ -115,10 +147,11 @@ def _split_conditions(node: dict[str, Any]) -> dict[str, Any]:
         for other, sub in entry["then"].get("properties", {}).items():
             props[other] = {**props.get(other, {}), **sub}
         branches.append(branch)
-    listed = base.get("properties", {}).get(name, {}).get("enum", [])
-    left = [value for value in listed if value not in covered]
-    if left:  # labels with no condition of their own keep the shape they had
+    declared = base.get("properties", {}).get(name, {})
+    left = [value for value in declared.get("enum", []) if value not in covered]
+    if left or "enum" not in declared:  # other values keep the shape they had
         branch = copy.deepcopy(base)
-        branch.setdefault("properties", {})[name] = {"enum": left}
+        if left:
+            branch.setdefault("properties", {})[name] = {"enum": left}
         branches.append(branch)
     return {"anyOf": branches, **({"allOf": rest} if rest else {})}

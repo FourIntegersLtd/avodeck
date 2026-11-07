@@ -9,8 +9,8 @@ from typing import Any
 
 import pytest
 
-from app.core.ai.kit import AiKit, AiTask, UsageEvent
 from app.core.ai.bedrock import ModelResponse
+from app.core.ai.kit import AiKit, AiTask, UsageEvent
 from tests.support.ai import cell
 
 pytestmark = pytest.mark.anyio

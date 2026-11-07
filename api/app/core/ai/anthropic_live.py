@@ -113,8 +113,10 @@ class LiveAnthropic:
             except anthropic.BadRequestError as exc:
                 if not strict:
                     raise
-                # A schema over strict mode's limits is a 400 naming no content. Send it once without strict
-                # (the kit's own check stays the guard) and, if that works, do not try strict again for this schema.
+                # A schema over strict mode's limits is a 400 naming no content. Remember it at once (a retry after
+                # a busy resend must not repeat the strict 400), send it once without strict (the kit's own check
+                # stays the guard); a second 400 is raised as it is.
+                self._not_strict.add(key)
                 logger.warning(
                     "strict tool schema refused: task=%s request_id=%s; sending without strict",
                     request.task_id or "-",
@@ -122,7 +124,6 @@ class LiveAnthropic:
                 )
                 async with self.client.messages.stream(**_params(request, strict=False)) as stream:
                     reply = await stream.get_final_message()
-                self._not_strict.add(key)  # only once the plain ask worked: the 400 was then about strict
         except anthropic.APIStatusError as exc:
             failure = _classify(exc)
             self._log_call(request, started, _OUTCOMES[type(failure)], failure=failure)

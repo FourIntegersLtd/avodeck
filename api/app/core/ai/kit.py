@@ -73,6 +73,20 @@ class AiTask:
     mends_labels: bool = False  # a batch answer keeps going when one label is off its list (`mend_labels`)
 
 
+@dataclass(frozen=True)
+class UsageEvent:
+    """One AI call's usage, as given to `AiKit.usage_hooks`: ids and token counts only, never content (rule 6).
+    `provider` is the `ai_calls.region` value (`anthropic-direct` or the Bedrock region); `ok` is False when the
+    answer did not match the task's schema."""
+
+    task_id: str
+    provider: str
+    model_id: str
+    input_tokens: int
+    output_tokens: int
+    ok: bool
+
+
 class InvalidOutput(Exception):
     """The model's output did not match the task's schema twice."""
 
@@ -174,6 +188,13 @@ def backoff_delays(retries: int, base: float = 2.0, limit: float = MAX_WAIT_SECO
 
 
 class AiKit:
+    """The only way a slice calls a model.
+
+    `usage_hooks` is the public way to watch usage: append a function taking a `UsageEvent`; it is called once
+    for every answer the kit records in `ai_calls` (right after the row is written), with token counts and ids
+    only. A hook that raises is logged by class name and ignored, so it can never fail an AI call. Kits made by
+    `with_retries` share the same list."""
+
     def __init__(
         self,
         settings: AiSettings,
@@ -185,7 +206,9 @@ class AiKit:
         direct_retries: int = DIRECT_RETRIES,
         base_delay: float = 2.0,
         slot_poll_seconds: float = 1.0,
+        usage_hooks: list[Callable[[UsageEvent], None]] | None = None,
     ) -> None:
+        self.usage_hooks: list[Callable[[UsageEvent], None]] = [] if usage_hooks is None else usage_hooks
         self.settings = settings
         self.bedrock = bedrock
         self.direct = direct  # temporary, dummy data only (ADR 0036): asked first when it is set
@@ -208,6 +231,7 @@ class AiKit:
             direct_retries=retries,
             base_delay=self.base_delay,
             slot_poll_seconds=self.slot_poll_seconds,
+            usage_hooks=self.usage_hooks,
         )
 
     @property
@@ -793,6 +817,8 @@ class AiKit:
     ) -> None:
         answered_directly = response.model_id is not None and response.model_id in self.settings.direct_models.values()
         model_id = response.model_id or model_id
+        # A direct-API answer is told apart by its region (temporary, ADR 0036).
+        region = "anthropic-direct" if answered_directly else self.settings.bedrock_region
         await conn.execute(
             "insert into app.ai_calls (case_id, person_id, task_id, model_id, region, prompt_version,"
             " input_tokens, output_tokens, outcome) values (%s, app.current_person_id(), %s, %s, %s, %s, %s, %s, %s)",
@@ -800,11 +826,19 @@ class AiKit:
                 case_id,
                 task.task_id,
                 model_id,
-                # A direct-API answer is told apart by its region (temporary, ADR 0036).
-                "anthropic-direct" if answered_directly else self.settings.bedrock_region,
+                region,
                 task.prompt_version,
                 response.input_tokens,
                 response.output_tokens,
                 outcome,
             ),
         )
+        if self.usage_hooks:
+            event = UsageEvent(
+                task.task_id, region, model_id, response.input_tokens, response.output_tokens, outcome == "ok"
+            )
+            for hook in list(self.usage_hooks):
+                try:
+                    hook(event)
+                except Exception as exc:  # a watcher must never fail an AI call; class name only (rule 6)
+                    logger.warning("usage hook failed: %s", type(exc).__name__)
