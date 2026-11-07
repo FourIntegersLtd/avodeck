@@ -1,4 +1,5 @@
 // S03a Today: what needs you, the week ahead, and where to pick up. The case list is on Cases (S03c).
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { formatWeekdayDate, hourIn, t } from "../../foundation/i18n";
 import { safeLocale } from "../../foundation/i18n/dates";
@@ -6,7 +7,7 @@ import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { LinkButton, LoadError, Loading, SectionIcon, stepLabel } from "../../foundation/ui";
+import { Button, Dialog, LinkButton, LoadError, Loading, SectionIcon, stepLabel } from "../../foundation/ui";
 import { NeedsYou } from "./NeedsYou";
 import { TodayFirst } from "./TodayFirst";
 import { Icon, StepRing, caseHref, usePacks, type CaseCard } from "./shared";
@@ -119,49 +120,55 @@ function isoDay(date: Date, timeZone: string | null) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: timeZone ?? undefined, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
-/** Seven days from today with each deadline and due item (S03a). */
+/** The next seven days as one short line; the box behind it lists what is due, day by day (S03a). */
 function Week({ cases, needs, timezone, locale }: { cases: CaseCard[]; needs: Schemas["NeedsYouItem"][]; timezone: string | null; locale: string | null }) {
+  const [open, setOpen] = useState(false);
   const start = isoDay(new Date(), timezone);
   const [y, m, d] = start.split("-").map(Number);
   const days = Array.from({ length: 7 }, (_, i) => new Date(Date.UTC(y!, m! - 1, d! + i)));
   const label = (id: string) => cases.find((c) => c.case_id === id)?.label;
   const dueOn = (iso: string) => {
-    const names = new Set<string>();
-    for (const c of cases) if (c.due_date === iso) names.add(c.label);
+    const found = new Map<string, string>();
+    for (const c of cases) if (c.due_date === iso) found.set(c.case_id, c.label);
     for (const n of needs) {
       const name = n.case_id ? label(n.case_id) : undefined;
-      if (n.due_at && name && isoDay(new Date(n.due_at), timezone) === iso) names.add(name);
+      if (n.case_id && n.due_at && name && isoDay(new Date(n.due_at), timezone) === iso) found.set(n.case_id, name);
     }
-    return [...names];
+    return [...found].map(([id, name]) => ({ id, name }));
   };
   const fmt = (opts: Intl.DateTimeFormatOptions, day: Date) => new Intl.DateTimeFormat(safeLocale(locale), { ...opts, timeZone: "UTC" }).format(day);
+  const busy = days.map((day) => ({ day, due: dueOn(day.toISOString().slice(0, 10)) })).filter((x) => x.due.length > 0);
+  const total = busy.reduce((n, x) => n + x.due.length, 0);
+  const summary = total === 0 ? t("today.week.empty") : t("today.week.summary", { count: total });
   return (
     <section aria-labelledby="this-week" className="av-section">
-      <div className="av-today__head">
+      <div className="av-today__head av-week-line">
         <h2 id="this-week">{t("today.week.title")}</h2>
-        <p className="av-muted">{t("today.week.note")}</p>
+        <p className="av-muted">{summary}</p>
+        <Button variant="quiet" onClick={() => setOpen(true)}>{t("today.week.open")}</Button>
       </div>
-      <ol className="av-week">
-        {days.map((day) => {
-          const due = dueOn(day.toISOString().slice(0, 10));
-          return (
-            <li key={day.toISOString()} className="av-week__day">
-              <span className="av-week__date">
-                {fmt({ weekday: "short" }, day)} <strong>{fmt({ day: "numeric" }, day)}</strong>
-              </span>
-              {due.length === 0 ? (
-                <span className="av-muted">{t("today.week.none")}</span>
-              ) : (
-                due.map((name) => (
-                  <span key={name}>
-                    <strong>{name}</strong> · {t("today.week.due")}
-                  </span>
-                ))
-              )}
-            </li>
-          );
-        })}
-      </ol>
+      {open && (
+        <Dialog title={t("today.week.title")} onClose={() => setOpen(false)}>
+          <p className="av-muted">{t("today.week.note")}</p>
+          {busy.length === 0 ? (
+            <p>{summary}</p>
+          ) : (
+            <ul className="av-week-list">
+              {busy.map(({ day, due }) => (
+                <li key={day.toISOString()}>
+                  <strong>{fmt({ weekday: "long", day: "numeric", month: "long" }, day)}</strong>
+                  {due.map(({ id, name }) => (
+                    <Link key={id} to={caseHref(id)}>{name} · {t("today.week.due")}</Link>
+                  ))}
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="av-dialog__actions">
+            <Button variant="secondary" onClick={() => setOpen(false)}>{t("app.toast.close")}</Button>
+          </div>
+        </Dialog>
+      )}
     </section>
   );
 }

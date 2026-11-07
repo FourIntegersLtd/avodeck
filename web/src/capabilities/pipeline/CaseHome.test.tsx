@@ -1,7 +1,8 @@
 // Case home: the papers the expert uploaded, grouped by kind, and where they are in the case.
 // Runs under both pack sets; the steps and the kind words come from the pack or the words file.
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
+import { registerScreen } from "../../foundation/lib/screens";
 import type { Schemas } from "../../foundation/platform-client";
 import { http, json, server, signedIn } from "../../test/api";
 import { fixturePack, launchPack } from "../../test/fixtures";
@@ -140,5 +141,39 @@ describe.each([
     renderAt(PATH);
     await screen.findByRole("heading", { name: "Your papers for this case" });
     expect(screen.queryByRole("link", { name: "Add more papers" })).toBeNull();
+  });
+
+  test("Remove asks in our own box, and only Confirm removes the file", async () => {
+    mock(pack);
+    let removed = 0;
+    server.use(http.delete(`/v1/cases/${CASE_ID}/documents/d2000000-0000-4000-8000-000000000002`, () => { removed += 1; return new Response(null, { status: 204 }); }));
+    const { user } = renderAt(PATH);
+    const remove = await screen.findByRole("button", { name: "Remove practice.pdf" });
+    await user.click(remove);
+    const box = await screen.findByRole("dialog", { name: "Remove" });
+    expect(box).toHaveTextContent("Remove this file and all its pages? This cannot be undone.");
+    await user.click(within(box).getByRole("button", { name: "Cancel" }));
+    expect(removed).toBe(0);
+    await user.click(screen.getByRole("button", { name: "Remove practice.pdf" }));
+    await user.click(within(await screen.findByRole("dialog", { name: "Remove" })).getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(removed).toBe(1));
+  });
+
+  test("Delete this case leads to the close screen for someone who may delete", async () => {
+    registerScreen("close", ({ caseId }) => `/cases/${caseId}/close`);
+    mock(pack);
+    server.use(http.get(`/v1/cases/${CASE_ID}`, () => json({ ...theCase({ allowed_actions: [...theCase().allowed_actions, "case.delete_now"] }), stage: (pack.workflow_steps as Array<{ key: string }>)[1]!.key })));
+    renderAt(PATH);
+    const card = await screen.findByRole("region", { name: "About the case" });
+    expect(await within(card).findByRole("link", { name: "Delete this case" })).toHaveAttribute("href", `/cases/${CASE_ID}/close`);
+  });
+
+  test("Delete this case is not offered to someone who may not delete", async () => {
+    registerScreen("close", ({ caseId }) => `/cases/${caseId}/close`);
+    mock(pack);
+    renderAt(PATH);
+    const card = await screen.findByRole("region", { name: "About the case" });
+    await within(card).findByText("Report due");
+    expect(within(card).queryByRole("link", { name: "Delete this case" })).toBeNull();
   });
 });

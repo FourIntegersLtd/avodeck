@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { t } from "../../foundation/i18n";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
+import { useConfirm } from "../../foundation/lib/confirm";
 import { errorMessage } from "../../foundation/lib/errors";
 import { firstScreenInCase, screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
@@ -27,6 +28,7 @@ function groupsOf(docs: Doc[]): Array<{ kind: string; files: Doc[] }> {
 
 export function CaseHome() {
   const { item, pack } = useCaseFrame();
+  const confirm = useConfirm();
   const caseId = item.id;
   const locale = pack.locale;
   const summary = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/bundle/summary", casePath(caseId))), [caseId]);
@@ -39,7 +41,7 @@ export function CaseHome() {
   const num = (n: number) => formatNumber(n, locale);
 
   const removeFile = async (documentId: string) => {
-    if (!confirm(w("home.delete_confirm"))) return;
+    if (!(await confirm({ message: w("home.delete_confirm"), title: w("home.delete"), confirmLabel: w("home.delete"), danger: true }))) return;
     setDeleting((prev) => new Set(prev).add(documentId));
     setDeleteError(null);
     try {
@@ -81,6 +83,7 @@ export function CaseHome() {
   const nextPage = Math.min(read + 1, Math.max(total, 1));
   const resume = reading ? reader(nextPage) : currentIndex >= 0 ? firstScreenInCase(current?.screens, caseId) : null;
   const questionsPath = screenPath("questions", { caseId });
+  const deleteCasePath = can(item, "case.delete_now") ? screenPath("close", { caseId }) : null; // the close screen asks, and the server decides
 
   return (
     <div className="av-page pl-home">
@@ -179,6 +182,7 @@ export function CaseHome() {
             <div><dt>{w("home.unreadable")}</dt><dd className="av-mono">{num(s.unreadable)}</dd></div>
           </dl>
           {questionsPath && <Link className="pl-file__open" to={questionsPath}>{w("home.see_questions")}</Link>}
+          {deleteCasePath && <Link className="pl-file__open pl-file__open--danger" to={deleteCasePath}>{w("home.delete_case")}</Link>}
         </section>
       </aside>
     </div>

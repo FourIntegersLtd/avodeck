@@ -7,6 +7,7 @@ import { useParams } from "react-router-dom";
 import { saveBlob } from "../../foundation/lib/files";
 import { formatDay } from "../../foundation/i18n/dates";
 import { caseSubtitle, stepFor } from "../../foundation/lib/caseFrame";
+import { useConfirm } from "../../foundation/lib/confirm";
 import { SessionContext } from "../../foundation/lib/session";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useJobOutcome } from "../../foundation/lib/sse";
@@ -268,7 +269,7 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
   // With nothing saved yet the usual setting is the one in force, so it shows chosen.
   const saved = summary.retention_policy ?? "keep_default";
   const [choice, setChoice] = useState<string>(saved);
-  const [confirming, setConfirming] = useState(false);
+  const confirm = useConfirm();
   const busy = useBusy();
   const [message, setMessage] = useState<Message>(null);
   const limit = summary.max_retention_years ?? null;
@@ -291,9 +292,12 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
     }
   };
 
-  const pick = (value: string) => {
+  const pick = async (value: string) => {
     if (value === "delete_now") {
-      setConfirming(true);
+      const sure = await confirm({ title: w("keep.confirm_title"), message: w("keep.confirm_body"), confirmLabel: w("keep.confirm_yes"), cancelLabel: w("keep.confirm_no"), danger: true });
+      if (!sure) return;
+      setChoice("delete_now");
+      void busy.run(() => save("delete_now"));
       return;
     }
     setChoice(value);
@@ -322,26 +326,6 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
         <Notice tone={message.tone}>
           <p>{message.text}</p>
         </Notice>
-      )}
-      {confirming && (
-        <Dialog title={w("keep.confirm_title")} onClose={() => setConfirming(false)}>
-          <p>{w("keep.confirm_body")}</p>
-          <div className="av-close-actions">
-            <Button variant="secondary" onClick={() => setConfirming(false)}>
-              {w("keep.confirm_no")}
-            </Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                setConfirming(false);
-                setChoice("delete_now");
-                void busy.run(() => save("delete_now"));
-              }}
-            >
-              {w("keep.confirm_yes")}
-            </Button>
-          </div>
-        </Dialog>
       )}
     </Section>
   );
