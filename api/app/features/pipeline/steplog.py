@@ -269,5 +269,6 @@ def tap_usage(kit: AiKit) -> None:
     """Has each model call the kit records (its `ai_calls` row) also count into the batch being run in this
     task, through the kit's public `usage_hooks`. Safe to call again: the hook is added once, and kits made by
     `with_retries` share the list."""
-    if _count_usage not in kit.usage_hooks:
-        kit.usage_hooks.append(_count_usage)
+    hooks = getattr(kit, "usage_hooks", None)  # a test double without the list simply goes uncounted
+    if hooks is not None and _count_usage not in hooks:
+        hooks.append(_count_usage)
