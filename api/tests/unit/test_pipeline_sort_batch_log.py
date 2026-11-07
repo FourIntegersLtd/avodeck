@@ -11,12 +11,13 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+from app.core.ai.kit import AiKit, UsageEvent
 from app.features.pipeline import service, steplog
+from tests.support.ai import cell
 
 JOB, CASE = uuid.uuid4(), uuid.uuid4()
 TEXT = "Quillbrook synthetic page text 943 476 5919"
@@ -30,12 +31,15 @@ class FakeCtx:
         self.calls.append({"pct": pct, **kw})
 
 
-class FakeKit:
-    def __init__(self) -> None:
-        self.logged: list[str] = []
+def real_kit() -> AiKit:
+    return AiKit(cell(), None)
 
-    async def _log(self, conn: Any, task: Any, model_id: str, case_id: Any, response: Any, outcome: str) -> None:
-        self.logged.append(outcome)
+
+def fire(kit: AiKit, input_tokens: int, output_tokens: int, ok: bool = True) -> None:
+    """What the kit does after it writes an `ai_calls` row: tell each hook, counts and ids only."""
+    event = UsageEvent("T-07b", "p", "m", input_tokens, output_tokens, ok)
+    for hook in list(kit.usage_hooks):
+        hook(event)
 
 
 def fields(line: str) -> dict[str, str]:
@@ -61,17 +65,32 @@ async def test_progress_is_reported_once_per_batch_with_the_cumulative_count() -
 
 
 @pytest.mark.anyio
-async def test_a_batch_line_has_the_token_fields_and_no_text(caplog: pytest.LogCaptureFixture) -> None:
-    caplog.set_level(logging.INFO)
-    kit = FakeKit()
+async def test_progress_never_goes_backwards_when_batches_report_out_of_order() -> None:
+    ctx = FakeCtx()
+    await service._report_batch(ctx, None, 6, 9)  # type: ignore[arg-type]
+    await service._report_batch(ctx, None, 3, 9)  # type: ignore[arg-type]
+    assert max(c["step_done"] for c in ctx.calls) == 6
+    assert ctx.calls[-1]["step_done"] == 6  # the late, lower report leaves the row where it was
+    assert all(c["monotone"] is True for c in ctx.calls)  # the percentage is held up by the writer too
+
+
+def test_the_usage_hook_is_added_once_to_the_kits_own_hook_list() -> None:
+    kit = real_kit()
     steplog.tap_usage(kit)
     steplog.tap_usage(kit)  # twice changes nothing
-    response = SimpleNamespace(input_tokens=1200, output_tokens=3400, output={"pages": [{"note": TEXT}]})
+    steplog.tap_usage(kit.with_retries(0))  # a kit made by with_retries shares the list
+    assert len(kit.usage_hooks) == 1
+
+
+@pytest.mark.anyio
+async def test_a_batch_line_has_the_token_fields_and_no_text(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO)
+    kit = real_kit()
+    steplog.tap_usage(kit)
     with steplog.batch_usage([10, 11, 12]) as usage:
         usage.asked(3)
-        await kit._log(None, SimpleNamespace(task_id="T-07b"), "m", CASE, response, "ok")
+        fire(kit, 1200, 3400)
         usage.log(JOB, CASE)
-    assert kit.logged == ["ok"]  # the kit's own logging still happens, once
     (line,) = batch_lines(caplog)
     f = fields(line)
     assert (f["step"], f["event"], f["job"], f["case"]) == ("sort", "batch", str(JOB), str(CASE))
@@ -84,23 +103,21 @@ async def test_a_batch_line_has_the_token_fields_and_no_text(caplog: pytest.LogC
 @pytest.mark.anyio
 async def test_a_retried_and_a_split_batch_are_told_apart(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO)
-    kit = FakeKit()
+    kit = real_kit()
     steplog.tap_usage(kit)
-    ok = SimpleNamespace(input_tokens=100, output_tokens=200, output={})
-    bad = SimpleNamespace(input_tokens=100, output_tokens=8192, output={})
     with steplog.batch_usage([1, 2, 3, 4]) as retried:
         retried.asked(4)
-        await kit._log(None, None, "m", CASE, bad, "invalid_output")
+        fire(kit, 100, 8192, ok=False)
         retried.asked(4)
-        await kit._log(None, None, "m", CASE, ok, "ok")
+        fire(kit, 100, 200)
         retried.log(JOB, CASE)
     with steplog.batch_usage([1, 2, 3, 4]) as split:
         split.asked(4)
-        await kit._log(None, None, "m", CASE, bad, "invalid_output")
+        fire(kit, 100, 8192, ok=False)
         split.asked(2)
         split.asked(2)
-        await kit._log(None, None, "m", CASE, ok, "ok")
-        await kit._log(None, None, "m", CASE, ok, "ok")
+        fire(kit, 100, 200)
+        fire(kit, 100, 200)
         split.log(JOB, CASE)
     first, second = (fields(line) for line in batch_lines(caplog))
     assert (first["calls"], first["invalid"], first["input_tokens"], first["output_tokens"]) == (
@@ -116,10 +133,9 @@ async def test_a_retried_and_a_split_batch_are_told_apart(caplog: pytest.LogCapt
 
 @pytest.mark.anyio
 async def test_a_call_outside_any_batch_is_still_logged_by_the_kit() -> None:
-    kit = FakeKit()
+    kit = real_kit()
     steplog.tap_usage(kit)
-    await kit._log(None, None, "m", CASE, SimpleNamespace(input_tokens=1, output_tokens=2, output={}), "ok")
-    assert kit.logged == ["ok"]
+    fire(kit, 1, 2)  # no batch is running: nothing to count into, and nothing breaks
 
 
 def test_a_batch_with_no_call_shows_dashes_for_the_tokens(caplog: pytest.LogCaptureFixture) -> None:
