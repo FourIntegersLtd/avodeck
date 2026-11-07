@@ -7,6 +7,9 @@ Every line is `pipeline step=<step> event=<event> job=<id> case=<id> key=value .
 - `failed_pages` (WARNING): the failed page numbers, at most 50 and then `+N more`;
 - `end`: outcome, reason code, ok, failed, skipped, total ms, slowest page ms.
 
+- `batch` (sort step, one line per batch of pages): pages, first, last, calls, input_tokens, output_tokens,
+  invalid, asked (the group sizes asked, in order), split, retried.
+
 Rule 6: only ids, page numbers, counts, milliseconds, status codes and exception CLASS names are written.
 Never `str(exc)`, a page's text, a prompt or an answer: an exception message may carry patient text.
 """
@@ -19,8 +22,9 @@ import logging
 import re
 import time
 import uuid
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Sequence
 from contextvars import ContextVar
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from app.core.errors import ProcessingPaused
@@ -35,6 +39,9 @@ logger = logging.getLogger(__name__)
 FAILED_PAGES_SHOWN = 50  # a whole-bundle failure must not write thousands of numbers into one log line
 _HTTP_CODE = re.compile(r"http_(\d{3})")  # how the OCR client words a refusal: a status, never text
 _REQUEST_ID = re.compile(r"[A-Za-z0-9-]{8,64}")  # a vendor request id; anything else is dropped
+
+ASKED_SHOWN = 20  # a batch split to single pages must not write a long list into one log line
+_batch: ContextVar[BatchUsage | None] = ContextVar("pipeline_batch_usage", default=None)
 
 Pending = Callable[["AsyncConnection", uuid.UUID], Awaitable[tuple[str, int, int]]]  # unit, to do, already done
 _current: ContextVar[StepRun | None] = ContextVar("pipeline_step_run", default=None)
@@ -189,3 +196,83 @@ async def logged_step(ctx: JobContext, step: str, pending: Pending, concurrency:
         run.end()
     finally:
         _current.reset(token)
+
+
+@dataclass
+class BatchUsage:
+    """What one sort batch cost: its pages, the model calls made for it and their token counts. Numbers only."""
+
+    pages: list[int]
+    calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    invalid: int = 0
+    sizes: list[int] = field(default_factory=list)
+
+    def asked(self, size: int) -> None:
+        """A group of `size` pages is about to be asked of the model."""
+        self.sizes.append(size)
+
+    def record(self, input_tokens: int, output_tokens: int, outcome: str) -> None:
+        self.calls += 1
+        self.input_tokens += input_tokens
+        self.output_tokens += output_tokens
+        if outcome != "ok":
+            self.invalid += 1
+
+    def log(self, job_id: uuid.UUID, case_id: uuid.UUID, step: str = "sort") -> None:
+        whole = len(self.pages)
+        shown = ",".join(str(s) for s in self.sizes[:ASKED_SHOWN])
+        more = len(self.sizes) - ASKED_SHOWN
+        logger.info(
+            "pipeline step=%s event=batch job=%s case=%s pages=%d first=%s last=%s calls=%d input_tokens=%s"
+            " output_tokens=%s invalid=%d asked=%s split=%s retried=%s",
+            step,
+            job_id,
+            case_id,
+            whole,
+            min(self.pages) if self.pages else "-",
+            max(self.pages) if self.pages else "-",
+            self.calls,
+            self.input_tokens if self.calls else "-",
+            self.output_tokens if self.calls else "-",
+            self.invalid,
+            (shown + (f"+{more}more" if more > 0 else "")) or "-",
+            "yes" if any(s < whole for s in self.sizes) else "no",
+            "yes" if self.sizes.count(whole) > 1 else "no",
+        )
+
+
+@contextlib.contextmanager
+def batch_usage(pages: Sequence[int]) -> Iterator[BatchUsage]:
+    """Collects the model calls made in this task while the block runs, for one batch of `pages`."""
+    usage = BatchUsage(list(pages))
+    token = _batch.set(usage)
+    try:
+        yield usage
+    finally:
+        _batch.reset(token)
+
+
+def current_batch() -> BatchUsage | None:
+    return _batch.get()
+
+
+def tap_usage(kit: Any) -> None:
+    """Has the kit's own per-call usage record (the `ai_calls` row it writes) also count into the batch being
+    run in this task. The answer carries no usage, so this reads it where the kit inserts it, without changing
+    the kit. Safe to call again, and a no-op for a kit with no such method."""
+    original = getattr(kit, "_log", None)
+    if original is None or getattr(original, "_usage_tap", False):
+        return
+
+    async def tapped(conn: Any, task: Any, model_id: str, case_id: Any, response: Any, outcome: str) -> None:
+        await original(conn, task, model_id, case_id, response, outcome)
+        usage = _batch.get()
+        if usage is not None:
+            used = [getattr(response, name, 0) for name in ("input_tokens", "output_tokens")]
+            counts = [t if isinstance(t, int) else 0 for t in used]
+            usage.record(counts[0], counts[1], outcome)
+
+    tapped._usage_tap = True  # type: ignore[attr-defined]
+    kit._log = tapped
