@@ -32,6 +32,7 @@ UNSUPPORTED = ("minLength", "maxLength", "minimum", "maximum", "maxItems", "mult
 
 SCHEMA: dict[str, Any] = {
     "type": "object",
+    "required": ["kind"],  # the others are optional, so strict mode makes them nullable
     "properties": {
         "kind": {"enum": ["a", "b"]},
         "reason": {"type": "string", "minLength": 1, "maxLength": 80},
@@ -194,3 +195,137 @@ async def test_a_schema_the_api_rejects_is_sent_again_without_strict_and_remembe
 
     await client.invoke(request(SCHEMA))
     assert [bool(b["tools"][0].get("strict")) for b in seen] == [True, False, False], "not tried again"
+
+
+def refused(req: httpx2.Request, seen: list[dict[str, Any]]) -> dict[str, Any]:
+    body: dict[str, Any] = json.loads(req.content)
+    seen.append(body)
+    return body
+
+
+def client_for(handle: Any) -> LiveAnthropic:
+    from app.core.config import ai_settings
+
+    settings = ai_settings(cell_env(AI_PRIMARY_PROVIDER="anthropic", ANTHROPIC_API_KEY="sk-ant-test-not-real"))
+    return LiveAnthropic(settings, "sk-ant-test-not-real", transport=httpx2.MockTransport(handle))
+
+
+def bad_request() -> httpx2.Response:
+    return httpx2.Response(
+        400, json={"type": "error", "error": {"type": "invalid_request_error", "message": "refused"}}
+    )
+
+
+async def test_a_second_400_on_the_plain_resend_is_raised_not_swallowed() -> None:
+    from app.core.ai.bedrock import ModelRequestRefused
+
+    seen: list[dict[str, Any]] = []
+
+    def handle(req: httpx2.Request) -> httpx2.Response:
+        refused(req, seen)
+        return bad_request()
+
+    with pytest.raises(ModelRequestRefused):
+        await client_for(handle).invoke(request(SCHEMA))
+    assert [bool(b["tools"][0].get("strict")) for b in seen] == [True, False]
+
+
+async def test_a_strict_refusal_is_remembered_even_when_the_plain_resend_is_busy() -> None:
+    """The 400 is about strict; if the resend meets a 429 the next call (a retry) goes plain straight away."""
+    from app.core.ai.bedrock import ServiceBusy
+
+    seen: list[dict[str, Any]] = []
+
+    def handle(req: httpx2.Request) -> httpx2.Response:
+        body = refused(req, seen)
+        if body["tools"][0].get("strict"):
+            return bad_request()
+        if len(seen) == 2:
+            return httpx2.Response(
+                429, json={"type": "error", "error": {"type": "rate_limit_error", "message": "slow"}}
+            )
+        return httpx2.Response(200, content=sse_events(message()), headers={"content-type": "text/event-stream"})
+
+    client = client_for(handle)
+    with pytest.raises(ServiceBusy):
+        await client.invoke(request(SCHEMA))
+    assert (await client.invoke(request(SCHEMA))).output == {"kind": "a"}
+    assert [bool(b["tools"][0].get("strict")) for b in seen] == [True, False, False], "no strict attempt on retry"
+
+
+def nodes_of(strict: dict[str, Any], *path: str) -> dict[str, Any]:
+    node = strict
+    for step in path:
+        node = node[step]
+    return node
+
+
+def test_an_optional_property_may_be_null_so_the_model_need_not_invent_a_value() -> None:
+    schema = {
+        "type": "object",
+        "required": ["a"],
+        "properties": {
+            "a": {"type": "string"},
+            "b": {"type": "string"},
+            "c": {"type": ["integer", "null"]},
+            "d": {"anyOf": [{"type": "string"}, {"type": "integer"}]},
+            "e": {"type": "string", "enum": ["x", "y"]},
+            "f": {"enum": ["x", "y"]},
+            "g": {"$ref": "#/$defs/thing"},
+        },
+        "$defs": {"thing": {"type": "object", "properties": {"n": {"type": "string"}}, "required": ["n"]}},
+    }
+    props = strict_schema(schema)["properties"]
+    assert props["a"] == {"type": "string"}, "required stays as it was"
+    assert props["b"]["type"] == ["string", "null"]
+    assert props["c"]["type"] == ["integer", "null"]
+    assert {"type": "null"} in props["d"]["anyOf"]
+    assert props["e"] == {"type": ["string", "null"], "enum": ["x", "y", None]}
+    assert {"type": "null"} in props["f"]["anyOf"]
+    assert {"type": "null"} in props["g"]["anyOf"]
+    assert strict_schema(schema)["required"] == list(schema["properties"])
+
+
+def test_a_map_with_a_schema_for_its_values_is_kept_open_not_overwritten() -> None:
+    schema = {
+        "type": "object",
+        "required": ["labels"],
+        "properties": {"labels": {"type": "object", "additionalProperties": {"type": "string"}}},
+    }
+    strict = strict_schema(schema)
+    assert strict["properties"]["labels"]["additionalProperties"] == {"type": "string"}
+    assert strict["additionalProperties"] is False, "the object around it is still closed"
+
+
+def test_a_condition_on_a_property_with_no_list_keeps_a_branch_for_every_other_value() -> None:
+    fact = {
+        "type": "object",
+        "required": ["kind", "fields"],
+        "properties": {"kind": {"type": "string"}, "fields": {"type": "object"}},
+        "allOf": [
+            {
+                "if": {"properties": {"kind": {"const": "k1"}}},
+                "then": {"properties": {"fields": {"type": "object", "properties": {"date": {"type": "string"}}}}},
+            }
+        ],
+    }
+    strict = strict_schema({"type": "object", "required": ["f"], "properties": {"f": fact}})
+    branches = strict["properties"]["f"]["anyOf"]
+    assert branches[0]["properties"]["kind"] == {"enum": ["k1"]}
+    assert len(branches) == 2
+    assert branches[1]["properties"]["kind"] == {"type": "string"}, "any other value keeps the base shape"
+
+
+def test_a_condition_at_the_root_leaves_the_root_an_object() -> None:
+    root = {
+        "type": "object",
+        "required": ["kind"],
+        "properties": {"kind": {"enum": ["k1", "k2"]}, "x": {"type": "string"}},
+        "allOf": [{"if": {"properties": {"kind": {"const": "k1"}}}, "then": {"required": ["x"]}}],
+    }
+    strict = strict_schema(root)
+    assert strict["type"] == "object"
+    assert strict["additionalProperties"] is False
+    assert "anyOf" not in strict
+    assert not [k for k in keywords(strict) if k in ("allOf", "if", "then")]
+    assert list(strict["properties"]) == ["kind", "x"]
