@@ -34,6 +34,7 @@ import os
 import tempfile
 import time
 import uuid
+import weakref
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
@@ -441,11 +442,31 @@ async def bounded[T](
         raise ProcessingPaused("cancelled")
 
 
+class _SortReport:
+    """The highest count the sort step has put on its job row, and the lock that keeps the writes in order."""
+
+    def __init__(self) -> None:
+        self.done = 0
+        self.lock = asyncio.Lock()
+
+
+_sort_reports: weakref.WeakKeyDictionary[Any, _SortReport] = weakref.WeakKeyDictionary()
+
+
 async def _report_batch(ctx: JobContext, scope: BatchScope | None, done: int, total: int) -> None:
     """The sort step's progress after every finished batch, whatever the page count: the bundle's own job puts
-    `done` of `total` on its row; a page-batch child puts the run's live counts on the parent's."""
+    `done` of `total` on its row; a page-batch child puts the run's live counts on the parent's. Batches run
+    side by side and can finish out of order, so a count lower than one already written is not written (the
+    core writes `step_done` as given, only `pct` can be held up), and `pct` is sent monotone."""
     if scope is None:
-        await ctx.progress(min(55, 40 + 15 * done // total), step="sort", step_done=done, step_total=total)
+        report = _sort_reports.setdefault(ctx, _SortReport())
+        async with report.lock:
+            if done < report.done:
+                return
+            report.done = done
+            await ctx.progress(
+                min(55, 40 + 15 * done // total), step="sort", step_done=done, step_total=total, monotone=True
+            )
     else:
         await _tick(ctx, scope)
 

@@ -27,6 +27,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from app.core.ai.kit import AiKit, UsageEvent
 from app.core.errors import ProcessingPaused
 
 if TYPE_CHECKING:
@@ -258,21 +259,15 @@ def current_batch() -> BatchUsage | None:
     return _batch.get()
 
 
-def tap_usage(kit: Any) -> None:
-    """Has the kit's own per-call usage record (the `ai_calls` row it writes) also count into the batch being
-    run in this task. The answer carries no usage, so this reads it where the kit inserts it, without changing
-    the kit. Safe to call again, and a no-op for a kit with no such method."""
-    original = getattr(kit, "_log", None)
-    if original is None or getattr(original, "_usage_tap", False):
-        return
+def _count_usage(event: UsageEvent) -> None:
+    usage = _batch.get()
+    if usage is not None:
+        usage.record(event.input_tokens, event.output_tokens, "ok" if event.ok else "invalid_output")
 
-    async def tapped(conn: Any, task: Any, model_id: str, case_id: Any, response: Any, outcome: str) -> None:
-        await original(conn, task, model_id, case_id, response, outcome)
-        usage = _batch.get()
-        if usage is not None:
-            used = [getattr(response, name, 0) for name in ("input_tokens", "output_tokens")]
-            counts = [t if isinstance(t, int) else 0 for t in used]
-            usage.record(counts[0], counts[1], outcome)
 
-    tapped._usage_tap = True  # type: ignore[attr-defined]
-    kit._log = tapped
+def tap_usage(kit: AiKit) -> None:
+    """Has each model call the kit records (its `ai_calls` row) also count into the batch being run in this
+    task, through the kit's public `usage_hooks`. Safe to call again: the hook is added once, and kits made by
+    `with_retries` share the list."""
+    if _count_usage not in kit.usage_hooks:
+        kit.usage_hooks.append(_count_usage)
