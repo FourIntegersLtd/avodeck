@@ -12,7 +12,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Protocol
+
+from psycopg_pool import PoolTimeout
 
 import app.core.housekeeping  # noqa: F401 - registers the foundation's daily schedules
 import app.core.notifications  # noqa: F401 - the daily messages schedule
@@ -82,12 +85,47 @@ def build_worker(
     )
 
 
+class _Openable(Protocol):
+    async def open(self) -> None: ...
+
+
+async def open_database_with_retry(
+    database: _Openable,
+    *,
+    attempts: int = 40,
+    base_delay: float = 5.0,
+    max_delay: float = 60.0,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> None:
+    """Open the pool, waiting out a database that is briefly unreachable.
+
+    Each try already waits psycopg's 30 second pool timeout; the delay between tries doubles from `base_delay`
+    up to `max_delay`. With the defaults the worker keeps trying for about 40 minutes before it exits and
+    Railway restarts it, so a short outage (8 Nov 2026: nine minutes) no longer uses up the restart budget
+    and leaves both workers down. Any other error (wrong role, bad URL) still ends the process at once.
+    """
+    delay = base_delay
+    for attempt in range(1, attempts + 1):
+        try:
+            await database.open()
+        except PoolTimeout as exc:
+            if attempt >= attempts:
+                raise
+            logger.warning(
+                "database not reachable (%s), try %d of %d, next in %.0fs", type(exc).__name__, attempt, attempts, delay
+            )
+            await sleep(delay)
+            delay = min(delay * 2, max_delay)
+        else:
+            return
+
+
 async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_PACKAGE) -> None:
     worker = build_worker(env, features=features)
     source = os.environ if env is None else env
     concurrency = env_int(source, "WORKER_CONCURRENCY", 4, minimum=1)
     check_pipeline_window(source, concurrency=concurrency)
-    await worker.database.open()
+    await open_database_with_retry(worker.database)
     # One LISTEN connection (on the direct URL) so a case key destroyed in another process leaves this
     # process's key cache at once, not after 5 minutes (PR 15); without it the cache is checked every 30 seconds.
     # Without the URL no listener is started and the 30 second check bounds the cache, so the worker still runs.
