@@ -13,6 +13,7 @@ import contextlib
 import email.message
 import io
 import json
+import logging
 import re
 import struct
 import uuid
@@ -163,21 +164,25 @@ def test_v1_the_scanner_settings_can_choose_clamd_and_refuse_nonsense() -> None:
 
 
 # A live cell is a Railway service: Railway itself puts RAILWAY_PROJECT_ID in its environment.
-@pytest.mark.parametrize(
-    "env",
-    [
-        pytest.param({"REGION": "uk", "RAILWAY_PROJECT_ID": "d1f0a1c2"}, id="unset"),
-        pytest.param(
-            {"REGION": "uk", "RAILWAY_PROJECT_ID": "d1f0a1c2", "VIRUS_SCANNER": "recorded"}, id="recorded-in-a-cell"
-        ),
-    ],
-)
-def test_v1_a_live_cell_never_runs_the_stand_in_scanner(env: dict[str, str]) -> None:
-    try:
-        scanner = scanner_from_env(env)
-    except ConfigError:
-        return
-    assert not isinstance(scanner, RecordedScanner), "a live cell built the stand-in scanner"
+def test_v1_a_live_cell_with_nothing_set_scans_with_clamav() -> None:
+    scanner = scanner_from_env({"REGION": "uk", "RAILWAY_PROJECT_ID": "d1f0a1c2"})
+    assert isinstance(scanner, ClamdScanner), "a live cell with the variable unset built the stand-in scanner"
+
+
+# Changed 10 Nov 2026 (production outage: the live services set VIRUS_SCANNER=recorded and there is no ClamAV service
+# yet): a cell that asks for the stand-in by name now starts with it, and logs an ERROR at start-up. V1 stays OPEN in
+# production until the ClamAV service is deployed and the variable removed (security/audit/12, section 11).
+def test_v1_a_live_cell_runs_the_stand_in_only_when_asked_for_by_name_and_says_so(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from app.core.scan import scanner_at_start_up
+
+    env = {"REGION": "uk", "RAILWAY_PROJECT_ID": "d1f0a1c2", "VIRUS_SCANNER": "recorded"}
+    with caplog.at_level(logging.ERROR):
+        scanner = scanner_at_start_up(env)
+    assert isinstance(scanner, RecordedScanner)
+    assert [r.levelname for r in caplog.records] == ["ERROR"]
+    assert "NOT virus-scanned" in caplog.text
 
 
 @pytest.mark.xfail(

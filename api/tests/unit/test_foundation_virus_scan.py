@@ -6,6 +6,7 @@ arrives with the cloud cell. Files are scanned as a stream of chunks, as they si
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 
 import pytest
@@ -61,17 +62,60 @@ def test_a_cell_with_nothing_else_set_scans_with_clamav_at_the_fixed_host() -> N
     assert (override.host, override.port) == ("clamd.other", 3311)
 
 
-def test_a_cell_refuses_the_stand_in_even_with_a_clamd_host() -> None:
+# PRODUCTION OUTAGE, 10 Nov 2026 (deliberate change of the required behaviour, not a test bent to fit code):
+# the live Railway services have VIRUS_SCANNER=recorded and the project has no ClamAV service yet, so refusing it
+# at start-up took the API and both workers down. A cell that asks for the stand-in by name now STARTS with it and
+# says so loudly (one ERROR line per process start). Unset in a cell is still ClamAV; an unknown value still raises.
+STAND_IN_ERROR = (
+    "This cell is running the test stand-in virus scanner (VIRUS_SCANNER=recorded): uploads are NOT virus-scanned. "
+    "Deploy the ClamAV service (railway/clamav.json) and remove the VIRUS_SCANNER variable."
+)
+
+
+def test_a_cell_that_asks_for_the_stand_in_by_name_gets_it() -> None:
     for extra in ({}, {"CLAMD_HOST": "clamav.railway.internal"}):
-        with pytest.raises(ConfigError, match="VIRUS_SCANNER=recorded"):
-            scanner_from_env({**CELL, "VIRUS_SCANNER": "recorded", **extra})
+        assert isinstance(scanner_from_env({**CELL, "VIRUS_SCANNER": "recorded", **extra}), RecordedScanner)
     with pytest.raises(ConfigError):
         scanner_from_env({**CELL, "VIRUS_SCANNER": "elsewhere"})
 
 
-async def test_the_worker_stops_at_start_up_when_a_cell_asks_for_the_stand_in() -> None:
-    from app.worker.main import run
+def test_start_up_logs_one_error_when_a_cell_runs_the_stand_in(caplog: pytest.LogCaptureFixture) -> None:
+    from app.core.scan import scanner_at_start_up
 
+    env = {**CELL, "VIRUS_SCANNER": "recorded"}
+    with caplog.at_level(logging.DEBUG):
+        assert isinstance(scanner_at_start_up(env), RecordedScanner)
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert [r.getMessage() for r in errors] == [STAND_IN_ERROR]
+    assert CELL["RAILWAY_PROJECT_ID"] not in caplog.text
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG):  # only the start-up check speaks: building the scanner again stays quiet
+        scanner_from_env(env)
+    assert caplog.records == []
+
+
+def test_start_up_says_nothing_when_the_scanner_is_real_or_off_railway(caplog: pytest.LogCaptureFixture) -> None:
+    from app.core.scan import scanner_at_start_up
+
+    with caplog.at_level(logging.DEBUG):
+        assert isinstance(scanner_at_start_up(CELL), ClamdScanner)
+        assert isinstance(scanner_at_start_up({"VIRUS_SCANNER": "recorded"}), RecordedScanner)
+        assert isinstance(scanner_at_start_up({}), RecordedScanner)
+    assert caplog.records == []
+
+
+async def test_the_worker_starts_and_logs_when_a_cell_asks_for_the_stand_in(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    from app.worker import main as worker_main
+
+    class Reached(Exception):
+        pass
+
+    async def stop_here(*_: object, **__: object) -> None:  # the step after the scanner check: opening the database
+        raise Reached
+
+    monkeypatch.setattr(worker_main, "open_database_with_retry", stop_here)
     url = "postgresql://app_worker:x@127.0.0.1:1/postgres"
     env = {
         **CELL,
@@ -80,11 +124,14 @@ async def test_the_worker_stops_at_start_up_when_a_cell_asks_for_the_stand_in() 
         "DATABASE_URL_DIRECT": url,
         "WORKER_QUEUES": "bulk",
     }
-    with pytest.raises(ConfigError, match="VIRUS_SCANNER=recorded"):
-        await run(env)
+    with caplog.at_level(logging.DEBUG), pytest.raises(Reached):
+        await worker_main.run(env)
+    assert [r.getMessage() for r in caplog.records if r.levelno == logging.ERROR] == [STAND_IN_ERROR]
 
 
-async def test_the_api_stops_at_start_up_when_a_cell_asks_for_the_stand_in(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_the_api_starts_and_logs_when_a_cell_asks_for_the_stand_in(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     from types import SimpleNamespace
     from typing import Any
 
@@ -105,6 +152,7 @@ async def test_the_api_stops_at_start_up_when_a_cell_asks_for_the_stand_in(monke
         crypto=SimpleNamespace(),  # type: ignore[arg-type]
         features="app.worker",  # a package with no features inside
     )
-    with pytest.raises(ConfigError, match="VIRUS_SCANNER=recorded"):
+    with caplog.at_level(logging.DEBUG):
         async with app.router.lifespan_context(app):
             pass
+    assert [r.getMessage() for r in caplog.records if r.levelno == logging.ERROR] == [STAND_IN_ERROR]
