@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import uuid
 from array import array
+from datetime import datetime
 from typing import Any
 
 from psycopg import AsyncConnection
@@ -241,7 +242,11 @@ _FACT_COLUMNS = """f.id, f.kind, f.fields, f.value, f.word_ids, f.bbox, f.event_
     exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %(points)s) as flagged,
     exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %(recheck)s) as needs_recheck,
     exists (select 1 from app.word_corrections c where c.page_id = f.page_id and c.superseded_at is null
-            and c.word_ids && f.word_ids) as cites_correction"""
+            and c.word_ids && f.word_ids) as cites_correction,
+    case when f.status <> 'suggested' then (select v.person_id from app.fact_verifications v
+        where v.fact_id = f.id and v.action <> 'reset' order by v.seq desc limit 1) end as verified_by,
+    case when f.status <> 'suggested' then (select v.at from app.fact_verifications v
+        where v.fact_id = f.id and v.action <> 'reset' order by v.seq desc limit 1) end as verified_at"""
 _FLAGS = {"points": POINTS, "recheck": RECHECK}
 
 
@@ -476,13 +481,13 @@ async def log_check(
     reason: str | None = None,
     new_page_id: uuid.UUID | None = None,
     correction_id: uuid.UUID | None = None,
-) -> None:
+) -> datetime:
     """Append the check to the case's verification log (the database numbers and hashes it), with the
-    expert's reading of misread words it relied on, if any."""
-    await conn.execute(
+    expert's reading of misread words it relied on, if any. Returns the time it was logged."""
+    cur = await conn.execute(
         """insert into app.fact_verifications (case_id, fact_id, person_id, action, old_value, new_value,
                old_fields, new_fields, old_word_ids, new_word_ids, old_page_id, new_page_id, reason, correction_id)
-           values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+           values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) returning at""",
         (
             case_id,
             before["id"],
@@ -500,6 +505,9 @@ async def log_check(
             correction_id,
         ),
     )
+    row = await cur.fetchone()
+    assert row is not None
+    return row[0]  # type: ignore[no-any-return]
 
 
 async def set_flag(

@@ -164,6 +164,7 @@ const WORDS = {
   "unreadable.all_pages": "All the pages",
   "second.ask": "Ask for another reading",
   "second.title": "Another reading (check it against the page)",
+  "second.machine": "Read by the computer from the picture. Not checked: check it against the page.",
   "second.waiting": "Reading the page again. This can take a minute.",
   "second.refused": "We couldn't hide the name safely on this page, so we didn't send it.",
   "second.failed": "We couldn't get another reading just now. Please try again.",

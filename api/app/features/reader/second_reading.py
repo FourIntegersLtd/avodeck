@@ -261,9 +261,9 @@ async def _finish(
 ) -> None:
     """Records the outcome only for the request the job read: a newer request (a later `requested_at`) stays."""
     await conn.execute(
-        "update app.second_readings set status = %s, reason = %s, lines = %s, finished_at = now()"
-        " where page_id = %s and requested_at = %s and status = 'queued'",
-        (status, reason, sealed, page_id, requested_at),
+        "update app.second_readings set status = %s, reason = %s, lines = %s, finished_at = now(),"
+        " prompt_version = %s where page_id = %s and requested_at = %s and status = 'queued'",
+        (status, reason, sealed, TASK.prompt_version, page_id, requested_at),
     )
 
 

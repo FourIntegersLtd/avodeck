@@ -332,7 +332,14 @@ async def test_r_p_2_a_hostile_picture_and_a_hostile_answer_change_nothing(
     assert leaked(sent_text) == []
 
     body = (await client.get(sr(case))).json()
-    assert body == {"status": "done", "reason": None, "lines": [{"text": hostile, "confidence": 0.9}]}
+    assert body == {
+        "status": "done",
+        "reason": None,
+        "lines": [{"text": hostile, "confidence": 0.9}],
+        "source": "machine_read",  # step 14 R-O-5: the marker and its provenance grew the answer
+        "prompt_version": second_reading.TASK.prompt_version,
+        "read_at": body["read_at"],
+    }
     assert snapshot(admin, case, page) == before, "the reader's record is untouched by what the model said"
     jobs = admin.execute("select count(*) from app.jobs where case_id = %s", (case,)).fetchone()
     assert jobs == (1,), "the answer queued no further work"
@@ -407,7 +414,7 @@ async def test_r_p_4_who_may_ask_and_see(
         assert (await client.post(sr(case, 1, "?on_request=true"))).status_code == 202, who
         assert (await client.get(sr(case))).status_code == 200, who
     jobs = admin.execute("select count(*) from app.jobs where case_id = %s and kind = 'second_reading'", (case,))
-    assert jobs.fetchone() == (2,)
+    assert jobs.fetchone() == (1,), "the assistant's ask while one is waiting queued nothing more (step 14 R-E-2)"
 
 
 async def test_r_p_5_asking_queues_a_job_and_sends_nothing_in_the_request(
@@ -451,19 +458,20 @@ async def test_r_e_1_the_cost_guard_stops_a_job_over_its_allowance(
     await run_job(worker_db, admin, case, await ask(client, case))  # control: under the allowance it runs
     assert stored_status(admin, page)[0] == "done" and len(model.requests) == 1
 
+    # asking again for a finished page queues nothing (step 14 R-E-2), so queue the page again as the job sees it
+    admin.execute("update app.second_readings set status = 'queued', lines = null where page_id = %s", (page,))
+    again = admin.execute(
+        "insert into app.jobs (case_id, kind) values (%s, 'second_reading') returning id", (case,)
+    ).fetchone()
+    assert again is not None
     with pytest.raises(ProcessingPaused) as paused:
-        await run_job(worker_db, admin, case, await ask(client, case))
+        await run_job(worker_db, admin, case, str(again[0]))
     assert paused.value.reason == "cost_guard"
     assert len(model.requests) == 1, "no second model call once the case is over its allowance"
     assert (await client.get(sr(case))).json()["status"] == "queued"
     assert admin.execute("select count(*) from app.ai_calls where case_id = %s", (case,)).fetchone() == (1,)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 R-E-2: every ask queues another job, so a member can loop the ask and spend (only the generic"
-    " 600 a minute limit applies, and the case-wide cost guard): app/features/reader/second_reading_routes.py:62-72",
-)
 async def test_r_e_2_asking_again_while_one_is_waiting_does_not_queue_another_job(
     client_for: Any,
     admin: psycopg.Connection,
@@ -635,7 +643,14 @@ async def test_r_o_3_a_reading_is_never_a_fact_a_word_a_read_or_a_way_out_of_the
 async def test_r_o_4_the_answer_has_no_word_ids_pages_or_fact_fields_so_it_cannot_pass_for_a_cited_fact() -> None:
     """There are no OCR word ids to check the model's copy against (provenance cannot apply): what the server does
     instead is keep the copy out of every field a fact or a citation uses."""
-    assert set(SecondReadingOut.model_fields) == {"status", "reason", "lines"}
+    assert set(SecondReadingOut.model_fields) == {
+        "status",
+        "reason",
+        "lines",
+        "source",
+        "prompt_version",
+        "read_at",
+    }
     assert set(SecondReadingLine.model_fields) == {"text", "confidence"}
     assert second_reading.TASK.schema["additionalProperties"] is False
     line = second_reading.TASK.schema["properties"]["lines"]["items"]
@@ -644,12 +659,6 @@ async def test_r_o_4_the_answer_has_no_word_ids_pages_or_fact_fields_so_it_canno
     assert "never guess" in second_reading.TASK.system.lower()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 R-O-5: the second-reading answer carries no marker saying the lines are machine-read (no source,"
-    " model or prompt version), so a client cannot tell them from the expert's own words:"
-    " app/features/reader/second_reading_routes.py:35-38",
-)
 async def test_r_o_5_the_answer_says_the_lines_are_machine_read(
     client_for: Any,
     worker_db: Database,
@@ -668,13 +677,7 @@ async def test_r_o_5_the_answer_says_the_lines_are_machine_read(
     assert {"source", "origin", "read_by", "model", "prompt_version"} & set(body), sorted(body)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 R-I-5b: GET second-reading is not behind the blind read (423 until the page is recorded read);"
-    " a deliberate choice in ADR 0030, recorded here because the model's copy is AI output about a page:"
-    " app/features/reader/second_reading_routes.py:75-90",
-)
-async def test_r_i_5b_the_second_reading_stays_423_until_the_page_is_recorded_read(
+async def test_r_i_5b_the_second_reading_get_is_by_design_not_behind_the_blind_read_and_has_limits(
     client_for: Any,
     worker_db: Database,
     admin: psycopg.Connection,
@@ -683,14 +686,22 @@ async def test_r_i_5b_the_second_reading_stays_423_until_the_page_is_recorded_re
     crypto: CaseCrypto,
     world: dict[str, Any],
 ) -> None:
+    """ADR 0030 (reviewed in audit step 14): the second reading is for a page the expert cannot read, so it is
+    not behind the blind read. Its limits: it needs `page.transcribe`, it exists only for a page the expert asked
+    about, its lines never become facts, and the facts route stays 423 until the page is recorded read."""
     case = world["case"]
     await named_page(aconn, storage, crypto, case)
+    await add_page(aconn, storage, crypto, case, 2, ["Other"])
     client = await client_for(world["expert"])
     await run_job(worker_db, admin, case, await ask(client, case))
-    blocked = await client.get(sr(case))
-    assert blocked.status_code == 423 and blocked.json()["error"]["code"] == "blind_read"
-    assert (await client.post(f"/v1/cases/{case}/pages/1/read", json={"dwell_seconds": 20})).status_code == 200
-    assert (await client.get(sr(case))).status_code == 200  # control
+    shown = await client.get(sr(case))
+    assert shown.status_code == 200 and shown.json()["status"] == "done"  # not read yet, still shown
+    untouched = (await client.get(sr(case, 2))).json()
+    assert untouched["status"] == "none" and untouched["lines"] == [], "a page nobody asked about shows nothing"
+    assert (await client.get(f"/v1/cases/{case}/pages/1/facts")).status_code == 423
+    assert admin.execute("select count(*) from app.facts where case_id = %s", (case,)).fetchone() == (0,)
+    for who in ("viewer", "co_expert", "supervisor"):
+        assert (await (await client_for(world[who])).get(sr(case))).status_code == 403, who
 
 
 async def test_r_o_6_the_experts_typing_is_stored_sealed_and_makes_no_model_call_in_the_request(
@@ -815,11 +826,6 @@ async def test_r_i_1_the_client_can_tell_suggested_checked_changed_and_rejected_
     assert [log_rows(admin, f["id"])[0][0] for f in (fact_a, fact_b, fact_c)] == ["correct", "edit", "not_right"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 R-I-2: a fact the client reads does not say who checked it or when (FactOut has no verifier or"
-    " time; no route returns fact_verifications): app/features/reader/schemas.py:64-84",
-)
 async def test_r_i_2_a_checked_fact_names_who_checked_it_and_when(fworld: dict[str, Any]) -> None:
     client = fworld["client"]
     await read_page(client, fworld)
@@ -928,12 +934,6 @@ async def test_r_i_6_a_changed_value_must_be_found_in_the_cited_words(
     assert ok.status_code == 200 and ok.json()["status"] == "edited"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 R-I-6b: `correct` on a suggested fact never re-checks the value against its cited words, so a row"
-    " whose value is not in them can be verified (and then cited); only edit and a re-read recheck run `_shows`:"
-    " app/features/reader/router.py:441-443",
-)
 async def test_r_i_6b_a_fact_whose_value_is_not_in_its_cited_words_cannot_be_marked_correct(
     admin: psycopg.Connection, fworld: dict[str, Any]
 ) -> None:
