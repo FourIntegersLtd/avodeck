@@ -141,6 +141,7 @@ const WORDS = {
   "check.warning.outside_expertise": "May be outside your expertise",
   "check.warning.where": "Section {{section}}, paragraph {{para}}",
   "check.warnings_pending": "We are still looking at the tone of your report.",
+  "check.warnings_not_run": "We couldn't look at the tone of your report this time. Run the check again to try once more.",
   "check.no_build": "Build your report before you check it.",
   "check.spot": "Ask a colleague to spot-check 10 facts",
   "check.ring": "{{passed}} of {{total}} checks passed",

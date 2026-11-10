@@ -122,17 +122,26 @@ def world(seed: Seed, admin: psycopg.Connection, combo: Combo, reads: Reads) -> 
 
 
 @pytest.fixture
-def steps(client_for: ClientFor, worker_db: Database, world: World) -> dict[str, Callable[[], Any]]:
+def steps(
+    client_for: ClientFor, worker_db: Database, admin: psycopg.Connection, world: World
+) -> dict[str, Callable[[], Any]]:
+    def finished(job_id: str) -> None:
+        # What the worker does when a job ends, so the next request is a new job and not the one still waiting.
+        admin.execute("update app.jobs set status = 'running' where id = %s", (job_id,))
+        admin.execute("update app.jobs set status = 'done', finished_at = now() where id = %s", (job_id,))
+
     async def build_now() -> None:
         queued = await (await client_for(world.expert)).post(world.url("report/build"))
         assert queued.status_code == 202, queued.text
         await build_report(JobContext(worker_db, uuid.UUID(queued.json()["job_id"]), world.case, "build_report", 1))
+        finished(queued.json()["job_id"])
 
     async def check_now() -> dict[str, Any]:
         client = await client_for(world.expert)
         queued = await client.post(world.url("report/final-check"))
         assert queued.status_code == 202, queued.text
         await final_check(JobContext(worker_db, uuid.UUID(queued.json()["job_id"]), world.case, "final_check", 1))
+        finished(queued.json()["job_id"])
         latest = await client.get(world.url("report/final-check/latest"))
         assert latest.status_code == 200, latest.text
         run: dict[str, Any] = latest.json()
