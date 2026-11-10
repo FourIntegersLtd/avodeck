@@ -332,5 +332,8 @@ Items 1 to 5 are fixed, and S3 from item 10 is also fixed. Each fix turned its s
 - **V1:** a deployed cell is recognised by `RAILWAY_PROJECT_ID`, which Railway sets on every service itself. A deployed cell always uses ClamAV, at `clamav.railway.internal:3310` as built into `api/app/core/scan.py`. `CLAMD_HOST`, `CLAMD_PORT` and `CLAMD_TIMEOUT_S` can still override this. Asking for `VIRUS_SCANNER=recorded` in a deployed cell stops the API and the worker at start-up. Nothing new needs setting. Off Railway (local work, tests and CI), the behaviour is unchanged.
 - **D2b:** a storage delete that leaves objects behind raises `StorageError`, so the step retries. The quarantine purge carries on past a single stuck item.
 - **V3a, V4c:** one unpack budget now covers each upload. It is tracked in the new column `document_parts.size` (migration `0143`). Page pictures are capped at 25 million pixels. Two renderers are still not capped: `api/app/core/pdf.py:60` and `api/app/features/report/pdf_out.py:50`.
+- **V4d, V4d2, V4e:** PDFs are opened with automatic repair turned off. A cut-off file or one with no pages is now marked as damaged instead of being half-read. All 22 sample PDFs in the local test folder still open.
+- **V2e, V2e2:** letters of instruction are read only after the virus scan says clean. Until a letter has a verdict, reading waits and retries. A flagged letter is never read, and the questions screen shows it as blocked.
+- **V2c (partly):** the bundle summary now lists an infected file as blocked for safety. The upload status route (`/v1/uploads/{id}`) still does not say so, so this test stays a strict xfail.
 
-Items 6 to 11, apart from S3, are open.
+Key management (no KMS, no rotation) is deferred by the founder. Items 6 to 11 are otherwise open, apart from S3.
