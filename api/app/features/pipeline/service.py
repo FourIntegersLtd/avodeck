@@ -85,7 +85,7 @@ from app.features.pipeline.render import Pictures, encode, rasterise
 from app.features.pipeline.straighten import quarter_turn
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.wiring import registry as job_registry
-from app.features.pipeline.words import assess, turned, typed, usable_text_layer
+from app.features.pipeline.words import assess, sanitised, turned, typed, usable_text_layer
 
 SCAN_DOCUMENT = "scan_document"
 REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page again
@@ -651,7 +651,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
             if source == "ocr" and not before and not state.rotation and not state.straightened:
                 turn = quarter_turn(found.angle)  # first reading of a scan: store it the right way up
                 straightened = turn != 0
-            page = turned(found, turn)
+            page = sanitised(turned(found, turn))
         reading = assess(page, source)
         if straightened and page_pdf is not None:
             pictures = await _pictures(page_pdf, turn)
@@ -1077,7 +1077,9 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
                 facts.append(
                     repo.NewFact(
                         kind=str(f["kind"]),
-                        fields=fields,
+                        fields=extract.checked_fields(
+                            str(f["kind"]), fields, f["word_ids"], ordered, struck, when, pack
+                        ),
                         value=str(f["value"]),
                         word_ids=(
                             date_repair.cited_with(f["word_ids"], extra, ordered) if extra else list(f["word_ids"])
@@ -1092,8 +1094,10 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
                     continue  # the page was set aside meanwhile: write nothing (F64)
                 sealed = None
                 if output is not None:
+                    first = await _first_answer(conn, services, ctx.case_id, page_id)
+                    kept_answer = {**output, FIRST_ANSWER: first} if first is not None else dict(output)
                     sealed = await services.crypto.encrypt(
-                        conn, ctx.case_id, json.dumps(output).encode(), purpose=paths.extraction_purpose(page_id)
+                        conn, ctx.case_id, json.dumps(kept_answer).encode(), purpose=paths.extraction_purpose(page_id)
                     )
                 await repo.store_extraction(
                     conn,
@@ -1244,6 +1248,23 @@ async def _gaps(ctx: JobContext, services: PipelineServices) -> None:
         await repo.store_gaps(conn, ctx.case_id, gaps.find(await repo.gap_pages(conn, ctx.case_id), rules))
 
 
+FIRST_ANSWER = "first_answer"  # the sealed raw answer keeps the page's first reading beside the latest one
+
+
+async def _first_answer(
+    conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, page_id: uuid.UUID
+) -> Any | None:
+    """What the model first said about the page, kept when the page is read again (nothing is overwritten): the
+    earlier sealed answer's own `first_answer`, else that answer itself; None when the page was never read."""
+    sealed = await repo.sealed_extraction(conn, page_id)
+    if sealed is None:
+        return None
+    earlier = json.loads(
+        await services.crypto.decrypt(conn, case_id, sealed, purpose=paths.extraction_purpose(page_id))
+    )
+    return earlier.get(FIRST_ANSWER, earlier)
+
+
 async def _missing(ctx: JobContext, services: PipelineServices) -> None:
     """T-07c: each document a page mentions, asked once, with only the reference's own words."""
     async with ctx.transaction() as conn:
@@ -1253,7 +1274,6 @@ async def _missing(ctx: JobContext, services: PipelineServices) -> None:
         pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
         who = await services.identity(conn, ctx.case_id)
         pages = await repo.gap_pages(conn, ctx.case_id)
-        numbers = await repo.page_numbers(conn, ctx.case_id)
     if services.kit is None:
         raise ProcessingPaused("model_unavailable")
     task = missing.task_for(pack)
@@ -1291,10 +1311,11 @@ async def _missing(ctx: JobContext, services: PipelineServices) -> None:
             shown = missing.candidates(pages, ref_date, page_no)
             text = missing.request_text(f"p{page_no}-r{k}", cited, ref_date, shown)
             answer = await _ask(ctx, services, task, pack, who, text, reference_subject(subject_page, ref["word_ids"]))
-            if answer is None:
-                continue
+            # A refused answer closes nothing: the document stays listed as missing. So does a page the model was
+            # not shown (the citing page is never shown).
+            answer = answer or {}
             matched = answer.get("matched_page")
-            if matched is not None and int(matched) in numbers:
+            if matched is not None and int(matched) in {p.page_no for p in shown}:
                 continue
             item_id = uuid.uuid4()
             words = missing.description(str(ref.get("described_document") or ""), cited)

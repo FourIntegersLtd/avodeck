@@ -438,15 +438,6 @@ async def test_O02_invented_records_are_refused(start: Start) -> None:
     assert analysis(h)[1]["reason"] == "not_in_words"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-14 O-01: a fact's `fields` (history, plan, clinician_name ...) are stored as the model gave them; only"
-        " `value` is checked against the page: app/features/pipeline/service.py:1040,1099"
-        ' (`fields = dict(f.get("fields") or {})` then `repo.NewFact(fields=fields)`; extract.py:241 `sort_facts`'
-        " checks `value` only)"
-    ),
-)
 async def test_O03_fields_that_are_not_on_the_page_are_not_stored(start: Start) -> None:
     """A steered model puts text that is not on the page into a fact's fields. The fact's value is genuine, so the fact
     is kept, and the fields reach the expert beside the page words as if they were extracted."""

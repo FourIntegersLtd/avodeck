@@ -351,16 +351,6 @@ async def test_I06_crossed_out_words_are_never_cited_or_dated(start: Start) -> N
 # --- the label a page is given --------------------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-14 I-01: the source label the model gives a page is stored and shown as fact: pages.source_type has no"
-        " suggested or confirmed marker and /bundle/sorted gives the expert no way to correct it, yet it decides"
-        " whether the page's facts count as the expert's own record (availability,"
-        " app/features/understand/jobs.py:61-63"
-        " `p.source_type = any(own)`) and which source a page is counted under: app/features/pipeline/repo.py:719-720"
-    ),
-)
 async def test_I07_the_pages_source_label_is_shown_as_a_suggestion() -> None:
     """The label is the model's opinion of where a page is from. Like a fact, it should carry a status the expert can
     see and correct. (Introspection: the sorted-pages answer has a field that says so.)"""
@@ -405,14 +395,6 @@ async def test_I09_the_raw_answer_is_sealed_and_holds_what_the_model_said(start:
     assert stored_plaintext(h, marker) == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-14 I-02: a second read of a page overwrites the first sealed raw answer (`on conflict (page_id) do"
-        " update set extraction = excluded.extraction`), so what a steered model first said is lost once the page is"
-        " read again: app/features/pipeline/repo.py:725-727"
-    ),
-)
 async def test_I10_a_second_read_does_not_overwrite_the_first_raw_answer(start: Start) -> None:
     state = {"round": 1}
 

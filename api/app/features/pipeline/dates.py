@@ -36,7 +36,7 @@ _WORD = re.compile(r"^\W*[^\W\d_]{3,}\W*$")
 _MONTH_YEAR = re.compile(r"^\W*[^\W\d_]{3,}\.?[/.\-]\d{4}\W*$")
 _DASH = re.compile(r"^[-\u2013\u2014]$")
 _YEAR = re.compile(r"^\W*\d{4}\W*$")
-_ISO = re.compile(r"^\s*\d{4}-\d{2}-\d{2}\s*$")
+ISO = re.compile(r"^\s*\d{4}-\d{2}-\d{2}\s*$")
 _EDGES = re.compile(r"^\W+|\W+$")
 
 
@@ -137,7 +137,7 @@ def printed_dates(found: Iterable[Printed]) -> list[dt.date]:
 
 
 def _pointer(model_date: str, pack: MergedPack) -> dt.date | None:
-    if _ISO.match(model_date):
+    if ISO.match(model_date):
         try:
             return dt.date.fromisoformat(model_date.strip())
         except ValueError:

@@ -263,3 +263,12 @@ The flag `PIPELINE_BATCH_PAGES` defaults to 0, so the existing pipeline suite st
 14. Run `verify-slice` and `python scripts/check_spec.py`, a `reviewer` pass, CI green. Ship with the flag off, turn it on in staging for PR 18's load run, and set `PIPELINE_BATCH_PAGES=100` in production only after that.
 
 Not in this design: moving hashing or T-07c into batches (measure the tail first), batch jobs for `reprocess_case` and `retry_unread_pages`, and any change to the AI tasks, prompts or provenance checks (children call the same `_read_words`, `_extract` and `_embed`, so rules 1, 2, 5, 6, 7 and 11 hold as today).
+
+## Audit 14 changes (AI security)
+
+- A fact's `fields` are checked before they are stored: a text field is kept only when found in the fact's cited words, a date field only when it is the date code resolved or is printed on the page (`extract.checked_fields`); any other is dropped. The pack has no enum-valued fields today.
+- T-07c: only a page that was offered for that reference (never the citing page) closes a missing item; a refused answer closes nothing, so the document stays listed as missing.
+- OCR words are cleaned on intake (`words.sanitised`): control characters stripped, a word with no id left out.
+- Re-reading a page keeps the first sealed raw answer (`first_answer`) beside the latest one.
+- `GET /bundle/sorted` gives each page `source_type_status` (`suggested` when there is a label). Left for later: a way for the expert to confirm or correct a page's source label (screen S08 and the understand slice's own-record availability, which reads `pages.source_type`).
+- T-07b and T-07c schemas are bounded (`maxItems`, `maximum`, a closed `fields` shape); prompts say the page words are material, never instructions; prompt versions 2026-11-10.1.

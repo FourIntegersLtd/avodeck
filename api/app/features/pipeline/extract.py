@@ -41,15 +41,21 @@ from app.features.pipeline import date_repair, dates
 TASK_ID = "T-07b"
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = (
-    "2026-11-04.1"  # entries cover every word; batched, multi-page prompt (page-keyed output, see output_schema)
-)
+# was 2026-11-04.1 (entries cover every word; batched, multi-page prompt, page-keyed output, see output_schema); now the
+# page words are material to read, never instructions, and the answer schema is bounded.
+PROMPT_VERSION = "2026-11-10.1"
 MODEL_ROLE = "sonnet"
 AVAILABILITY = ("received", "filed", "seen", "sent_to_clinician")
 _FIELD_TYPES = {"date": ["string", "null"], "string": ["string", "null"], "boolean": ["boolean", "null"]}
 _SHORT = 120
 MIN_DATED_LINES = 3  # lines that start with different dates before an entry is taken for a card of visits
 _SPAN = 4000
+# Bounds on the answer's shape. A fact's value is at most `_SPAN` characters, so it cites at most `_SPAN // 2`
+# words (one character and a space each); the other lists are bounded well above any one page; a batch is at most
+# `MAX_PAGES_PER_CALL` pages (below) and a page number is a small count (a bundle is at most a few thousand pages).
+_CITED = _SPAN // 2
+_LIST = 500
+MAX_PAGE_NO = 20_000
 BATCH_MAX_TOKENS = 16000
 # A page's structured answer averages ~1,000 output tokens (production, case of 900 pages). A batch
 # whose answer hits BATCH_MAX_TOKENS is cut off, is invalid JSON and is asked again, so the whole
@@ -74,7 +80,12 @@ def _system() -> str:
 
 
 def _ids() -> dict[str, Any]:
-    return {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1, "maxLength": 40}}
+    return {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": _CITED,
+        "items": {"type": "string", "minLength": 1, "maxLength": 40},
+    }
 
 
 def _dated(**properties: Any) -> dict[str, Any]:
@@ -103,6 +114,14 @@ def page_schema(pack: MergedPack) -> dict[str, Any]:
         }
         for kind in kinds
     ]
+    every_field: dict[str, Any] = {}  # the base shape is closed: every field of every kind, each kind narrows it below
+    for kind in kinds:
+        for name, t in kind.get("fields", {}).items():
+            types = _FIELD_TYPES.get(str(t), ["string", "null"])
+            every_field[name] = {
+                "type": sorted({*every_field.get(name, {}).get("type", []), *types}),
+                "maxLength": _SPAN,
+            }
     fact = {
         "type": "object",
         "additionalProperties": False,
@@ -110,7 +129,7 @@ def page_schema(pack: MergedPack) -> dict[str, Any]:
         "properties": {
             "kind": {"enum": [k["key"] for k in kinds]},
             "clinician_role": {"type": ["string", "null"], "maxLength": _SHORT},
-            "fields": {"type": "object"},
+            "fields": {"type": "object", "additionalProperties": False, "properties": every_field},
             "value": {"type": "string", "minLength": 1, "maxLength": _SPAN},
             "word_ids": _ids(),
         },
@@ -136,15 +155,20 @@ def page_schema(pack: MergedPack) -> dict[str, Any]:
     }
     properties = {
         "source_type": {"enum": [*(s["key"] for s in pack.source_types()), None]},  # null: cannot tell
-        "printed_dates": {"type": "array", "items": {"type": "string", "maxLength": 40}},
-        "facts": {"type": "array", "items": fact},
+        "printed_dates": {"type": "array", "maxItems": _LIST, "items": {"type": "string", "maxLength": 40}},
+        "facts": {"type": "array", "maxItems": _LIST, "items": fact},
         "references_out": {
             "type": "array",
+            "maxItems": _LIST,
             "items": _dated(described_document={"type": "string", "maxLength": _SPAN}),
         },
-        "availability_evidence": {"type": "array", "items": _dated(kind={"enum": list(AVAILABILITY)})},
-        "actions_requested_of_clinician": {"type": "array", "items": action},
-        "entries": {"type": "array", "items": entry, **({} if pack.entry_kinds() else {"maxItems": 0})},
+        "availability_evidence": {
+            "type": "array",
+            "maxItems": _LIST,
+            "items": _dated(kind={"enum": list(AVAILABILITY)}),
+        },
+        "actions_requested_of_clinician": {"type": "array", "maxItems": _LIST, "items": action},
+        "entries": {"type": "array", "items": entry, "maxItems": _LIST if pack.entry_kinds() else 0},
     }
     return {"type": "object", "additionalProperties": False, "required": list(properties), "properties": properties}
 
@@ -156,13 +180,13 @@ def output_schema(pack: MergedPack) -> dict[str, Any]:
     page = {
         **page,
         "required": ["page_no", *page["required"]],
-        "properties": {"page_no": {"type": "integer", "minimum": 1}, **page["properties"]},
+        "properties": {"page_no": {"type": "integer", "minimum": 1, "maximum": MAX_PAGE_NO}, **page["properties"]},
     }
     return {
         "type": "object",
         "additionalProperties": False,
         "required": ["pages"],
-        "properties": {"pages": {"type": "array", "minItems": 1, "items": page}},
+        "properties": {"pages": {"type": "array", "minItems": 1, "maxItems": MAX_PAGES_PER_CALL, "items": page}},
     }
 
 
@@ -243,6 +267,42 @@ def sort_facts(output: Mapping[str, Any], words: Mapping[str, str], struck: set[
     clean = [f for f in facts if not set(f.get("word_ids", [])) & struck]
     kept, refused = provenance.check_items(clean, words)
     return Sorted(kept=list(kept), refused=len(refused), struck=len(facts) - len(clean))
+
+
+def checked_fields(
+    kind: str,
+    fields: Mapping[str, Any],
+    word_ids: Sequence[str],
+    ordered: Sequence[tuple[str, str]],
+    struck: set[str],
+    resolved: dt.date | None,
+    pack: MergedPack,
+) -> dict[str, Any]:
+    """The fact's fields the page supports; any other is dropped, never stored as the model gave it (rule 2).
+
+    A text field is kept only when its words are found in the words the fact cites (`provenance.supported`). A
+    date field is read by code: kept when it is the date code resolved for the fact (`resolved`), or when its
+    words are printed on the page; the model's own writing of a date that is nowhere on the page is dropped. A
+    yes/no field is kept as given; an empty one stays empty."""
+    words = {w: t for w, t in ordered if w not in struck}
+    live = list(words)
+    cited = [w for w in word_ids if w in words]
+    date_name = dates.date_field(pack, kind)
+    out: dict[str, Any] = {}
+    for name, value in fields.items():
+        if value is None or isinstance(value, bool):
+            out[name] = value
+        elif not isinstance(value, str) or not value.strip():
+            continue
+        elif name == date_name:
+            iso = dates.ISO.match(value) is not None
+            if (iso and resolved is not None and value.strip() == resolved.isoformat()) or (
+                not iso and provenance.supported(value, live, words)
+            ):
+                out[name] = value
+        elif provenance.supported(value, cited, words):
+            out[name] = value
+    return out
 
 
 def sort_evidence(

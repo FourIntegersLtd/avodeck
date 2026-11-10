@@ -131,14 +131,6 @@ async def test_T03_an_offered_page_closes_a_missing_item_and_no_page_leaves_it_o
     assert items(closed) == [], "an offered page closes the item"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-14 O-02: the second model's matched_page is accepted when it is any page number the case has, offered or"
-        " not, even the page that makes the mention: a steered answer hides a missing document with no page shown to"
-        " the model, app/features/pipeline/service.py:1296-1298 (`int(matched) in numbers`, not the offered pages)"
-    ),
-)
 async def test_T03b_a_page_that_was_not_offered_cannot_close_a_missing_item(start: Start) -> None:
     """The model may only choose from the list it was shown (the prompt says so; the server must hold it to that). The
     citing page is never in the list."""
@@ -185,15 +177,6 @@ async def test_T04_an_answer_outside_the_schema_is_never_stored_or_acted_on(
     assert all(len(e[0]) < 60 and "free prose" not in e[0] for e in errors), "a job row holds more than a code"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-14 O-03: when the second model's answer is refused (InvalidOutput) the reference is skipped and the page"
-        " is still marked as matched, so the document it mentions is neither listed as missing nor asked about again:"
-        " app/features/pipeline/service.py:778-779 (`_ask` returns None), :1294-1295 (`continue`), repo.py:1012-1015"
-        " (`add_missing` sets references_checked_at)"
-    ),
-)
 async def test_T04b_a_refused_answer_leaves_the_reference_listed_not_silently_dropped(start: Start) -> None:
     """If the second model's answer cannot be used, the document the page mentions must not vanish: it stays listed as
     missing (for a person to look at) or the job asks again later. A control with a good answer lists it."""
@@ -328,14 +311,6 @@ async def test_T08_a_repeated_word_id_is_refused_before_any_model_call(start: St
     assert set(done.values()) == {"done"} and len(stored_words(control)) == len(READING)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-14 I-03: a reading's word with an empty id is stored and shown to the model as a line with no id: the"
-        " pipeline never checks the ids it is given (they are meant to be p{page}w{n}), only the database's unique key"
-        " catches a repeat: app/features/pipeline/service.py:663-675, repo.py:463-495; a real client makes the ids"
-    ),
-)
 async def test_T08b_a_word_with_an_empty_id_is_refused(start: Start) -> None:
     empty = with_changes({6: OcrWord(id="", text="on", polygon=clean(6, "on").polygon, confidence=0.9)})
     h, fake, finished = await read_with(start, ocr_of(empty))
@@ -360,15 +335,6 @@ async def test_T09_a_typed_page_mark_inside_a_word_never_opens_a_page_in_the_pro
         assert marks == ["1"], "a typed page mark opened a page in the prompt"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-14 P-02: control characters in a reading (NUL, escape) are stored and sent to the model as they came:"
-        " page text is only split on whitespace, app/features/pipeline/extract.py:196-206 (`page_text`) and"
-        " service.py:663-675 (words stored as read); a NUL is refused by some services and an escape code can hide text"
-        " from a person looking at a raw prompt"
-    ),
-)
 async def test_T09b_control_characters_in_a_reading_are_not_sent_to_the_model(start: Start) -> None:
     h, fake, finished = await read_with(start, ocr_of(with_changes({n: clean(n, t) for n, t in NASTY.items()})))
     sent = fake.of("T-07b")
