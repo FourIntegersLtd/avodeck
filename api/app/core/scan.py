@@ -4,11 +4,17 @@ Files are scanned as a stream of chunks, as they sit in Storage. The stand-in fl
 EICAR test file (also when it spans chunks) and passes everything else; `ClamdScanner` talks to
 clamd (ADR 0027) with the zINSTREAM protocol. In a deployed cell the scanner is always ClamAV (`scanner_from_env`).
 A reply that is not a clear verdict raises `ScanUnavailable`: callers fail closed.
+
+The clamd service may sleep when idle and wakes when something connects (ADR 0027, F42). While it starts, connects are
+refused, so `ClamdScanner` retries only the connect, with back-off, for up to the wake budget (`CLAMD_WAKE_S`, default
+120 s). Once connected, a failure raises at once: the chunk iterator cannot be replayed, so the job retries from the
+start.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import struct
 from collections.abc import AsyncIterable, Awaitable, Callable, Mapping
@@ -21,6 +27,11 @@ from app.core.config import ConfigError, clamd_settings
 # Built from parts so this source file is not itself flagged.
 _EICAR = ("X5O!P%@AP[4\\PZX54(P^)7CC)7}$" + "EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*").encode()
 EICAR_SIGNATURE = "Eicar-Test-Signature"
+
+log = logging.getLogger(__name__)
+
+# Waits between connect attempts while the service wakes; the last value repeats until the wake budget is used.
+WAKE_DELAYS_S = (2.0, 4.0, 8.0, 15.0)
 
 
 @dataclass(frozen=True)
@@ -43,25 +54,50 @@ class ScanUnavailable(RuntimeError):
 class ClamdScanner:
     """clamd over TCP, `zINSTREAM`: 4-byte big-endian length-prefixed chunks, then a zero-length chunk."""
 
-    def __init__(self, host: str, port: int = 3310, timeout_s: float = 60.0) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int = 3310,
+        timeout_s: float = 60.0,
+        wake_s: float = 0.0,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    ) -> None:
         self.host = host
         self.port = port
         self.timeout_s = timeout_s
+        self.wake_s = wake_s  # `scanner_from_env` sets the cell's budget; 0 means do not wait
+        self._sleep = sleep
+
+    async def _connect(self) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        """Connect, waiting with back-off (up to `wake_s` in all) while the service is not up yet."""
+        waited = 0.0
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                async with asyncio.timeout(self.timeout_s):
+                    return await asyncio.open_connection(self.host, self.port)
+            except (TimeoutError, OSError) as exc:
+                delay = min(WAKE_DELAYS_S[min(attempt - 1, len(WAKE_DELAYS_S) - 1)], self.wake_s - waited)
+                if delay <= 0:
+                    log.warning("clamd connect failed (%s), attempt %d, giving up", type(exc).__name__, attempt)
+                    raise ScanUnavailable(f"clamd did not answer ({type(exc).__name__})") from exc
+                log.info("clamd connect failed (%s), attempt %d, waiting %.0f s", type(exc).__name__, attempt, delay)
+                await self._sleep(delay)
+                waited += delay
 
     async def _exchange(self, send: Callable[[asyncio.StreamWriter], Awaitable[None]]) -> str:
-        writer: asyncio.StreamWriter | None = None
+        reader, writer = await self._connect()
         try:
             async with asyncio.timeout(self.timeout_s):
-                reader, writer = await asyncio.open_connection(self.host, self.port)
                 await send(writer)
                 reply = await reader.read(4096)
         except (TimeoutError, OSError) as exc:
             raise ScanUnavailable(f"clamd did not answer ({type(exc).__name__})") from exc
         finally:
-            if writer is not None:
-                writer.close()
-                with suppress(OSError):
-                    await writer.wait_closed()
+            writer.close()
+            with suppress(OSError):
+                await writer.wait_closed()
         return reply.rstrip(b"\0\n").decode("utf-8", "replace").strip()
 
     async def scan(self, chunks: AsyncIterable[bytes]) -> ScanResult:
@@ -123,9 +159,10 @@ def scanner_from_env(env: Mapping[str, str] | None = None) -> VirusScanner:
     """The scanner this process runs.
 
     In a deployed cell (Railway's own `RAILWAY_PROJECT_ID` is present) it is always ClamAV at the fixed private host;
-    CLAMD_HOST, CLAMD_PORT and CLAMD_TIMEOUT_S may override the defaults. `VIRUS_SCANNER=recorded` there raises: the
-    stand-in flags only the EICAR test string and would record every other file as clean. Anywhere else (local, tests,
-    CI) it is clamd when CLAMD_HOST is set, else the recorded stand-in; nothing needs setting.
+    CLAMD_HOST, CLAMD_PORT, CLAMD_TIMEOUT_S and CLAMD_WAKE_S (default 120) may override the defaults.
+    `VIRUS_SCANNER=recorded` there raises: the stand-in flags only the EICAR test string and would record every other
+    file as clean. Anywhere else (local, tests, CI) it is clamd when CLAMD_HOST is set, else the recorded stand-in;
+    nothing needs setting.
     """
     source = os.environ if env is None else env
     kind = source.get("VIRUS_SCANNER", "").strip()
@@ -148,5 +185,5 @@ def scanner_from_env(env: Mapping[str, str] | None = None) -> VirusScanner:
         return RecordedScanner()
     if kind == "clamd":
         settings = clamd_settings(source)
-        return ClamdScanner(settings.host, settings.port, settings.timeout_s)
+        return ClamdScanner(settings.host, settings.port, settings.timeout_s, settings.wake_s)
     raise ConfigError("VIRUS_SCANNER must be 'clamd', 'recorded' or unset (auto-detect)")
