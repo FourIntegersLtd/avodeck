@@ -6,6 +6,10 @@
 - `Letter.verify()` applies rule 2: the cited words must be one unbroken run whose words are exactly
   the value given, after normalising. The stored wording is the original words of that run, so it is
   always an exact piece of the letter; the model never supplies the words that are kept (rule 1).
+- `Letter.whole_sentences()` makes a checked run start where a sentence, numbered paragraph or item starts and
+  stop where one ends, by code from the letter's own words and layout: a run cut from the middle of a sentence is
+  widened to the whole sentence (never into the next paragraph), a run that spans two numbered paragraphs is
+  refused. A fragment is never stored as a question (a cut "do not ..." would reverse the instruction).
 - `Letter.para_ref()` reads the paragraph reference from the letter's layout ("4(a)", "5"), in code.
 
 Nothing here logs or returns text in errors (rule 6).
@@ -26,6 +30,8 @@ from app.core.packs import MergedPack
 _PLACEHOLDER = re.compile(r"\[[A-Z][A-Z0-9_]*_\d+\]")
 _PARAGRAPH = re.compile(r"^(\d{1,3})\.$")
 _ITEM = re.compile(r"^\(([a-z]{1,4}|\d{1,2})\)$")
+_CLOSERS = "\"'\u2019\u201d)]"
+MAX_RUN_WORDS = 400  # the most words one stored run may hold (the schema's cap on cited word ids)
 
 
 class MaskingFailed(Exception):
@@ -114,6 +120,52 @@ class Letter:
             return "not_whole_words"
         return Found([w.id for w in run], " ".join(w.text for w in run), positions[0])
 
+    # --- sentence and paragraph boundaries ---------------------------------------------------------------
+
+    def _paragraph_marker(self, i: int) -> bool:
+        w = self.words[i]
+        return w.line_start and _PARAGRAPH.match(w.text) is not None
+
+    def _marker(self, i: int) -> bool:
+        return self._paragraph_marker(i) or _ITEM.match(self.words[i].text) is not None
+
+    def _sentence_end(self, i: int) -> bool:
+        """The word closes a sentence: it ends in . ? or !, is not a paragraph number, is not an abbreviation
+        written with inner dots, and is not followed by a lower-case word. Doubt widens a run (safe), never trims."""
+        if self._paragraph_marker(i):
+            return False
+        text = self.words[i].text.rstrip(_CLOSERS)
+        if not text or text[-1] not in ".?!" or "." in text[:-1]:
+            return False
+        if text[-1] == "." and len(text) <= 4 and text[0].isupper():
+            return False  # a short capitalised token with a full stop ("Dr.", "Mr.") may be an abbreviation: widen
+        nxt = self.words[i + 1].text if i + 1 < len(self.words) else ""
+        return not (nxt[:1].islower())
+
+    def _starts(self, i: int) -> bool:
+        return i == 0 or self._marker(i - 1) or self._sentence_end(i - 1)
+
+    def _ends(self, i: int) -> bool:
+        return i == len(self.words) - 1 or self._sentence_end(i) or self._marker(i + 1)
+
+    def whole_sentences(self, found: Found) -> Found | str:
+        """The run widened to whole sentences, or a reason code. Never crosses a paragraph number; a run that
+        holds one (two paragraphs given as one question) is refused. Leading markers are dropped from the run."""
+        positions = sorted(self.index[w] for w in found.word_ids)
+        lo, hi = positions[0], positions[-1]
+        while lo < hi and self._marker(lo):
+            lo += 1
+        if any(self._paragraph_marker(k) for k in range(lo + 1, hi + 1)):
+            return "spans_paragraphs"
+        while not self._starts(lo):
+            lo -= 1
+        while not self._ends(hi):
+            hi += 1
+        run = self.words[lo : hi + 1]
+        if len(run) > MAX_RUN_WORDS:
+            return "too_long"
+        return Found([w.id for w in run], " ".join(w.text for w in run), lo)
+
     def para_ref(self, start: int) -> str | None:
         """ "4(a)" when the run follows an item marker inside paragraph 4; "5" for paragraph 5 itself."""
         item = None
@@ -149,17 +201,36 @@ def checked_items(
     """Split model items (`text_verbatim`, `word_ids`) into checked ones and rejection reasons."""
     accepted: list[tuple[Mapping[str, Any], Found]] = []
     rejected: list[str] = []
+    seen: set[tuple[str, ...]] = set()
     for item in items:
         found = letter.verify(str(item.get("text_verbatim", "")), list(item.get("word_ids", [])))
         if isinstance(found, Found):
-            accepted.append((item, found))
-        else:
+            found = letter.whole_sentences(found)
+        if not isinstance(found, Found):
             rejected.append(found)
+        elif tuple(found.word_ids) in seen:
+            rejected.append("duplicate")  # two cuts of one sentence are one question
+        else:
+            seen.add(tuple(found.word_ids))
+            accepted.append((item, found))
     return accepted, rejected
 
 
 SHORT_TITLE_MAX = 40
 _CLAUSE_END = re.compile(r"[,;:?!]|\.(?=\s|$)")
+
+
+def own_label(text: str, label: object) -> str | None:
+    """The model's label when every word of it is one of the question's own words, in any order (same word
+    normalisation as the letter check), it has no hidden character and it fits the limit; else None. A steered
+    model cannot put its own words on the question tab. AUDIT-14 O-1."""
+    if not isinstance(label, str) or provenance.has_hidden_characters(label):
+        return None
+    clean = " ".join(label.split())
+    wanted = provenance.atoms(clean)
+    if not wanted or len(clean) > SHORT_TITLE_MAX:
+        return None
+    return label if set(wanted) <= set(provenance.atoms(text)) else None
 
 
 def short_title(text: str, label: str | None = None) -> str:

@@ -146,7 +146,7 @@ def url(world: dict[str, uuid.UUID], tail: str) -> str:
     return f"/v1/cases/{world['case']}/{tail}"
 
 
-async def upload(client: Any, case: uuid.UUID, data: bytes, filename: str) -> str:
+async def upload(client: Any, case: uuid.UUID, data: bytes, filename: str, *, scanned: bool = True) -> str:
     body = {"kind": "instructions", "filename": filename, "size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
     started = await client.post(f"/v1/cases/{case}/uploads", json=body)
     assert started.status_code == 201, started.status_code
@@ -157,7 +157,7 @@ async def upload(client: Any, case: uuid.UUID, data: bytes, filename: str) -> st
         headers={"content-type": "application/octet-stream", "x-chunk-sha256": hashlib.sha256(data).hexdigest()},
     )
     assert put.status_code == 200
-    return await complete_and_finalize(client, upload_id, hashlib.sha256(data).hexdigest())
+    return await complete_and_finalize(client, upload_id, hashlib.sha256(data).hexdigest(), scanned=scanned)
 
 
 async def add_letter(
@@ -545,13 +545,16 @@ def make_pdf(pages: int) -> bytes:
 async def test_each_question_has_a_short_label_from_the_model_or_its_own_first_clause(
     client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
 ) -> None:
+    """AUDIT-14 O-1 changed the rule: a model label is kept only if every word of it is one of the question's own
+    words (any order); otherwise the question's first clause is used."""
     got = await read_letter(await client_for(world["expert"]), world, worker_db)
     titles = [q["short_title"] for q in got["questions"]]
-    # three come from the model's label; the fourth was left out, so it is the question's first clause
+    # two come from the model's label (made of the question's words); "Urgent referral" is not (the question says
+    # "referred"), so it falls back to the first clause, as the fourth does where the model gave none
     assert titles == [
         "Standard of care",
         "The May consultation",
-        "Urgent referral",
+        "Would a reasonably competent general",
         "If Mrs Ashworth had been referred",
     ]
     assert all(0 < len(t) <= 40 for t in titles)

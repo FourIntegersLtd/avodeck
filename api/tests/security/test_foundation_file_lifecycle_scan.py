@@ -566,23 +566,12 @@ async def test_v2e_control_a_clean_letter_is_listed_for_reading(h: Harness, seed
     assert listed == {numbers["good"]}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-12 V2e low: `unread_letters` returns a letter whose document is recorded infected, so "
-    "extract_questions OCRs it (Azure) and sends it to Claude: app/features/setup/jobs.py:72-95 (no "
-    "document_scans join)",
-)
 async def test_v2e_an_infected_letter_is_not_read(h: Harness, seed: Seed) -> None:
     numbers, listed = await _letters(h, seed, {"good": (True, None), "bad": (False, "Eicar-Test-Signature")})
     assert numbers["good"] in listed, "control: the clean letter is listed"
     assert numbers["bad"] not in listed
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-12 V2e2 low: `unread_letters` also returns a letter whose document has no scan row yet: "
-    "app/features/setup/jobs.py:72-95",
-)
 async def test_v2e_a_letter_not_yet_scanned_is_not_read(h: Harness, seed: Seed) -> None:
     numbers, listed = await _letters(h, seed, {"good": (True, None), "waiting": None})
     assert numbers["good"] in listed, "control: the clean letter is listed"

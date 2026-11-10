@@ -21,6 +21,8 @@ REASON = {"type": "string", "maxLength": 80}
 WORD_IDS = {"type": "array", "minItems": 1, "maxItems": 400, "items": {"type": "string", "maxLength": 40}}
 # Labels the server replaces (title over 40 characters: the question's first clause; paragraph reference: read
 # from the letter's layout), so a little too long must not make the whole output invalid.
+T02_MAX_HEADINGS = 200  # the most headings sent to T-02 (and suggestions taken back)
+T02_MAX_INDEX = 200_000  # the highest paragraph index sent: a template has fewer paragraphs than this
 PARA_REF = {"type": ["string", "null"], "maxLength": 80}
 OTHER_SECTION = "other"
 PREFILL_FIELDS = ("instructing_party_name", "instructing_party_type", "party_role", "due_date", "court_track")
@@ -104,7 +106,7 @@ def t02(pack: MergedPack) -> AiTask:
         "additionalProperties": False,
         "required": ["index", "section", "reason"],
         "properties": {
-            "index": {"type": "integer", "minimum": 0},
+            "index": {"type": "integer", "minimum": 0, "maximum": T02_MAX_INDEX},
             "section": {"type": "string", "enum": sections},
             "reason": REASON,
         },
@@ -113,9 +115,14 @@ def t02(pack: MergedPack) -> AiTask:
         "type": "object",
         "additionalProperties": False,
         "required": ["suggestions"],
-        "properties": {"suggestions": {"type": "array", "maxItems": 200, "items": suggestion}},
+        "properties": {"suggestions": {"type": "array", "maxItems": T02_MAX_HEADINGS, "items": suggestion}},
     }
     return AiTask(task_id="T-02", prompt_version=version, model="sonnet", system=system, schema=schema)
+
+
+def t02_headings(headings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The headings T-02 reads: the first `T02_MAX_HEADINGS` whose index is within the schema's bound."""
+    return [h for h in headings if 0 <= h["index"] <= T02_MAX_INDEX][:T02_MAX_HEADINGS]
 
 
 def t02_text(headings: list[dict[str, Any]]) -> str:

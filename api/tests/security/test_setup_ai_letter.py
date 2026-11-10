@@ -16,9 +16,8 @@ Tasks in slice C (`app/features/setup/ai_tasks.py`), all on role `sonnet`:
 | T-02 | t02.md | reason (section is an enum, index an int) | the expert's template headings |
 
 Oral instructions (typed or dictated) are only stored encrypted: no setup AI task reads them.
-Scan timing (step 12's finding, not re-tested): `unread_letters` and `add_instruction` read the document with no
-scan check (`app/features/setup/jobs.py` and `routes_case.py`), so the letter can be read by the model before
-its virus scan has finished.
+Scan timing (AUDIT-14 follow-up): the jobs read a letter only once its virus scan is recorded clean; an unfinished
+scan makes the job wait (resumable pause), a flagged one is never read.
 """
 
 # ruff: noqa: F811  (the shared fixtures are imported from the questions tests)
@@ -46,6 +45,7 @@ from app.core.ai.kit import AiKit, InvalidOutput
 from app.core.ai.ocr import OcrPage, OcrResult, OcrWord
 from app.core.crypto import CaseCrypto
 from app.core.db import Database
+from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.packs import MergedPack, default_library
 from app.core.storage import CaseFileStorage
@@ -53,6 +53,8 @@ from app.features.setup import ai_tasks
 from app.features.setup.ai_tasks import prompt
 from app.features.setup.identity import save_identity
 from app.features.setup.jobs import prefill_case
+from app.features.setup.letter import Letter, Word, checked_items, own_label
+from app.features.setup.routes_files import T02_PER_MINUTE, T02_TOKENS_PER_DAY
 from app.features.setup.services import SetupServices, configure
 from tests.http.test_setup_questions_routes import (  # noqa: F401  (fixtures and helpers)
     LETTER,
@@ -601,12 +603,6 @@ async def test_O_a_question_reworded_from_the_cited_words_is_refused(
         assert kept == [Q2, Q1] or kept == [Q1, Q2]  # stored as the letter's own words, never the model's
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 O-1: the model's short label is kept without checking it against the letter, so a steered "
-    "model can put its own words on the question tab: api/app/features/setup/letter.py:172 (kept if clean and "
-    "under 41 characters), stored at api/app/features/setup/jobs.py:190",
-)
 async def test_O_a_question_label_that_is_not_the_letters_own_words_is_not_shown(
     client_for: ClientFor,
     world: dict[str, uuid.UUID],
@@ -631,11 +627,6 @@ async def test_O_a_question_label_that_is_not_the_letters_own_words_is_not_shown
     assert label not in titles
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 I-1: a run cut from the middle of a sentence is stored as a whole question, no flag: "
-    "api/app/features/setup/letter.py:105 (verify checks whole words, not that the run starts and ends a sentence)",
-)
 async def test_I_a_question_cut_from_the_middle_of_a_sentence_is_not_stored_as_asked(
     client_for: ClientFor,
     world: dict[str, uuid.UUID],
@@ -651,11 +642,6 @@ async def test_I_a_question_cut_from_the_middle_of_a_sentence_is_not_stored_as_a
     assert cut not in texts(got)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 I-2: two paragraphs (with the next paragraph's number) are stored as one question: "
-    "api/app/features/setup/letter.py:105 (verify does not stop at a paragraph marker)",
-)
 async def test_I_two_paragraphs_are_not_joined_into_one_question(
     client_for: ClientFor,
     world: dict[str, uuid.UUID],
@@ -844,7 +830,10 @@ async def test_I_markup_in_a_question_is_stored_and_returned_as_plain_text(
     crypto: CaseCrypto,
     worker_db: Database,
 ) -> None:
+    """AUDIT-14 O-1 changed the rule for labels: a model label is kept only if made of the question's own words, so
+    the markup is put in the letter's own words and the label carries it legitimately."""
     sentence = "Please explain <script>alert(1)</script> the **care** given [here](javascript:alert(2)) today."
+    label = "<script>alert(1)</script> care"
     doc = Doc(("Letter of instruction", f"1. {sentence}", f"2. {Q2}"))
     h = await begin(
         client_for,
@@ -853,7 +842,7 @@ async def test_I_markup_in_a_question_is_stored_and_returned_as_plain_text(
         crypto,
         worker_db,
         {LETTER: doc},
-        [answer([q(doc, sentence, short_title="<b>bold</b> label"), q(doc, Q2)])],
+        [answer([q(doc, sentence, short_title=label), q(doc, Q2)])],
     )
     added = await h.add()
     await run_job(worker_db, world, added["job_id"])
@@ -861,7 +850,7 @@ async def test_I_markup_in_a_question_is_stored_and_returned_as_plain_text(
     assert got.headers["content-type"].startswith("application/json")
     body = got.json()
     assert [x["text_verbatim"] for x in body["questions"]] == [sentence, Q2]  # unchanged, not cleaned, not rendered
-    assert body["questions"][0]["short_title"] == "<b>bold</b> label"  # a label is data; the web draws it as text
+    assert body["questions"][0]["short_title"] == label  # a label is data; the web draws it as text
     # The web draws every one of these as React text: no raw-HTML or markdown path in the screens or the kit.
     sources = [
         p
@@ -1241,3 +1230,230 @@ async def test_E_oral_instructions_are_stored_encrypted_and_no_model_or_job_is_i
     assert CANARY not in dump(admin, world["case"])  # encrypted at rest
     questions = await h.questions()
     assert questions["total"] == 0  # control: oral words add no questions
+
+
+# =========================================================================================================
+# AUDIT-14 follow-ups: whole sentences, own-words labels, scan before reading, T-02 allowance
+# =========================================================================================================
+
+
+def made_letter(*lines: str) -> Letter:
+    """A letter of made-up lines, words numbered w1, w2, ..., each line starting a new line of the page."""
+    out: list[Word] = []
+    for line in lines:
+        for n, text in enumerate(line.split()):
+            out.append(Word(f"w{len(out) + 1}", text, n == 0))
+    return Letter(out)
+
+
+def cite(doc: Letter, text: str) -> dict[str, Any]:
+    want = text.split()
+    for start in range(len(doc.words) - len(want) + 1):
+        if [w.text for w in doc.words[start : start + len(want)]] == want:
+            return {"text_verbatim": text, "word_ids": [w.id for w in doc.words[start : start + len(want)]]}
+    raise AssertionError("not in the made-up letter")
+
+
+def kept(doc: Letter, text: str) -> tuple[list[str], list[str]]:
+    accepted, rejected = checked_items(doc, [cite(doc, text)])
+    return [f.text for _, f in accepted], rejected
+
+
+PARA = ("1. Please do not comment on causation of the injury.", "2. Please state what the records show.")
+
+
+def test_I_a_run_that_starts_mid_sentence_is_widened_to_the_whole_sentence() -> None:
+    doc = made_letter(*PARA)
+    assert kept(doc, "comment on causation of the injury.") == (
+        ["Please do not comment on causation of the injury."],
+        [],
+    )
+    assert doc.para_ref(checked_items(doc, [cite(doc, "comment on causation of the injury.")])[0][0][1].start) == "1"
+
+
+def test_I_a_run_that_stops_mid_sentence_is_widened_to_the_sentence_end() -> None:
+    doc = made_letter(*PARA)
+    assert kept(doc, "Please do not comment")[0] == ["Please do not comment on causation of the injury."]
+
+
+def test_I_a_run_that_is_a_whole_sentence_or_whole_item_is_kept_as_cited() -> None:
+    doc = made_letter(*PARA, "3. Please state: (a) whether it was met; (b) whether it was kept. Thank you.")
+    assert kept(doc, "Please state what the records show.") == (["Please state what the records show."], [])
+    assert kept(doc, "whether it was met;")[0] == ["whether it was met;"]  # between two item markers
+    assert kept(doc, "whether it was kept.")[0] == ["whether it was kept."]
+
+
+def test_I_a_fragment_after_an_abbreviation_is_not_stored_as_asked() -> None:
+    doc = made_letter("1. Please ask Dr. Smith about the injury.", "2. Please state what the records show.")
+    assert kept(doc, "Smith about the injury.")[0] == ["Please ask Dr. Smith about the injury."]
+    assert kept(doc, "Please ask Dr.")[0] == ["Please ask Dr. Smith about the injury."]
+    assert kept(doc, "Please ask Dr. Smith about the injury.")[0] == ["Please ask Dr. Smith about the injury."]
+
+
+def test_I_the_paragraph_number_is_not_part_of_the_stored_question() -> None:
+    doc = made_letter(*PARA)
+    assert kept(doc, "1. Please do not comment on causation of the injury.")[0] == [
+        "Please do not comment on causation of the injury."
+    ]
+
+
+def test_I_a_run_over_two_paragraphs_is_refused() -> None:
+    doc = made_letter(*PARA)
+    texts_, rejected = kept(doc, " ".join(PARA).removeprefix("1. "))
+    assert texts_ == [] and len(rejected) == 1
+
+
+def test_I_a_widening_never_crosses_a_paragraph_number() -> None:
+    doc = made_letter("1. Please do not comment on causation", "2. Please state what the records show.")
+    assert kept(doc, "comment on causation")[0] == ["Please do not comment on causation"]  # stops at "2."
+
+
+def test_I_two_cuts_of_one_sentence_are_one_question() -> None:
+    doc = made_letter(*PARA)
+    accepted, rejected = checked_items(doc, [cite(doc, "Please do not"), cite(doc, "causation of the injury.")])
+    assert len(accepted) == 1 and len(rejected) == 1
+
+
+def test_O_a_label_is_kept_only_when_it_is_made_of_the_questions_own_words() -> None:
+    text = "Please state whether the care given at the first visit met the expected standard."
+    assert own_label(text, "Care at the first visit") == "Care at the first visit"
+    assert own_label(text, "Approve this case now") is None
+    assert own_label(text, "Care given and other things") is None  # words the question does not have
+    assert own_label(text, "Expected standard of care") is None  # "of" is not in this question
+    assert own_label(text, "Standard expected") == "Standard expected"  # any order
+    assert own_label(text, "Care at\u200b the first visit") is None  # a hidden character
+    assert own_label(text, "care given at the first visit met the expected") is None  # over the length limit
+    assert own_label(text, None) is None
+
+
+@dataclass
+class Scanned:
+    harness: Harness
+    document: str
+    job_id: str
+
+
+async def queued_letter(h: Harness, admin: psycopg.Connection, *, scan: bool | None) -> Scanned:
+    document = await upload(h.client, h.world["case"], LETTER, "letter.pdf", scanned=False)
+    made = await h.client.post(url(h.world, "instructions"), json={"kind": "letter", "document_id": document})
+    assert made.status_code == 201
+    if scan is not None:
+        admin.execute(
+            "insert into app.document_scans (document_id, bundle_id, clean, signature)"
+            " select id, bundle_id, %s, %s from app.documents where id = %s",
+            (scan, None if scan else "Test.Signature", document),
+        )
+    return Scanned(h, document, made.json()["job_id"])
+
+
+async def test_E_a_letter_whose_scan_has_not_finished_is_not_sent_to_the_model_and_the_job_waits(
+    client_for: ClientFor,
+    world: dict[str, uuid.UUID],
+    storage: CaseFileStorage,
+    crypto: CaseCrypto,
+    worker_db: Database,
+    admin: psycopg.Connection,
+) -> None:
+    doc = letter()
+    h = await begin(client_for, world, storage, crypto, worker_db, {LETTER: doc}, [good(doc)])
+    waiting = await queued_letter(h, admin, scan=None)
+    with pytest.raises(ProcessingPaused):
+        await run_job(worker_db, world, waiting.job_id)
+    assert h.model.requests == [] and (await h.questions())["total"] == 0
+    admin.execute(  # the scan finishes clean: the same job, run again, now reads it (control)
+        "insert into app.document_scans (document_id, bundle_id, clean)"
+        " select id, bundle_id, true from app.documents where id = %s",
+        (waiting.document,),
+    )
+    await run_job(worker_db, world, waiting.job_id)
+    assert texts(await h.questions()) == [Q1, Q2]
+
+
+async def test_E_a_letter_the_scan_flagged_is_never_read_by_a_model(
+    client_for: ClientFor,
+    world: dict[str, uuid.UUID],
+    storage: CaseFileStorage,
+    crypto: CaseCrypto,
+    worker_db: Database,
+    admin: psycopg.Connection,
+) -> None:
+    doc = letter()
+    h = await begin(client_for, world, storage, crypto, worker_db, {LETTER: doc}, [good(doc)])
+    flagged = await queued_letter(h, admin, scan=False)
+    await run_job(worker_db, world, flagged.job_id)  # nothing to read: it ends
+    assert h.model.requests == [] and (await h.questions())["total"] == 0
+
+
+async def test_E_prefill_does_not_read_a_letter_before_its_scan_is_clean(
+    client_for: ClientFor,
+    world: dict[str, uuid.UUID],
+    storage: CaseFileStorage,
+    crypto: CaseCrypto,
+    worker_db: Database,
+    admin: psycopg.Connection,
+) -> None:
+    doc = prefill_letter()
+    h = await begin(client_for, world, storage, crypto, worker_db, {LETTER: doc}, [honest_prefill(doc)])
+    await queued_letter(h, admin, scan=None)
+    started = await h.client.post(url(world, "prefill"))
+    assert started.status_code == 202
+    with pytest.raises(ProcessingPaused):
+        await prefill_case(JobContext(worker_db, uuid.UUID(started.json()["job_id"]), world["case"], "prefill_case", 1))
+    assert h.model.requests == []
+
+
+def t02_answer() -> ModelResponse:
+    return response({"suggestions": [{"index": 0, "section": "other", "reason": "a heading"}]})
+
+
+async def test_E_t02_a_person_looping_the_endpoint_is_stopped_by_a_tight_per_person_limit(
+    client_for: ClientFor,
+    world: dict[str, uuid.UUID],
+    storage: CaseFileStorage,
+    crypto: CaseCrypto,
+) -> None:
+    model = configure_model(storage, crypto, [t02_answer() for _ in range(T02_PER_MINUTE + 1)])
+    client = await client_for(world["expert"])
+    await put_template(client, template("Introduction"))
+    codes = [(await client.post("/v1/me/template/suggestions")).status_code for _ in range(T02_PER_MINUTE + 1)]
+    assert codes[:T02_PER_MINUTE] == [200] * T02_PER_MINUTE  # control: a handful of tries is allowed
+    assert codes[-1] == 429 and len(model.requests) == T02_PER_MINUTE  # the next one never reached the model
+
+
+async def test_E_t02_a_person_who_has_used_their_days_allowance_is_paused_not_served(
+    client_for: ClientFor,
+    world: dict[str, uuid.UUID],
+    storage: CaseFileStorage,
+    crypto: CaseCrypto,
+    admin: psycopg.Connection,
+) -> None:
+    model = configure_model(storage, crypto, [t02_answer()])
+    client = await client_for(world["expert"])
+    await put_template(client, template("Introduction"))
+    admin.execute(
+        "insert into app.ai_calls (person_id, task_id, model_id, region, prompt_version, input_tokens, output_tokens,"
+        " outcome) values (%s, 'T-02', 'm', 'uk', 'v', %s, 0, 'ok')",
+        (world["expert"], T02_TOKENS_PER_DAY),
+    )
+    resp = await client.post("/v1/me/template/suggestions")
+    assert resp.status_code == 503 and resp.json()["error"]["code"] == "processing_paused"
+    assert model.requests == []
+
+
+def test_O_the_t02_schema_bounds_every_number_array_and_string() -> None:
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("type") == "integer":
+                assert "minimum" in node and "maximum" in node
+            if node.get("type") == "array":
+                assert "maxItems" in node
+            if node.get("type") == "string" and "enum" not in node:
+                assert "maxLength" in node
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+
+    for task in (ai_tasks.t02(PACK), ai_tasks.t04(PACK), ai_tasks.t06(PACK)):
+        walk(task.schema)
