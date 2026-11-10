@@ -241,13 +241,6 @@ async def test_v3_a_zip_holding_an_email_holding_a_zip_is_followed_within_the_li
     assert len(h.pages()) >= 2, "control: the email body page and the leaf page both exist"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-12 V3a medium: the size, member and depth limits are per archive, not per upload: one outer zip "
-    "of 5 inner zips, each inflating to 90,000 bytes (limit 100,000), unpacked 450,000 bytes in total, and the "
-    "same shape at the real limits multiplies the per-archive cap by the member count: "
-    "app/features/pipeline/convert.py:49-51,143-153, app/features/pipeline/service.py:193-211",
-)
 async def test_v3_one_upload_may_not_unpack_to_more_than_the_limit_in_total(
     h: Harness, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -460,12 +453,6 @@ class _FakeBitmap:
         return Image.new("RGB", (2, 2))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-12 V4c medium: "
-    "`rasterise` renders a 200 x 200 inch page at 150 dpi, a request of about 900 million pixels "
-    "(3.6 GB), because it asks pdfium for scale = 150/72 with no pixel cap: app/features/pipeline/render.py:22-31",
-)
 def test_v4_a_page_picture_is_never_asked_for_more_pixels_than_the_image_library_allows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -504,12 +491,6 @@ async def test_v4_the_original_is_served_as_opaque_bytes_that_a_browser_will_not
     assert got.headers["cache-control"] == "private, no-store"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-12 S3 low: the original is sent with no Content-Disposition, so nothing asks the browser to save "
-    "it rather than show it (octet-stream and nosniff are sent, which saves it in practice): "
-    "app/core/routes/uploads.py:497",
-)
 async def test_s3_the_original_is_sent_as_an_attachment(h: Harness) -> None:
     doc = await run(h, text_pdf(1), "plain.pdf")
     got = await _served(h, doc)

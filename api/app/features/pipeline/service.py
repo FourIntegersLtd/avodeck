@@ -180,6 +180,15 @@ def _checked_pages(source: Path | bytes) -> int:
         return count
 
 
+async def _within_upload_budget(conn: AsyncConnection, document_id: uuid.UUID, members: list[convert.Member]) -> bool:
+    """Whether opening this file keeps everything unpacked from its ORIGINAL upload (zips in zips, emails with
+    attachments, at any depth) inside the one set of limits. The original is locked first, so sibling splits
+    cannot each spend the same budget."""
+    root = await repo.lock_upload_root(conn, document_id)
+    files, size = await repo.unpacked_so_far(conn, root, document_id)
+    return files + len(members) <= LIMITS.max_members and size + sum(len(m.data) for m in members) <= LIMITS.max_bytes
+
+
 async def _unpack(
     conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, doc: repo.Document, path: Path
 ) -> int:
@@ -193,6 +202,8 @@ async def _unpack(
     found = await asyncio.to_thread(convert.unpack, data, doc.filename, LIMITS)
     if found.members and await repo.part_depth(conn, doc.id) >= LIMITS.max_depth:
         found = convert.Unpacked(found.media_type, exhibit=True)
+    if found.members and not await _within_upload_budget(conn, doc.id, found.members):
+        found = convert.Unpacked(found.media_type, exhibit=True)  # kept whole, like a file over the per-file limits
     for n, member in enumerate(found.members, start=1):
         child = uuid.uuid4()
         prefix = paths.part_prefix(case_id, child)
@@ -206,6 +217,7 @@ async def _unpack(
             media_type=convert.sniff(member.data, member.filename),
             sha256=hashlib.sha256(member.data).hexdigest(),
             storage_path=prefix,
+            size=len(member.data),
         )
         if made:
             await _put_sealed(conn, services, case_id, f"{prefix}/{PART_OBJECT}", member.data)

@@ -167,12 +167,6 @@ def test_v1_the_scanner_settings_can_choose_clamd_and_refuse_nonsense() -> None:
     [
         pytest.param(
             {"REGION": "uk"},
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="AUDIT-12 V1 medium: a cell with VIRUS_SCANNER and CLAMD_HOST both unset silently runs the "
-                "EICAR-only RecordedScanner, so every file is 'clean': app/core/scan.py:109-116, "
-                "app/features/pipeline/wiring.py:99",
-            ),
             id="unset",
         ),
         pytest.param(
@@ -402,12 +396,6 @@ async def test_v2b_control_a_clean_file_and_an_unknown_one(h: Harness) -> None:
     assert (await _fetch(h, str(uuid.uuid4()))).status_code == 404
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-12 V2b medium: GET /v1/cases/{case}/documents/{doc}/file returns 200 with the decrypted bytes of a "
-    "document whose scan is recorded infected (clean=false), whether it was uploaded or unpacked from a zip: "
-    "app/core/routes/uploads.py:443-497 (no scan_row check)",
-)
 @pytest.mark.parametrize("origin", ["upload", "zip-member"])
 async def test_v2b_a_file_the_scan_flagged_is_not_served_back(h: Harness, origin: str) -> None:
     """`zip-member`: a member is never scanned (V2g), so its verdict can only be set by hand (as admin); the route
@@ -437,11 +425,6 @@ async def test_v2b_a_file_the_scan_flagged_is_not_served_back(h: Harness, origin
     assert (await _fetch(h, bad)).status_code in SAFE_REFUSALS
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-12 V2b2 medium: the same route serves a document whose scan job has not run (no document_scans row): "
-    "app/core/routes/uploads.py:443-497",
-)
 async def test_v2b_a_file_not_yet_scanned_is_not_served_back(h: Harness) -> None:
     _, waiting = await upload_bytes(h, pdf_with_eicar(1), filename="waiting.pdf")
     assert scan_row(h, waiting) is None, "control: no scan has run yet"
@@ -507,11 +490,6 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
         await database.close()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-12 V2d latent low: the export does not filter on the scan verdict, unreachable while D6c breaks the "
-    "export of real uploads: app/features/close/jobs.py:343-348,392-398",
-)
 async def test_v2d_the_full_export_carries_a_clean_real_upload_and_not_a_flagged_or_unscanned_one(
     seed: Seed,
     admin: psycopg.Connection,

@@ -404,6 +404,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | document_id | The part itself, kept as a document of its own |
 | part_no | Its place in the parent (attachments in order, zip files by name) |
 | media_type | What kind of file the part is |
+| size | How big the part was when it was unpacked; one upload may only unpack so much in total, however deeply its zips and emails sit inside each other |
 
 ### exhibits
 | Field | In plain words |
