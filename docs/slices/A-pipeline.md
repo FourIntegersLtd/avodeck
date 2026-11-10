@@ -266,7 +266,7 @@ Not in this design: moving hashing or T-07c into batches (measure the tail first
 
 ## Audit 14 changes (AI security)
 
-- A fact's `fields` are checked before they are stored: a text field is kept only when found in the fact's cited words, a date field only when it is the date code resolved or is printed on the page (`extract.checked_fields`); any other is dropped. The pack has no enum-valued fields today.
+- A fact's `fields` are checked before they are stored: a text field is kept when found in the fact's cited words or anywhere on the same page, and dropped only when it is nowhere on that page, a date field only when it is the date code resolved or is printed on the page (`extract.checked_fields`); any other is dropped. The pack has no enum-valued fields today.
 - T-07c: only a page that was offered for that reference (never the citing page) closes a missing item; a refused answer closes nothing, so the document stays listed as missing.
 - OCR words are cleaned on intake (`words.sanitised`): control characters stripped, a word with no id left out.
 - Re-reading a page keeps the first sealed raw answer (`first_answer`) beside the latest one.

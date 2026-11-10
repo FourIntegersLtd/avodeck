@@ -737,6 +737,31 @@ async def test_a_run_without_a_case_id_skips_the_guard_and_runs() -> None:
         await AiKit(cell(), model).run(tripped, task(), pack=PACK, text="x", case_id=__import__("uuid").uuid4())
 
 
+def _given(value: ast.expr | None) -> bool:
+    """A keyword that is really passed: present and not a literal `None`."""
+    return value is not None and not (isinstance(value, ast.Constant) and value.value is None)
+
+
+def kit_calls_without_a_cost_guard(source: str) -> list[int]:
+    """Line numbers of kit calls in `source` that carry neither a case id (the per-case guard) nor, on `run`, a
+    `person_token_limit` (the per-person guard), so no cost guard would apply."""
+    found: list[int] = []
+    for node in ast.walk(ast.parse(source)):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        if node.func.attr not in {"run", "run_image", "run_detached"}:
+            continue
+        keywords = {k.arg: k.value for k in node.keywords}
+        if "pack" not in keywords or node.func.attr == "run_detached":  # not a kit call, or case_id is positional
+            continue
+        guarded = _given(keywords.get("case_id")) or (
+            node.func.attr == "run" and _given(keywords.get("person_token_limit"))
+        )
+        if not guarded:
+            found.append(node.lineno)
+    return found
+
+
 def kit_calls_without_a_case_id() -> list[str]:
     found: list[str] = []
     for path in sorted(APP.rglob("*.py")):
@@ -748,12 +773,9 @@ def kit_calls_without_a_case_id() -> list[str]:
             if node.func.attr not in {"run", "run_image", "run_detached"}:
                 continue
             keywords = {k.arg: k.value for k in node.keywords}
-            if "pack" not in keywords:  # not a kit call (asyncio.run, model sessions)
+            if "pack" not in keywords or node.func.attr == "run_detached":
                 continue
-            value = keywords.get("case_id")
-            if node.func.attr == "run_detached":
-                continue  # case_id is a required positional argument
-            if value is None or (isinstance(value, ast.Constant) and value.value is None):
+            if not _given(keywords.get("case_id")):
                 found.append(f"{path.relative_to(APP)}:{node.lineno}")
     return found
 
@@ -763,14 +785,28 @@ def test_the_only_kit_call_without_a_case_id_is_the_known_one() -> None:
     assert files == {"features/setup/routes_files.py"}, "a new unguarded caller (or the known one was fixed)"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M10: the T-02 route (suggest section mappings for a template) calls the kit with no case_id, so "
-    "the per-case cost guard never applies. The route is user-reachable and bounded only by the global API rate "
-    "limit and the kit's own call count: app/features/setup/routes_files.py:339",
-)
-def test_every_kit_call_carries_a_case_id_so_the_cost_guard_applies() -> None:
-    assert kit_calls_without_a_case_id() == []
+def test_every_kit_call_has_a_cost_guard_a_case_id_or_a_person_token_limit() -> None:
+    unguarded = [
+        f"{path.relative_to(APP)}:{line}"
+        for path in sorted(APP.rglob("*.py"))
+        if not (path.name == "kit.py" and path.parent.name == "ai")
+        for line in kit_calls_without_a_cost_guard(path.read_text())
+    ]
+    assert unguarded == []
+
+
+def test_the_cost_guard_scan_catches_a_call_with_neither_and_passes_the_two_guarded_forms() -> None:
+    bare = "await kit.run(conn, task, pack=pack, text=t)"
+    assert kit_calls_without_a_cost_guard(bare) == [1]
+    assert kit_calls_without_a_cost_guard("await kit.run(conn, task, pack=pack, text=t, case_id=None)") == [1]
+    assert kit_calls_without_a_cost_guard("await kit.run(conn, task, pack=pack, text=t, person_token_limit=None)") == [
+        1
+    ]
+    assert kit_calls_without_a_cost_guard("await kit.run(conn, task, pack=pack, text=t, case_id=case)") == []
+    assert kit_calls_without_a_cost_guard("await kit.run(conn, task, pack=pack, text=t, person_token_limit=5)") == []
+    assert kit_calls_without_a_cost_guard(
+        "await kit.run_image(conn, task, pack=pack, text=t, person_token_limit=5)"
+    ) == [1]
 
 
 # --- Provider errors that echo the input never reach logs or raised text -----------------------------------------

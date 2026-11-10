@@ -280,7 +280,8 @@ def checked_fields(
 ) -> dict[str, Any]:
     """The fact's fields the page supports; any other is dropped, never stored as the model gave it (rule 2).
 
-    A text field is kept only when its words are found in the words the fact cites (`provenance.supported`). A
+    A text field is kept only when its words are found in the words the fact cites, or in the page's own words (a
+    clinician's name printed on another line); text found nowhere on the page is dropped (`provenance.supported`). A
     date field is read by code: kept when it is the date code resolved for the fact (`resolved`), or when its
     words are printed on the page; the model's own writing of a date that is nowhere on the page is dropped. A
     yes/no field is kept as given; an empty one stays empty."""
@@ -300,7 +301,7 @@ def checked_fields(
                 not iso and provenance.supported(value, live, words)
             ):
                 out[name] = value
-        elif provenance.supported(value, cited, words):
+        elif provenance.supported(value, cited, words) or provenance.supported(value, live, words):
             out[name] = value
     return out
 

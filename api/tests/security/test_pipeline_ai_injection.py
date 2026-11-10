@@ -453,6 +453,22 @@ async def test_O03_fields_that_are_not_on_the_page_are_not_stored(start: Start) 
     assert CANARY not in str([f["fields"] for f in facts_of(h)])
 
 
+async def test_O03b_a_field_printed_elsewhere_on_the_page_is_kept_and_one_not_on_the_page_is_not(start: Start) -> None:
+    """A text field is kept when its words are on the page, even outside the words the fact cites (a name printed on
+    another line); text found nowhere on the page is dropped."""
+
+    def t07b(pages: Pages) -> dict[str, Any]:
+        no, words = next(iter(pages.items()))
+        steered = fact(words, 3, 4, fields={"clinician_name": "the nurse", "history": f"Invented history. {CANARY}"})
+        return pages_answer(blank(no, facts=[steered]))
+
+    h = await start(Fake(t07b))
+    await process(h, text_pdf([["Seen with cough today by the nurse"]]))
+    assert fact_values(h) == ["cough today"], "positive control: the genuine fact was kept"
+    stored = [f["fields"] for f in facts_of(h)]
+    assert stored == [{"clinician_name": "the nurse"}], "the page's own words stay; text not on the page is dropped"
+
+
 async def test_O04_clinician_role_is_never_stored(start: Start) -> None:
     """`clinician_role` is free text in the schema but is not read by the server: hostile text in it is not stored."""
 
