@@ -53,7 +53,7 @@ from app.core.routes.packs import case_pack_router, packs_router
 from app.core.routes.support import support_router
 from app.core.routes.today import today_router
 from app.core.routes.uploads import uploads_router
-from app.core.scan import scanner_from_env
+from app.core.scan import scanner_at_start_up
 from app.core.speech import SpeechClient
 from app.core.storage import CaseFileStorage, storage_settings
 from app.features.pipeline import pipeline_router
@@ -120,7 +120,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         owned: Database | None = None
-        scanner_from_env()  # no scanner configured ends start-up now, not at the first upload
+        scanner_at_start_up()  # no scanner configured ends start-up now, not at the first upload
         if app.state.region is None:
             app.state.region = cell_settings().region
         dsn = os.environ.get("SENTRY_DSN", "").strip()

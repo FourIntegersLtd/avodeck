@@ -9,7 +9,7 @@ The upload protocol, the storage layout and the encryption held up under test. N
 The weaknesses are around the edges of that core:
 
 - **One broken feature (high):** the named expert's full export fails for any case that holds a really uploaded document.
-- **Virus scanning is advisory in three places (medium):** a flagged or unscanned original can be downloaded, a cell with no scanner configured silently uses a test stand-in, and instruction letters are read before any scan.
+- **Virus scanning is advisory in three places (medium):** a flagged or unscanned original can be downloaded, a cell can run a test stand-in scanner (V1: STILL OPEN in production, see section 11), and instruction letters are read before any scan.
 - **Hostile files can exhaust the worker (medium):** nested archives escape the unpack limit, and one very large PDF page asks the renderer for about 3.6 GB.
 - **Damaged PDFs lose pages without a sign (medium).**
 - **A partly failed storage delete is certified as complete (medium).** The leftover object cannot be read, because its key is destroyed.
@@ -238,8 +238,9 @@ Request: upload a document through the API, finalise it, run the `export_case` j
 **V2b, V2b2. A flagged or unscanned original is served.**
 Request: `GET /v1/cases/{case}/documents/{doc}/file` by a case member, for a document whose scan row says infected, or which has no scan row yet. Outcome: 200 with the decrypted file. The route has no scan check. `api/app/core/routes/uploads.py:443-497`. Needs a case member to upload the file; the harm is to colleagues who download it.
 
-**V1. A cell with no scanner configured runs the stand-in.**
-Input: `VIRUS_SCANNER` and `CLAMD_HOST` both unset. Outcome: the worker builds the test stand-in, which flags only the EICAR test string, and records every file as clean. No error or warning. `api/app/core/scan.py:109-116`, `api/app/features/pipeline/wiring.py:99`.
+**V1. A cell can run the stand-in scanner. STILL OPEN IN PRODUCTION (10 Nov 2026).**
+The live Railway services have `VIRUS_SCANNER=recorded` and the project has no ClamAV service yet, so today uploads in production are not virus-scanned. A first fix refused that setting at start-up, which took the API and both workers down; it was relaxed (see section 11). The cell now starts with the stand-in and logs one ERROR line per process start. It closes only when `clamav` is deployed and the variable removed.
+Original finding. Input: `VIRUS_SCANNER` and `CLAMD_HOST` both unset. Outcome: the worker builds the test stand-in, which flags only the EICAR test string, and records every file as clean. No error or warning. `api/app/core/scan.py:109-116`, `api/app/features/pipeline/wiring.py:99`.
 
 **V3a. Unpack limits apply per archive, not per upload.**
 Input: one zip holding five zips, each unpacking to 90% of the limit. Outcome: 4.5 times the limit is unpacked and stored. At the real limits one upload can unpack to many times 500 MB. `api/app/features/pipeline/convert.py:143-153`, `service.py:193-211`.
@@ -285,7 +286,7 @@ The written spec allows or is silent on each of these. The tests are marked `AUD
 | Id | Behaviour | Question |
 |---|---|---|
 | U1b | Any case member who may upload can send parts into, complete or cancel a colleague's open upload | Tie an upload to the person who started it? |
-| V1b | The stand-in scanner can be selected by setting in any cell (ADR 0027) | Refuse it in a live cell? |
+| V1b | The stand-in scanner can be selected by setting in any cell (ADR 0027) | Decided 10 Nov 2026: do not refuse it (refusing took production down); it starts and logs an ERROR. Revisit refusing it once ClamAV is deployed |
 | V1c | Nothing checks that the scanner answers before the worker takes work. It fails closed: files wait | Add a readiness check? |
 | C1c | A process that missed the key-destroyed notice can decrypt for up to 30 seconds | Acceptable window? |
 | D3 | While a deletion is queued and not yet run, files, new uploads and exports still work | Block content once deletion is requested? |
@@ -312,7 +313,7 @@ The written spec allows or is silent on each of these. The tests are marked `AUD
 
 1. **D6c:** make the export read each document through the same folder reader the download uses, and leave out documents that are not scanned clean (closes V2d).
 2. **V2b, V2b2:** refuse the original-file download unless the scan row says clean.
-3. **V1:** refuse to build the stand-in scanner unless it is asked for by name.
+3. **V1 (open in production):** the code part is done (a cell with `VIRUS_SCANNER` unset scans with ClamAV; the stand-in runs only when asked for by name, with an ERROR at start-up), but production still runs the stand-in. To close it: (1) create the `clamav` Railway service from `railway/clamav.json`; (2) delete `VIRUS_SCANNER` from `api`, `worker` and `worker-interactive`, and confirm no start-up ERROR line remains.
 4. **D2b:** read the errors from the storage delete call and fail the step, so the job retries.
 5. **V3a, V4c:** one unpack budget per upload; a pixel cap before rendering.
 6. **V4d, V4e:** mark a PDF damaged when the reader had to repair it or found no pages.
@@ -324,12 +325,12 @@ The written spec allows or is silent on each of these. The tests are marked `AUD
 
 ### Fixed on this branch
 
-Items 1 to 5 are fixed, and S3 from item 10 is also fixed. Each fix turned its strict xfail test green, and the marker was removed:
+Items 1, 2, 4 and 5 are fixed, and S3 from item 10 is also fixed; item 3 (V1) is fixed in code only and still open in production. Each fix turned its strict xfail test green, and the marker was removed:
 
 - **D6c, V2d:** the export reads each document part by part and checks its SHA-256. A file not scanned clean is left out and listed in the manifest's `left_out`, as `scan_pending` or `blocked`.
 - **V2b, V2b2:** the original-file download returns 423 `file_not_ready` when the file has no scan verdict, and 409 `file_blocked` when it was flagged.
 - **S3:** the original-file download sends `Content-Disposition: attachment; filename="document"`.
-- **V1:** a deployed cell is recognised by `RAILWAY_PROJECT_ID`, which Railway sets on every service itself. A deployed cell always uses ClamAV, at `clamav.railway.internal:3310` as built into `api/app/core/scan.py`. `CLAMD_HOST`, `CLAMD_PORT` and `CLAMD_TIMEOUT_S` can still override this. Asking for `VIRUS_SCANNER=recorded` in a deployed cell stops the API and the worker at start-up. Nothing new needs setting. Off Railway (local work, tests and CI), the behaviour is unchanged.
+- **V1, code part only; STILL OPEN IN PRODUCTION:** a deployed cell is recognised by `RAILWAY_PROJECT_ID`, which Railway sets on every service itself. With `VIRUS_SCANNER` unset it uses ClamAV, at `clamav.railway.internal:3310` as built into `api/app/core/scan.py`. `CLAMD_HOST`, `CLAMD_PORT` and `CLAMD_TIMEOUT_S` can still override this. Asking for `VIRUS_SCANNER=recorded` in a deployed cell first stopped the API and the worker at start-up; because the live services had that variable set and there is no ClamAV service yet, that took production down (10 Nov 2026) and was changed: the cell now starts with the stand-in and the API and each worker log one ERROR line at start-up (`This cell is running the test stand-in virus scanner (VIRUS_SCANNER=recorded): uploads are NOT virus-scanned. Deploy the ClamAV service (railway/clamav.json) and remove the VIRUS_SCANNER variable.`). Until the two steps below are done, production does not virus-scan uploads. Close it: (1) create the `clamav` Railway service from `railway/clamav.json`; (2) delete `VIRUS_SCANNER` from `api`, `worker` and `worker-interactive`. Off Railway (local work, tests and CI), the behaviour is unchanged.
 - **D2b:** a storage delete that leaves objects behind raises `StorageError`, so the step retries. The quarantine purge carries on past a single stuck item.
 - **V3a, V4c:** one unpack budget now covers each upload. It is tracked in the new column `document_parts.size` (migration `0143`). Page pictures are capped at 25 million pixels. Two renderers are still not capped: `api/app/core/pdf.py:60` and `api/app/features/report/pdf_out.py:50`.
 

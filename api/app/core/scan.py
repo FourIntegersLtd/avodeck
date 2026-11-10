@@ -2,13 +2,16 @@
 
 Files are scanned as a stream of chunks, as they sit in Storage. The stand-in flags the standard
 EICAR test file (also when it spans chunks) and passes everything else; `ClamdScanner` talks to
-clamd (ADR 0027) with the zINSTREAM protocol. In a deployed cell the scanner is always ClamAV (`scanner_from_env`).
+clamd (ADR 0027) with the zINSTREAM protocol. In a deployed cell the scanner is ClamAV unless `VIRUS_SCANNER=recorded`
+is set by name (a temporary state while the cell has no ClamAV service): then the stand-in runs and start-up logs an
+ERROR (`scanner_at_start_up`). Uploads are not virus-scanned in that state.
 A reply that is not a clear verdict raises `ScanUnavailable`: callers fail closed.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import struct
 from collections.abc import AsyncIterable, Awaitable, Callable, Mapping
@@ -17,6 +20,8 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from app.core.config import ConfigError, clamd_settings
+
+logger = logging.getLogger(__name__)
 
 # Built from parts so this source file is not itself flagged.
 _EICAR = ("X5O!P%@AP[4\\PZX54(P^)7CC)7}$" + "EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*").encode()
@@ -122,19 +127,17 @@ def in_deployed_cell(env: Mapping[str, str] | None = None) -> bool:
 def scanner_from_env(env: Mapping[str, str] | None = None) -> VirusScanner:
     """The scanner this process runs.
 
-    In a deployed cell (Railway's own `RAILWAY_PROJECT_ID` is present) it is always ClamAV at the fixed private host;
-    CLAMD_HOST, CLAMD_PORT and CLAMD_TIMEOUT_S may override the defaults. `VIRUS_SCANNER=recorded` there raises: the
-    stand-in flags only the EICAR test string and would record every other file as clean. Anywhere else (local, tests,
-    CI) it is clamd when CLAMD_HOST is set, else the recorded stand-in; nothing needs setting.
+    In a deployed cell (Railway's own `RAILWAY_PROJECT_ID` is present) with `VIRUS_SCANNER` unset it is ClamAV at the
+    fixed private host; CLAMD_HOST, CLAMD_PORT and CLAMD_TIMEOUT_S may override the defaults. `VIRUS_SCANNER=recorded`
+    asked for by name there still builds the stand-in, which flags only the EICAR test string and records every other
+    file as clean: the cell must start (production outage, 10 Nov 2026: no ClamAV service yet), so the loud part is
+    `scanner_at_start_up`, not an error here. Anywhere else (local, tests, CI) it is clamd when CLAMD_HOST is set, else
+    the recorded stand-in; nothing needs setting. This function never logs: it is called more than once.
     """
     source = os.environ if env is None else env
     kind = source.get("VIRUS_SCANNER", "").strip()
     cell = in_deployed_cell(source)
     if cell:
-        if kind == "recorded":
-            raise ConfigError(
-                "VIRUS_SCANNER=recorded is for tests and local work: a deployed cell always scans with ClamAV"
-            )
         kind = kind or "clamd"
         source = {
             "CLAMD_HOST": CELL_CLAMD_HOST,
@@ -150,3 +153,20 @@ def scanner_from_env(env: Mapping[str, str] | None = None) -> VirusScanner:
         settings = clamd_settings(source)
         return ClamdScanner(settings.host, settings.port, settings.timeout_s)
     raise ConfigError("VIRUS_SCANNER must be 'clamd', 'recorded' or unset (auto-detect)")
+
+
+STAND_IN_IN_CELL_MESSAGE = (
+    "This cell is running the test stand-in virus scanner (VIRUS_SCANNER=recorded): uploads are NOT virus-scanned. "
+    "Deploy the ClamAV service (railway/clamav.json) and remove the VIRUS_SCANNER variable."
+)
+
+
+def scanner_at_start_up(env: Mapping[str, str] | None = None) -> VirusScanner:
+    """`scanner_from_env` for the API's and each worker's start-up, plus one ERROR when a cell runs the stand-in.
+
+    Called once per process start (never per upload), so the line cannot flood. The message is fixed: no patient text.
+    """
+    scanner = scanner_from_env(env)
+    if isinstance(scanner, RecordedScanner) and in_deployed_cell(env):
+        logger.error(STAND_IN_IN_CELL_MESSAGE)
+    return scanner

@@ -80,7 +80,7 @@ A lock-out after too many wrong codes ("Locked out of the code step until ...") 
 
 ## A file blocked for safety that the expert says is clean (F3)
 
-Every upload is scanned before any page is read (`scan_document` job; the scanner is `VIRUS_SCANNER`, ClamAV in the cloud cell). A flagged file is quarantined and never processed; the expert sees "This file was blocked for safety."
+Every upload is scanned before any page is read (`scan_document` job; the scanner is `VIRUS_SCANNER`, ClamAV in the cloud cell once its service is deployed; until then a cell with `VIRUS_SCANNER=recorded` runs the test stand-in and does not scan, see `docs/runbooks/railway.md`). A flagged file is quarantined and never processed; the expert sees "This file was blocked for safety."
 
 1. Find the case in the console (by its id or the named expert's email) and open it. The case page shows the blocked document's job and its code, never the file.
 2. Do not open, download or rescan the file yourself, and never release it from quarantine: there is no route for that, by design.
