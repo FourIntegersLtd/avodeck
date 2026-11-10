@@ -5357,8 +5357,15 @@ export interface components {
             id: string;
             /** Item Count */
             item_count: number | null;
+            /**
+             * Needs Check
+             * @default false
+             */
+            needs_check: boolean;
             /** Read At */
             read_at: string | null;
+            /** Unread Numbers */
+            unread_numbers?: number[];
             /** Version No */
             version_no: number;
         };
@@ -6221,6 +6228,28 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /**
+         * CheckRan
+         * @description One check the latest run used, so the expert can tell a clean list from a check that was held back.
+         */
+        CheckRan: {
+            /**
+             * Acted On
+             * @default 0
+             */
+            acted_on: number;
+            /** Key */
+            key: string;
+            /** Rule */
+            rule?: string | null;
+            /** Title */
+            title?: string | null;
+            /**
+             * Used Labels
+             * @default false
+             */
+            used_labels: boolean;
+        };
         /** CheckResult */
         CheckResult: {
             /** Checked */
@@ -6566,6 +6595,25 @@ export interface components {
         Comments: {
             /** Comments */
             comments: components["schemas"]["CommentOut"][];
+        };
+        /**
+         * ComparisonOut
+         * @description Where a witness statement stands: asked for yet, waiting for its page to be read, compared, or refused.
+         *     A comparison the model refused is never shown as one that found nothing.
+         */
+        ComparisonOut: {
+            /** Claims */
+            claims: number | null;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_yet_run" | "queued" | "waiting_to_be_read" | "done" | "refused";
         };
         /** CompleteUpload */
         CompleteUpload: {
@@ -7221,6 +7269,8 @@ export interface components {
         Entry: {
             /** Author Line */
             author_line?: string | null;
+            /** Availability Basis */
+            availability_basis?: ("software_label" | "dated_evidence" | "not_known" | "expert_set" | "expert_unknown") | null;
             /** Available At */
             available_at: string | null;
             /** Event Date */
@@ -7270,6 +7320,8 @@ export interface components {
         };
         /** Event */
         Event: {
+            /** Availability Basis */
+            availability_basis?: ("software_label" | "dated_evidence" | "not_known" | "expert_set" | "expert_unknown") | null;
             /** Available At */
             available_at: string | null;
             /** Date Basis */
@@ -7475,6 +7527,16 @@ export interface components {
             status: string;
             /** Value */
             value: string | null;
+            /**
+             * Verified At
+             * @description When that check was made.
+             */
+            verified_at?: string | null;
+            /**
+             * Verified By
+             * @description Who last checked it (right, changed or not right); none while it is only suggested.
+             */
+            verified_by?: string | null;
             /** Version */
             version: number;
             /** Word Ids */
@@ -7605,6 +7667,11 @@ export interface components {
         };
         /** Findings */
         Findings: {
+            /**
+             * Checks Run
+             * @default []
+             */
+            checks_run: components["schemas"]["CheckRan"][];
             /**
              * Done
              * @default 0
@@ -8507,6 +8574,11 @@ export interface components {
             checks: components["schemas"]["LintCheck"][];
             /** Issues */
             issues: components["schemas"]["LintIssueOut"][];
+            /**
+             * Not Run
+             * @default []
+             */
+            not_run: string[];
             /** Open Issues */
             open_issues: components["schemas"]["LintIssueOut"][];
         };
@@ -9355,6 +9427,8 @@ export interface components {
             id: string;
             /** Lint */
             lint?: components["schemas"]["LintIssueOut"][];
+            /** Not Run */
+            not_run?: string[];
             /** Provisional */
             provisional: boolean;
             /**
@@ -9484,6 +9558,8 @@ export interface components {
             checked_at: string | null;
             /** Claims */
             claims: components["schemas"]["OpposingClaimOut"][];
+            /** Claims Expected */
+            claims_expected?: number | null;
             /** Claims Found */
             claims_found: number | null;
             /**
@@ -10302,6 +10378,8 @@ export interface components {
         Points: {
             /** Claims */
             claims: components["schemas"]["ClaimOut"][];
+            /** Comparisons */
+            comparisons: components["schemas"]["ComparisonOut"][];
             /** Live */
             live: components["schemas"]["PointOut"][];
             /** Points */
@@ -11342,8 +11420,25 @@ export interface components {
              * @default []
              */
             lines: components["schemas"]["SecondReadingLine"][];
+            /**
+             * Prompt Version
+             * @description The version of the instructions that made them.
+             */
+            prompt_version?: string | null;
+            /**
+             * Read At
+             * @description When the software finished reading the page.
+             */
+            read_at?: string | null;
             /** Reason */
             reason?: string | null;
+            /**
+             * Source
+             * @description The lines were read by the software from the picture, not checked.
+             * @default machine_read
+             * @constant
+             */
+            source: "machine_read";
             /**
              * Status
              * @enum {string}
@@ -11812,6 +11907,8 @@ export interface components {
             page_no: number;
             /** Source Type */
             source_type: string | null;
+            /** Source Type Status */
+            source_type_status?: "suggested" | null;
         };
         /** SortedPages */
         SortedPages: {
@@ -13360,6 +13457,11 @@ export interface components {
             guidance_on: string | null;
             /** Legal Test */
             legal_test: string;
+            /**
+             * Not Run
+             * @default []
+             */
+            not_run: string[];
             opinion: components["schemas"]["OpinionOut"] | null;
             points: components["schemas"]["PointsSummary"];
             question: components["schemas"]["QuestionHeader"];

@@ -206,6 +206,11 @@
             ],
             "title": "Item Count"
           },
+          "needs_check": {
+            "default": false,
+            "title": "Needs Check",
+            "type": "boolean"
+          },
           "read_at": {
             "anyOf": [
               {
@@ -217,6 +222,13 @@
               }
             ],
             "title": "Read At"
+          },
+          "unread_numbers": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Unread Numbers",
+            "type": "array"
           },
           "version_no": {
             "title": "Version No",
@@ -2595,6 +2607,52 @@
         "title": "ChangePassword",
         "type": "object"
       },
+      "CheckRan": {
+        "description": "One check the latest run used, so the expert can tell a clean list from a check that was held back.",
+        "properties": {
+          "acted_on": {
+            "default": 0,
+            "title": "Acted On",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "used_labels": {
+            "default": false,
+            "title": "Used Labels",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "title": "CheckRan",
+        "type": "object"
+      },
       "CheckResult": {
         "properties": {
           "checked": {
@@ -3528,6 +3586,45 @@
           "comments"
         ],
         "title": "Comments",
+        "type": "object"
+      },
+      "ComparisonOut": {
+        "description": "Where a witness statement stands: asked for yet, waiting for its page to be read, compared, or refused.\nA comparison the model refused is never shown as one that found nothing.",
+        "properties": {
+          "claims": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claims"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "not_yet_run",
+              "queued",
+              "waiting_to_be_read",
+              "done",
+              "refused"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_id",
+          "status",
+          "claims"
+        ],
+        "title": "ComparisonOut",
         "type": "object"
       },
       "CompleteUpload": {
@@ -5266,6 +5363,24 @@
             ],
             "title": "Author Line"
           },
+          "availability_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "software_label",
+                  "dated_evidence",
+                  "not_known",
+                  "expert_set",
+                  "expert_unknown"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Basis"
+          },
           "available_at": {
             "anyOf": [
               {
@@ -5427,6 +5542,24 @@
       },
       "Event": {
         "properties": {
+          "availability_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "software_label",
+                  "dated_evidence",
+                  "not_known",
+                  "expert_set",
+                  "expert_unknown"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Basis"
+          },
           "available_at": {
             "anyOf": [
               {
@@ -5933,6 +6066,32 @@
             ],
             "title": "Value"
           },
+          "verified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When that check was made.",
+            "title": "Verified At"
+          },
+          "verified_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who last checked it (right, changed or not right); none while it is only suggested.",
+            "title": "Verified By"
+          },
           "version": {
             "title": "Version",
             "type": "integer"
@@ -6240,6 +6399,14 @@
       },
       "Findings": {
         "properties": {
+          "checks_run": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CheckRan"
+            },
+            "title": "Checks Run",
+            "type": "array"
+          },
           "done": {
             "default": 0,
             "title": "Done",
@@ -8780,6 +8947,14 @@
             "title": "Issues",
             "type": "array"
           },
+          "not_run": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Not Run",
+            "type": "array"
+          },
           "open_issues": {
             "items": {
               "$ref": "#/components/schemas/LintIssueOut"
@@ -10984,6 +11159,13 @@
             "title": "Lint",
             "type": "array"
           },
+          "not_run": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Not Run",
+            "type": "array"
+          },
           "provisional": {
             "title": "Provisional",
             "type": "boolean"
@@ -11396,6 +11578,17 @@
             },
             "title": "Claims",
             "type": "array"
+          },
+          "claims_expected": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claims Expected"
           },
           "claims_found": {
             "anyOf": [
@@ -13621,6 +13814,13 @@
             "title": "Claims",
             "type": "array"
           },
+          "comparisons": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonOut"
+            },
+            "title": "Comparisons",
+            "type": "array"
+          },
           "live": {
             "items": {
               "$ref": "#/components/schemas/PointOut"
@@ -13670,6 +13870,7 @@
           "unused",
           "relevant",
           "claims",
+          "comparisons",
           "range_note",
           "question"
         ],
@@ -16496,6 +16697,31 @@
             "title": "Lines",
             "type": "array"
           },
+          "prompt_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The version of the instructions that made them.",
+            "title": "Prompt Version"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the software finished reading the page.",
+            "title": "Read At"
+          },
           "reason": {
             "anyOf": [
               {
@@ -16506,6 +16732,13 @@
               }
             ],
             "title": "Reason"
+          },
+          "source": {
+            "const": "machine_read",
+            "default": "machine_read",
+            "description": "The lines were read by the software from the picture, not checked.",
+            "title": "Source",
+            "type": "string"
           },
           "status": {
             "enum": [
@@ -17839,6 +18072,18 @@
               }
             ],
             "title": "Source Type"
+          },
+          "source_type_status": {
+            "anyOf": [
+              {
+                "const": "suggested",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Type Status"
           }
         },
         "required": [
@@ -21897,6 +22142,14 @@
           "legal_test": {
             "title": "Legal Test",
             "type": "string"
+          },
+          "not_run": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Not Run",
+            "type": "array"
           },
           "opinion": {
             "anyOf": [

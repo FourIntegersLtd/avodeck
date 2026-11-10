@@ -247,8 +247,8 @@ KNOWN: dict[str, set[str]] = {
     # task id -> the gaps the scan finds today (each one is its own xfail below)
     "open_object": set(),
     "unbounded_array": set(),
-    "unbounded_string": {"T-22a"},
-    "unbounded_number": {"T-02"},
+    "unbounded_string": set(),
+    "unbounded_number": set(),
 }
 
 
