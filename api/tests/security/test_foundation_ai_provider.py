@@ -36,7 +36,7 @@ from app.core.ai.bedrock_live import AwsCredentials, LiveBedrock
 from app.core.ai.cell import EndpointNotAllowed, ModelNotAllowed, check_endpoint, check_model
 from app.core.ai.clients import live_or_recorded
 from app.core.ai.kit import AiKit, AiTask, InvalidOutput, backoff_delays
-from app.core.config import ConfigError, ai_settings, endpoint_allowed, in_region_model_id
+from app.core.config import ConfigError, ai_settings, endpoint_allowed, in_region_model_id, is_production
 from app.core.errors import ProcessingPaused
 from app.core.logs import sentry_options
 from tests.support.ai import CELL_ENV, NAME, ScriptedBedrock, cell, cell_env, response
@@ -338,6 +338,20 @@ def test_the_direct_provider_is_refused_in_a_production_cell() -> None:
     production = {"SENTRY_ENVIRONMENT": "production", "ENVIRONMENT": "production", "APP_ENV": "production"}
     with pytest.raises(ConfigError):
         ai_settings(cell_env(**ON, **production))
+
+
+@pytest.mark.parametrize("name", ["production", "prod", "live", "Production ", " PROD", "Live\t", "PRODUCTION"])
+def test_C_every_usual_spelling_of_production_is_production(name: str) -> None:
+    assert is_production({"SENTRY_ENVIRONMENT": name}) is True
+    with pytest.raises(ConfigError):
+        ai_settings(cell_env(**ON, SENTRY_ENVIRONMENT=name))
+
+
+@pytest.mark.parametrize("name", ["", "staging", "development", "dev", "preview", "production-like", "prodigy"])
+def test_C_other_names_and_an_unset_name_are_not_production_so_dev_cells_keep_the_direct_path(name: str) -> None:
+    env = {"SENTRY_ENVIRONMENT": name} if name else {}
+    assert is_production(env) is False  # control: the check is exact, not a prefix
+    assert ai_settings(cell_env(**ON, **env)) is not None  # the direct provider is allowed here
 
 
 def test_the_client_factory_builds_no_direct_client_in_a_production_cell() -> None:

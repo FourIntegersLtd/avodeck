@@ -243,6 +243,11 @@ def backoff_delays(retries: int, base: float = 2.0, limit: float = MAX_WAIT_SECO
     return delays
 
 
+def _needs_case(case_id: uuid.UUID | None) -> None:
+    if case_id is None:
+        raise ValueError("this call needs a case id: only `run` has a per-person allowance for a call with no case")
+
+
 class AiKit:
     """The only way a slice calls a model.
 
@@ -353,7 +358,9 @@ class AiKit:
         job_id: uuid.UUID | None = None,
         provider: str | None = None,
     ) -> dict[str, Any]:
-        """Like `run`, with a page picture whose identifiers `mask.mask_page` painted out. Raw bytes are refused."""
+        """Like `run`, with a page picture whose identifiers `mask.mask_page` painted out. Raw bytes are refused.
+        A call needs a case: it has no per-person allowance, so with no case it would have no cost guard."""
+        _needs_case(case_id)
         if not isinstance(masked, MaskedImage):
             raise TypeError("run_image takes a MaskedImage made by mask.mask_page")
         if not is_genuine(masked):
@@ -380,10 +387,10 @@ class AiKit:
     ) -> dict[str, Any]:
         """Like ``run``, but for worker jobs: opens short-lived transactions for each DB
         operation so no pool connection is held during slot waits or model calls."""
+        _needs_case(case_id)
         model_id = self._prepare(provider, task)
-        if case_id is not None:
-            async with database.job(case_id) as conn:
-                await self._cost_guard(conn, case_id)
+        async with database.job(case_id) as conn:
+            await self._cost_guard(conn, case_id)
         stripped = pii.strip(text, pack=pack, names=names, dates_of_birth=dates_of_birth)
         return await self._ask_detached(
             database, case_id, task, model_id, pack, stripped.text, subject, job_id, provider

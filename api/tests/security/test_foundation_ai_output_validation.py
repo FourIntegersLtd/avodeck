@@ -17,8 +17,16 @@ import pytest
 from app.core.ai import anthropic_live
 from app.core.ai.bedrock import ModelRequest
 from app.core.ai.kit import AiKit, AiTask, InvalidOutput, OutputTruncated
-from app.core.ai.provenance import ProvenanceError, check, check_items, supported
+from app.core.ai.provenance import (
+    ProvenanceError,
+    check,
+    check_items,
+    has_hidden_characters,
+    supported,
+    without_ignorable,
+)
 from app.core.ai.strict import strict_schema
+from app.core.contracts.citations import quote_within
 from app.features.pipeline import extract
 from tests.support.ai import ScriptedBedrock, cell, response
 from tests.support.ai_audit import PACK, PACK_LAUNCH, SCHEMA, VALID, FakeConn, all_tasks, task
@@ -467,6 +475,11 @@ def test_R4_number_and_sign_tricks_are_refused(value: str, page_words: list[str]
         ("1.0", ["1"]),
         ("0.5", [".5"]),
         ("ﬁbrinogen", ["fibrinogen"]),
+        # layout characters a text layer carries are ignored on both sides (AUDIT-14 round 2, B; see the B tests below)
+        ("Creat\u200binine", ["creatinine"]),
+        ("creati\u00adnine", ["creatinine"]),
+        ("creatinine", ["Creat\u200binine"]),
+        ("1\u200b2", ["12"]),
     ],
 )
 def test_R5_the_normalisations_the_rule_allows_are_accepted(value: str, page_words: list[str]) -> None:
@@ -478,12 +491,8 @@ def test_R5_the_normalisations_the_rule_allows_are_accepted(value: str, page_wor
     ("value", "page_words"),
     [
         ("сreatinine", ["creatinine"]),  # first letter is Cyrillic
-        ("Creat​inine", ["creatinine"]),  # zero-width space inside the word
         ("Creat‍inine", ["creatinine"]),
-        ("creati­nine", ["creatinine"]),  # soft hyphen
         ("créatinine", ["creatinine"]),
-        ("creatinine", ["Creat​inine"]),
-        ("1​2", ["12"]),
     ],
 )
 def test_R6_look_alike_and_invisible_characters_cannot_make_a_different_word_match(
@@ -522,3 +531,55 @@ def test_R10_a_refusal_carries_a_reason_code_only() -> None:
             assert CANARY not in repr(exc) and CANARY not in str(exc.args)
         else:
             raise AssertionError("expected a refusal")
+
+
+# --- invisible characters: layout ones are ignored, hiding ones are refused (AUDIT-14 round 2, B) --------------------
+
+LAYOUT = {"soft_hyphen": "\u00ad", "zero_width_space": "\u200b", "bom": "\ufeff", "word_joiner": "\u2060"}
+HIDING = {
+    "bidi_override": "\u202e",
+    "bidi_isolate": "\u2066",
+    "zero_width_joiner": "\u200d",
+    "zero_width_non_joiner": "\u200c",
+    "tag_character": "\U000e0041",
+    "control": "\x07",
+    "left_to_right_mark": "\u200e",
+}
+
+
+@pytest.mark.parametrize("mark", LAYOUT.values(), ids=LAYOUT.keys())
+def test_B_a_layout_character_inside_a_text_layer_word_does_not_stop_a_real_value_matching(mark: str) -> None:
+    words = {"w1": f"Amoxi{mark}cillin", "w2": "500mg"}
+    copied_as_written = f"Amoxi{mark}cillin 500mg"
+    check(copied_as_written, ["w1", "w2"], words)  # the model copied the word as it is written
+    check("Amoxicillin 500mg", ["w1", "w2"], words)  # cleaned on both sides, so the clean spelling matches too
+    assert not has_hidden_characters(copied_as_written)
+    assert without_ignorable(copied_as_written) == "Amoxicillin 500mg"
+    assert quote_within(copied_as_written, "Amoxicillin 500mg") and quote_within("Amoxicillin", words["w1"])
+    # control: it is still the same words, not any words
+    with pytest.raises(ProvenanceError) as caught:
+        check(f"Amoxi{mark}cillin 250mg", ["w1", "w2"], words)
+    assert caught.value.reason == "not_in_words"
+
+
+def test_B_the_cleaned_text_is_the_text_with_only_the_layout_characters_taken_out() -> None:
+    assert without_ignorable("a\u00adb\u200bc\ufeffd\u2060e f\tg\n") == "abcde f\tg\n"
+    assert without_ignorable("plain text") == "plain text"
+    assert without_ignorable("keep\u202eme") == "keep\u202eme"  # a hiding character is not removed, it is refused
+
+
+@pytest.mark.parametrize("mark", HIDING.values(), ids=HIDING.keys())
+def test_B_a_hiding_character_is_still_refused_in_a_value_and_a_quote(mark: str) -> None:
+    words = {"w1": "Amoxicillin", "w2": "500mg"}
+    assert has_hidden_characters(f"Amoxi{mark}cillin")
+    with pytest.raises(ProvenanceError) as caught:
+        check(f"Amoxi{mark}cillin 500mg", ["w1", "w2"], words)
+    assert caught.value.reason == "hidden_characters"
+    assert not quote_within(f"Amoxi{mark}cillin", "Amoxicillin 500mg")
+    # control: the same value without it is accepted, so the refusal is the character's
+    check("Amoxicillin 500mg", ["w1", "w2"], words)
+
+
+def test_B_a_layout_character_beside_a_hiding_one_does_not_hide_it() -> None:
+    assert has_hidden_characters("a\u00ad\u202eb") and has_hidden_characters("\u200b\u200d")
+    assert not has_hidden_characters("a\u00adb\u200bc")

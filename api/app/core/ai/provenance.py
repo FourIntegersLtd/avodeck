@@ -9,8 +9,10 @@ run of the page's words (the order of `words` is reading order), and the value's
 in order and whole, among their atoms. So "AMOXICILLIN 500 mg" is in "Amoxicillin 500mg", "1000"
 is in "1,000", but "12" is not in "120" and "amoxi" is not in "Amoxicillin". A number written with a
 decimal comma or a slash ("12,5", "3/4") is one number: neither part alone is found in it. A hyphen with a
-space on both sides ("120 - 80") separates two numbers; it is not a minus sign. A value carrying an invisible
-or control character (right-to-left marks, zero-width characters, soft hyphens, tag characters) is refused
+space on both sides ("120 - 80") separates two numbers; it is not a minus sign. The layout characters a text
+layer really carries (soft hyphen, zero-width space, byte-order mark, word joiner) are ignored on both sides
+(`without_ignorable`), so a word copied as written still matches. A value carrying any other invisible or
+control character (right-to-left and other direction marks, zero-width joiners, tag characters) is refused
 whatever it says. Errors carry a reason code only, never text.
 """
 
@@ -28,6 +30,7 @@ _SIGNS = "-+<>≤≥"
 _ATOM = re.compile(
     r"(?:(?<![^\W_])(?:[+<>≤≥]\s*|-))?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)(?:\s*%)?|[^\W\d_]+"
 )
+_IGNORABLE = dict.fromkeys(map(ord, "\u00ad\u200b\ufeff\u2060"))  # soft hyphen, zero-width space, BOM, word joiner
 _JOINERS = ",/"  # between two digit runs with no space ("12,5", "3/4"): one number written in two parts
 _SPELLINGS = (("\u2212", "-"), ("<=", "≤"), (">=", "≥"))
 
@@ -62,7 +65,7 @@ def _plain(atom: str) -> str:
 def atoms(text: str) -> list[str]:
     """The text as atoms. A `,` or `/` written straight between two numbers is kept as an atom of its own, so a
     number written with a decimal comma or a slash is not found by one of its parts (see `contains_whole`)."""
-    folded = unicodedata.normalize("NFKC", text).casefold()
+    folded = unicodedata.normalize("NFKC", without_ignorable(text)).casefold()
     for spelling, sign in _SPELLINGS:
         folded = folded.replace(spelling, sign)
     found: list[str] = []
@@ -91,11 +94,18 @@ def contains_whole(haystack: list[str], needle: list[str]) -> bool:
     return False
 
 
+def without_ignorable(text: str) -> str:
+    """`text` without the layout characters that carry no meaning (soft hyphen, zero-width space, byte-order mark,
+    word joiner). Slices that keep a model's value (`value`, `quote_verbatim`, `text_verbatim`) store this form."""
+    return text.translate(_IGNORABLE)
+
+
 def has_hidden_characters(text: str) -> bool:
-    """Whether `text` has an invisible or control character (format and control categories; not tab or newline)."""
+    """Whether `text` has an invisible or control character that could hide something (format and control
+    categories, not tab or newline). The layout characters of `without_ignorable` do not count."""
     return any(
         unicodedata.category(char) == "Cf" or (unicodedata.category(char) == "Cc" and char not in "\t\n\r")
-        for char in text
+        for char in without_ignorable(text)
     )
 
 
