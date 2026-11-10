@@ -955,12 +955,16 @@ async def test_g_an_expired_link_returns_no_content(
     assert response.json()["status"] == "expired" and check.marker not in response.text
 
 
-@pytest.mark.parametrize("status", ["settled", "archived", "withdrawn", "deleted"])
-@pytest.mark.xfail(
+_STILL_OPEN = pytest.mark.xfail(
     strict=True,
-    reason="AUDIT-11 NEW-3: app.spot_check_unlock checks only existence, expiry, attempts and code, never the case"
-    " status; the link opens after the case is settled, archived, withdrawn or deleted"
-    " (supabase/migrations/0604_report_spot_check_functions.sql:9-42)",
+    reason="AUDIT-11 POLICY NEW-3: the link still opens after the case is settled or archived; only a withdrawn or"
+    " deleted case closes it (supabase/migrations/0609_report_spot_check_closed_case.sql:25); owner decision",
+)
+
+
+@pytest.mark.parametrize(
+    "status",
+    [pytest.param("settled", marks=_STILL_OPEN), pytest.param("archived", marks=_STILL_OPEN), "withdrawn", "deleted"],
 )
 async def test_g_a_link_returns_no_content_once_its_case_has_closed_or_been_deleted(
     status: str, spot_app: tuple[FastAPI, MemoryStorage], admin: psycopg.Connection, seed: Seed
@@ -986,11 +990,6 @@ async def test_g_a_link_returns_no_content_once_its_case_has_closed_or_been_dele
     assert check.marker not in response.text
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-11 NEW-3: the link still opens after its report version is withdrawn; app.spot_check_unlock never"
-    " reads report_versions (supabase/migrations/0604_report_spot_check_functions.sql:9-42)",
-)
 async def test_g_a_link_returns_no_content_once_its_report_version_is_withdrawn(
     spot_app: tuple[FastAPI, MemoryStorage], admin: psycopg.Connection, seed: Seed
 ) -> None:
