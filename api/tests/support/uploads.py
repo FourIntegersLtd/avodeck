@@ -116,11 +116,26 @@ def _dsns() -> dict[str, str]:
     return test_dsns(port, os.environ)
 
 
-async def complete_and_finalize(client: httpx.AsyncClient, upload: str, digest: str) -> str:
+def record_clean_scan(document: str) -> None:
+    """Record the clean verdict the `scan_document` job would have, so the original can be downloaded.
+
+    The download route serves only a document whose scan is recorded clean (audit 12, V2b); these helpers
+    run `finalize_upload` inline and never the scan job. Does nothing if a verdict is already there.
+    """
+    with psycopg.connect(_dsns()["TEST_DATABASE_ADMIN_URL"], autocommit=True, connect_timeout=20) as admin:
+        admin.execute(
+            "insert into app.document_scans (document_id, bundle_id, clean)"
+            " select id, bundle_id, true from app.documents where id = %s on conflict do nothing",
+            (document,),
+        )
+
+
+async def complete_and_finalize(client: httpx.AsyncClient, upload: str, digest: str, *, scanned: bool = False) -> str:
     """Complete the upload, run its `finalize_upload` job inline, and return the document id.
 
     For helpers that hold only a client: the storage and case encryption come from the app it talks
-    to, and the database from the test connection strings, as the fixtures do.
+    to, and the database from the test connection strings, as the fixtures do. `scanned=True` also records
+    the clean scan verdict (see `record_clean_scan`), for a test that goes on to download the original.
     """
     done = await complete(client, upload, digest)
     assert done.status_code == 202, done.text
@@ -134,6 +149,8 @@ async def complete_and_finalize(client: httpx.AsyncClient, upload: str, digest: 
     assert status.status_code == 200, status.text
     document = status.json()["document_id"]
     assert document is not None, status.text
+    if scanned:
+        record_clean_scan(str(document))
     return str(document)
 
 

@@ -26,7 +26,7 @@ from app.core.storage import CaseFileStorage, StorageError, upload_prefix
 from tests.support.db import ClientFor
 from tests.support.files import MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
-from tests.support.uploads import complete, put, put_all, row, run_finalize, start
+from tests.support.uploads import complete, put, put_all, record_clean_scan, row, run_finalize, start
 
 pytestmark = pytest.mark.anyio
 
@@ -349,6 +349,7 @@ async def test_a_download_whose_object_is_gone_is_a_404_before_any_bytes_stream(
     upload = await claimed(client, team, file)
     await run_finalize(worker_dsn, admin, upload, storage, crypto)
     document = (await complete(client, upload, file.sha256())).json()["document_id"]
+    record_clean_scan(document)  # scanned, so only the missing part can make the download a 404
     await storage.delete([path_of(team, upload, 1)])
     resp = await client.get(f"/v1/cases/{team['case']}/documents/{document}/file")
     assert resp.status_code == 404, resp.text

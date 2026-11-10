@@ -257,6 +257,40 @@ async def part_depth(conn: AsyncConnection, document_id: uuid.UUID) -> int:
     return int(row[0]) if row and row[0] is not None else 0
 
 
+async def lock_upload_root(conn: AsyncConnection, document_id: uuid.UUID) -> uuid.UUID:
+    """Locks the file this document was unpacked from, however deep (the document itself if it is the original),
+    until the transaction ends, and returns its id. Splits of sibling files take turns here, so the unpack budget
+    of one upload is read and spent by one of them at a time."""
+    cur = await conn.execute(
+        "with recursive up(id, depth) as (select %s::uuid, 0 union all"
+        " select p.parent_document_id, up.depth + 1 from app.document_parts p join up on p.document_id = up.id"
+        " where up.depth < 50) select id from up order by depth desc limit 1",
+        (document_id,),
+    )
+    row = await cur.fetchone()
+    root: uuid.UUID = row[0] if row else document_id
+    await conn.execute("select 1 from app.documents where id = %s for no key update", (root,))
+    return root
+
+
+async def unpacked_so_far(conn: AsyncConnection, root_id: uuid.UUID, document_id: uuid.UUID) -> tuple[int, int]:
+    """(files, bytes) already unpacked from one upload: the files under `root_id` that have nothing under them (an
+    unopened or kept-whole zip counts as one file, an opened one is replaced by what came out of it), leaving out
+    `document_id` and what it holds, which the caller is about to count afresh."""
+    cur = await conn.execute(
+        "with recursive tree(id) as (select %(root)s::uuid union all"
+        " select p.document_id from app.document_parts p join tree t on p.parent_document_id = t.id),"
+        " own(id) as (select %(doc)s::uuid union all"
+        " select p.document_id from app.document_parts p join own o on p.parent_document_id = o.id)"
+        " select count(*), coalesce(sum(dp.size), 0) from tree t join app.document_parts dp on dp.document_id = t.id"
+        " where t.id not in (select id from own)"
+        " and not exists (select 1 from app.document_parts c where c.parent_document_id = t.id)",
+        {"root": root_id, "doc": document_id},
+    )
+    row = await cur.fetchone()
+    return (int(row[0]), int(row[1])) if row else (0, 0)
+
+
 async def add_part(
     conn: AsyncConnection,
     case_id: uuid.UUID,
@@ -268,6 +302,7 @@ async def add_part(
     media_type: str,
     sha256: str,
     storage_path: str,
+    size: int | None = None,
 ) -> bool:
     """A file inside an email or a zip becomes a document of its own, once. False if already made."""
     cur = await conn.execute(
@@ -288,9 +323,9 @@ async def add_part(
         (document_id, case_id),
     )
     await conn.execute(
-        "insert into app.document_parts (bundle_id, parent_document_id, document_id, part_no, media_type)"
-        " values ((select bundle_id from app.cases where id = %s), %s, %s, %s, %s)",
-        (case_id, parent_id, document_id, part_no, media_type),
+        "insert into app.document_parts (bundle_id, parent_document_id, document_id, part_no, media_type, size)"
+        " values ((select bundle_id from app.cases where id = %s), %s, %s, %s, %s, %s)",
+        (case_id, parent_id, document_id, part_no, media_type, size),
     )
     return True
 

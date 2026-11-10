@@ -234,3 +234,39 @@ async def test_only_the_worker_can_delete_a_page(h: Harness) -> None:
             async with conn.transaction():
                 await conn.execute("select app.purge_quarantined_page(%s)", (quarantine_id,))
     assert refused.value.sqlstate == "AV409", "a quarantine that is not confirmed was deleted"
+
+
+async def test_one_stuck_deletion_does_not_stop_the_other_pages_and_is_retried(
+    h: Harness, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Storage refuses to delete one page's files (StorageError): that page stays confirmed so the next run
+    retries it, the other page is still deleted, and the log carries ids and codes only (rule 6)."""
+    from app.core.storage import StorageError
+
+    days: int = h.days  # type: ignore[attr-defined]
+    stuck = page_id(h, OTHER_PAGE)
+    assert (await h.client.post(quarantine_path(h, 5), json={"reason": "not_this_person"})).status_code == 200
+    assert status_of(h, 5) == ["confirmed"]
+    real_delete = h.storage.delete
+    refuse = True
+
+    async def delete(keys: Any) -> Any:
+        if refuse and any(str(stuck) in key for key in keys):
+            raise StorageError("AccessDenied")
+        return await real_delete(keys)
+
+    monkeypatch.setattr(h.storage, "delete", delete)
+    day = confirmed_on(h) + dt.timedelta(days=days + 1)
+    with caplog.at_level("WARNING"):
+        await purge(h, day)
+    assert status_of(h, 5) == ["purged"], "one stuck object stopped the other page's deletion"
+    assert status_of(h, OTHER_PAGE) == ["confirmed"], "a page whose files were not deleted was marked deleted"
+    assert text_of(h, OTHER_PAGE)["words"] > 0
+    logged = " ".join(r.getMessage() for r in caplog.records)
+    assert str(stuck) not in logged or "AccessDenied" in logged
+    assert "AccessDenied" in logged, "the refusal was not logged"
+
+    refuse = False
+    await purge(h, day)
+    assert status_of(h, OTHER_PAGE) == ["purged"], "the stuck page was not retried"
+    assert await files_of(h, OTHER_PAGE) == []

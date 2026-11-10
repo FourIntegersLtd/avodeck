@@ -2,7 +2,7 @@
 
 Files are scanned as a stream of chunks, as they sit in Storage. The stand-in flags the standard
 EICAR test file (also when it spans chunks) and passes everything else; `ClamdScanner` talks to
-clamd (ADR 0027) with the zINSTREAM protocol. The cell config (`VIRUS_SCANNER`) chooses the scanner.
+clamd (ADR 0027) with the zINSTREAM protocol. In a deployed cell the scanner is always ClamAV (`scanner_from_env`).
 A reply that is not a clear verdict raises `ScanUnavailable`: callers fail closed.
 """
 
@@ -106,11 +106,43 @@ class RecordedScanner:
         return ScanResult(clean=True)
 
 
+# A deployed cell is a Railway service (ADR 0021): Railway puts this variable in every service's environment, so nobody
+# sets it by hand and a cell cannot be built without it. ClamAV's place in the cell is fixed by ADR 0027.
+CELL_MARKER = "RAILWAY_PROJECT_ID"
+CELL_CLAMD_HOST = "clamav.railway.internal"
+CELL_CLAMD_PORT = 3310
+CELL_CLAMD_TIMEOUT_S = 60
+
+
+def in_deployed_cell(env: Mapping[str, str] | None = None) -> bool:
+    source = os.environ if env is None else env
+    return bool(source.get(CELL_MARKER, "").strip())
+
+
 def scanner_from_env(env: Mapping[str, str] | None = None) -> VirusScanner:
-    """Auto-detect: `clamd` when CLAMD_HOST is set, else `recorded` (tests and local)."""
+    """The scanner this process runs.
+
+    In a deployed cell (Railway's own `RAILWAY_PROJECT_ID` is present) it is always ClamAV at the fixed private host;
+    CLAMD_HOST, CLAMD_PORT and CLAMD_TIMEOUT_S may override the defaults. `VIRUS_SCANNER=recorded` there raises: the
+    stand-in flags only the EICAR test string and would record every other file as clean. Anywhere else (local, tests,
+    CI) it is clamd when CLAMD_HOST is set, else the recorded stand-in; nothing needs setting.
+    """
     source = os.environ if env is None else env
     kind = source.get("VIRUS_SCANNER", "").strip()
-    if not kind:
+    cell = in_deployed_cell(source)
+    if cell:
+        if kind == "recorded":
+            raise ConfigError(
+                "VIRUS_SCANNER=recorded is for tests and local work: a deployed cell always scans with ClamAV"
+            )
+        kind = kind or "clamd"
+        source = {
+            "CLAMD_HOST": CELL_CLAMD_HOST,
+            "CLAMD_PORT": str(CELL_CLAMD_PORT),
+            "CLAMD_TIMEOUT_S": str(CELL_CLAMD_TIMEOUT_S),
+            **{k: v for k, v in source.items() if k.startswith("CLAMD_") and v.strip()},
+        }
+    elif not kind:
         kind = "clamd" if source.get("CLAMD_HOST", "").strip() else "recorded"
     if kind == "recorded":
         return RecordedScanner()

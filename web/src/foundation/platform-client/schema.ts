@@ -15608,6 +15608,20 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description No such document, or its file is gone from storage (`not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The virus scan flagged this file; it is never served (`file_blocked`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -15616,6 +15630,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+            /** @description The virus scan has not finished; try again shortly (`file_not_ready`, Retry-After). */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error: the `code` says which (architecture 5.1) */
             default: {
