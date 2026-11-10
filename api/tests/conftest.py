@@ -39,6 +39,8 @@ os.environ.setdefault("PACKS_DIR", os.pathsep.join(str(REPO / p) for p in ("pack
 # Session tokens are sealed with the local key provider in tests; a fresh master key each run (never a real key).
 # The stand-in scanner is only built when asked for by name (`app.core.scan.scanner_from_env`): tests ask for it here.
 os.environ.setdefault("VIRUS_SCANNER", "recorded")
+if os.environ["VIRUS_SCANNER"] == "recorded":
+    os.environ.pop("CLAMD_HOST", None)  # the two together are refused; the live clamd test reads CLAMD_LIVE_HOST
 os.environ.setdefault("KEY_PROVIDER", "local")
 os.environ.setdefault("LOCAL_MASTER_KEY", base64.b64encode(os.urandom(32)).decode())
 SESSION_SHAPE = ("email", "full_name", "aal", "mfa_age", "idle", "age", "device_label")

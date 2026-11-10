@@ -269,7 +269,7 @@ async def lock_upload_root(conn: AsyncConnection, document_id: uuid.UUID) -> uui
     )
     row = await cur.fetchone()
     root: uuid.UUID = row[0] if row else document_id
-    await conn.execute("select 1 from app.documents where id = %s for update", (root,))
+    await conn.execute("select 1 from app.documents where id = %s for no key update", (root,))
     return root
 
 

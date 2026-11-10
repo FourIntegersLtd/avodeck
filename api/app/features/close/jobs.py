@@ -271,7 +271,7 @@ def _sha(data: bytes) -> str:
 
 
 def _finish_zip(archive: zipfile.ZipFile, names: list[str], hashes: list[dict[str, str]], case_id: uuid.UUID,
-                variant: str, left_out: list[str] | None = None) -> None:  # fmt: skip
+                variant: str, left_out: dict[str, str] | None = None) -> None:  # fmt: skip
     table = io.StringIO()
     writer = csv.DictWriter(table, fieldnames=["file", "recorded_sha256", "computed_sha256", "matches"])
     writer.writeheader()
@@ -282,7 +282,7 @@ def _finish_zip(archive: zipfile.ZipFile, names: list[str], hashes: list[dict[st
         "created_at": datetime.now(UTC).isoformat(),
         "files": sorted(names),
         "not_yet_available": [{"path": path, "reason": reason} for path, reason in NOT_YET_AVAILABLE],
-        "left_out": [{"document_id": d, "reason": "not_scanned_clean"} for d in left_out or []],
+        "left_out": [{"document_id": d, "reason": r} for d, r in (left_out or {}).items()],
     }
     for path, _ in NOT_YET_AVAILABLE:
         archive.writestr(path, "not_yet_available\n")
@@ -396,13 +396,19 @@ async def export_case(ctx: JobContext) -> None:
         # Documents left out are named in the manifest by id, with the reason, so the expert can see why.
         documents = await _all(
             conn,
-            "select d.id, d.storage_path, d.sha256, coalesce(s.clean, false) as clean, s.media_type"
+            "select d.id, d.storage_path, d.sha256, coalesce(s.clean, false) as clean, s.media_type,"
+            " (s.clean is null) as scan_pending"
             " from app.documents d left join app.document_scans s on s.document_id = d.id"
             " where d.bundle_id = (select bundle_id from app.cases where id = %s) and d.storage_path is not null"
             " order by d.id",
             (ctx.case_id,),
         )
-        left_out = [str(d["id"]) for d in documents if not d["clean"]] if "full" in variants else []
+        # "scan_pending": no verdict yet (new upload, append, page-split); "blocked": the scan flagged it.
+        left_out = (
+            {str(d["id"]): "scan_pending" if d["scan_pending"] else "blocked" for d in documents if not d["clean"]}
+            if "full" in variants
+            else {}
+        )
         with contextlib.ExitStack() as stack:
             files = {v: stack.enter_context(tempfile.TemporaryFile()) for v in variants}
             # entered after the files: on a failure each ZIP closes before its file

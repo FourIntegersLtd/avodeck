@@ -1293,7 +1293,7 @@ async def test_an_export_whose_stored_file_no_longer_matches_its_checksum_fails_
     assert await storage.list_recursive(f"{case_prefix(case)}/exports/{job}") == []
 
 
-async def test_a_document_in_several_parts_is_exported_whole_and_one_not_scanned_clean_is_named_in_the_manifest(
+async def test_a_document_in_several_parts_is_exported_whole_and_one_not_clean_is_named_in_the_manifest_with_its_reason(
     run: Run, seed: Seed, admin: psycopg.Connection, storage: CaseFileStorage, crypto: CaseCrypto,
     worker_db: Database, world: dict[str, Any], client_for: ClientFor,
 ) -> None:  # fmt: skip
@@ -1313,6 +1313,16 @@ async def test_a_document_in_several_parts_is_exported_whole_and_one_not_scanned
         "update app.documents set storage_path = %s, sha256 = %s where id = %s",
         (f"{case_prefix(case)}/uploads/{uuid.uuid4()}", "1" * 64, waiting),
     )  # no scan row: left out, and its (absent) file is never read
+    flagged = seed.document(case)
+    admin.execute(
+        "update app.documents set storage_path = %s, sha256 = %s where id = %s",
+        (f"{case_prefix(case)}/uploads/{uuid.uuid4()}", "2" * 64, flagged),
+    )
+    admin.execute(
+        "insert into app.document_scans (document_id, bundle_id, clean, signature)"
+        " values (%s, (select bundle_id from app.cases where id = %s), false, 'Test.Signature')",
+        (flagged, case),
+    )  # scanned and flagged: left out as blocked, not as waiting
     client = await client_for(world["expert"])
     job = uuid.UUID((await client.post(f"/v1/cases/{case}/export")).json()["job_id"])
     await run(close_jobs.export_case, case, "export_case", job=job)
@@ -1322,4 +1332,7 @@ async def test_a_document_in_several_parts_is_exported_whole_and_one_not_scanned
     assert archive.read(f"bundle/{doc}.pdf") == b"".join(parts)
     assert f"bundle/{waiting}" not in " ".join(archive.namelist())
     manifest = json.loads(archive.read("manifest.json"))
-    assert manifest["left_out"] == [{"document_id": str(waiting), "reason": "not_scanned_clean"}]
+    assert sorted(manifest["left_out"], key=lambda e: e["document_id"]) == sorted(
+        [{"document_id": str(waiting), "reason": "scan_pending"}, {"document_id": str(flagged), "reason": "blocked"}],
+        key=lambda e: e["document_id"],
+    )

@@ -78,8 +78,8 @@ jobs:
           --health-cmd "clamdcheck.sh" --health-interval 10s --health-timeout 5s
           --health-retries 30 --health-start-period 120s
     env:
-      CLAMD_HOST: 127.0.0.1
-      CLAMD_PORT: "3310"
+      CLAMD_LIVE_HOST: 127.0.0.1  # not CLAMD_HOST: the tests run the recorded scanner, and both together are refused
+      CLAMD_LIVE_PORT: "3310"
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }

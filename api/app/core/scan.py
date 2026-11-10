@@ -110,7 +110,8 @@ def scanner_from_env(env: Mapping[str, str] | None = None) -> VirusScanner:
     """The scanner the cell asks for, by name: `clamd` (with CLAMD_HOST) or `recorded` (tests and local only).
 
     With neither VIRUS_SCANNER nor CLAMD_HOST set this raises: a cell never falls back to the stand-in, which flags
-    only the EICAR test string and would record every other file as clean. CLAMD_HOST alone selects `clamd`.
+    only the EICAR test string and would record every other file as clean. CLAMD_HOST alone selects `clamd`;
+    `recorded` together with CLAMD_HOST is refused.
     """
     source = os.environ if env is None else env
     kind = source.get("VIRUS_SCANNER", "").strip()
@@ -122,6 +123,11 @@ def scanner_from_env(env: Mapping[str, str] | None = None) -> VirusScanner:
             )
         kind = "clamd"
     if kind == "recorded":
+        if source.get("CLAMD_HOST", "").strip():
+            raise ConfigError(
+                "VIRUS_SCANNER=recorded and CLAMD_HOST are both set: the stand-in would silently replace ClamAV. "
+                "A cell sets CLAMD_HOST only; VIRUS_SCANNER=recorded is for tests and local work"
+            )
         return RecordedScanner()
     if kind == "clamd":
         settings = clamd_settings(source)

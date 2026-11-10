@@ -551,6 +551,7 @@ async def test_v5_odd_file_names_are_data_only_never_a_storage_key_or_a_header(
         for header, value in headers.items():
             assert "\r" not in value and "\n" not in value
             assert filename[:6] not in value, header  # the download's fixed attachment name is not the file's
+    assert got.headers["content-disposition"] == 'attachment; filename="document"'
 
 
 @pytest.mark.parametrize(

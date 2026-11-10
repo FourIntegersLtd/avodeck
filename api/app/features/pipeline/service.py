@@ -62,6 +62,7 @@ from app.core.errors import ProcessingPaused
 from app.core.jobs import RESUMABLE_PAUSES, JobContext, JobParked, checkout_cap
 from app.core.pdf import cut_page
 from app.core.scan import ScanUnavailable
+from app.core.storage import StorageError
 from app.features.pipeline import batches as page_batches
 from app.features.pipeline import (
     convert,
@@ -1838,7 +1839,13 @@ async def purge_quarantined(conn: AsyncConnection, run_date: date) -> None:
         days = services.packs.for_case(q.codes).quarantine_purge_days
         if not (q.told or q.confirmed_on + timedelta(days=days) <= run_date):
             continue
-        await services.storage.delete(await services.storage.list(paths.page_prefix(q.case_id, q.page_id)))
-        source = await repo.purge_quarantined_page(conn, q.quarantine_id)
-        if source:
-            await services.storage.delete(await services.storage.list_recursive(source))
+        try:
+            # One transaction per page: a refused storage delete rolls the row change back, so the page stays
+            # confirmed and the next run retries it, while the other pages still go.
+            async with conn.transaction():
+                await services.storage.delete(await services.storage.list(paths.page_prefix(q.case_id, q.page_id)))
+                source = await repo.purge_quarantined_page(conn, q.quarantine_id)
+                if source:
+                    await services.storage.delete(await services.storage.list_recursive(source))
+        except StorageError as exc:
+            log.warning("quarantine purge: storage refused quarantine=%s code=%s", q.quarantine_id, exc)

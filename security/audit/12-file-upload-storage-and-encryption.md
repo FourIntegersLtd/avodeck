@@ -322,4 +322,15 @@ The written spec allows or is silent on each of these. The tests are marked `AUD
 10. **V4b, V5b, V6, V3c, U5, S3, D6a:** page limit, name rules, kind check, per-case cap, attachment header, document delete policy.
 11. **D1f:** remove finished queue rows for a deleted case.
 
-Items 1 to 5 are fixed on this branch; see the pull request. The rest are open.
+### Fixed on this branch
+
+Items 1 to 5 are fixed, and S3 from item 10 is also fixed. Each fix turned its strict xfail test green, and the marker was removed:
+
+- **D6c, V2d:** the export reads each document part by part and checks its SHA-256. A file not scanned clean is left out and listed in the manifest's `left_out`, as `scan_pending` or `blocked`.
+- **V2b, V2b2:** the original-file download returns 423 `file_not_ready` when the file has no scan verdict, and 409 `file_blocked` when it was flagged.
+- **S3:** the original-file download sends `Content-Disposition: attachment; filename="document"`.
+- **V1:** with no scanner configured, the API and the worker refuse to start. They also refuse to start when `VIRUS_SCANNER=recorded` is set together with `CLAMD_HOST`. A deployed cell must set `CLAMD_HOST` on the `api`, `worker` and `worker-interactive` services.
+- **D2b:** a storage delete that leaves objects behind raises `StorageError`, so the step retries. The quarantine purge carries on past a single stuck item.
+- **V3a, V4c:** one unpack budget now covers each upload. It is tracked in the new column `document_parts.size` (migration `0143`). Page pictures are capped at 25 million pixels. Two renderers are still not capped: `api/app/core/pdf.py:60` and `api/app/features/report/pdf_out.py:50`.
+
+Items 6 to 11, apart from S3, are open.

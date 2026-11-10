@@ -55,3 +55,37 @@ async def test_the_worker_stops_at_start_up_when_no_scanner_is_configured() -> N
     env = {"DATABASE_URL": url, "DATABASE_URL_DIRECT": url, "WORKER_QUEUES": "bulk"}
     with pytest.raises(ConfigError, match="No virus scanner is configured"):
         await run(env)
+
+
+def test_recorded_with_a_clamd_host_is_refused_without_naming_the_value() -> None:
+    """A cell that copies api/.env.example and sets CLAMD_HOST must not silently run the stand-in (audit 12, V1)."""
+    with pytest.raises(ConfigError, match="VIRUS_SCANNER=recorded") as caught:
+        scanner_from_env({"VIRUS_SCANNER": "recorded", "CLAMD_HOST": "clamav.secret-host.internal"})
+    assert "secret-host" not in str(caught.value)
+    assert isinstance(scanner_from_env({"VIRUS_SCANNER": "recorded", "CLAMD_HOST": "  "}), RecordedScanner)
+
+
+async def test_the_api_stops_at_start_up_when_no_scanner_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+    from typing import Any
+
+    from app.main import create_app
+
+    monkeypatch.delenv("VIRUS_SCANNER", raising=False)
+    monkeypatch.delenv("CLAMD_HOST", raising=False)
+    auth: Any = SimpleNamespace(
+        settings=SimpleNamespace(
+            app_origin="https://zz.invalid", app_origins=("https://zz.invalid",), cookie_domain=None
+        )
+    )
+    app = create_app(
+        database=SimpleNamespace(),  # type: ignore[arg-type]
+        region="zz",
+        auth=auth,
+        storage=None,
+        crypto=SimpleNamespace(),  # type: ignore[arg-type]
+        features="app.worker",  # a package with no features inside
+    )
+    with pytest.raises(ConfigError, match="No virus scanner is configured"):
+        async with app.router.lifespan_context(app):
+            pass
