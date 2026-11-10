@@ -52,14 +52,26 @@ def checks_for(open_now: list[LintIssueOut], not_run: list[str] | None = None) -
 
 async def checks_not_run(conn: DbConn, case_id: uuid.UUID, opinion_id: uuid.UUID) -> list[str]:
     """The checks the model was last asked to make on this saved text and could not (its answer was refused
-    twice). A new save, or a later answer, clears it; a text the model was never asked about is not listed."""
+    twice). A new save, or a later answer, clears it; a text the model was never asked about is not listed.
+    Read from `opinion_lint_checks`, which everyone who may view the opinion can see (the audit trail is
+    visible only to its own author)."""
     cur = await conn.execute(
-        "select a.action from app.audit_log a join app.opinions o on o.id = %s where a.case_id = %s"
-        " and a.target = %s and a.action = any(%s) and a.at >= o.updated_at order by a.seq desc limit 1",
-        (opinion_id, case_id, f"opinion:{opinion_id}", [CHECKED, UNCHECKED]),
+        "select not c.model_answered from app.opinion_lint_checks c join app.opinions o on o.id = c.opinion_id"
+        " where c.opinion_id = %s and o.case_id = %s and c.opinion_version = o.version",
+        (opinion_id, case_id),
     )
     row = await cur.fetchone()
-    return list(MODEL_ONLY) if row is not None and row[0] == UNCHECKED else []
+    return list(MODEL_ONLY) if row is not None and row[0] else []
+
+
+async def record_model_check(conn: DbConn, opinion_id: uuid.UUID, version: int, *, answered: bool) -> None:
+    """Remember, for everyone who may view the opinion, whether the model answered for this saved text."""
+    await conn.execute(
+        "insert into app.opinion_lint_checks (opinion_id, opinion_version, model_answered) values (%s, %s, %s)"
+        " on conflict (opinion_id) do update set opinion_version = excluded.opinion_version,"
+        " model_answered = excluded.model_answered, checked_at = now()",
+        (opinion_id, version, answered),
+    )
 
 
 async def dismissed_issues(

@@ -21,6 +21,7 @@ from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core import audit
+from app.core.ai import provenance
 from app.core.ai.kit import InvalidOutput
 from app.core.http import DbConn
 from app.features.write import ai_tasks, services
@@ -46,6 +47,7 @@ from app.features.write.lint_store import (
     dismissed_issues,
     lint_purpose,
     open_issues,
+    record_model_check,
 )
 from app.features.write.quotes import locate, same_words
 from app.features.write.router import router
@@ -141,8 +143,10 @@ async def _ask(
         )
     except InvalidOutput:
         logger.warning("T-15a answer refused twice for one opinion; pattern check warnings only")
+        await record_model_check(conn, opinion_id, version, answered=False)
         await audit.record(conn, action=UNCHECKED, target=f"opinion:{opinion_id}", case_id=case_id)
         return
+    await record_model_check(conn, opinion_id, version, answered=True)
     await audit.record(conn, action=CHECKED, target=f"opinion:{opinion_id}", case_id=case_id)
     known = [(i.sentence_index, i.type, i.words) for i in await open_issues(conn, crypto, case_id, opinion_id)]
     dismissed = await dismissed_issues(conn, crypto, case_id, opinion_id)
@@ -151,7 +155,7 @@ async def _ask(
         found = locate(item["words"], [(str(n), w) for n, w in enumerate(said[index].split())])
         if found is None:
             continue
-        words = " ".join(w for _, w in found)
+        words = provenance.without_ignorable(" ".join(w for _, w in found))
         if any(i == index and t == kind and same_words(w, words) for i, t, w in known):
             continue
         if any(t == kind and same_words(w, words) for t, w in dismissed):

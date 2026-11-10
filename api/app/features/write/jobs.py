@@ -293,7 +293,7 @@ async def _compare(
         verdict = verdicts.get(index, {"fact_ids": [], "verdict": "not_addressed"})
         facts = [refs[r] for r in dict.fromkeys(verdict["fact_ids"])]
         label = verdict["verdict"] if facts else "not_addressed"  # a verdict needs a fact behind it
-        words_text = " ".join(text for _, text in found)
+        words_text = provenance.without_ignorable(" ".join(text for _, text in found))
         sealed = await crypto.encrypt(conn, ctx.case_id, words_text.encode(), purpose=claim_purpose(document_id, index))
         await conn.execute(
             "insert into app.witness_claims (case_id, document_id, claim_index, text_verbatim, word_ids, verdict,"

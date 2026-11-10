@@ -41,7 +41,7 @@ The loaded-language word list and opinion `view` options come from the case-type
 
 ## Audit 14 changes (write)
 - T-14c compares only statements on pages the named expert has read (status `waiting_to_be_read`, migration 0510); a claim is widened to whole sentence(s) of the statement; a verdict with no fact is `not_addressed`; `GET .../points` adds `comparisons` (one status per statement) and the screen says when a comparison was refused or is waiting.
-- Lint: a check the model could not make is listed in `not_run` (lint, workspace and opinion responses) and shown as not run, never as passed. Slice F reads `lint_issues` directly and does not use `checks`.
+- Lint: a check the model could not make is listed in `not_run` (lint, workspace and opinion responses) and shown as not run, never as passed; the state is kept in `opinion_lint_checks` (migration 0511), readable by everyone who may view the opinion, not in the audit trail. Slice F reads `lint_issues` directly and does not use `checks`.
 - Lint and the points sort/compare routes allow 30 requests a minute per person (`common.limit_model_calls`).
 
 ## Contracts

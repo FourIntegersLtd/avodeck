@@ -18,11 +18,20 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from app.core.ai import provenance
 from app.core.contracts.citations import Citation, differs, markers, quote_within
 from app.core.contracts.facts import Fact
 from app.core.errors import ApiError
 
-__all__ = ["Citation", "changed_citations", "check_citations", "markers", "same_citation", "stamp_versions"]
+__all__ = [
+    "Citation",
+    "changed_citations",
+    "check_citations",
+    "cleaned_quotes",
+    "markers",
+    "same_citation",
+    "stamp_versions",
+]
 
 
 def _refuse(reason: str, **where: int) -> ApiError:
@@ -38,6 +47,11 @@ def _unused(position: int) -> ApiError:
         marker=position,
         reason="unused_citation",
     )
+
+
+def cleaned_quotes(citations: Sequence[Citation]) -> list[Citation]:
+    """Each citation with its quote as the cleaned text (layout characters of no meaning removed), the form kept."""
+    return [c.model_copy(update={"quote_verbatim": provenance.without_ignorable(c.quote_verbatim)}) for c in citations]
 
 
 def same_citation(sent: Citation, stored: Citation) -> bool:

@@ -1225,7 +1225,10 @@ QUOTES = {
     "words_of_another_fact": (RESULT, False),
     "hostile_text": (f"{PROSE} {CANARY}", False),
     "cyrillic_lookalike": ("review 3/52 if no bettеr", False),  # Cyrillic small ie for the Latin e
-    "zero_width_in_a_word": ("rev​iew 3/52 if no better", False),
+    "zero_width_in_a_word": ("rev\u200biew 3/52 if no better", True),  # layout characters carry no meaning
+    "soft_hyphen_in_a_word": ("rev\xadiew 3/52 if no better", True),
+    "bidi_override_in_a_word": ("rev\u202eiew 3/52 if no better", False),
+    "joiner_in_a_word": ("rev\u200diew 3/52 if no better", False),
 }
 
 
@@ -1242,14 +1245,22 @@ async def test_w_o18_a_look_alike_quote_is_refused_over_http_and_the_exact_one_i
     client_for: ClientFor, world: World
 ) -> None:
     expert = await client_for(world.expert)
-    for lookalike in ("review 3/52 if no bettеr", "rev​iew 3/52 if no better"):
+    for lookalike in ("review 3/52 if no bett\u0435r", "rev\u202eiew 3/52 if no better"):
         got = await put_cite(expert, world, world.verified, world.read_page, lookalike)
         assert got.status_code == 422 and got.json()["error"]["reason"] == "quote_not_in_fact"
     assert (await put_cite(expert, world, world.verified, world.read_page, PLAN)).status_code == 200
 
 
+async def test_w_o18b_a_quote_with_layout_characters_is_kept_as_the_cleaned_text(
+    client_for: ClientFor, world: World
+) -> None:
+    expert = await client_for(world.expert)
+    got = await put_cite(expert, world, world.verified, world.read_page, "rev\u200biew 3/52 if\xad no better")
+    assert got.status_code == 200 and got.json()["citation_refs"][0]["quote_verbatim"] == PLAN
+
+
 @pytest.mark.parametrize(
-    "hidden", ["‮", "​", "⁦", "­"], ids=["bidi_override", "zero_width_space", "bidi_isolate", "soft_hyphen"]
+    "hidden", ["\u202e", "\u200d", "\u2066", "\u200c"], ids=["bidi_override", "zwj", "bidi_isolate", "zwnj"]
 )
 async def test_w_i6_a_quote_with_hidden_control_characters_is_not_kept_as_verbatim(
     hidden: str, client_for: ClientFor, world: World
@@ -1377,6 +1388,32 @@ async def test_w_i3_a_lint_the_model_refused_stays_not_run_on_reload_until_a_new
     answered = (await lint(expert, world)).json()
     assert answered["not_run"] == []
     assert {c["type"]: c["passed"] for c in answered["checks"]}["outside_expertise"] is True
+
+
+async def test_w_i7_every_person_who_may_view_the_opinion_sees_a_refused_check_as_not_run(
+    client_for: ClientFor, world: World, model: Callable[..., Scripted]
+) -> None:
+    expert = await client_for(world.expert)
+    await save_opinion(expert, world)
+    model(T_15a=lambda r: {"issues": [], "reply": CANARY})
+    assert (await lint(expert, world)).json()["not_run"] == ["outside_expertise"]
+    readers = (world.expert, world.co_expert, world.supervisor, world.assistant, world.viewer)
+    for person in readers:  # the audit trail shows a person only their own rows; this state must not depend on it
+        client = await client_for(person)
+        state = (await client.get(world.url(f"questions/{world.question}/opinion/lint"))).json()
+        assert state["not_run"] == ["outside_expertise"], person
+        assert {c["type"]: c["passed"] for c in state["checks"]}["outside_expertise"] is False
+        workspace = (await client.get(world.url(f"questions/{world.question}/workspace"))).json()
+        assert workspace["not_run"] == ["outside_expertise"], person
+    model(T_15a=nothing_15a)  # positive control: once the check has run, everyone sees it as run
+    assert (await lint(expert, world)).json()["not_run"] == []
+    for person in readers:
+        client = await client_for(person)
+        state = (await client.get(world.url(f"questions/{world.question}/opinion/lint"))).json()
+        assert state["not_run"] == [], person
+        assert {c["type"]: c["passed"] for c in state["checks"]}["outside_expertise"] is True
+        workspace = (await client.get(world.url(f"questions/{world.question}/workspace"))).json()
+        assert workspace["not_run"] == [], person
 
 
 async def test_the_model_calling_routes_have_a_stricter_per_person_limit(
