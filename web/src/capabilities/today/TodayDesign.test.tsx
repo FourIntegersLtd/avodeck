@@ -7,8 +7,9 @@ import { renderAt } from "../../test/render";
 test("the date comes before the greeting", async () => {
   signedIn();
   renderAt("/today");
-  const greeting = await screen.findByRole("heading", { level: 1 });
-  const date = screen.getByTestId("today-date");
+  // The loading screen has a heading of its own, so wait for the date: it is only on the loaded page.
+  const date = await screen.findByTestId("today-date");
+  const greeting = screen.getByRole("heading", { level: 1 });
   expect(date.compareDocumentPosition(greeting) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
