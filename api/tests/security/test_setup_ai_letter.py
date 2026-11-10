@@ -54,7 +54,7 @@ from app.features.setup.ai_tasks import prompt
 from app.features.setup.identity import save_identity
 from app.features.setup.jobs import prefill_case
 from app.features.setup.letter import Letter, Word, checked_items, own_label
-from app.features.setup.routes_files import T02_PER_MINUTE, T02_TOKENS_PER_DAY
+from app.features.setup.routes_files import T02_PER_MINUTE, T02_RATE_KEY, T02_TOKENS_PER_DAY
 from app.features.setup.services import SetupServices, configure
 from tests.http.test_setup_questions_routes import (  # noqa: F401  (fixtures and helpers)
     LETTER,
@@ -830,10 +830,10 @@ async def test_I_markup_in_a_question_is_stored_and_returned_as_plain_text(
     crypto: CaseCrypto,
     worker_db: Database,
 ) -> None:
-    """AUDIT-14 O-1 changed the rule for labels: a model label is kept only if made of the question's own words, so
+    """AUDIT-14 O-1 changed the rule for labels: a model label is kept only if it is a run of the question's words, so
     the markup is put in the letter's own words and the label carries it legitimately."""
     sentence = "Please explain <script>alert(1)</script> the **care** given [here](javascript:alert(2)) today."
-    label = "<script>alert(1)</script> care"
+    label = "<script>alert(1)</script> the care"
     doc = Doc(("Letter of instruction", f"1. {sentence}", f"2. {Q2}"))
     h = await begin(
         client_for,
@@ -1314,16 +1314,27 @@ def test_I_two_cuts_of_one_sentence_are_one_question() -> None:
     assert len(accepted) == 1 and len(rejected) == 1
 
 
-def test_O_a_label_is_kept_only_when_it_is_made_of_the_questions_own_words() -> None:
+def test_O_a_label_is_kept_only_when_it_is_a_run_of_the_questions_own_words_in_its_order() -> None:
     text = "Please state whether the care given at the first visit met the expected standard."
-    assert own_label(text, "Care at the first visit") == "Care at the first visit"
+    assert own_label(text, "Care given at the first visit") == "Care given at the first visit"
+    assert own_label(text, "At the first visit") == "At the first visit"
+    assert own_label(text, "The expected standard") == "The expected standard"
     assert own_label(text, "Approve this case now") is None
     assert own_label(text, "Care given and other things") is None  # words the question does not have
     assert own_label(text, "Expected standard of care") is None  # "of" is not in this question
-    assert own_label(text, "Standard expected") == "Standard expected"  # any order
+    assert own_label(text, "Standard expected") is None  # the question's words in another order
+    assert own_label(text, "Care at the first visit") is None  # words left out of the middle
     assert own_label(text, "Care at\u200b the first visit") is None  # a hidden character
     assert own_label(text, "care given at the first visit met the expected") is None  # over the length limit
     assert own_label(text, None) is None
+
+
+def test_O_a_label_cannot_turn_a_negative_question_round() -> None:
+    text = "Was it not reasonable to refer?"
+    assert own_label(text, "It was reasonable") is None  # the same words, the opposite meaning
+    assert own_label(text, "Reasonable to refer not") is None
+    assert own_label(text, "Not reasonable to refer") == "Not reasonable to refer"  # control: the question's own run
+    assert own_label(text, "It not reasonable") == "It not reasonable"
 
 
 @dataclass
@@ -1438,6 +1449,104 @@ async def test_E_t02_a_person_who_has_used_their_days_allowance_is_paused_not_se
     resp = await client.post("/v1/me/template/suggestions")
     assert resp.status_code == 503 and resp.json()["error"]["code"] == "processing_paused"
     assert model.requests == []
+
+
+def add_t02_tokens(admin: psycopg.Connection, person: uuid.UUID, tokens: int, *, age: str = "0 seconds") -> None:
+    admin.execute(
+        "insert into app.ai_calls (person_id, task_id, model_id, region, prompt_version, input_tokens, output_tokens,"
+        " outcome, at) values (%s, 'T-02', 'm', 'uk', 'v', %s, 0, 'ok', now() - %s::interval)",
+        (person, tokens, age),
+    )
+
+
+async def test_E_t02_the_days_allowance_counts_this_persons_last_day_only_through_the_real_query(
+    client_for: ClientFor,
+    world: dict[str, uuid.UUID],
+    storage: CaseFileStorage,
+    crypto: CaseCrypto,
+    admin: psycopg.Connection,
+) -> None:
+    model = configure_model(storage, crypto, [t02_answer()])
+    client = await client_for(world["expert"])
+    await put_template(client, template("Introduction"))
+    add_t02_tokens(admin, world["expert"], T02_TOKENS_PER_DAY, age="2 days")  # too old to count
+    add_t02_tokens(admin, world["outsider"], T02_TOKENS_PER_DAY)  # someone else's use
+    add_t02_tokens(admin, world["expert"], T02_TOKENS_PER_DAY - 1)  # one token under the allowance
+    served = await client.post("/v1/me/template/suggestions")
+    assert served.status_code == 200, served.text  # control: under the allowance is served
+    assert len(model.requests) == 1
+    add_t02_tokens(admin, world["expert"], 1)  # now at the allowance
+    refused = await client.post("/v1/me/template/suggestions")
+    assert refused.status_code == 503 and refused.json()["error"]["code"] == "processing_paused"
+    assert len(model.requests) == 1  # the refused one never reached the model
+
+
+async def test_E_t02_the_per_minute_limit_refuses_with_a_wait_and_counts_each_person_alone(
+    client_for: ClientFor,
+    world: dict[str, uuid.UUID],
+    storage: CaseFileStorage,
+    crypto: CaseCrypto,
+    admin: psycopg.Connection,
+) -> None:
+    model = configure_model(storage, crypto, [t02_answer()])
+    client = await client_for(world["expert"])
+    await put_template(client, template("Introduction"))
+    for _ in range(T02_PER_MINUTE):
+        assert (await client.post("/v1/me/template/suggestions")).status_code == 200  # control
+    refused = await client.post("/v1/me/template/suggestions")
+    assert refused.status_code == 429 and refused.json()["error"]["code"] == "slow_down"
+    assert int(refused.headers["retry-after"]) >= 1 and len(model.requests) == T02_PER_MINUTE
+    row = admin.execute(
+        "select hits from app.rate_limit_hits where person_id = %s and endpoint = %s",
+        (world["expert"], T02_RATE_KEY),
+    ).fetchone()
+    assert row == (T02_PER_MINUTE,)  # a refused try is not counted
+    other = await client_for(world["viewer"])
+    await put_template(other, template("Introduction"))
+    assert (await other.post("/v1/me/template/suggestions")).status_code == 200  # the limit is per person
+
+
+class LockWatcher(ScriptedBedrock):
+    """Asks the database, while the model call is running, whether the person's T-02 count row is locked."""
+
+    def __init__(self, script: list[ModelResponse | Exception], dsn: str) -> None:
+        super().__init__(script)
+        self.dsn = dsn
+        self.locked: list[bool] = []
+
+    async def invoke(self, request: ModelRequest) -> ModelResponse:
+        with psycopg.connect(self.dsn, autocommit=True) as other:
+            other.execute("set lock_timeout = '300ms'")
+            try:
+                other.execute("select 1 from app.rate_limit_hits where endpoint = %s for update", (T02_RATE_KEY,))
+                self.locked.append(False)
+            except psycopg.errors.LockNotAvailable:
+                self.locked.append(True)
+        return await super().invoke(request)
+
+
+async def test_E_t02_the_try_is_counted_before_the_model_call_without_holding_its_lock_through_it(
+    client_for: ClientFor,
+    world: dict[str, uuid.UUID],
+    storage: CaseFileStorage,
+    crypto: CaseCrypto,
+    admin_dsn: str,
+    admin: psycopg.Connection,
+) -> None:
+    model = LockWatcher([t02_answer()], admin_dsn)
+    configure(
+        SetupServices(kit=AiKit(cell(), model), ocr=None, storage=storage, crypto=crypto, packs=default_library())
+    )
+    client = await client_for(world["expert"])
+    await put_template(client, template("Introduction"))
+    assert (await client.post("/v1/me/template/suggestions")).status_code == 200  # the count row now exists
+    assert (await client.post("/v1/me/template/suggestions")).status_code == 200  # this one updates it
+    assert model.locked == [False, False]  # a second try from the same person would not have to wait
+    row = admin.execute(
+        "select hits from app.rate_limit_hits where person_id = %s and endpoint = %s",
+        (world["expert"], T02_RATE_KEY),
+    ).fetchone()
+    assert row == (2,)  # control: both tries were counted, and the other connection could see the row to lock it
 
 
 def test_O_the_t02_schema_bounds_every_number_array_and_string() -> None:

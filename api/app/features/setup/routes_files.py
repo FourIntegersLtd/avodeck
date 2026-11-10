@@ -339,10 +339,11 @@ async def suggest_sections(request: Request, conn: DbConn) -> SectionSuggestions
     kit = services.current().kit
     if kit is None:
         raise ProcessingPaused("model_unavailable")
-    cur = await conn.execute("select hits, retry_after from app.rate_limit_hit(%s)", (T02_RATE_KEY,))
-    counted = await cur.fetchone()
-    if counted is not None and counted[0] > T02_PER_MINUTE:
-        raise rate_limits.slow_down(int(counted[1]))  # refused: this try is not counted, so the next minute is free
+    await rate_limits.check(conn, T02_RATE_KEY, T02_PER_MINUTE)  # a plain read, no lock
+    # The try is counted in a short transaction of its own, committed at once: the count's row lock must not be
+    # held through the model call, or a second try from the same person would wait for the first.
+    async with request.app.state.database.request(request.state.scope) as counting:
+        await counting.execute("select hits from app.rate_limit_hit(%s)", (T02_RATE_KEY,))
     pack = await _profile_pack(request, conn)
     task = ai_tasks.t02(pack)
     quick = kit.with_retries(0)

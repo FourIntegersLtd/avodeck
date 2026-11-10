@@ -221,16 +221,17 @@ _CLAUSE_END = re.compile(r"[,;:?!]|\.(?=\s|$)")
 
 
 def own_label(text: str, label: object) -> str | None:
-    """The model's label when every word of it is one of the question's own words, in any order (same word
-    normalisation as the letter check), it has no hidden character and it fits the limit; else None. A steered
-    model cannot put its own words on the question tab. AUDIT-14 O-1."""
+    """The model's label when it is a run of the question's own words, side by side and in the question's order
+    (same word normalisation as the letter check), it has no hidden character and it fits the limit; else None.
+    A steered model cannot put its own words on the question tab, and the same words in another order cannot turn
+    the question round ("it was reasonable" for "was it not reasonable"). AUDIT-14 O-1."""
     if not isinstance(label, str) or provenance.has_hidden_characters(label):
         return None
     clean = " ".join(label.split())
     wanted = provenance.atoms(clean)
     if not wanted or len(clean) > SHORT_TITLE_MAX:
         return None
-    return label if set(wanted) <= set(provenance.atoms(text)) else None
+    return label if provenance.contains_whole(provenance.atoms(text), wanted) else None
 
 
 def short_title(text: str, label: str | None = None) -> str:
