@@ -28,6 +28,7 @@ from psycopg import AsyncConnection
 
 from app.core.ai.bedrock import ModelRequest
 from app.core.db import Database
+from app.core.http import etag
 from app.core.storage import CaseFileStorage
 from app.features.after_serving import ai_tasks
 from tests.fixtures.test_after_serving_world import (  # noqa: F401
@@ -1017,3 +1018,57 @@ async def test_the_screens_render_text_as_text_with_no_html_or_markdown_renderin
     )
     hits = [(p.name, b) for p in sources for b in banned if b in p.read_text()]
     assert hits == []
+
+
+async def test_when_the_page_the_model_names_differs_the_check_still_runs_on_the_page_their_words_name(
+    client_for: ClientFor,
+    storage: CaseFileStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    model.answers.update({"T-21b": t21b_answer(page="3"), "T-21c": t21c_wrong_value, "T-21d": t21d_for(served)})
+    _, report = await checked(client_for, storage, admin, aconn, worker_db, served, ONE_CLAIM)
+    (claim,) = report["claims"]
+    assert claim["their_page_ref"] == "2", "the page comes from their words, not from the model"
+    assert (claim["status"], claim["our_page_no"]) == ("wrong_value", 2)
+
+
+async def test_the_expert_can_settle_a_claim_the_check_left_unchecked_and_it_is_theirs_not_the_models(
+    client_for: ClientFor,
+    storage: CaseFileStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    model.answers.update({"T-21b": t21b_answer(), "T-21c": lambda r: {"status": CANARY}, "T-21d": t21d_for(served)})
+    document, report = await checked(client_for, storage, admin, aconn, worker_db, served, ONE_CLAIM)
+    (claim,) = report["claims"]
+    assert claim["status"] == "unchecked" and report["needs_attention_count"] == 1
+    url = served.url(f"opposing-claims/{claim['id']}")
+    headers = {"If-Match": etag(claim["version"])}
+    expert = await client_for(served.expert)
+
+    # Every other refusal stays: another person, a stale copy, and a change that names no verdict.
+    other = await (await client_for(served.co_expert)).patch(url, json={"status": "wrong_value"}, headers=headers)
+    assert other.status_code == 403
+    assert (await expert.patch(url, json={"status": "wrong_value"})).status_code == 428
+    no_verdict = await expert.patch(url, json={"confirm": True}, headers=headers)
+    assert no_verdict.status_code == 409 and no_verdict.json()["error"]["code"] == "not_checked"
+    assert (await expert.patch(url, json={"status": "unchecked"}, headers=headers)).status_code == 422
+
+    settled = await expert.patch(url, json={"status": "wrong_value", "confirm": True}, headers=headers)
+    assert settled.status_code == 200, settled.text
+    body = settled.json()
+    assert (body["status"], body["checked_by"], body["expert_confirmed"]) == ("wrong_value", "expert", True)
+    assert body["discrepancy"] is True and body["needs_attention"] is False
+    again = (await read_report(client_for, served, document)).json()
+    assert again["needs_attention_count"] == 0
+    audit = admin.execute(
+        "select count(*) from app.audit_log where case_id = %s and action = 'opposing_claim.confirmed'", (served.case,)
+    ).fetchone()
+    assert audit is not None and audit[0] == 1

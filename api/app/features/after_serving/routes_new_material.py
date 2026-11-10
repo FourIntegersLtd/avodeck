@@ -374,7 +374,9 @@ async def change_claim(
         raise not_found()
     if row["version"] != if_match:
         raise stale()
-    if row["status"] == "unchecked":
+    unchecked = row["status"] == "unchecked"
+    if unchecked and body.status is None:
+        # Nothing was checked, so there is nothing to confirm: the expert gives their own verdict instead.
         raise conflict("not_checked", "This claim has not been checked yet.")
     if not (await _evidence(conn, case_id, row, reads))[1]:
         raise conflict(READ_FIRST, "Read that page first.")
@@ -383,6 +385,8 @@ async def change_claim(
     if body.status is not None and body.status != row["status"]:
         sets.append("status = %s")
         params.append(body.status)
+        if unchecked:
+            sets.append("checked_by = 'expert'")
     if body.confirm and not row["expert_confirmed"]:
         sets.append("expert_confirmed = true, confirmed_by = app.current_person_id(), confirmed_at = now()")
     if sets:

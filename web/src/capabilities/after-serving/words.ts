@@ -181,6 +181,7 @@ const WORDS = {
   "new.their_quote": "What they quote",
   "new.confirm": "Yes, this is a difference",
   "new.confirmed": "You confirmed this",
+  "new.settle": "Read their page yourself, then say what you found:",
   "new.discrepancy": "Needs your attention",
   "new.positions": "Where you and the other expert differ",
   "new.you": "You",
