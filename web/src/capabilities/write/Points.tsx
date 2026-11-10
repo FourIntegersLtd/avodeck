@@ -34,6 +34,7 @@ function PointsLoader({ caseId, chosen }: { caseId: string; chosen: Chosen }) {
 function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chosen; initial: Data }) {
   const questionId = chosen.current.id;
   const [data, setData] = useState(initial);
+  const comparisons = data.comparisons ?? []; // where each statement stands: not yet, waiting, compared or refused
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<Point | null>(null);
   const [note, setNote] = useState(initial.range_note.text ?? "");
@@ -253,7 +254,20 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
         <section className="av-card av-stack" aria-labelledby="differ-title">
           <SectionIcon glyph="question" />
           <h3 id="differ-title">{w("points.differ")}</h3>
-          {data.claims.length === 0 && <p className="av-muted">{w("points.differ_none")}</p>}
+          {comparisons.some((c) => c.status === "refused") && (
+            <Notice tone="warning">
+              <p>{w("points.compare_refused")}</p>
+            </Notice>
+          )}
+          {comparisons.some((c) => c.status === "waiting_to_be_read") && (
+            <p className="av-muted">{w("points.compare_waiting")}</p>
+          )}
+          {comparisons.some((c) => c.status === "not_yet_run" || c.status === "queued") && (
+            <p className="av-muted">{w("points.compare_pending")}</p>
+          )}
+          {data.claims.length === 0 && comparisons.every((c) => c.status === "done") && (
+            <p className="av-muted">{w("points.differ_none")}</p>
+          )}
           {data.claims.map((claim) => (
             <article key={claim.id} className="av-stack" aria-label={claim.text_verbatim}>
               <p>

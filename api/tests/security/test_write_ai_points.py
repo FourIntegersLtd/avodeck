@@ -211,18 +211,22 @@ def model(app: FastAPI, reads: Reads) -> Iterator[Callable[..., Scripted]]:
     configure(None)
 
 
-Statement = Callable[[World, str], Awaitable[tuple[uuid.UUID, uuid.UUID]]]
+Statement = Callable[..., Awaitable[tuple[uuid.UUID, uuid.UUID]]]
 
 
 @pytest.fixture
-def statement(seed: Seed, app: FastAPI, admin_dsn: str) -> Statement:
-    """A witness statement on its own page: its words sealed as the pipeline seals them."""
+def statement(seed: Seed, app: FastAPI, admin_dsn: str, reads: Reads) -> Statement:
+    """A witness statement on its own page: its words sealed as the pipeline seals them. The named expert has
+    read that page unless `read=False` (blind read: an unread statement page is not sent to the model, W-E1)."""
     numbers = itertools.count(900)
     source = sorted(PACK.statement_sources())[0]
 
-    async def make(w: World, text: str) -> tuple[uuid.UUID, uuid.UUID]:
+    async def make(w: World, text: str, read: bool = True) -> tuple[uuid.UUID, uuid.UUID]:
         document = seed.document(w.case)
-        page = seed.page(w.case, document, next(numbers))
+        number = next(numbers)
+        page = seed.page(w.case, document, number)
+        if read:
+            reads.rows.add((w.case, page, number, w.expert))
         async with await psycopg.AsyncConnection.connect(admin_dsn, autocommit=True) as conn:
             await conn.execute("update app.pages set source_type = %s where id = %s", (source, page))
             for n, word in enumerate(text.split(), 1):
@@ -498,11 +502,6 @@ async def test_w_e4_nothing_from_another_case_or_an_unread_page_is_sent_or_retur
     assert unread in {uuid.UUID(f["id"]) for f in (await points_page(client_for, world))["unused"]}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 W-E1: a statement on a page the expert has not read is sent to the model and its claims "
-    "are returned before the page is read (blind read, rule 3): api/app/features/write/jobs.py:236",
-)
 async def test_w_e5_a_statement_page_the_expert_has_not_read_is_not_sent_or_shown(
     client_for: ClientFor,
     world: World,
@@ -510,7 +509,7 @@ async def test_w_e5_a_statement_page_the_expert_has_not_read_is_not_sent_or_show
     statement: Statement,
     model: Callable[..., Scripted],
 ) -> None:
-    document, _ = await statement(world, STATEMENT)  # the expert has not read this page
+    document, _ = await statement(world, STATEMENT, read=False)  # the expert has not read this page
     scripted = model(T_14c=claim_of(CLAIM, "contradicts", PLAN))
     await run_compare(client_for, worker_db, world, document)
     assert scripted.of("T-14c") == []
@@ -860,8 +859,8 @@ async def test_w_o11_a_claim_that_is_not_the_statements_own_words_is_dropped(
     assert kept == [3, 4]  # only the two that are exact runs of the statement (one spans a sentence break)
     texts = [c["text_verbatim"] for c in (await points_page(client_for, world))["claims"]]
     assert sorted(texts) == sorted(
-        ["She started me on iron tablets. I was never told", "She started me on iron tablets."]
-    )
+        ["She started me on iron tablets. I was never told to come back.", "She started me on iron tablets."]
+    )  # the run that stopped mid-sentence is kept as the whole sentence it sits in (W-I1)
     assert all(CANARY not in t and PROSE not in t for t in texts)
 
 
@@ -890,11 +889,6 @@ async def test_w_o12_the_first_verdict_for_a_claim_wins_and_a_stray_index_is_ign
     assert stored_claims(admin, world) == [(0, "contradicts", [world.verified], "suggested", None, None)]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 W-O1: a verdict of supports or contradicts with no fact behind it is stored as given, so the "
-    "screen shows a label nothing in the records backs: api/app/features/write/jobs.py:272",
-)
 async def test_w_o13_a_verdict_with_no_fact_behind_it_is_not_kept_as_a_verdict(
     client_for: ClientFor,
     world: World,
@@ -909,11 +903,6 @@ async def test_w_o13_a_verdict_with_no_fact_behind_it_is_not_kept_as_a_verdict(
     assert {c[1] for c in stored_claims(admin, world)} <= {"not_addressed"}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 W-I1: a claim may be any run of the statement's words, so it can drop a negation and be shown "
-    "to the expert as the witness's claim: api/app/features/write/quotes.py:8",
-)
 async def test_w_i1_a_claim_that_drops_the_negation_is_not_kept(
     client_for: ClientFor,
     world: World,
@@ -960,12 +949,6 @@ async def _refused_page(
     return await points_page(client_for, w)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 W-I2: a comparison the model refused twice (a hostile statement can force this) shows exactly "
-    "what a comparison that found nothing shows, so the expert reads 'no accounts differ': "
-    "api/app/features/write/jobs.py:261, api/app/features/write/routes_points.py:78",
-)
 async def test_w_i3_a_refused_comparison_is_told_apart_from_one_that_found_nothing(
     client_for: ClientFor,
     world: World,
@@ -1086,12 +1069,6 @@ async def test_w_o14_a_lint_answer_off_the_schema_or_off_the_sentence_adds_nothi
     assert len(scripted.of("T-15a")) >= 1
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 W-I3: when the lint model is refused twice (the expert's own text could force it) the response is "
-    "200 and the model-only check 'outside_expertise' is reported as passed: api/app/features/write/lint_store.py:42, "
-    "api/app/features/write/routes_lint.py:125",
-)
 async def test_w_i5_a_check_the_model_did_not_complete_is_not_reported_as_passed(
     client_for: ClientFor, world: World, model: Callable[..., Scripted]
 ) -> None:
@@ -1320,7 +1297,7 @@ async def test_w_o20_markup_in_every_stored_free_text_field_comes_back_as_the_sa
     assert any(i["words"] == "<b>delay</b>" and i["source"] == "ai" for i in got.json()["issues"])
     shown = await points_page(client_for, world)
     assert {p["reason"] for p in shown["points"]} == {short}
-    assert [c["text_verbatim"] for c in shown["claims"]] == ["<b>her</b> <img src=x onerror=alert(1)>"]
+    assert [c["text_verbatim"] for c in shown["claims"]] == ["I saw <b>her</b> <img src=x onerror=alert(1)> then."]
     assert shown["relevant"] == [] or {r["why_relevant"] for r in shown["relevant"]} == {short}
     # The expert's own opinion text round-trips as text too.
     versions = await expert.get(world.url(f"questions/{world.question}/workspace"))
@@ -1351,3 +1328,79 @@ def test_w_o21_the_write_screens_render_every_model_text_as_react_text() -> None
     )  # control: it finds them
     found = {p.name: _unsafe_renderers(p.read_text()) for p in files}
     assert {name: hits for name, hits in found.items() if hits} == {}
+
+
+# --- audit step 14 follow-ups: states the screen can tell apart, and a stricter limit on model calls -----------
+
+
+async def _comparison_statuses(client_for: ClientFor, w: World) -> list[str]:
+    return [c["status"] for c in (await points_page(client_for, w))["comparisons"]]
+
+
+async def test_w_i2_each_statement_shows_whether_it_waits_was_refused_or_compared(
+    client_for: ClientFor,
+    world: World,
+    other: World,
+    reads: Reads,
+    worker_db: Database,
+    statement: Statement,
+    model: Callable[..., Scripted],
+) -> None:
+    waiting, page = await statement(world, STATEMENT, read=False)
+    assert await _comparison_statuses(client_for, world) == ["not_yet_run"]
+    model(T_14c=nothing_14c)
+    await run_compare(client_for, worker_db, world, waiting)
+    assert await _comparison_statuses(client_for, world) == ["waiting_to_be_read"]
+    reads.rows.add((world.case, page, 900, world.expert))  # the expert reads it and asks again
+    await run_compare(client_for, worker_db, world, waiting)
+    assert await _comparison_statuses(client_for, world) == ["done"]
+    refused, _ = await statement(other, STATEMENT)
+    model(T_14c=lambda r: {"claims": [], "verdicts": [], "reply": CANARY})
+    await run_compare(client_for, worker_db, other, refused)
+    assert await _comparison_statuses(client_for, other) == ["refused"]
+
+
+async def test_w_i3_a_lint_the_model_refused_stays_not_run_on_reload_until_a_new_answer(
+    client_for: ClientFor, world: World, model: Callable[..., Scripted]
+) -> None:
+    expert = await client_for(world.expert)
+    await save_opinion(expert, world)
+    model(T_15a=lambda r: {"issues": [], "reply": CANARY})
+    refused = (await lint(expert, world)).json()
+    assert refused["not_run"] == ["outside_expertise"]
+    state = (await expert.get(world.url(f"questions/{world.question}/opinion/lint"))).json()
+    assert state["not_run"] == ["outside_expertise"]
+    assert {c["type"]: c["passed"] for c in state["checks"]}["outside_expertise"] is False
+    workspace = (await expert.get(world.url(f"questions/{world.question}/workspace"))).json()
+    assert workspace["not_run"] == ["outside_expertise"]
+    model(T_15a=nothing_15a)  # positive control: an answer clears it
+    answered = (await lint(expert, world)).json()
+    assert answered["not_run"] == []
+    assert {c["type"]: c["passed"] for c in answered["checks"]}["outside_expertise"] is True
+
+
+async def test_the_model_calling_routes_have_a_stricter_per_person_limit(
+    client_for: ClientFor,
+    world: World,
+    app: FastAPI,
+    worker_db: Database,
+    statement: Statement,
+    model: Callable[..., Scripted],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.features.write import common
+
+    monkeypatch.setattr(common, "MODEL_CALLS_PER_MINUTE", 2)
+    app.state.api_rate_per_minute = 600  # the app's own limit is far away
+    expert = await client_for(world.expert)
+    await save_opinion(expert, world)
+    scripted = model(T_15a=nothing_15a)
+    assert [(await lint(expert, world)).status_code for _ in range(2)] == [200, 200]
+    over = await lint(expert, world)
+    assert over.status_code == 429 and over.json()["error"]["code"] == "slow_down"
+    assert 1 <= int(over.headers["retry-after"]) <= 60
+    assert len(scripted.of("T-15a")) == 2  # the model was not asked a third time
+    suggest_url = world.url(f"questions/{world.question}/points/suggest")
+    assert [(await expert.post(suggest_url)).status_code for _ in range(3)] == [202, 202, 429]
+    other_person = await client_for(world.co_expert)  # another person is not held up (and is refused for role)
+    assert (await lint(other_person, world)).status_code == 403

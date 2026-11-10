@@ -68,6 +68,7 @@ class OpinionOut(BaseModel):
     updated_at: datetime
     lint: list[LintIssueOut] = Field(default_factory=list)
     checks: list[LintCheck] = Field(default_factory=list)
+    not_run: list[str] = Field(default_factory=list)
     changed_citations: list[int] = Field(default_factory=list)
     stale: bool = False
 

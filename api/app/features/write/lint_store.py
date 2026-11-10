@@ -37,9 +37,29 @@ class LintCheck(BaseModel):
     passed: bool
 
 
-def checks_for(open_now: list[LintIssueOut]) -> list[LintCheck]:
-    """Each kind of check the model and the pattern check make, and whether no warning of it is open."""
-    return [LintCheck(type=t, passed=not any(i.type == t for i in open_now)) for t in LINT_TYPES]
+# Checks only the model makes: when it was asked and could not answer, these have not been done.
+MODEL_ONLY = ("outside_expertise",)
+CHECKED = "opinion.model_checked"
+UNCHECKED = "opinion.model_check_failed"
+
+
+def checks_for(open_now: list[LintIssueOut], not_run: list[str] | None = None) -> list[LintCheck]:
+    """Each kind of check the model and the pattern check make. A check passes when it ran and no warning of it
+    is open; one that could not be run (`not_run`) has not passed."""
+    skipped = not_run or []
+    return [LintCheck(type=t, passed=t not in skipped and not any(i.type == t for i in open_now)) for t in LINT_TYPES]
+
+
+async def checks_not_run(conn: DbConn, case_id: uuid.UUID, opinion_id: uuid.UUID) -> list[str]:
+    """The checks the model was last asked to make on this saved text and could not (its answer was refused
+    twice). A new save, or a later answer, clears it; a text the model was never asked about is not listed."""
+    cur = await conn.execute(
+        "select a.action from app.audit_log a join app.opinions o on o.id = %s where a.case_id = %s"
+        " and a.target = %s and a.action = any(%s) and a.at >= o.updated_at order by a.seq desc limit 1",
+        (opinion_id, case_id, f"opinion:{opinion_id}", [CHECKED, UNCHECKED]),
+    )
+    row = await cur.fetchone()
+    return list(MODEL_ONLY) if row is not None and row[0] == UNCHECKED else []
 
 
 async def dismissed_issues(

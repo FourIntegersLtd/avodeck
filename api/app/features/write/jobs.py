@@ -15,10 +15,13 @@ facts with a short label, for the expert to use or dismiss on screen 14.
 
 `compare_witness_statement` takes each comparison queued under its job. A statement already compared
 adds nothing. Otherwise it sends the words of the document's pages whose source type the packs mark as a
-statement, and the case's citable facts (same checks). Each claim returned must be an exact run of the
-statement's words: code finds that run and keeps those words with their references; a claim not in the
-statement is dropped. A claim with no verdict is kept as not_addressed. Two wrong answers keep nothing
-and the comparison is marked refused.
+statement, and the case's citable facts (same checks). A statement with a page the named expert has not
+read is not sent (blind read, rule 3): the comparison waits (`waiting_to_be_read`) until they ask again.
+Each claim returned must be an exact run of the statement's words: code finds that run, widens it to the
+whole sentence(s) it sits in (so a claim cannot drop a "never") and keeps those words with their
+references; a claim not in the statement is dropped. A claim with no verdict, or a verdict of supports
+or contradicts with no fact behind it, is kept as not_addressed. Two wrong answers keep nothing and the
+comparison is marked refused.
 """
 
 from __future__ import annotations
@@ -29,6 +32,7 @@ from typing import Any
 
 from psycopg import AsyncConnection
 
+from app.core.ai import provenance
 from app.core.ai.kit import AiKit, InvalidOutput
 from app.core.contracts.facts import Fact, citable_facts
 from app.core.jobs import JobContext, registry
@@ -36,7 +40,7 @@ from app.core.packs import MergedPack
 from app.features.write import ai_tasks
 from app.features.write.common import ANSWERABLE
 from app.features.write.lint_store import BODY
-from app.features.write.quotes import locate
+from app.features.write.quotes import locate_span, whole_sentences
 from app.features.write.routes_witness import claim_purpose, statement_pages
 from app.features.write.services import WriteServices, current
 
@@ -230,7 +234,18 @@ async def _compare(
         await _finish(conn, comparison_id, "done", row[0])
         return
     pack = await _case_pack(conn, services, ctx.case_id)
-    pages = {str(p) for p in await statement_pages(conn, ctx.case_id, document_id, pack)}
+    statement_page_ids = await statement_pages(conn, ctx.case_id, document_id, pack)
+    cur = await conn.execute("select named_expert_id from app.cases where id = %s", (ctx.case_id,))
+    named = await cur.fetchone()
+    read = (
+        await services.reads.read_page_ids(conn, ctx.case_id, named[0])
+        if services.reads is not None and named is not None
+        else set()
+    )
+    if any(p not in read for p in statement_page_ids):
+        await _finish(conn, comparison_id, "waiting_to_be_read", None)
+        return
+    pages = {str(p) for p in statement_page_ids}
     words = [
         (ref, text)
         for ref, text in await services.statement_words().words(conn, ctx.case_id, document_id)
@@ -265,12 +280,19 @@ async def _compare(
         verdicts.setdefault(verdict["claim_index"], verdict)
     crypto = services.case_crypto()
     kept = 0
+    spans: set[tuple[int, int]] = set()
     for index, claim in enumerate(out["claims"]):
-        found = locate(claim["text_verbatim"], words)
-        if found is None:
+        span = locate_span(claim["text_verbatim"], words)
+        if span is None:
             continue
+        span = whole_sentences(words, *span)
+        found = words[span[0] : span[1] + 1]
+        if span in spans or provenance.has_hidden_characters(" ".join(text for _, text in found)):
+            continue
+        spans.add(span)
         verdict = verdicts.get(index, {"fact_ids": [], "verdict": "not_addressed"})
         facts = [refs[r] for r in dict.fromkeys(verdict["fact_ids"])]
+        label = verdict["verdict"] if facts else "not_addressed"  # a verdict needs a fact behind it
         words_text = " ".join(text for _, text in found)
         sealed = await crypto.encrypt(conn, ctx.case_id, words_text.encode(), purpose=claim_purpose(document_id, index))
         await conn.execute(
@@ -283,7 +305,7 @@ async def _compare(
                 index,
                 sealed,
                 [ref for ref, _ in found],
-                verdict["verdict"],
+                label,
                 [f.id for f in facts],
                 [f.version for f in facts],
                 ctx.job_id,

@@ -113,6 +113,22 @@ test("an account that differs shows the statement and the record side by side an
   await waitFor(() => expect(screen.queryByText("Weight loss first mentioned on 8 August")).not.toBeInTheDocument());
 });
 
+test("a statement the computer could not compare is said so, never shown as no accounts differ", async () => {
+  const comparisons = [{ document_id: "d1", status: "refused" }];
+  serve("launch", { points: pointsBody("launch", { comparisons }) });
+  renderAt(`${url}?q=${Q1}`);
+  expect(await screen.findByText(M["write.points.compare_refused"]!)).toBeInTheDocument();
+  expect(screen.queryByText(M["write.points.differ_none"]!)).not.toBeInTheDocument();
+});
+
+test("a statement waiting for its page to be read says so, and does not claim nothing differs", async () => {
+  const comparisons = [{ document_id: "d1", status: "waiting_to_be_read" }];
+  serve("launch", { points: pointsBody("launch", { comparisons }) });
+  renderAt(`${url}?q=${Q1}`);
+  expect(await screen.findByText(M["write.points.compare_waiting"]!)).toBeInTheDocument();
+  expect(screen.queryByText(M["write.points.differ_none"]!)).not.toBeInTheDocument();
+});
+
 test("the range note uses the pack's prompt and saves with its version", async () => {
   const { sent, record } = serve("launch");
   server.use(http.put("/v1/cases/:caseId/questions/:q/range-note", async ({ request }) => (await record(request), ok({ prompt: "x", text: "My note", version: 1 }, 1))));

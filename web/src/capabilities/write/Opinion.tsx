@@ -154,6 +154,8 @@ function Editor({
     space.opinion?.lint ?? [],
   );
   const [checks, setChecks] = useState<Schemas["LintCheck"][]>(space.checks ?? []);
+  // Checks the model was asked to make and could not: said plainly, never shown as passed.
+  const [notRun, setNotRun] = useState<string[]>(space.not_run ?? []);
   const [status, setStatus] = useState<Status>("saved");
   const [message, setMessage] = useState<string | null>(null);
   const [stale, setStale] = useState<{ saved: OpinionOut | null } | null>(null);
@@ -191,6 +193,7 @@ function Editor({
     setSavedBody(o.body);
     setIssues(o.lint ?? []);
     setChecks(o.checks ?? []);
+    setNotRun(o.not_run ?? []);
     setChangedRefs(o.changed_citations ?? []);
   };
 
@@ -205,6 +208,7 @@ function Editor({
       );
       setIssues(state.open_issues);
       setChecks(state.checks);
+      setNotRun(state.not_run ?? []);
     } catch {
       /* the checks are only advice; the next save brings them back */
     }
@@ -434,6 +438,7 @@ function Editor({
       );
       setIssues(state.open_issues);
       setChecks(state.checks);
+      setNotRun(state.not_run ?? []);
       setDismissing(null);
     } catch (err) {
       setMessage(errorMessage(err));
@@ -635,6 +640,11 @@ function Editor({
                 </Button>
               </div>
             ))}
+            {notRun.length > 0 && (
+              <Notice tone="warning">
+                <p>{w("opinion.check_not_run")}</p>
+              </Notice>
+            )}
             {checks
               .filter((c) => c.passed && c.type in PASSED_WORDS)
               .map(({ type }) => [type, PASSED_WORDS[type]!] as const)

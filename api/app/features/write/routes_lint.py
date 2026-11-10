@@ -4,7 +4,9 @@
 sentence by sentence, with its citation quotes, through the AI kit (identifiers out first, rule 7; the
 specialty's outside-expertise question types in the context). A warning is kept only when its words are
 in the sentence it names, and is stored with the sentence's own words; one the expert dismissed before,
-or already open, is not added again. Two wrong answers leave the pattern check's warnings as they are.
+or already open, is not added again. Two wrong answers leave the pattern check's warnings as they are, and
+the checks only the model makes are
+reported as not run (audited, so a reload says the same), never as passed.
 The named expert dismisses a warning with a reason (sealed under the case key); the dismissal is kept.
 """
 
@@ -22,13 +24,25 @@ from app.core import audit
 from app.core.ai.kit import InvalidOutput
 from app.core.http import DbConn
 from app.features.write import ai_tasks, services
-from app.features.write.common import Crypto, View, Write, case_pack, not_found, refused, require_question
+from app.features.write.common import (
+    Crypto,
+    View,
+    Write,
+    case_pack,
+    limit_model_calls,
+    not_found,
+    refused,
+    require_question,
+)
 from app.features.write.lint_regex import sentences
 from app.features.write.lint_store import (
     BODY,
+    CHECKED,
+    UNCHECKED,
     LintCheck,
     LintIssueOut,
     checks_for,
+    checks_not_run,
     dismissed_issues,
     lint_purpose,
     open_issues,
@@ -43,11 +57,13 @@ class LintOut(BaseModel):
     issues: list[LintIssueOut]
     open_issues: list[LintIssueOut]
     checks: list[LintCheck]
+    not_run: list[str] = []  # checks the model was asked to make and could not: never shown as passed
 
 
 async def _state(conn: DbConn, crypto: Crypto, case_id: uuid.UUID, opinion_id: uuid.UUID) -> LintOut:
     now = await open_issues(conn, crypto, case_id, opinion_id)
-    return LintOut(issues=now, open_issues=now, checks=checks_for(now))
+    skipped = await checks_not_run(conn, case_id, opinion_id)
+    return LintOut(issues=now, open_issues=now, checks=checks_for(now, skipped), not_run=skipped)
 
 
 class LintDismiss(BaseModel):
@@ -66,6 +82,7 @@ async def lint_opinion(
 ) -> LintOut:
     """Ask the model which words in the saved opinion to check; the warnings open after it answers."""
     await require_question(conn, case_id, question_id)
+    await limit_model_calls(request, conn)
     cur = await conn.execute(
         "select id, body, citation_refs, version from app.opinions where case_id = %s and question_id = %s",
         (case_id, question_id),
@@ -124,7 +141,9 @@ async def _ask(
         )
     except InvalidOutput:
         logger.warning("T-15a answer refused twice for one opinion; pattern check warnings only")
+        await audit.record(conn, action=UNCHECKED, target=f"opinion:{opinion_id}", case_id=case_id)
         return
+    await audit.record(conn, action=CHECKED, target=f"opinion:{opinion_id}", case_id=case_id)
     known = [(i.sentence_index, i.type, i.words) for i in await open_issues(conn, crypto, case_id, opinion_id)]
     dismissed = await dismissed_issues(conn, crypto, case_id, opinion_id)
     for item in out["issues"]:

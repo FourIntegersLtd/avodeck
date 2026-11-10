@@ -29,7 +29,7 @@ from app.features.write.common import (
     question_header,
     require_question,
 )
-from app.features.write.lint_store import LintCheck, checks_for, open_issues
+from app.features.write.lint_store import LintCheck, checks_for, checks_not_run, open_issues
 from app.features.write.ports import WorkspaceGuidance
 from app.features.write.router import router
 from app.features.write.routes_opinion import OpinionOut, opinion_out
@@ -73,6 +73,7 @@ class Workspace(BaseModel):
     legal_test: str
     opinion: OpinionOut | None
     checks: list[LintCheck]
+    not_run: list[str] = []
     question: QuestionHeader
 
 
@@ -124,6 +125,7 @@ async def workspace(
         legal_test=pack.legal_tests(),
         opinion=opinion,
         checks=opinion.checks if opinion else checks_for([]),
+        not_run=opinion.not_run if opinion else [],
         question=await question_header(conn, pack, case_id, question_id),
     )
 
@@ -153,5 +155,6 @@ async def _opinion(
         return None
     out = await opinion_out(conn, crypto, row, facts)
     out.lint = await open_issues(conn, crypto, case_id, row["id"])
-    out.checks = checks_for(out.lint)
+    out.not_run = await checks_not_run(conn, case_id, row["id"])
+    out.checks = checks_for(out.lint, out.not_run)
     return out

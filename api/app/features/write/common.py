@@ -11,6 +11,7 @@ import psycopg
 from fastapi import Depends, Request
 from pydantic import BaseModel
 
+from app.core import rate_limits
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.contracts.facts import Fact, citable_facts
 from app.core.crypto import CaseCrypto
@@ -122,3 +123,18 @@ async def require_question(conn: DbConn, case_id: uuid.UUID, question_id: uuid.U
 async def citable(request: Request, conn: DbConn, case_id: uuid.UUID) -> list[Fact]:
     """The facts an opinion may cite: slice B's read log decides which pages count (fail closed)."""
     return await citable_facts(conn, case_id, getattr(request.app.state, "page_reads", None))
+
+
+# Calls that ask a model are dearer than the app's default per-endpoint limit (`API_RATE_PER_MINUTE`): a person
+# may make this many per minute to each (the lesser of this and the default). It reads the count the app already
+# keeps per person and endpoint, so it is off wherever that limit is off (0).
+MODEL_CALLS_PER_MINUTE = 30
+
+
+async def limit_model_calls(request: Request, conn: DbConn) -> None:
+    """429 `slow_down` when this person has made `MODEL_CALLS_PER_MINUTE` requests to this route this minute."""
+    default = int(getattr(request.app.state, "api_rate_per_minute", 0))
+    if default <= 0:
+        return
+    route = request.scope["route"]
+    await rate_limits.check(conn, f"{request.method} {route.path_format}", min(MODEL_CALLS_PER_MINUTE, default))

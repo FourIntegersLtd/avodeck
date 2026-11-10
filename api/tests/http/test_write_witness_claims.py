@@ -117,11 +117,15 @@ def world(seed: Seed, admin: psycopg.Connection, combo: Combo, reads: Reads) -> 
 
 
 @pytest.fixture
-async def statement(seed: Seed, world: World, app: FastAPI, admin_dsn: str) -> tuple[uuid.UUID, list[str]]:
+async def statement(
+    seed: Seed, world: World, app: FastAPI, admin_dsn: str, reads: Reads
+) -> tuple[uuid.UUID, list[str]]:
     """A witness statement on page 900: its words sealed as the pipeline seals them. Returns the
-    document and the word references, `<page_id>/<word_id>`, in reading order."""
+    document and the word references, `<page_id>/<word_id>`, in reading order. The expert has read the
+    page: a statement on an unread page is not compared (blind read)."""
     document = seed.document(world.case)
     page = seed.page(world.case, document, 900)
+    reads.rows.add((world.case, page, 900, world.expert))
     statement_type = sorted(default_library().combine(*CODES[world.case]).statement_sources())[0]
     async with await psycopg.AsyncConnection.connect(admin_dsn, autocommit=True) as conn:
         await conn.execute("update app.pages set source_type = %s where id = %s", (statement_type, page))

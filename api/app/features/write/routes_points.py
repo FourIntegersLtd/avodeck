@@ -35,6 +35,7 @@ from app.features.write.common import (
     case_pack,
     citable,
     invalid,
+    limit_model_calls,
     not_found,
     question_header,
     refused,
@@ -42,7 +43,7 @@ from app.features.write.common import (
 )
 from app.features.write.router import router
 from app.features.write.routes_range_note import RangeNote, range_note
-from app.features.write.routes_witness import ClaimOut, open_claims
+from app.features.write.routes_witness import ClaimOut, ComparisonOut, comparison_states, open_claims
 
 _POINT = (
     "select p.*, f.page_id, f.kind, f.value, f.event_date, pg.bundle_page_no as page_no from app.points p"
@@ -82,6 +83,7 @@ class Points(BaseModel):
     unused: list[PointFact]
     relevant: list[RelevantOut]
     claims: list[ClaimOut]
+    comparisons: list[ComparisonOut]
     range_note: RangeNote
     question: QuestionHeader
 
@@ -168,6 +170,7 @@ async def list_points(
         unused=unused,
         relevant=relevant,
         claims=claims,
+        comparisons=await comparison_states(conn, case_id, pack),
         range_note=note,
         question=await question_header(conn, pack, case_id, question_id),
     )
@@ -227,9 +230,10 @@ async def add_point(
 
 
 @router.post("/cases/{case_id}/questions/{question_id}/points/suggest", response_model=Queued, status_code=202)
-async def suggest(case_id: uuid.UUID, question_id: uuid.UUID, access: Write, conn: DbConn) -> Queued:
+async def suggest(case_id: uuid.UUID, question_id: uuid.UUID, request: Request, access: Write, conn: DbConn) -> Queued:
     """Ask for the facts not yet points to be sorted by side (T-14a); the expert decides each one."""
     await require_question(conn, case_id, question_id)
+    await limit_model_calls(request, conn)
     return Queued(job_id=await registry.enqueue(conn, case_id, "suggest_points"))
 
 
