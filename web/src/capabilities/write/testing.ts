@@ -89,6 +89,7 @@ export function workspace(run: PackRun, over: Partial<Schemas["Workspace"]> = {}
     legal_test: "The pack's own test of what a reasonable practitioner does.",
     opinion: null,
     checks: checksFor(over.opinion?.lint),
+    not_run: [],
     question: header(run),
     ...over,
   };

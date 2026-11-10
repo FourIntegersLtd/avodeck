@@ -114,7 +114,7 @@ test("an account that differs shows the statement and the record side by side an
 });
 
 test("a statement the computer could not compare is said so, never shown as no accounts differ", async () => {
-  const comparisons = [{ document_id: "d1", status: "refused" }];
+  const comparisons = [{ document_id: "d1", status: "refused" as const, claims: null }];
   serve("launch", { points: pointsBody("launch", { comparisons }) });
   renderAt(`${url}?q=${Q1}`);
   expect(await screen.findByText(M["write.points.compare_refused"]!)).toBeInTheDocument();
@@ -122,7 +122,7 @@ test("a statement the computer could not compare is said so, never shown as no a
 });
 
 test("a statement waiting for its page to be read says so, and does not claim nothing differs", async () => {
-  const comparisons = [{ document_id: "d1", status: "waiting_to_be_read" }];
+  const comparisons = [{ document_id: "d1", status: "waiting_to_be_read" as const, claims: null }];
   serve("launch", { points: pointsBody("launch", { comparisons }) });
   renderAt(`${url}?q=${Q1}`);
   expect(await screen.findByText(M["write.points.compare_waiting"]!)).toBeInTheDocument();

@@ -142,7 +142,7 @@ function FoldedFinding({ caseId, finding, canDecide, onDecided }: { caseId: stri
 
 /** With nothing open to decide: which checks were run, and where the software counted entries as already followed up. */
 function ChecksRan({ checks }: { checks: Array<{ key: string; rule?: string | null; title?: string | null; acted_on: number }> }) {
-  const name = (c: { key: string; rule?: string | null; title?: string | null }) => findingTitle({ ...c, gentle: false, rule: c.rule ?? c.key, check_key: c.key } as Finding);
+  const name = (c: { key: string; rule?: string | null; title?: string | null }) => findingTitle({ ...c, gentle: false, rule: c.rule ?? c.key, check_key: c.key } as unknown as Finding);
   if (checks.length === 0) return <p className="av-muted">{w("things.none")}</p>;
   return (
     <div className="av-stack">
