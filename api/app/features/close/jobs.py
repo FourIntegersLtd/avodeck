@@ -17,18 +17,18 @@ import time
 import uuid
 import zipfile
 from datetime import UTC, date, datetime
-from pathlib import PurePosixPath
 from typing import Any
 
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from app.core.case_files import StoredDocument, StoredFileMissing
 from app.core.contracts.instructing_parties import logged_requests
 from app.core.contracts.invoices import case_invoice_rows
 from app.core.contracts.org_policy import org_policy
 from app.core.contracts.reading import page_read_log, verification_counts
-from app.core.crypto import CaseCrypto, key_provider_from_env
+from app.core.crypto import CaseCrypto, StoredFileChanged, key_provider_from_env
 from app.core.email import deletion_certificate_mail
 from app.core.jobs import JobContext, JobRegistry, registry
 from app.core.notifications import notify
@@ -271,7 +271,7 @@ def _sha(data: bytes) -> str:
 
 
 def _finish_zip(archive: zipfile.ZipFile, names: list[str], hashes: list[dict[str, str]], case_id: uuid.UUID,
-                variant: str) -> None:  # fmt: skip
+                variant: str, left_out: list[str] | None = None) -> None:  # fmt: skip
     table = io.StringIO()
     writer = csv.DictWriter(table, fieldnames=["file", "recorded_sha256", "computed_sha256", "matches"])
     writer.writeheader()
@@ -282,6 +282,7 @@ def _finish_zip(archive: zipfile.ZipFile, names: list[str], hashes: list[dict[st
         "created_at": datetime.now(UTC).isoformat(),
         "files": sorted(names),
         "not_yet_available": [{"path": path, "reason": reason} for path, reason in NOT_YET_AVAILABLE],
+        "left_out": [{"document_id": d, "reason": "not_scanned_clean"} for d in left_out or []],
     }
     for path, _ in NOT_YET_AVAILABLE:
         archive.writestr(path, "not_yet_available\n")
@@ -300,6 +301,57 @@ def _write_entry(archive: zipfile.ZipFile, name: str, data: bytes) -> None:
     with archive.open(info, "w", force_zip64=len(data) > ZIP_SLICE_LIMIT) as entry:
         for start in range(0, len(view), ZIP_SLICE):
             entry.write(view[start : start + ZIP_SLICE])
+
+
+# The extension of a bundle file in the ZIP comes from the media type the scan recorded, never from its name.
+_EXTENSIONS = {
+    "application/pdf": ".pdf",
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/tiff": ".tif",
+    "message/rfc822": ".eml",
+    "application/zip": ".zip",
+    "text/plain": ".txt",
+}
+
+
+async def add_document(
+    doc: dict[str, Any],
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    storage: CaseFileStorage,
+    crypto: CaseCrypto,
+    archives: dict[str, zipfile.ZipFile],
+    names: dict[str, list[str]],
+    hashes: dict[str, list[dict[str, str]]],
+) -> None:
+    """Streams one stored document into each archive, read as the download route reads it (the parts under
+    its prefix, each opened with its own path), a part at a time. The whole file must match its recorded
+    SHA-256, or the export fails rather than carries a file that is not the one uploaded."""
+    document = await StoredDocument.for_prefix(storage, crypto, case_id, doc["storage_path"])
+    if not document.paths:
+        raise StoredFileMissing(doc["storage_path"])
+    name = f"bundle/{doc['id']}{_EXTENSIONS.get(doc['media_type'] or '', '')}"
+    digest = hashlib.sha256()
+    with contextlib.ExitStack() as entries:
+        writers = []
+        for archive in archives.values():
+            info = zipfile.ZipInfo(name, date_time=time.localtime(time.time())[:6])
+            info.compress_type = archive.compression
+            info.external_attr = 0o600 << 16
+            writers.append(entries.enter_context(archive.open(info, "w", force_zip64=True)))
+        async for piece in document.chunks(conn):
+            digest.update(piece)
+            for writer in writers:
+                for start in range(0, len(piece), ZIP_SLICE):
+                    writer.write(piece[start : start + ZIP_SLICE])
+    computed = digest.hexdigest()
+    if computed != doc["sha256"]:
+        raise StoredFileChanged("stored file does not match its checksum")
+    row = {"file": name, "recorded_sha256": doc["sha256"], "computed_sha256": computed, "matches": "yes"}
+    for variant in archives:
+        names[variant].append(name)
+        hashes[variant].append(row)
 
 
 async def _deleting(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
@@ -340,16 +392,21 @@ async def export_case(ctx: JobContext) -> None:
             " and (pdf_path is not null or docx_path is not null) order by version_no",
             (ctx.case_id,),
         )
+        # Only a document the scan recorded clean goes into the copy (as the download route serves only those).
+        # Documents left out are named in the manifest by id, with the reason, so the expert can see why.
         documents = await _all(
             conn,
-            "select id, storage_path, sha256 from app.documents"
-            " where bundle_id = (select bundle_id from app.cases where id = %s) and storage_path is not null"
-            " order by id",
+            "select d.id, d.storage_path, d.sha256, coalesce(s.clean, false) as clean, s.media_type"
+            " from app.documents d left join app.document_scans s on s.document_id = d.id"
+            " where d.bundle_id = (select bundle_id from app.cases where id = %s) and d.storage_path is not null"
+            " order by d.id",
             (ctx.case_id,),
         )
+        left_out = [str(d["id"]) for d in documents if not d["clean"]] if "full" in variants else []
         with contextlib.ExitStack() as stack:
             files = {v: stack.enter_context(tempfile.TemporaryFile()) for v in variants}
-            archives = {v: zipfile.ZipFile(files[v], "w", zipfile.ZIP_DEFLATED) for v in variants}
+            # entered after the files: on a failure each ZIP closes before its file
+            archives = {v: stack.enter_context(zipfile.ZipFile(files[v], "w", zipfile.ZIP_DEFLATED)) for v in variants}
             names: dict[str, list[str]] = {v: [] for v in variants}
             hashes: dict[str, list[dict[str, str]]] = {v: [] for v in variants}
 
@@ -390,14 +447,10 @@ async def export_case(ctx: JobContext) -> None:
                                 await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path),
                             )
                 for d in documents if "full" in variants else []:
-                    path = d["storage_path"]
-                    add(
-                        f"bundle/{d['id']}{PurePosixPath(path).suffix}",
-                        d["sha256"],
-                        await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path),
-                    )  # the file is held only while it is written into the ZIP
+                    if d["clean"]:  # one stored part at a time is in memory, whatever the file's size
+                        await add_document(d, conn, ctx.case_id, storage, crypto, archives, names, hashes)
             for variant in variants:
-                _finish_zip(archives[variant], names[variant], hashes[variant], ctx.case_id, variant)
+                _finish_zip(archives[variant], names[variant], hashes[variant], ctx.case_id, variant, left_out)
                 files[variant].seek(0)
                 target = export_path(ctx.case_id, ctx.job_id, variant)
                 with tempfile.TemporaryFile() as sealed_file:  # sealed frame by frame, then stored

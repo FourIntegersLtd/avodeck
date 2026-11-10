@@ -143,6 +143,15 @@ def make_due(admin: psycopg.Connection, case: uuid.UUID, *, days_ago: int = 1) -
     )
 
 
+def mark_clean(admin: psycopg.Connection, case: uuid.UUID, doc: uuid.UUID) -> None:
+    """The scan verdict the export needs: only a document recorded clean goes into the copy."""
+    admin.execute(
+        "insert into app.document_scans (document_id, bundle_id, clean, media_type)"
+        " values (%s, (select bundle_id from app.cases where id = %s), true, 'application/pdf')",
+        (doc, case),
+    )
+
+
 async def put_encrypted(
     storage: CaseFileStorage, crypto: CaseCrypto, worker_db: Database, case: uuid.UUID, path: str, data: bytes
 ) -> None:
@@ -162,11 +171,13 @@ async def add_files(
     prefix = case_prefix(case)
     original = b"%PDF-zz synthetic bundle"
     doc = seed.document(case)
-    doc_path = f"{prefix}/documents/{doc}.pdf"
+    folder = f"{prefix}/documents/{doc}"  # a document's storage_path is a prefix; its parts are the objects below
+    doc_path = f"{folder}/00001"
     admin.execute(
         "update app.documents set storage_path = %s, sha256 = %s, filename = %s where id = %s",
-        (doc_path, hashlib.sha256(original).hexdigest(), FILENAME, doc),
+        (folder, hashlib.sha256(original).hexdigest(), FILENAME, doc),
     )
+    mark_clean(admin, case, doc)
     await put_encrypted(storage, crypto, worker_db, case, doc_path, original)
     p1, p2, p3 = (seed.page(case, doc, n) for n in (901, 902, 903))
     admin.execute("update app.pages set quarantined = true, quarantine_reason = 'zz' where id = %s", (p2,))
@@ -704,12 +715,14 @@ async def add_large_document(
     case: uuid.UUID, size: int,
 ) -> bytes:  # fmt: skip
     doc = seed.document(case)
-    path = f"{case_prefix(case)}/documents/{doc}.pdf"
+    folder = f"{case_prefix(case)}/documents/{doc}"
+    path = f"{folder}/00001"
     data = os.urandom(size)
     admin.execute(
         "update app.documents set storage_path = %s, sha256 = %s where id = %s",
-        (path, hashlib.sha256(data).hexdigest(), doc),
+        (folder, hashlib.sha256(data).hexdigest(), doc),
     )
+    mark_clean(admin, case, doc)
     await put_encrypted(storage, crypto, worker_db, case, path, data)
     return data
 
@@ -789,6 +802,9 @@ class HeldStore:
         if path not in self.objects:
             raise StorageError("missing")
         return self.objects[path]
+
+    async def list_recursive(self, prefix: str) -> list[str]:
+        return sorted(p for p in self.objects if p.startswith(prefix.rstrip("/") + "/"))
 
     async def delete(self, paths: Any) -> None:
         for path in paths:
@@ -1258,3 +1274,52 @@ async def test_account_closure_deletion_reaches_the_delete_case_job_end_to_end(
     await run(close_jobs.delete_case, case, "delete_case", job=job)
     assert rows_of(admin, "pages", case) == 0
     assert certificate(admin, case)["deleted_at"] is not None  # type: ignore[index]
+
+
+async def test_an_export_whose_stored_file_no_longer_matches_its_checksum_fails_and_stores_nothing(
+    run: Run, seed: Seed, admin: psycopg.Connection, storage: CaseFileStorage, crypto: CaseCrypto,
+    worker_db: Database, world: dict[str, Any], client_for: ClientFor,
+) -> None:  # fmt: skip
+    case = world["case"]
+    await add_large_document(admin, seed, storage, crypto, worker_db, case, 20_000)
+    admin.execute(
+        "update app.documents set sha256 = %s where bundle_id = (select bundle_id from app.cases where id = %s)",
+        ("0" * 64, case),
+    )
+    client = await client_for(world["expert"])
+    job = uuid.UUID((await client.post(f"/v1/cases/{case}/export")).json()["job_id"])
+    with pytest.raises(Exception, match="checksum"):
+        await run(close_jobs.export_case, case, "export_case", job=job)
+    assert await storage.list_recursive(f"{case_prefix(case)}/exports/{job}") == []
+
+
+async def test_a_document_in_several_parts_is_exported_whole_and_one_not_scanned_clean_is_named_in_the_manifest(
+    run: Run, seed: Seed, admin: psycopg.Connection, storage: CaseFileStorage, crypto: CaseCrypto,
+    worker_db: Database, world: dict[str, Any], client_for: ClientFor,
+) -> None:  # fmt: skip
+    case = world["case"]
+    parts = [os.urandom(3000), os.urandom(3000), os.urandom(10)]
+    doc = seed.document(case)
+    folder = f"{case_prefix(case)}/uploads/{uuid.uuid4()}"
+    admin.execute(
+        "update app.documents set storage_path = %s, sha256 = %s where id = %s",
+        (folder, hashlib.sha256(b"".join(parts)).hexdigest(), doc),
+    )
+    mark_clean(admin, case, doc)
+    for n, data in enumerate(parts, start=1):
+        await put_encrypted(storage, crypto, worker_db, case, f"{folder}/{n:05d}", data)
+    waiting = seed.document(case)
+    admin.execute(
+        "update app.documents set storage_path = %s, sha256 = %s where id = %s",
+        (f"{case_prefix(case)}/uploads/{uuid.uuid4()}", "1" * 64, waiting),
+    )  # no scan row: left out, and its (absent) file is never read
+    client = await client_for(world["expert"])
+    job = uuid.UUID((await client.post(f"/v1/cases/{case}/export")).json()["job_id"])
+    await run(close_jobs.export_case, case, "export_case", job=job)
+    finish(admin, job)
+    resp = await client.get(f"/v1/cases/{case}/export/{job}/download")
+    archive = zipfile.ZipFile(io.BytesIO(resp.content))
+    assert archive.read(f"bundle/{doc}.pdf") == b"".join(parts)
+    assert f"bundle/{waiting}" not in " ".join(archive.namelist())
+    manifest = json.loads(archive.read("manifest.json"))
+    assert manifest["left_out"] == [{"document_id": str(waiting), "reason": "not_scanned_clean"}]

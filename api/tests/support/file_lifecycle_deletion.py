@@ -243,6 +243,11 @@ async def add_stored_copies(
     life.done_upload = await start(client, case, done, filename=f"{marker}-done.pdf")
     await put_all(client, life.done_upload, done)
     life.document = await complete_and_finalize(client, life.done_upload, done.sha256())
+    admin.execute(  # the scan has run on it, as before anything reads a real one (the export needs it)
+        "insert into app.document_scans (document_id, bundle_id, clean, media_type)"
+        " values (%s, (select bundle_id from app.cases where id = %s), true, 'application/pdf')",
+        (life.document, case),
+    )
     life.page_id = seed.page(case, uuid.UUID(life.document), life.page_no)
     image = paths.page_image_path(case, life.page_id)
     admin.execute("update app.pages set image_path = %s where id = %s", (image, life.page_id))

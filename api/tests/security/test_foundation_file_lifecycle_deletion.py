@@ -411,15 +411,6 @@ async def test_d2a_when_storage_is_down_nothing_is_destroyed_and_a_retry_finishe
     assert certificate_state(admin, life.case) == (1, True), "exactly one certificate, finished"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-12 D2b medium: "
-        "storage.delete sends DeleteObjects with Quiet=True and never reads the Errors it answers with, "
-        "so a refused key is taken for deleted; the key is then destroyed and the certificate finished with an object "
-        "left: api/app/core/storage.py:380"
-    ),
-)
 async def test_d2b_a_partial_storage_failure_is_not_taken_for_success(
     life: Lifecycle,
     storage: CaseFileStorage,
@@ -836,14 +827,6 @@ async def test_d6b_an_export_can_be_taken_once_and_its_stored_copy_goes_with_it(
     assert (await admin_client.get(url)).status_code == 404
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-12 D6c high: export_case reads documents.storage_path with storage.get, but an uploaded document's "
-        "storage_path is the upload prefix (its parts are below it), so the named expert's export fails NoSuchKey: "
-        "api/app/features/close/jobs.py:397 vs api/app/core/uploads.py:179"
-    ),
-)
 async def test_d6c_the_named_experts_export_builds_for_a_case_with_an_uploaded_document(
     life: Lifecycle,
     storage: CaseFileStorage,
