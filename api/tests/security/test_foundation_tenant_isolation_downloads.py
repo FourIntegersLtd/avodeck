@@ -174,6 +174,15 @@ async def test_the_named_expert_downloads_the_exact_file(route: Route, dl_env: E
     assert_file(await fetch(iso_send, victim.expert, victim, obj), obj)
 
 
+async def test_an_unscanned_document_is_held_back_even_from_the_named_expert(dl_env: Env, iso_world, iso_send):  # type: ignore[no-untyped-def]
+    victim = iso_world.victim
+    obj = await seed_document_file(dl_env, victim)
+    dl_env.admin.execute("delete from app.document_scans where document_id = %s", (obj.suffix.split("/")[2],))
+    response = await fetch(iso_send, victim.expert, victim, obj)
+    assert said(response) == "423 file_not_ready"
+    assert_nothing_of(response, obj, victim)
+
+
 # --- 1 other organisations, outsiders, staff -------------------------------------------------------------------------
 
 
