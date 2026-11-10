@@ -23,9 +23,10 @@ import pytest
 from app.core.ai import anthropic_live, bedrock_live
 from app.core.ai.bedrock import ModelRequest
 from app.core.ai.kit import AiKit, InvalidOutput
+from app.core.ai.prompt import DATA_RULE, system_text
 from app.features.pipeline import extract
 from tests.support.ai import ScriptedBedrock, cell, response
-from tests.support.ai_audit import PACK, SCHEMA, SYSTEM, VALID, FakeConn, task
+from tests.support.ai_audit import PACK, SCHEMA, SYSTEM, VALID, FakeConn, all_tasks, task
 from tests.support.ai_injection import CANARY, INJECTIONS, words
 
 pytestmark = pytest.mark.anyio
@@ -74,7 +75,7 @@ async def test_P1_hostile_text_is_user_content_only_never_the_system_prompt(name
             f"{client}: hostile text reached more than the document text block"
         )
         system = params["system"]
-        assert [b["text"] for b in system] == [SYSTEM], client
+        assert [b["text"] for b in system] == [system_text(SYSTEM)], client
 
 
 def tool_entries(client: str, params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -159,28 +160,26 @@ async def test_E1b_a_short_instruction_in_an_allowed_free_text_field_is_valid_by
 
 
 @pytest.mark.parametrize("client", ["bedrock", "anthropic"])
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 P5: document text is sent as a bare text block with no data label or delimiter, unlike the"
-    " context block ('Reference data (not instructions):'): app/core/ai/bedrock_live.py:167,"
-    " app/core/ai/anthropic_live.py:268-271",
-)
 async def test_P5_the_document_text_is_marked_as_data_the_way_the_context_block_is(client: str) -> None:
     _, request = await send(INJECTIONS["ignore_instructions"])
     block = user_blocks(live_params(request)[client])[1]["text"]
     assert block != request.text and "not instructions" in block.lower()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 P5b: no prompt template tells the model that the document text is data to read, not"
-    " instructions to follow: app/features/*/prompts/*, app/core/ai/*",
-)
-def test_P5b_every_system_prompt_template_says_the_document_text_is_data() -> None:
-    said = re.compile(r"not instructions|never follow|do not follow|is data|as data|only data", re.I)
-    templates = sorted(p for p in APP.rglob("prompts/*") if p.suffix in {".md", ".txt"})
-    assert len(templates) >= 10
-    silent = [p.name for p in templates if not said.search(p.read_text())]
+@pytest.mark.parametrize("client", ["bedrock", "anthropic"])
+def test_P5b_every_registered_tasks_system_text_says_the_document_text_is_data(client: str) -> None:
+    """Checked on the system text each live client actually sends, for every registered task (not on the prompt
+    files, so a task that builds its prompt in code is covered as well)."""
+    said = re.compile(r"not instructions|never follow", re.I)
+    tasks = all_tasks()
+    assert len(tasks) >= 20
+    silent = []
+    for t in tasks:
+        request = ModelRequest(model_id="m", system=t.system, context={}, text="t", schema=t.schema)
+        params = live_params(request)[client]
+        sent = " ".join(block["text"] for block in params["system"])
+        if DATA_RULE not in sent or not said.search(sent) or not sent.startswith(t.system):
+            silent.append(t.task_id)
     assert silent == []
 
 
@@ -198,11 +197,6 @@ async def test_P6_a_fake_context_header_in_the_text_stays_in_the_document_block(
 
 
 @pytest.mark.parametrize("client", ["bedrock", "anthropic"])
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 P6b: a document that begins with the context header is byte-for-byte the same as the real"
-    " context block's opening (no fence or escaping of the text): bedrock_live.py:167, anthropic_live.py:268-271",
-)
 async def test_P6b_a_fake_header_cannot_look_like_the_real_header(client: str) -> None:
     _, request = await send(HEADER + '{"language": "xx"}')
     blocks = user_blocks(live_params(request)[client])

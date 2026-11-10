@@ -131,11 +131,6 @@ def test_a_cross_region_profile_arn_or_odd_id_is_not_in_region(model_id: str) ->
     assert in_region_model_id(SONNET) is True  # control: the cell's own ID is accepted
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M1: in_region_model_id accepts an ID with a trailing newline (the pattern ends in `$`, which "
-    "matches before a final newline; fullmatch or `\\Z` would not): app/core/config.py:364,496",
-)
 def test_a_trailing_newline_is_not_part_of_an_in_region_id() -> None:
     assert in_region_model_id(SONNET + "\n") is False
 
@@ -197,11 +192,6 @@ async def test_the_kit_refuses_a_task_with_a_model_role_the_cell_does_not_have()
     assert [r.model_id for r in model.requests] == [SONNET]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M2: BEDROCK_ENDPOINT's region is never compared with AWS_REGION, so a cell can be configured "
-    "to sign for one region and send to another's host if both are on the allow-list: app/core/config.py:529-543",
-)
 def test_the_bedrock_endpoint_must_be_in_the_cells_own_region() -> None:
     other = "bedrock-runtime.us-east-1.amazonaws.com"
     env = cell_env(
@@ -264,42 +254,20 @@ def test_a_lookalike_or_insecure_endpoint_is_refused(name: str) -> None:
 
 
 @pytest.mark.parametrize("url", [f"https://user@{BEDROCK_HOST}", f"https://user:pw@{BEDROCK_HOST}"])
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M3: an endpoint with credentials in the URL is accepted (only the host after the @ is checked): "
-    "app/core/config.py:499-501",
-)
 def test_an_endpoint_with_userinfo_is_refused(url: str) -> None:
     assert refused(url)
 
 
 @pytest.mark.parametrize("url", [f"https://{BEDROCK_HOST}:8443", f"https://{BEDROCK_HOST}:0"])
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M4: the allow-list is host only, any port on an allowed host is accepted: "
-    "app/core/config.py:499-501",
-)
 def test_a_non_default_port_is_refused(url: str) -> None:
     assert refused(url)
 
 
 @pytest.mark.parametrize("url", [f" https://{BEDROCK_HOST}", f"https://{BEDROCK_HOST}\n", f"https://{BEDROCK_HOST}\t"])
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M5: leading or trailing whitespace and control characters are dropped by urlsplit, so a padded "
-    "endpoint passes (config strips env values; check_endpoint on a raw string does not): "
-    "app/core/config.py:499-501",
-)
 def test_a_padded_endpoint_is_refused(url: str) -> None:
     assert refused(url)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M6: urlsplit reads the host after the backslash-@ but urllib3 (which boto uses) reads the host "
-    "before it: the checked host and the host connected to differ. The input is operator config, so low: "
-    "app/core/config.py:499-501",
-)
 def test_the_host_that_is_checked_is_the_host_that_the_http_layer_connects_to() -> None:
     url = f"https://evil.example\\@{BEDROCK_HOST}"
     assert parse_url(url).host == "evil.example"  # what the HTTP layer would connect to (proves the disagreement)
@@ -356,12 +324,6 @@ def test_config_errors_name_the_variable_and_never_echo_its_value() -> None:
         assert name in str(caught.value) and CANARY not in exception_text(caught.value), name
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M14: a non-numeric limit variable raises ConfigError chained (`from`) to the ValueError whose "
-    "text is the raw env value, so a traceback prints it. Operator config, not case data, so info: "
-    "app/core/config.py ai_settings int() parsing",
-)
 def test_a_bad_number_in_config_does_not_chain_its_raw_value_into_the_traceback() -> None:
     with pytest.raises(ConfigError) as caught:
         ai_settings(cell_env(BEDROCK_RPM_LIMIT=CANARY))
@@ -372,23 +334,12 @@ def test_a_bad_number_in_config_does_not_chain_its_raw_value_into_the_traceback(
 # --- The temporary direct path (ADR 0036) ------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M7: nothing stops AI_PRIMARY_PROVIDER=anthropic in a production cell. Only the variable decides "
-    "(no environment, region, per-case or acknowledgement check), so one stray variable sends every case's stripped "
-    "text to api.anthropic.com outside the region (rule 5). A warning is logged at start-up, nothing more: "
-    "app/core/config.py:504-514, app/core/ai/clients.py:78-97",
-)
 def test_the_direct_provider_is_refused_in_a_production_cell() -> None:
     production = {"SENTRY_ENVIRONMENT": "production", "ENVIRONMENT": "production", "APP_ENV": "production"}
     with pytest.raises(ConfigError):
         ai_settings(cell_env(**ON, **production))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M7: the same through the factory every service uses: app/core/ai/clients.py:54-97",
-)
 def test_the_client_factory_builds_no_direct_client_in_a_production_cell() -> None:
     production = {"SENTRY_ENVIRONMENT": "production", "ENVIRONMENT": "production", "APP_ENV": "production"}
     try:
@@ -579,12 +530,6 @@ async def test_live_anthropic_ignores_the_environments_key_token_and_base_url(
         assert given in headers  # control: the key it was given is the one sent
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M8: the SDK merges ANTHROPIC_CUSTOM_HEADERS from the process environment into every request, "
-    "so an environment variable can add or override headers on the call that carries the prompt and key; the "
-    "client does not neutralise it: app/core/ai/anthropic_live.py:84-92 (SDK _client.py:249-255)",
-)
 async def test_live_anthropic_sends_no_header_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANTHROPIC_CUSTOM_HEADERS", "X-Env-Injected: ZX-INJECTED")
     client, seen = anthropic_client(answers())
@@ -595,13 +540,6 @@ async def test_live_anthropic_sends_no_header_from_the_environment(monkeypatch: 
 # --- Redirects, retries and timeouts -----------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M9: the SDK's own HTTP client follows redirects (follow_redirects=True), and a 307 or 308 from "
-    "api.anthropic.com replays the whole request body (the stripped prompt text) to the redirect target. The key "
-    "header is dropped across hosts by httpx, the body is not. Needs a redirect from the provider, so low: "
-    "app/core/ai/anthropic_live.py:84-92 (http_client left to the SDK default)",
-)
 async def test_live_anthropic_does_not_follow_a_redirect_to_another_host() -> None:
     live = LiveAnthropic(direct_settings(), KEY)  # the real wiring: no test transport, the SDK builds its client
     seen: list[httpx2.Request] = []
@@ -910,13 +848,6 @@ async def test_a_dropped_or_timed_out_direct_connection_is_logged_by_class_only(
         (f"{CANARY} garbage".encode(), "application/json"),
     ],
 )
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M11: a malformed 200 reply (bad JSON in a stream, a non-JSON body) escapes LiveAnthropic.invoke "
-    "as a raw JSONDecodeError or AssertionError, not a typed failure, so the kit neither falls back to Bedrock nor "
-    "pauses: the job just fails and retries. No text leaks (checked in the passing test below): "
-    "app/core/ai/anthropic_live.py:106-129",
-)
 async def test_a_malformed_direct_reply_becomes_a_typed_failure(body: bytes, content_type: str) -> None:
     client, _ = anthropic_client(
         lambda _req: httpx2.Response(200, content=body, headers={"content-type": content_type})
@@ -985,12 +916,6 @@ async def test_a_bedrock_timeout_is_logged_by_class_and_raised_as_busy(caplog: p
     assert "ReadTimeoutError" in log_text(caplog)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M12: LiveBedrock puts the provider's error CODE into the log line and the raised "
-    "ModelRequestRefused without checking its shape (LiveAnthropic restricts codes to ^[a-z_]{1,64}$). Real codes "
-    "are fixed names, so this is defence in depth only: app/core/ai/bedrock_live.py:107-124",
-)
 async def test_an_unexpected_bedrock_error_code_is_not_trusted_into_logs_or_the_exception(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -1004,13 +929,6 @@ async def test_an_unexpected_bedrock_error_code_is_not_trusted_into_logs_or_the_
 
 
 @pytest.mark.parametrize("provider", ["anthropic", "bedrock"])
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 M13: `raise failure from None` hides the SDK exception from tracebacks but leaves it on "
-    "`__context__`, and its text carries the provider's body (the echo). Anything that walks `__context__` itself "
-    "(rather than honouring `__suppress_context__`) sees it. Sentry honours it, so info: "
-    "app/core/ai/anthropic_live.py:113, app/core/ai/bedrock_live.py:121-127",
-)
 async def test_the_provider_exception_is_not_kept_on_the_raised_failure(provider: str) -> None:
     if provider == "anthropic":
         client, _ = anthropic_client(lambda _req: httpx2.Response(500, json=echoing_body("api_error")))

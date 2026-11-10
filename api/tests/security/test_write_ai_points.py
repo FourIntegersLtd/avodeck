@@ -1271,12 +1271,6 @@ async def test_w_o18_a_look_alike_quote_is_refused_over_http_and_the_exact_one_i
     assert (await put_cite(expert, world, world.verified, world.read_page, PLAN)).status_code == 200
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 W-I4: the quote match ignores every character that is not a letter or number, so a quote with "
-    "a hidden bidirectional or zero-width control is accepted and kept as 'verbatim': "
-    "api/app/core/ai/provenance.py:59 via api/app/features/write/citations.py:76",
-)
 @pytest.mark.parametrize(
     "hidden", ["‮", "​", "⁦", "­"], ids=["bidi_override", "zero_width_space", "bidi_isolate", "soft_hyphen"]
 )

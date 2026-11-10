@@ -10,9 +10,18 @@ from psycopg import AsyncConnection
 
 from app.core.ai.kit import AiTask
 from app.core.packs import default_library
-from tests.support.packs import FIXTURE
+from app.features.after_serving import ai_tasks as serving_tasks
+from app.features.pipeline import extract, missing
+from app.features.reader import second_reading
+from app.features.report import ai_tasks as report_tasks
+from app.features.setup import ai_tasks as setup_tasks
+from app.features.trial import ai_tasks as trial_tasks
+from app.features.understand import ai_tasks as understand_tasks
+from app.features.write import ai_tasks as write_tasks
+from tests.support.packs import BOTH, FIXTURE
 
 PACK = default_library().combine(*FIXTURE.codes)
+PACK_LAUNCH = default_library().combine(*BOTH[0].codes)
 SYSTEM = "Label each line of the text. Answer only through the recording tool."
 
 SCHEMA: dict[str, Any] = {
@@ -48,8 +57,9 @@ class FakeConn(_Base):
     """`execute` answers the budget query with `budget` (tokens used, pages) and keeps every other statement's
     parameters (the `ai_calls` inserts) in `logged`."""
 
-    def __init__(self, budget: tuple[int, int] = (0, 0)) -> None:
+    def __init__(self, budget: tuple[int, int] = (0, 0), person_tokens: int = 0) -> None:
         self.budget = budget
+        self.person_tokens = person_tokens
         self.sql: list[str] = []
         self.logged: list[tuple[Any, ...]] = []
 
@@ -57,6 +67,8 @@ class FakeConn(_Base):
         self.sql.append(sql)
         if "ai_budget" in sql:
             return _Cursor(self.budget)
+        if sql.lstrip().startswith("select") and "app.ai_calls" in sql:  # the per-person allowance (case-less calls)
+            return _Cursor((self.person_tokens,))
         self.logged.append(tuple(params))
         return _Cursor(None)
 
@@ -76,3 +88,33 @@ def strings(node: Any) -> Iterator[str]:
     elif isinstance(node, list | tuple):
         for value in node:
             yield from strings(value)
+
+
+def all_tasks() -> list[AiTask]:
+    pack = PACK_LAUNCH
+    return [
+        write_tasks.t14a(pack, ["f1"]),
+        write_tasks.t14b(pack, ["f1"]),
+        write_tasks.t14c(pack, ["f1"]),
+        write_tasks.t15a(pack, 3),
+        trial_tasks.t22a(pack),
+        trial_tasks.t22b(pack, ["a1"], ["p1"]),
+        trial_tasks.t22c(pack),
+        trial_tasks.t24(pack, 3, ["p1"]),
+        report_tasks.t17(pack, 5),
+        serving_tasks.t20a(pack),
+        serving_tasks.t20b(pack),
+        serving_tasks.t21a(pack),
+        serving_tasks.t21b(pack),
+        serving_tasks.t21c(pack),
+        serving_tasks.t21d(pack),
+        serving_tasks.t21e(pack),
+        setup_tasks.t06(pack),
+        setup_tasks.t04(pack),
+        setup_tasks.t02(pack),
+        understand_tasks.t11(pack),
+        understand_tasks.t13a(pack),
+        missing.task_for(pack),
+        extract.task_for(pack),
+        second_reading.TASK,
+    ]

@@ -19,18 +19,10 @@ from app.core.ai.bedrock import ModelRequest
 from app.core.ai.kit import AiKit, AiTask, InvalidOutput, OutputTruncated
 from app.core.ai.provenance import ProvenanceError, check, check_items, supported
 from app.core.ai.strict import strict_schema
-from app.features.after_serving import ai_tasks as serving_tasks
-from app.features.pipeline import extract, missing
-from app.features.reader import second_reading
-from app.features.report import ai_tasks as report_tasks
-from app.features.setup import ai_tasks as setup_tasks
-from app.features.trial import ai_tasks as trial_tasks
-from app.features.understand import ai_tasks as understand_tasks
-from app.features.write import ai_tasks as write_tasks
+from app.features.pipeline import extract
 from tests.support.ai import ScriptedBedrock, cell, response
-from tests.support.ai_audit import PACK, SCHEMA, VALID, FakeConn, task
+from tests.support.ai_audit import PACK, PACK_LAUNCH, SCHEMA, VALID, FakeConn, all_tasks, task
 from tests.support.ai_injection import CANARY, INJECTIONS
-from tests.support.packs import BOTH
 
 pytestmark = pytest.mark.anyio
 
@@ -238,11 +230,6 @@ async def test_O12_a_nested_answer_is_refused_as_invalid_output(depth: int) -> N
     assert conn.outcomes == ["invalid_output", "invalid_output"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 O12: an answer nested a few hundred deep (json.loads reads over 900) raises ValueError out of"
-    " kit.run instead of InvalidOutput, with no ai_calls row: app/core/ai/kit.py:497 (iter_errors in _log_validation)",
-)
 @pytest.mark.parametrize("depth", [300, 500])
 async def test_O12_the_kit_turns_a_very_deep_answer_into_invalid_output_with_rows_logged(depth: int) -> None:
     deep: Any = []
@@ -256,43 +243,12 @@ async def test_O12_the_kit_turns_a_very_deep_answer_into_invalid_output_with_row
 # --- every task's schema is closed and bounded ---------------------------------------------------------------
 
 
-def all_tasks() -> list[AiTask]:
-    pack = PACK_LAUNCH
-    return [
-        write_tasks.t14a(pack, ["f1"]),
-        write_tasks.t14b(pack, ["f1"]),
-        write_tasks.t14c(pack, ["f1"]),
-        write_tasks.t15a(pack, 3),
-        trial_tasks.t22a(pack),
-        trial_tasks.t22b(pack, ["a1"], ["p1"]),
-        trial_tasks.t22c(pack),
-        trial_tasks.t24(pack, 3, ["p1"]),
-        report_tasks.t17(pack, 5),
-        serving_tasks.t20a(pack),
-        serving_tasks.t20b(pack),
-        serving_tasks.t21a(pack),
-        serving_tasks.t21b(pack),
-        serving_tasks.t21c(pack),
-        serving_tasks.t21d(pack),
-        serving_tasks.t21e(pack),
-        setup_tasks.t06(pack),
-        setup_tasks.t04(pack),
-        setup_tasks.t02(pack),
-        understand_tasks.t11(pack),
-        understand_tasks.t13a(pack),
-        missing.task_for(pack),
-        extract.task_for(pack),
-        second_reading.TASK,
-    ]
-
-
-PACK_LAUNCH = __import__("app.core.packs", fromlist=["default_library"]).default_library().combine(*BOTH[0].codes)
 KNOWN: dict[str, set[str]] = {
     # task id -> the gaps the scan finds today (each one is its own xfail below)
-    "open_object": {"T-07b"},
-    "unbounded_array": {"T-07b"},
+    "open_object": set(),
+    "unbounded_array": set(),
     "unbounded_string": {"T-22a"},
-    "unbounded_number": {"T-02", "T-07c", "T-07b"},
+    "unbounded_number": {"T-02"},
 }
 
 
@@ -537,22 +493,12 @@ def test_R6_look_alike_and_invisible_characters_cannot_make_a_different_word_mat
     assert reason(value, list(page), page) is not None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 R7 (low): a value carrying a right-to-left override, tag or control character passes the check and"
-    " would be stored as written (atoms ignore every character that is not a letter or digit): provenance.py:30,52",
-)
 @pytest.mark.parametrize("junk", ["‮", "‭", "⁦", "\U000e0041", "\x00", "\x07"])
 def test_R7_a_value_with_bidi_or_control_characters_is_refused(junk: str) -> None:
     assert reason("120", ["w3"], PAGE) is None  # positive control: the clean value is accepted
     assert reason(f"{junk}120", ["w3"], PAGE) is not None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 R8 (low): a number written with a decimal comma or a slash is cut into two atoms, so a value that"
-    " is only its first or last part ('12' of '12,5', '5' of '12,5') is accepted as found: provenance.py:26-27,50",
-)
 @pytest.mark.parametrize(("value", "page_word"), [("12", "12,5"), ("5", "12,5"), ("3", "3/4"), ("4", "3/4")])
 def test_R8_a_part_of_a_decimal_comma_or_slashed_number_is_not_the_number(value: str, page_word: str) -> None:
     page = wmap(page_word)
@@ -560,11 +506,6 @@ def test_R8_a_part_of_a_decimal_comma_or_slashed_number_is_not_the_number(value:
     assert reason(value, ["w1"], page) is not None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 R9 (low): a spaced hyphen between two numbers ('120 - 80', '1 - 2') reads as a minus sign on the"
-    " second, so '-80' is accepted from a range: provenance.py:26 (the sign pattern allows a space before it)",
-)
 @pytest.mark.parametrize(("value", "page_words"), [("-80", ["120", "-", "80"]), ("-2", ["1", "-", "2"])])
 def test_R9_a_spaced_hyphen_range_does_not_give_a_negative_number(value: str, page_words: list[str]) -> None:
     page = wmap(*page_words)

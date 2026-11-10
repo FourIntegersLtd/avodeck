@@ -18,7 +18,7 @@ from typing import Literal
 from psycopg import AsyncConnection
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.ai.provenance import atoms
+from app.core.ai.provenance import atoms, contains_whole, has_hidden_characters
 from app.core.contracts.facts import Fact, citable_facts
 from app.core.contracts.reading import PageReadLog
 
@@ -56,9 +56,10 @@ def markers(body: str) -> list[int]:
 
 def quote_within(quote: str, value: str | None) -> bool:
     """Whether the quote is a run of the value's words, after provenance normalising."""
+    if has_hidden_characters(quote):  # a hidden bidi, zero-width or control character is never "verbatim" (R7)
+        return False
     wanted, held = atoms(quote), atoms(value or "")
-    size = len(wanted)
-    return size > 0 and any(held[i : i + size] == wanted for i in range(len(held) - size + 1))
+    return bool(wanted) and contains_whole(held, wanted)
 
 
 def differs(citation: Citation, fact: Fact | None) -> bool:

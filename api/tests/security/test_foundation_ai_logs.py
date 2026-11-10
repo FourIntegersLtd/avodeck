@@ -353,13 +353,6 @@ async def test_E2b_the_same_holds_for_a_case_run_with_a_case_id_and_a_subject(
         assert secret not in log_text(caplog) + exception_text(raised) + row_text(scenario.conn)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 E-LOG1: the kit passes a typed ModelRequestRefused up with whatever message the client gave "
-    "it (the contract says codes only, and the two live clients keep to it, but nothing enforces it), so a client "
-    "or stand-in that echoes the input puts it in the raised text that job error handling and Sentry see: "
-    "app/core/ai/kit.py:_invoke_bedrock (no except for ModelRequestRefused), app/core/ai/bedrock.py:112",
-)
 async def test_E2c_a_refusal_carrying_a_message_does_not_reach_the_raised_error(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -409,14 +402,6 @@ def test_E4_a_mended_label_is_reported_by_place_with_list_positions_starred() ->
     assert not mend_labels({"pages": [{"page_no": 1, "tag": "x", "items": []}]}, validator)[1]  # nothing to mend
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 E-LOG2: a mended label inside an object whose KEYS the model chooses is logged by instance path, "
-    "and `_starred` stars list positions only, so the model's key is written to the warning line (the `at=` text). "
-    "Latent: no shipped task schema has model-chosen keys (all objects are closed), but the first one that "
-    "does (a map keyed by page, by name, by date) and sets mends_labels logs the key: "
-    "app/core/ai/kit.py:135-137 (_starred), 469-474 (_checked)",
-)
 async def test_E5_a_mended_label_under_a_model_chosen_key_does_not_log_the_key(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

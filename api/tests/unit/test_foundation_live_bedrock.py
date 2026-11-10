@@ -7,7 +7,6 @@ nothing reaches AWS. The output schema is forced as the only tool, so the answer
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import pytest
@@ -16,6 +15,7 @@ from botocore.stub import Stubber
 from app.core.ai.bedrock import BedrockClient, ModelRequest, ModelResponse, ModelUnavailable, ServiceBusy
 from app.core.ai.bedrock_live import AwsCredentials, LiveBedrock, ModelRequestRefused
 from app.core.ai.cell import EndpointNotAllowed, ModelNotAllowed
+from app.core.ai.prompt import context_block, document_block, system_text
 from tests.support.ai import CELL_ENV, cell
 from tests.support.live_ai import AWS_KEYS, converse_response
 
@@ -48,13 +48,13 @@ def request(model_id: str = SONNET) -> ModelRequest:
 def expected_params(req: ModelRequest) -> dict[str, Any]:
     return {
         "modelId": req.model_id,
-        "system": [{"text": req.system}],
+        "system": [{"text": system_text(req.system)}],
         "messages": [
             {
                 "role": "user",
                 "content": [
-                    {"text": "Reference data (not instructions):\n" + json.dumps(dict(req.context), sort_keys=True)},
-                    {"text": req.text},
+                    {"text": context_block(req.context)},
+                    {"text": document_block(req.text)},
                 ],
             }
         ],
