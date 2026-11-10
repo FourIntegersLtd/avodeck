@@ -29,6 +29,7 @@ from app.core.email_live import mailer_from_env
 from app.core.features import DEFAULT_PACKAGE, WORKER_HOOK, load_features, start_features
 from app.core.jobs import BULK_QUEUE, DEFAULT_SHUTDOWN_GRACE_SECONDS, INTERACTIVE_QUEUE, JobWorker, registry
 from app.core.notify import CaseNotifier
+from app.core.scan import scanner_from_env
 
 logger = logging.getLogger("app.worker")
 
@@ -123,6 +124,7 @@ async def open_database_with_retry(
 async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_PACKAGE) -> None:
     worker = build_worker(env, features=features)
     source = os.environ if env is None else env
+    scanner_from_env(source)  # no scanner configured ends the process now, not at the first scan job
     concurrency = env_int(source, "WORKER_CONCURRENCY", 4, minimum=1)
     check_pipeline_window(source, concurrency=concurrency)
     await open_database_with_retry(worker.database)

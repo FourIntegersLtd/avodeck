@@ -23,7 +23,7 @@ from app.core.storage import CaseFileStorage
 from tests.support.db import ClientFor
 from tests.support.files import CHUNK, MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
-from tests.support.uploads import run_finalize
+from tests.support.uploads import record_clean_scan, run_finalize
 
 pytestmark = pytest.mark.anyio
 
@@ -144,6 +144,7 @@ async def test_a_300_mb_pdf_uploads_in_8_mb_chunks_resumes_after_a_dropped_chunk
     assert done["sha256"] == file.sha256()
     assert done["size"] == file.size
     document = uuid.UUID(done["document_id"])
+    record_clean_scan(str(document))  # the scan job is not run here; the download needs its clean verdict
 
     row = admin.execute(
         "select c.id, d.kind, d.filename, d.sha256, d.storage_path, d.uploaded_by"

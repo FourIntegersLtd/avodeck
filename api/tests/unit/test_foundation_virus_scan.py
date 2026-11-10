@@ -42,6 +42,16 @@ async def test_an_empty_file_is_clean() -> None:
 
 def test_the_cell_config_chooses_the_scanner() -> None:
     assert isinstance(scanner_from_env({"VIRUS_SCANNER": "recorded"}), RecordedScanner)
-    assert isinstance(scanner_from_env({}), RecordedScanner)  # unset and no clamd host: the recorded scanner
+    with pytest.raises(ConfigError):  # nothing set: never the stand-in by default (audit 12, V1)
+        scanner_from_env({})
     with pytest.raises(ConfigError):
         scanner_from_env({"VIRUS_SCANNER": "elsewhere"})
+
+
+async def test_the_worker_stops_at_start_up_when_no_scanner_is_configured() -> None:
+    from app.worker.main import run
+
+    url = "postgresql://app_worker:x@127.0.0.1:1/postgres"
+    env = {"DATABASE_URL": url, "DATABASE_URL_DIRECT": url, "WORKER_QUEUES": "bulk"}
+    with pytest.raises(ConfigError, match="No virus scanner is configured"):
+        await run(env)

@@ -95,7 +95,7 @@ async def finalized(client_for: ClientFor, team: Team, data: bytes, case: uuid.U
     """Uploads `data` as the named expert and finalizes it; returns (upload id, document id)."""
     owner = await client_for(team.expert)
     upload = await upload_whole(owner, case or team.case, data)
-    return upload, await complete_and_finalize(owner, upload, sha(data))
+    return upload, await complete_and_finalize(owner, upload, sha(data), scanned=True)
 
 
 # ---------------------------------------------------------------------------------------------------------
@@ -135,7 +135,7 @@ async def test_s1_no_storage_location_or_link_reaches_any_response(
     upload = start.json()["upload_id"]
     seen += [start, await put(owner, upload, 1, SMALL), await owner.get(f"/v1/uploads/{upload}")]
     seen.append(await complete(owner, upload, sha(SMALL)))
-    document = await complete_and_finalize(owner, upload, sha(SMALL))
+    document = await complete_and_finalize(owner, upload, sha(SMALL), scanned=True)
     seen += [await owner.get(f"/v1/uploads/{upload}"), await complete(owner, upload, sha(SMALL))]
     other = await open_upload(owner, team.case, SMALL)
     seen.append(await owner.post(f"/v1/uploads/{other}/cancel"))
@@ -218,7 +218,7 @@ async def test_u2_a_part_sealed_for_another_upload_and_copied_in_does_not_finali
     assert (state["status"], state["failure"], state["document_id"]) == ("failed", "chunk_unreadable", None)
     assert documents_at(admin, case_b, victim) == 0
     # control: the donor, untouched, becomes a document with the exact bytes
-    document = await complete_and_finalize(owner, donor, sha(SMALL))
+    document = await complete_and_finalize(owner, donor, sha(SMALL), scanned=True)
     got = await fetch(owner, document_path(team.case, document))
     assert got.delivered_whole_file and got.body == SMALL
 
@@ -244,7 +244,7 @@ async def test_u2_two_parts_swapped_in_storage_before_finalize_do_not_become_a_d
     state = upload_state(admin, swapped)
     assert (state["status"], state["failure"], state["document_id"]) == ("failed", "chunk_unreadable", None)
     assert documents_at(admin, team.case, swapped) == 0
-    document = await complete_and_finalize(owner, clean, sha(data))  # control
+    document = await complete_and_finalize(owner, clean, sha(data), scanned=True)  # control
     assert (await fetch(owner, document_path(team.case, document))).body == data
 
 
@@ -268,7 +268,7 @@ async def test_u2_a_part_deleted_before_finalize_reopens_the_upload_and_can_be_s
     assert documents_at(admin, team.case, upload) == 0
     # control: sending the lost part again finishes the same upload with the exact bytes
     assert (await put(owner, upload, 2, parts(data)[1])).status_code == 200
-    document = await complete_and_finalize(owner, upload, sha(data))
+    document = await complete_and_finalize(owner, upload, sha(data), scanned=True)
     assert (await fetch(owner, document_path(team.case, document))).body == data
 
 
@@ -360,7 +360,7 @@ async def test_u2_a_changed_part_hash_kept_on_an_open_upload_does_not_become_a_d
     state = upload_state(admin, bad)
     assert (state["status"], state["failure"], state["document_id"]) == ("failed", "chunk_unreadable", None)
     assert documents_at(admin, team.case, bad) == 0
-    document = await complete_and_finalize(owner, good, sha(SMALL))  # control
+    document = await complete_and_finalize(owner, good, sha(SMALL), scanned=True)  # control
     assert (await fetch(owner, document_path(team.case, document))).body == SMALL
 
 

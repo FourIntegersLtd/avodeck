@@ -439,7 +439,15 @@ async def cancel_upload(upload_id: uuid.UUID, conn: DbConn) -> Upload:
     return _upload({**row, "status": "cancelled"})
 
 
-@uploads_router.get("/v1/cases/{case_id}/documents/{document_id}/file", response_class=StreamingResponse)
+@uploads_router.get(
+    "/v1/cases/{case_id}/documents/{document_id}/file",
+    response_class=StreamingResponse,
+    responses={
+        404: {"description": "No such document, or its file is gone from storage (`not_found`)."},
+        409: {"description": "The virus scan flagged this file; it is never served (`file_blocked`)."},
+        423: {"description": "The virus scan has not finished; try again shortly (`file_not_ready`, Retry-After)."},
+    },
+)
 async def download_document(
     case_id: uuid.UUID,
     document_id: uuid.UUID,
@@ -458,6 +466,16 @@ async def download_document(
     row = await cur.fetchone()
     if row is None or not row[0]:
         raise ApiError("not_found", "Not found.", 404)
+    # Only a file the scan has recorded clean is handed back: a flagged one is refused for good, and one that has
+    # no verdict yet is "not ready" (the scan job records one shortly after the upload is finalised).
+    cur = await conn.execute("select clean from app.document_scans where document_id = %s", (document_id,))
+    verdict = await cur.fetchone()
+    if verdict is None:
+        pending = ApiError("file_not_ready", "This file is still being checked. Please try again shortly.", 423)
+        pending.headers = {"Retry-After": "5"}
+        raise pending
+    if not verdict[0]:
+        raise ApiError("file_blocked", "This file was blocked for safety and cannot be downloaded.", 409)
     expected: str = row[1]
     document = await StoredDocument.for_prefix(storage, crypto, case_id, row[0])
     cur = await conn.execute("select chunk_count from app.uploads where document_id = %s", (document_id,))
@@ -491,5 +509,8 @@ async def download_document(
             raise StoredFileChanged("stored file does not match its checksum")
 
     return StreamingResponse(
-        body(), media_type="application/octet-stream", headers={"cache-control": "private, no-store"}
+        body(),
+        media_type="application/octet-stream",
+        # A fixed name, never the uploaded one: it is the expert's own text and could carry a patient's name.
+        headers={"cache-control": "private, no-store", "content-disposition": 'attachment; filename="document"'},
     )

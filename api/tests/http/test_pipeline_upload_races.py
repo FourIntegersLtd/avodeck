@@ -32,6 +32,7 @@ from tests.support.uploads import (
     one_after_another,
     put,
     put_all,
+    record_clean_scan,
     release,
     row,
     run_finalize,
@@ -276,6 +277,7 @@ async def test_a_part_queued_behind_completing_is_refused_and_the_document_match
     assert (late.status_code, late.json()["error"]["code"]) == (409, "upload_closed"), late.text
     await run_finalize(worker_dsn, admin, upload, storage, crypto)
     finished = await complete(one, upload, file.sha256())
+    record_clean_scan(finished.json()["document_id"])  # the scan job is not run here; the download needs its verdict
     digest = hashlib.sha256()
     async with one.stream("GET", f"/v1/cases/{team['case']}/documents/{finished.json()['document_id']}/file") as got:
         async for piece in got.aiter_bytes():

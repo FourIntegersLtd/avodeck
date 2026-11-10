@@ -42,7 +42,7 @@ from tests.support.file_lifecycle_uploads import (
 )
 from tests.support.files import CHUNK, MB, build_app, local_storage
 from tests.support.seed import Seed
-from tests.support.uploads import complete, complete_and_finalize, put, run_finalize, sha
+from tests.support.uploads import complete, complete_and_finalize, put, record_clean_scan, run_finalize, sha
 
 pytestmark = pytest.mark.anyio
 
@@ -107,7 +107,7 @@ async def test_u1_signed_out_calls_are_401_and_the_owner_gets_through(
     # positive control: the same five calls as the owner succeed on the same upload
     assert (await owner.get(f"/v1/uploads/{upload}")).status_code == 200
     assert (await put(owner, upload, 1, SMALL)).status_code == 200
-    document = await complete_and_finalize(owner, upload, sha(SMALL))
+    document = await complete_and_finalize(owner, upload, sha(SMALL), scanned=True)
     assert documents_at(admin, team.case, upload) == 1
     assert (await anon.get(document_path(team.case, document))).status_code == 401
     assert (await owner.get(document_path(team.case, document))).status_code == 200
@@ -150,7 +150,7 @@ async def test_u1_a_person_with_no_part_in_the_case_gets_404_on_someone_elses_up
     assert await storage.get(object_path(team.case, upload, 1)) == before  # the stranger's bytes did not land
     assert rows_for(admin, team.case) == 1
 
-    document = await complete_and_finalize(owner, upload, sha(SMALL))  # the owner is not locked out
+    document = await complete_and_finalize(owner, upload, sha(SMALL), scanned=True)  # the owner is not locked out
     assert (await outsider.get(document_path(team.case, document))).status_code == 404
     assert (await owner.get(document_path(team.case, document))).status_code == 200
 
@@ -364,6 +364,7 @@ async def test_u3_a_part_after_complete_is_refused_and_the_stored_object_is_unch
         assert (await put(owner, upload, 1, replacement)).status_code == 409
     assert await storage.get(path) == sealed
     document = str(upload_state(admin, upload)["document_id"])
+    record_clean_scan(document)  # the scan job is not run here; the download needs its verdict
     got = await fetch(owner, document_path(team.case, document))
     assert got.delivered_whole_file and got.body == SMALL
 
@@ -454,7 +455,7 @@ async def test_u3_replaying_a_part_is_harmless_and_a_different_rewrite_is_caught
     mine = await open_upload(owner, team.case, other)
     assert (await put(owner, mine, 1, good)).status_code == 200
     assert (await put(owner, mine, 1, other)).status_code == 200
-    document = await complete_and_finalize(owner, mine, sha(other))
+    document = await complete_and_finalize(owner, mine, sha(other), scanned=True)
     got = await fetch(owner, document_path(team.case, document))
     assert got.delivered_whole_file and got.body == other
 
@@ -539,7 +540,7 @@ async def test_v5_odd_file_names_are_data_only_never_a_storage_key_or_a_header(
     assert resp.json()["filename"] == filename  # kept as text, returned as a JSON string
     upload = resp.json()["upload_id"]
     assert (await put(owner, upload, 1, SMALL)).status_code == 200
-    document = await complete_and_finalize(owner, upload, sha(SMALL))
+    document = await complete_and_finalize(owner, upload, sha(SMALL), scanned=True)
     keys = await storage.list_recursive(f"cases/{team.case}")
     assert keys and all(key_pattern(team.case, upload).match(k) for k in keys), keys
     stored = admin.execute("select filename, storage_path from app.documents where id = %s", (document,)).fetchone()
@@ -549,7 +550,7 @@ async def test_v5_odd_file_names_are_data_only_never_a_storage_key_or_a_header(
     for headers in (resp.headers, got.headers):
         for header, value in headers.items():
             assert "\r" not in value and "\n" not in value
-            assert filename[:6] not in value and header.lower() != "content-disposition", header
+            assert filename[:6] not in value, header  # the download's fixed attachment name is not the file's
 
 
 @pytest.mark.parametrize(

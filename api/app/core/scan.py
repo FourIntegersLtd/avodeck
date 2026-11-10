@@ -107,14 +107,23 @@ class RecordedScanner:
 
 
 def scanner_from_env(env: Mapping[str, str] | None = None) -> VirusScanner:
-    """Auto-detect: `clamd` when CLAMD_HOST is set, else `recorded` (tests and local)."""
+    """The scanner the cell asks for, by name: `clamd` (with CLAMD_HOST) or `recorded` (tests and local only).
+
+    With neither VIRUS_SCANNER nor CLAMD_HOST set this raises: a cell never falls back to the stand-in, which flags
+    only the EICAR test string and would record every other file as clean. CLAMD_HOST alone selects `clamd`.
+    """
     source = os.environ if env is None else env
     kind = source.get("VIRUS_SCANNER", "").strip()
     if not kind:
-        kind = "clamd" if source.get("CLAMD_HOST", "").strip() else "recorded"
+        if not source.get("CLAMD_HOST", "").strip():
+            raise ConfigError(
+                "No virus scanner is configured: set CLAMD_HOST (ClamAV, ADR 0027) or, for tests and local "
+                "work only, VIRUS_SCANNER=recorded"
+            )
+        kind = "clamd"
     if kind == "recorded":
         return RecordedScanner()
     if kind == "clamd":
         settings = clamd_settings(source)
         return ClamdScanner(settings.host, settings.port, settings.timeout_s)
-    raise ConfigError("VIRUS_SCANNER must be 'clamd', 'recorded' or unset (auto-detect)")
+    raise ConfigError("VIRUS_SCANNER must be 'clamd' or 'recorded'")

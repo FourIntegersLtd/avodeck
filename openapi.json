@@ -25526,6 +25526,12 @@
           "200": {
             "description": "Successful Response"
           },
+          "404": {
+            "description": "No such document, or its file is gone from storage (`not_found`)."
+          },
+          "409": {
+            "description": "The virus scan flagged this file; it is never served (`file_blocked`)."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -25535,6 +25541,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "423": {
+            "description": "The virus scan has not finished; try again shortly (`file_not_ready`, Retry-After)."
           },
           "default": {
             "content": {

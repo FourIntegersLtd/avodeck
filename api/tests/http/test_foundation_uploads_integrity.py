@@ -64,7 +64,7 @@ async def uploaded(client_for: ClientFor, team: dict[str, uuid.UUID], admin: psy
                 headers={**headers, "x-chunk-sha256": hashlib.sha256(data).hexdigest()},
             )
         ).status_code == 200
-    document = await complete_and_finalize(client, upload_id, file.sha256())
+    document = await complete_and_finalize(client, upload_id, file.sha256(), scanned=True)
     row = admin.execute("select storage_path from app.documents where id = %s", (document,)).fetchone()
     assert row is not None
     return f"/v1/cases/{team['case']}/documents/{document}/file", row[0]

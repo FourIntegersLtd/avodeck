@@ -60,6 +60,9 @@ async def _run(func: Any, /, *args: Any, **kwargs: Any) -> Any:
     return await asyncio.get_running_loop().run_in_executor(_POOL, functools.partial(func, *args, **kwargs))
 
 
+_MISSING_KEY_CODES = ("NoSuchKey", "404")  # in a DeleteObjects `Errors` list: already gone, so not a failure
+
+
 class StorageError(RuntimeError):
     """Storage refused or failed a call. Carries the error code only, never a key or message
     that could hold patient data (rule 6)."""
@@ -374,7 +377,7 @@ class CaseFileStorage:
         for start in range(0, len(paths_list), self.delete_batch_size):
             batch = paths_list[start : start + self.delete_batch_size]
             try:
-                await _run(
+                answer = await _run(
                     self._client.delete_objects,
                     Bucket=self.settings.bucket,
                     Delete={"Objects": [{"Key": k} for k in batch], "Quiet": True},
@@ -383,6 +386,12 @@ class CaseFileStorage:
                 self._raise(exc)
             except BotoCoreError as exc:
                 raise StorageError(f"storage: {type(exc).__name__}") from exc
+            # S3 answers 200 for the whole call and lists the keys it could not remove under `Errors`.
+            refused = [e for e in (answer or {}).get("Errors", []) if e.get("Code") not in _MISSING_KEY_CODES]
+            if refused:
+                # Counts and error codes only: nothing that names an object or holds patient text (rule 6).
+                codes = ", ".join(sorted({str(e.get("Code", "unknown")) for e in refused}))
+                raise StorageError(f"storage: delete left {len(refused)} of {len(batch)} object(s) ({codes})")
 
     async def aclose(self) -> None:
         self._client.close()

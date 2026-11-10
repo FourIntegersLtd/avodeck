@@ -16,6 +16,7 @@ SUPABASE_ANON_KEY=$(get ANON_KEY)
 SUPABASE_SERVICE_ROLE_KEY=$(get SERVICE_ROLE_KEY)
 APP_ORIGIN=${APP_ORIGIN:-http://localhost:5173}
 KEY_PROVIDER=local
+VIRUS_SCANNER=recorded
 LOCAL_MASTER_KEY=${LOCAL_MASTER_KEY:-$(head -c 32 /dev/urandom | base64)}
 PACKS_DIR=${PACKS_DIR:-$(cd "$(dirname "$0")/.." && pwd)/packs}
 ENV
