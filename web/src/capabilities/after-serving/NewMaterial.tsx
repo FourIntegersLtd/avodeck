@@ -60,6 +60,7 @@ export function NewMaterial() {
 
   const rep = report.data;
   const needAttention = rep?.needs_attention_count ?? 0;
+  const missed = rep ? Math.max((rep.claims_expected ?? 0) - rep.claims.length, 0) : 0;
   const meeting = screenPath("expert_meeting", { caseId });
 
   return (
@@ -116,6 +117,7 @@ export function NewMaterial() {
           {!document && <p>{w("new.opposing_document_needed")}</p>}
           {document && !rep && !registering.waiting && <Register caseId={caseId} document={document} onStart={() => registering.start()} />}
           {rep && <p>{w("new.checked", { count: needAttention })}</p>}
+          {rep && missed > 0 && <Notice tone="error"><p>{w("new.incomplete", { count: missed })}</p></Notice>}
         </section>
       </div>
       {updating && <Updating label={w("new.updating")} />}

@@ -146,6 +146,8 @@ const WORDS = {
   "new.pages_one": "{{count}} new page",
   "new.pages_other": "{{count}} new pages",
   "new.range": "Numbered {{from}} to {{to}} · read {{read}} of {{total}}",
+  "new.incomplete_one": "We could not read {{count}} statement in their report. Please read it yourself.",
+  "new.incomplete_other": "We could not read {{count}} statements in their report. Please read them yourself.",
   "new.checked_one": "We've checked every statement they quote against the bundle. {{count}} needs your attention.",
   "new.checked_other": "We've checked every statement they quote against the bundle. {{count}} need your attention.",
   "new.more_matches_one": "and {{count}} more statement that matches",

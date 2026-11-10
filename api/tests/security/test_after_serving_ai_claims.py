@@ -357,13 +357,6 @@ def _claim_for(text: str, marker: str, page: str, value: str, ref: str) -> dict[
     return {"text_verbatim": said, "word_ids": ids, "paragraph_ref": ref, "cited_page": page, "cited_value": value}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 G-I1: cited_page is taken from the model and never checked against the claim's own words, so a"
-    " steered model can move a claim that cites page 950 onto page 2 where code then marks it a match:"
-    " api/app/features/after_serving/jobs.py:325 (cited_page_ref stored from the model)"
-    " and :353 (used to pick the page code checks)",
-)
 async def test_the_page_a_claim_cites_is_read_from_their_words_not_from_the_model(
     client_for: ClientFor,
     storage: CaseFileStorage,
@@ -392,13 +385,6 @@ async def test_the_page_a_claim_cites_is_read_from_their_words_not_from_the_mode
     assert report["claims"][0]["status"] != "matches", "their words name page 950, which is not in the bundle"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 G-I2: paragraph_ref of a claim is stored as the model gave it; slice G's own layout reader"
-    " (Letter.para_ref) is not used, so a steered model can mislabel which of their paragraphs a claim is in and"
-    " T-21d then lines up the wrong paragraph:"
-    " api/app/features/after_serving/jobs.py:322 (stored from the model; T-21d keys on it at :425-440)",
-)
 async def test_the_paragraph_a_claim_is_in_is_read_from_the_layout_not_from_the_model(
     client_for: ClientFor,
     storage: CaseFileStorage,
@@ -431,19 +417,7 @@ SUPPRESSED: dict[str, tuple[Callable[[ModelRequest], dict[str, Any]], str]] = {
 
 @pytest.mark.parametrize(
     "how",
-    [
-        pytest.param(
-            name,
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="AUDIT-14 G-I3: a steered model that returns few or no claims for a report full of them is"
-                " stored as a finished check with nothing to answer (checked_at set, needs_attention_count 0); no"
-                " code count of page-citing sentences flags the gap: api/app/features/after_serving/jobs.py"
-                ":453 (checked_at = now() whatever was found)",
-            ),
-        )
-        for name in SUPPRESSED
-    ],
+    [pytest.param(name) for name in SUPPRESSED],
 )
 async def test_a_report_full_of_claims_that_yields_few_or_none_is_flagged_for_the_expert(
     how: str,
@@ -490,13 +464,6 @@ async def test_an_answer_off_the_schema_leaves_the_claim_unchecked_and_never_a_v
     assert report["matching_claims"] == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 G-O1: when the larger model's answer is unusable (or steered into a schema failure) the claim"
-    " stays 'unchecked' but the report is still marked checked and nothing flags it, so the claim is never retried"
-    " or shown as needing the expert: api/app/features/after_serving/jobs.py:390 (continue, stays unchecked) and"
-    " routes_new_material.py:279 (needs_attention excludes 'unchecked')",
-)
 async def test_a_claim_the_model_could_not_settle_is_flagged_for_the_expert(
     client_for: ClientFor,
     storage: CaseFileStorage,
@@ -559,12 +526,6 @@ async def test_a_model_verdict_is_labelled_as_the_models_and_evidence_outside_th
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 G-O2: a model verdict of 'matches' with no evidence words from the page is stored and shown as"
-    " matching; code only checks that cited ids are on the page, not that any were cited:"
-    " api/app/features/after_serving/jobs.py:392 (status from the model) with the evidence filter just above it",
-)
 async def test_a_model_match_with_no_evidence_from_the_page_is_not_stored_as_a_match(
     client_for: ClientFor,
     storage: CaseFileStorage,
@@ -585,13 +546,6 @@ async def test_a_model_match_with_no_evidence_from_the_page_is_not_stored_as_a_m
     assert report["claims"][0]["status"] != "matches"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 G-O3: a model-only verdict of 'matches' (code could not settle it) is listed with the claims"
-    " that agree with the records (matching_claims) and raises no flag, so a steered model can quietly move a wrong"
-    " claim out of the expert's attention; the verdict is not shown as an unconfirmed suggestion:"
-    " api/app/features/after_serving/routes_new_material.py:346 (matching_claims) and :279 (needs_attention)",
-)
 async def test_a_model_only_match_is_not_listed_as_agreeing_until_the_expert_confirms_it(
     client_for: ClientFor,
     storage: CaseFileStorage,
@@ -890,12 +844,6 @@ async def test_a_t20b_answer_naming_a_kind_outside_the_pack_is_discarded_whole(
     assert len(listed) == len(QUESTIONS) and all(q["suggested_classification"] is None for q in listed)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-14 G-I4: a steered model that returns no questions for a questions document leaves the round marked"
-    " extracted (extracted_at set, zero questions) with no flag, so the expert sees 'nothing to answer':"
-    " api/app/features/after_serving/jobs.py:170 (extracted_at = now())",
-)
 async def test_a_questions_document_that_yields_no_questions_is_flagged_not_finished(
     client_for: ClientFor,
     storage: CaseFileStorage,

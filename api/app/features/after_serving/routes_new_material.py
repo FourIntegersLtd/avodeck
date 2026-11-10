@@ -178,6 +178,7 @@ class OpposingReport(BaseModel):
     pages: int | None = None
     checked_at: datetime | None
     claims_found: int | None
+    claims_expected: int | None = None
     claims: list[OpposingClaimOut]
     positions: list[Position]
     matching_claims: list[OpposingClaimOut]
@@ -276,7 +277,7 @@ async def claim_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, A
         confirmed_at=row["confirmed_at"],
         discrepancy=bool(row["expert_confirmed"] and row["status"] != "matches"),
         version=row["version"],
-        needs_attention=not row["expert_confirmed"] and row["status"] not in ("matches", READ_FIRST, "unchecked"),
+        needs_attention=not row["expert_confirmed"] and row["status"] not in ("matches", READ_FIRST),
     )
 
 
@@ -321,7 +322,8 @@ async def opposing_report(
     report = await fetch_one(
         conn,
         "select r.id, r.document_id, r.received_on, r.expert_name, r.expert_role, d.pages, r.checked_at,"
-        " r.claims_found, r.positions from app.opposing_reports r join app.documents d on d.id = r.document_id"
+        " r.claims_found, r.claims_expected, r.positions from app.opposing_reports r"
+        " join app.documents d on d.id = r.document_id"
         " where r.case_id = %s and r.document_id = %s",
         (case_id, document_id),
     )
@@ -342,10 +344,13 @@ async def opposing_report(
         pages=report["pages"],
         checked_at=report["checked_at"],
         claims_found=report["claims_found"],
+        claims_expected=report["claims_expected"],
         claims=claims,
         matching_claims=[c for c in claims if c.status == "matches"],
         other_claims=[c for c in claims if c.status != "matches"],
-        needs_attention_count=sum(1 for c in claims if c.needs_attention),
+        # A statement the check could not read out of their report counts too: it is not a clean check.
+        needs_attention_count=sum(1 for c in claims if c.needs_attention)
+        + max((report["claims_expected"] or 0) - len(claims), 0),
         positions=await _positions(conn, crypto, case_id, report["positions"], claims),
     )
 

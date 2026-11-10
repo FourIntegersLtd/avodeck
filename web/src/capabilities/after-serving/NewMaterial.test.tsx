@@ -114,6 +114,12 @@ test("a statement that matches has nothing to confirm", async () => {
   expect(screen.queryByRole("button", { name: M["after_serving.new.confirm"]! })).toBeNull();
 });
 
+test("a report with statements we could not read says so", async () => {
+  serve("launch", { opposing: { ...report(), claims_expected: 3 } });
+  renderAt(`${url}?document=${DOC}`);
+  expect(await screen.findByText("We could not read 2 statements in their report. Please read them yourself.")).toBeInTheDocument();
+});
+
 test("a statement that hasn't been checked yet says so and can't be confirmed", async () => {
   serve("launch", { opposing: report([claim({ status: "unchecked", discrepancy: false })]) });
   renderAt(`${url}?document=${DOC}`);
