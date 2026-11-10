@@ -36,6 +36,8 @@ class SeenFact:
     bbox: Any = None
     date_basis: str | None = None
     first_word_n: int | None = None
+    stored_basis: str | None = None
+    override: str | None = None
 
 
 async def person_id(conn: AsyncConnection) -> uuid.UUID:
@@ -55,7 +57,9 @@ _BASE = (
     "select f.id as fact_id, f.page_id, p.bundle_page_no as page_no, f.kind, f.fields, f.value, f.event_date,"
     " case when o.unknown then null else coalesce(o.at, (f.available_at at time zone 'UTC')::date) end"
     " as available_at, f.status, f.version,"
-    " p.source_type as source, f.bbox, f.date_basis, w.n as first_word_n"
+    " p.source_type as source, f.bbox, f.date_basis, w.n as first_word_n,"
+    " f.availability_basis as stored_basis,"
+    " case when o.unknown is null then null when o.unknown then 'unknown' else 'set' end as override"
     " from app.facts f join app.pages p on p.id = f.page_id"
     " left join app.ocr_words w on w.page_id = f.page_id and w.word_id = f.word_ids[1]"
     " left join lateral (select ao.available_at::date as at, ao.unknown from app.availability_overrides ao"

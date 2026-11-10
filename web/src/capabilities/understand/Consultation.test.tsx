@@ -272,3 +272,13 @@ describe("the page and the later notes", () => {
     expect(within(region).getByText("You have a note on it")).toBeInTheDocument();
   });
 });
+
+test("says when an entry was placed only by the kind of page the software took it for", async () => {
+  inCase("launch");
+  serve(consultation({ visible: [entry({ availability_basis: "software_label" })], unknown: [entry({ fact_id: "f5555555-5555-4555-8555-555555555555", page_no: 160, available_at: null, availability_basis: "not_known" })] }));
+  open();
+  const seen = await screen.findByRole("region", { name: "What was in the record that day" });
+  expect(within(seen).getByText("Placed by the kind of page we took it for, not confirmed. Please check the page.")).toBeInTheDocument();
+  const unknown = screen.getByRole("region", { name: "Not known when this arrived" });
+  expect(within(unknown).queryByText(/Placed by the kind of page/)).toBeNull();
+});

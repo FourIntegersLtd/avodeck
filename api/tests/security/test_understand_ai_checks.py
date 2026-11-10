@@ -550,14 +550,6 @@ async def test_the_model_s_answers_never_move_what_had_arrived_by_a_day(launch: 
     [("other", "own", "unknown", "visible"), ("own", "other", "visible", "unknown")],
     ids=["hospital_page_called_own_record", "own_record_page_called_hospital"],
 )
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-14 D-I1 (confirms pipeline I-01): the model's page source label decides own-record availability and "
-        "no API shows how an entry's arrival was worked out: jobs.py:61-63 and availability.py _arrives; "
-        "routes_consultation.py Entry has no basis"
-    ),
-)
 async def test_a_page_label_set_by_the_model_cannot_silently_decide_when_the_clinician_saw_an_entry(
     honest: str, steered: str, was: str, becomes: str, launch: Bundle, client_for: ClientFor
 ) -> None:
@@ -618,14 +610,6 @@ async def test_the_timeline_is_the_same_whatever_the_model_answers(launch: Bundl
     assert after["counts"]["total"] == len(before)  # no entry added, dropped, merged or re-dated
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-14 D-I2: a label that makes a finding go away leaves nothing the expert can see: S13 reads 'Nothing "
-        "to look at just now'; the labels and the checks that ran are not stored or exposed: jobs.py:134-152, "
-        "jobs.py:218 (_save writes check_runs.checks, no route reads it), routes_findings.py:100-109"
-    ),
-)
 async def test_when_a_label_removes_a_finding_the_expert_can_tell_which_checks_ran(
     launch: Bundle, client_for: ClientFor
 ) -> None:

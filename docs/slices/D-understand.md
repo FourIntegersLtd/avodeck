@@ -73,6 +73,9 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [x] Links whose fact is rejected, or whose question is removed, become `stale` and are shown for review (a removed question sets `question_id` to null and the row to `stale`; a link whose fact was later rejected reads as `stale` in `/fact-links` but its row stays `confirmed`, because slice D cannot react to slice B's fact changes; `core/contracts/fact_links.confirmed_links` returns `confirmed` rows only and should also keep to checked facts, raised with foundation on 2026-10-18)
 - [x] A change to a cited guideline's table entry shows a notice on the case; the case records the table version used (`case_guideline_versions` with `entry_hash`; "Check again" takes the new list)
 
+- [x] Audit step 14 (D-I1): consultation `Entry` and timeline `Event` carry `availability_basis` (`software_label`, `dated_evidence`, `not_known`, `expert_set`, `expert_unknown`); S11 and S12 say so in plain words when the day an entry arrived rests only on the software's page label (no confirmed-label source exists yet, so the label is always "software")
+- [x] Audit step 14 (D-I2): `GET /cases/{id}/findings` returns `checks_run` (check key, whether it used labels, how many entries the software labelled as the action; stored in `check_runs.acted_on`, migration 0403); S13 names the checks that ran instead of a bare "nothing to look at"
+
 ## Rules that apply
 1, 2, 4, 6, 7, 9, 11 from the root `AGENTS.md`.
 

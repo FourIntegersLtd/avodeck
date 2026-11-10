@@ -140,6 +140,20 @@ function FoldedFinding({ caseId, finding, canDecide, onDecided }: { caseId: stri
   );
 }
 
+/** With nothing open to decide: which checks were run, and where the software counted entries as already followed up. */
+function ChecksRan({ checks }: { checks: Array<{ key: string; rule?: string | null; title?: string | null; acted_on: number }> }) {
+  const name = (c: { key: string; rule?: string | null; title?: string | null }) => findingTitle({ ...c, gentle: false, rule: c.rule ?? c.key, check_key: c.key } as Finding);
+  if (checks.length === 0) return <p className="av-muted">{w("things.none")}</p>;
+  return (
+    <div className="av-stack">
+      <p className="av-muted">{w("things.none_ran", { checks: checks.map(name).join(", ") })}</p>
+      {checks.filter((c) => c.acted_on > 0).map((c) => (
+        <p key={c.key} className="av-muted">{w("things.acted_on", { title: name(c), count: c.acted_on })}</p>
+      ))}
+    </div>
+  );
+}
+
 function AddCheck({ caseId, onClose, onAdded }: { caseId: string; onClose: () => void; onAdded: () => void }) {
   const word = useKindWord();
   const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", casePath(caseId))), [caseId], { cache: "understand/ThingsToLook#AddCheck:pack" });
@@ -307,7 +321,7 @@ export function ThingsToLook() {
             <p className="av-muted">{w("things.intro")}</p>
             {found.data.total > 0 && <p><strong>{w("things.progress", { done: found.data.done, total: found.data.total })}</strong></p>}
           </div>
-          {findings.length === 0 && <p className="av-muted">{w("things.none")}</p>}
+          {findings.every((f) => f.decision !== null) && <ChecksRan checks={found.data.checks_run ?? []} />}
           {findings.map((f) => {
             const Row = f.decision === null ? FindingCard : FoldedFinding;
             return <Row key={f.id} caseId={caseId} finding={f} canDecide={can("finding.decide")} onDecided={(out) => { setDecided((d) => ({ ...d, [out.id]: out })); found.reload(); }} />;

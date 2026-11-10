@@ -10,9 +10,11 @@ It then runs the checks the case's named expert has switched on (`check_config`,
 rest) on checked facts only (rule 2). A check that needs the words labelled (`label_spans`) asks T-13a
 about the cited words of the entries that could be the action; code keeps a label only if its words lie
 inside that entry's own words, and the rule decides, never the model (rule 1). Each run writes one
-`check_runs` row. A finding that is found again stays the same row, so the expert's decision stays with it
-(the database refuses a finding that starts decided); one that is no longer found becomes `gone`, never
-deleted and never closed otherwise. A switched-off check leaves its earlier findings as they are.
+`check_runs` row (the checks that ran and, per check that asked for labels, how many entries the labels
+counted as the action, so a label that hides a finding stays visible to the expert). A finding that is
+found again stays the same row, so the expert's decision stays with it (the database refuses a finding
+that starts decided); one that is no longer found becomes `gone`, never deleted and never closed
+otherwise. A switched-off check leaves its earlier findings as they are.
 
 No text reaches a log or a job row (rule 6); identifiers are stripped before T-13a (rule 7).
 """
@@ -37,7 +39,7 @@ from app.core.jobs import JobContext, registry
 from app.core.packs import MergedPack
 from app.features.understand import ai_tasks, availability, guidelines, links
 from app.features.understand.checks.engine import configured_checks
-from app.features.understand.checks.rules import CheckFact, Hit, evaluate, to_label
+from app.features.understand.checks.rules import ACTION_TAKEN, CheckFact, Hit, evaluate, to_label
 from app.features.understand.repo import CHECKED
 from app.features.understand.services import current
 
@@ -168,11 +170,13 @@ async def _save(
     ran: Sequence[Mapping[str, Any]],
     hits: Sequence[tuple[Mapping[str, Any], Hit]],
     pages: Mapping[uuid.UUID, uuid.UUID],
+    acted: Mapping[str, int],
 ) -> None:
     version = "+".join(pack.versions.values())[:80]
     cur = await conn.execute(
-        "insert into app.check_runs (case_id, job_id, pack_version, checks) values (%s, %s, %s, %s) returning id",
-        (ctx.case_id, ctx.job_id, version, Jsonb([str(c["key"]) for c in ran])),
+        "insert into app.check_runs (case_id, job_id, pack_version, checks, acted_on)"
+        " values (%s, %s, %s, %s, %s) returning id",
+        (ctx.case_id, ctx.job_id, version, Jsonb([str(c["key"]) for c in ran]), Jsonb(dict(acted))),
     )
     row = await cur.fetchone()
     assert row is not None
@@ -287,10 +291,13 @@ async def rerun_checks(ctx: JobContext) -> None:
     await ctx.progress(30, step="checks")
     tables = _tables(pack, ran)
     hits: list[tuple[Mapping[str, Any], Hit]] = []
+    acted: dict[str, int] = {}
     for check in ran:
         labels = await _labels(ctx, pack, check, facts)
+        if check.get("label_spans"):
+            acted[str(check["key"])] = sum(1 for label in labels.values() if label == ACTION_TAKEN)
         hits += [(check, hit) for hit in evaluate(check, facts, labels=labels, tables=tables)]
     pages = {f.fact_id: f.page_id for f in facts}
     async with ctx.transaction() as conn:
-        await _save(conn, ctx, pack, ran, hits, pages)
+        await _save(conn, ctx, pack, ran, hits, pages, acted)
         await guidelines.rebaseline(conn, ctx.case_id, pack.guidelines())

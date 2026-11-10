@@ -563,4 +563,13 @@ describe("the calm layout", () => {
     expect(main).not.toHaveClass("av-button--quiet");
     expect(within(panel).getByRole("link", { name: "Open this day as it was seen" })).toHaveClass("av-button--quiet");
   });
+
+  test("the panel says when the day it arrived rests only on the software's page label", async () => {
+    inCase("launch");
+    serve(timeline({ lanes: [{ key: "lane_one", label: "Lane one words", colour: "#2a6f97", events: [event({ availability_basis: "software_label" })] }] }));
+    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
+    await user.click(await screen.findByRole("button", { name: /Consultation · 15 May 2024/ }));
+    const panel = await screen.findByRole("complementary", { name: "The entry you opened" });
+    expect(within(panel).getByText("Placed by the kind of page we took it for, not confirmed. Please check the page.")).toBeInTheDocument();
+  });
 });

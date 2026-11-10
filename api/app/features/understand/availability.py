@@ -14,6 +14,13 @@ from collections import defaultdict
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Literal
+
+AvailabilityBasis = Literal["software_label", "dated_evidence", "not_known", "expert_set", "expert_unknown"]
+"""How "when it reached the clinician" was worked out, for the expert to see:
+`software_label`: the software's name for the page's source decided it (no person has confirmed that label);
+`dated_evidence`: a dated mark on the page (received, seen, filed); `not_known`: an arriving entry with no mark;
+`expert_set` / `expert_unknown`: the named expert's own answer."""
 
 
 @dataclass(frozen=True)
@@ -118,3 +125,18 @@ def compute(
         else:
             out[fact.fact_id] = Availability(None, None)
     return out
+
+
+def basis_of(
+    kind: str,
+    stored_basis: str | None,
+    override: str | None,
+    arriving_kinds: Collection[str],
+) -> AvailabilityBasis:
+    """The basis shown for one entry. Entries of an arriving kind rest on the marks on their page (or on none);
+    any other entry rests on the page's source label alone, which only the software has set so far."""
+    if override is not None:
+        return "expert_unknown" if override == "unknown" else "expert_set"
+    if kind in arriving_kinds:
+        return "dated_evidence" if stored_basis else "not_known"
+    return "software_label"
