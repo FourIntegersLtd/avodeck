@@ -302,33 +302,7 @@ async def test_v4_a_locked_pdf_is_listed_as_not_opened_and_does_not_stop_the_oth
     assert summary.status_code == 200 and summary.json()["unopened_count"] == 1
 
 
-@pytest.mark.parametrize(
-    ("keep", "surviving"),
-    [
-        pytest.param(
-            0.3,
-            2,
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="AUDIT-12 V4d medium: "
-                "a 3-page PDF cut off at 30% of its bytes is opened by the repairing reader, "
-                "numbered as 2 pages, and not marked damaged: the third page is lost without any sign to the "
-                "expert (F2 says a damaged file is flagged): app/features/pipeline/service.py:173-180 "
-                "(pikepdf repairs on open, no page count or xref check)",
-            ),
-        ),
-        pytest.param(
-            0.45,
-            3,
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="AUDIT-12 V4d2 medium: a 3-page PDF cut off at 45% of its bytes is numbered as 3 pages and not "
-                "marked damaged, but the page content is gone (no text layer on the last pages): "
-                "app/features/pipeline/service.py:173-180",
-            ),
-        ),
-    ],
-)
+@pytest.mark.parametrize(("keep", "surviving"), [pytest.param(0.3, 2), pytest.param(0.45, 3)])
 async def test_v4_a_cut_off_pdf_is_marked_damaged_or_keeps_every_page_with_its_content(
     h: Harness, keep: float, surviving: int
 ) -> None:
@@ -359,12 +333,6 @@ async def test_v4_a_program_called_pdf_is_kept_as_an_exhibit_and_never_paged(h: 
     assert state(h, ok)["exhibits"] == 0 and state(h, ok)["page_rows"] == 1, "control: a real PDF is paged"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-12 V4e medium: "
-    "a valid PDF with no pages is accepted: no pages, no unreadable reason and no exhibit, so "
-    "the file vanishes from the expert's view (F2): app/features/pipeline/service.py:173-180 and :183-225",
-)
 async def test_v4_a_pdf_with_no_pages_is_not_accepted_silently(h: Harness) -> None:
     import pikepdf
 
