@@ -756,15 +756,6 @@ def _visible(api: psycopg.Connection, query: str, params: Any) -> int:
     return int(out.rows[0][0])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-11 L1: update app.cases set bundle_id = <victim bundle> succeeds for a named expert or "
-        "assistant of another case; the victim's pages, documents and ocr_words then become readable "
-        "(0019:77-125 accessible_bundle_ids follows cases.bundle_id; 0003:162 cases update policy; "
-        "cases_actor leaves bundle_id to case.edit_setup)"
-    ),
-)
 @pytest.mark.parametrize("who", ["expert", "assistant"])
 def test_l1_a_case_cannot_be_repointed_at_the_victims_bundle(who: str, api: psycopg.Connection, world: World) -> None:
     a, v = world.attacker, world.victim
@@ -785,14 +776,6 @@ def test_l1_control_the_expert_may_edit_other_columns_of_the_case(api: psycopg.C
     assert (out.error, out.rowcount) == (None, 1)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-11 L1: update app.cases set organisation_id = <victim org> succeeds and the victim "
-        "organisation's owner then sees the attacker's case (0003:162 cases update policy and 0019:123 "
-        "cases_actor catch-all need only case.edit_setup)"
-    ),
-)
 @pytest.mark.parametrize("who", ["expert", "assistant"])
 def test_l1_a_case_cannot_be_moved_into_the_victims_organisation(
     who: str, api: psycopg.Connection, world: World
@@ -821,13 +804,6 @@ FORGED_AUDIT = (
 )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-11 L3: insert into app.audit_log with the victim's case_id and organisation_id succeeds; "
-        "audit_log_write checks only person_id (0003:220)"
-    ),
-)
 def test_l3_the_attacker_cannot_write_audit_rows_into_the_victims_case(api: psycopg.Connection, world: World) -> None:
     a, v = world.attacker, world.victim
     as_person(api, a.expert)
@@ -835,13 +811,6 @@ def test_l3_the_attacker_cannot_write_audit_rows_into_the_victims_case(api: psyc
     assert out.error == INSUFFICIENT_PRIVILEGE, out.error
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-11 L3: the forged audit row (0003:220) is returned by app.close_case_audit(<victim case>) "
-        "to the victim's own expert"
-    ),
-)
 def test_l3_a_forged_audit_row_never_reaches_the_victims_audit_view(api: psycopg.Connection, world: World) -> None:
     a, v = world.attacker, world.victim
     as_person(api, a.expert)
@@ -862,13 +831,6 @@ def test_l3_control_the_attacker_may_write_audit_rows_for_their_own_case(api: ps
 # --- e. L4: a person changes their own identity row ----------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-11 L4: update app.people set email = <invited address> succeeds under people_self "
-        "(0003:143), no column limit or uniqueness against pending invites"
-    ),
-)
 def test_l4_a_person_cannot_take_the_address_a_pending_invite_was_sent_to(
     api: psycopg.Connection, world: World
 ) -> None:
@@ -878,13 +840,6 @@ def test_l4_a_person_cannot_take_the_address_a_pending_invite_was_sent_to(
     assert out.refused or out.rowcount == 0, (out.error, out.rowcount)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-11 L4: after taking the invited address, app.accept_invite(<token hash>) succeeds and "
-        "joins the attacker to the victim organisation (1002:85); the secret token is still needed"
-    ),
-)
 def test_l4_taking_the_invited_address_does_not_let_the_attacker_accept_the_invite(
     api: psycopg.Connection, world: World
 ) -> None:
@@ -902,13 +857,6 @@ def test_l4_control_a_person_may_change_their_display_name(api: psycopg.Connecti
     assert (out.error, out.rowcount) == (None, 1)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT-11 L4: update app.people set closed_at = null succeeds for the closed person under "
-        "people_self (0003:143); a closed account can reopen itself"
-    ),
-)
 def test_l4_a_closed_account_cannot_reopen_itself(api: psycopg.Connection, admin: psycopg.Connection) -> None:
     seed = Seed(admin)
     person = seed.person()
@@ -916,6 +864,129 @@ def test_l4_a_closed_account_cannot_reopen_itself(api: psycopg.Connection, admin
     as_person(api, person)
     out = run(api, "update app.people set closed_at = null where id = %s", (person,))
     assert out.refused or out.rowcount == 0, (out.error, out.rowcount)
+
+
+# --- e2. L1, L3 and L4 again, through INSERT and the widest audit relaxation ---------------------------------------
+
+INSERT_CASE = (
+    "insert into app.cases (id, organisation_id, named_expert_id, jurisdiction, case_type, specialty, expert_role,"
+    " label{extra}) values (%(id)s, %(org)s, %(me)s, 'zz-test', 'zz-case', 'zz-specialty', 'assessor', 'Case Z'{value})"
+)
+
+
+def test_l1_a_new_case_cannot_be_created_on_the_victims_bundle(api: psycopg.Connection, world: World) -> None:
+    a, v = world.attacker, world.victim
+    as_person(api, a.expert)
+    new_case = uuid.uuid4()
+    query = INSERT_CASE.format(extra=", bundle_id", value=", %(bundle)s")
+    out = run(api, query, {"id": new_case, "org": a.org, "me": a.expert, "bundle": v.bundle})
+    pages = _visible(api, "select count(*) from app.pages where bundle_id = %s", (v.bundle,))
+    assert pages == 0, (out.error, out.rowcount, pages)
+    assert out.error == INSUFFICIENT_PRIVILEGE, out.error
+
+
+def test_l1_control_a_new_case_gets_a_bundle_of_its_own(api: psycopg.Connection, world: World) -> None:
+    a, v = world.attacker, world.victim
+    as_person(api, a.expert)
+    new_case = uuid.uuid4()
+    out = run(api, INSERT_CASE.format(extra="", value=""), {"id": new_case, "org": a.org, "me": a.expert})
+    assert (out.error, out.rowcount) == (None, 1)
+    made = run(api, "select bundle_id from app.cases where id = %s", (new_case,))
+    assert made.error is None and len(made.rows) == 1
+    assert made.rows[0][0] is not None and made.rows[0][0] not in (v.bundle, a.bundle)
+
+
+def test_l4_a_person_with_no_row_cannot_insert_one_with_the_invited_address(
+    api: psycopg.Connection, world: World
+) -> None:
+    v = world.victim
+    newcomer = uuid.uuid4()
+    as_person(api, newcomer)
+    out = run(
+        api, "insert into app.people (id, email, full_name) values (%s, %s, 'Zz Name')", (newcomer, v.invite_email)
+    )
+    left = _visible(api, "select count(*) from app.people where id = %s", (newcomer,))
+    assert left == 0, (out.error, out.rowcount)
+    assert out.error == INSUFFICIENT_PRIVILEGE, out.error
+
+
+def test_l4_control_ensure_person_still_creates_the_row(api: psycopg.Connection) -> None:
+    newcomer = uuid.uuid4()
+    as_person(api, newcomer)
+    out = run(api, "select app.ensure_person(%s, 'Zz Name', 'zz')", (f"{newcomer.hex[:12]}@example.test",))
+    assert (out.error, out.rows) == (None, [(True,)])
+    assert _visible(api, "select count(*) from app.people where id = %s", (newcomer,)) == 1
+
+
+def _former_member(admin: psycopg.Connection, org: uuid.UUID, role: str = "expert") -> uuid.UUID:
+    seed = Seed(admin)
+    person = seed.person()
+    seed.membership(org, person, role)
+    seed.end_membership(org, person)
+    return person
+
+
+def test_l3_a_former_organisation_member_cannot_name_a_case_they_were_never_on(
+    api: psycopg.Connection, admin: psycopg.Connection, world: World
+) -> None:
+    a = world.attacker
+    former = _former_member(admin, a.org)
+    as_person(api, former)
+    both = run(api, FORGED_AUDIT, {"me": former, "case": a.case, "org": a.org})
+    case_only = run(api, FORGED_AUDIT.replace("%(org)s", "null"), {"me": former, "case": a.case})
+    assert both.error == INSUFFICIENT_PRIVILEGE, both.error
+    assert case_only.error == INSUFFICIENT_PRIVILEGE, case_only.error
+
+
+def test_l3_a_current_member_who_is_not_on_the_case_cannot_name_it(
+    api: psycopg.Connection, admin: psycopg.Connection, world: World
+) -> None:
+    a = world.attacker
+    seed = Seed(admin)
+    other = seed.person()
+    seed.membership(a.org, other, "expert")
+    as_person(api, other)
+    out = run(api, FORGED_AUDIT, {"me": other, "case": a.case, "org": a.org})
+    assert out.error == INSUFFICIENT_PRIVILEGE, out.error
+
+
+def test_l3_control_leaving_an_organisation_is_audited_after_the_membership_ended(
+    api: psycopg.Connection, admin: psycopg.Connection, world: World
+) -> None:
+    a = world.attacker
+    former = _former_member(admin, a.org)
+    as_person(api, former)
+    org_only = FORGED_AUDIT.replace("%(case)s", "null")
+    out = run(api, org_only, {"me": former, "org": a.org})
+    assert (out.error, out.rowcount) == (None, 1)
+
+
+@pytest.mark.parametrize("who", ["viewer", "assistant", "admin", "owner"])
+def test_l3_control_current_case_members_and_organisation_administrators_may_audit_their_case(
+    who: str, api: psycopg.Connection, world: World
+) -> None:
+    a = world.attacker
+    person = getattr(a, who)
+    as_person(api, person)
+    out = run(api, FORGED_AUDIT, {"me": person, "case": a.case, "org": a.org})
+    assert (out.error, out.rowcount) == (None, 1)
+
+
+def test_l3_control_a_person_removed_from_the_case_may_still_audit_it(
+    api: psycopg.Connection, admin: psycopg.Connection, world: World
+) -> None:
+    a = world.attacker
+    seed = Seed(admin)
+    person = seed.person()
+    seed.membership(a.org, person, "assistant")
+    seed.case_member(a.case, person, "assistant", added_by=a.expert)
+    admin.execute(
+        "update app.case_members set removed_at = now() where case_id = %s and person_id = %s", (a.case, person)
+    )
+    seed.end_membership(a.org, person)
+    as_person(api, person)
+    out = run(api, FORGED_AUDIT, {"me": person, "case": a.case, "org": a.org})
+    assert (out.error, out.rowcount) == (None, 1)
 
 
 # --- f. L9: bundles and privileged functions ------------------------------------------------------------------------
