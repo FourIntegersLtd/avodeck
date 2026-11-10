@@ -1072,3 +1072,158 @@ async def test_the_expert_can_settle_a_claim_the_check_left_unchecked_and_it_is_
         "select count(*) from app.audit_log where case_id = %s and action = 'opposing_claim.confirmed'", (served.case,)
     ).fetchone()
     assert audit is not None and audit[0] == 1
+
+
+# --- audit 14, second round -----------------------------------------------------------------------------
+
+FOOTED = (
+    "Report of the other expert\n1. Page 2 records ferritin 19.\nPage 1 of 2\n\f"
+    "2. Page 3 records Seen again in clinic.\nPage 2 of 2"
+)
+
+
+def _two_claims(request: ModelRequest) -> dict[str, Any]:
+    return {
+        "claims": [
+            _claim_for(request.text, "ferritin 19", "2", "ferritin 19", "1"),
+            _claim_for(request.text, "Seen again in clinic", "3", "Seen again in clinic", "2"),
+        ]
+    }
+
+
+async def test_the_claimed_value_must_be_found_whole_in_the_cited_page_words() -> None:
+    from app.features.after_serving.jobs import _supports
+
+    words = [("w1", "Ferritin"), ("w2", "9"), ("w3", "ug/L")]
+    assert _supports("Ferritin 9", ["w1", "w2"], words), "positive control: the whole value is in the cited words"
+    assert not _supports("ferritin 19", ["w1"], words), "one shared word is not the claimed value"
+    assert not _supports("Ferritin 9", ["w1", "w3"], words), "words that are not one run are not the value"
+    assert not _supports("Ferritin 9", [], words)
+
+
+async def test_a_model_match_resting_on_one_shared_word_is_not_stored_as_a_match(
+    client_for: ClientFor,
+    storage: CaseFileStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    def one_word(request: ModelRequest) -> dict[str, Any]:
+        shared = ids_for(request.text, "Ferritin", after="[page")
+        return {"status": "matches", "evidence_word_ids": shared, "reason": "agrees"}
+
+    model.answers.update({"T-21b": t21b_answer(), "T-21c": one_word, "T-21d": t21d_for(served)})
+    _, report = await checked(client_for, storage, admin, aconn, worker_db, served, ONE_CLAIM)
+    assert len(model.by_task("T-21c")) == 1, "the model was asked, so the refusal is the check's"
+    assert report["claims"][0]["status"] != "matches" and report["matching_claims"] == []
+
+
+async def test_page_footers_in_their_report_do_not_raise_the_count_of_statements_to_check(
+    client_for: ClientFor,
+    storage: CaseFileStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    model.answers.update({"T-21b": _two_claims, "T-21c": t21c_wrong_value, "T-21d": t21d_for(served)})
+    _, report = await checked(client_for, storage, admin, aconn, worker_db, served, FOOTED)
+    assert report["claims_found"] == 2 and report["claims_expected"] == 2
+    assert report["needs_attention_count"] == sum(c["needs_attention"] for c in report["claims"]) == 1
+    assert report["claims"][1]["their_page_ref"] == "3", "a footer inside the report never names the page cited"
+
+
+async def test_a_real_shortfall_is_counted_and_clears_once_the_expert_has_settled_every_claim_found(
+    client_for: ClientFor,
+    storage: CaseFileStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    answer = t21b_answer("Ferritin 9", value="Ferritin 9 ug/L")
+    model.answers.update({"T-21b": answer, "T-21c": t21c_wrong_value, "T-21d": t21d_for(served)})
+    document, report = await checked(client_for, storage, admin, aconn, worker_db, served, HIDDEN)
+    (claim,) = report["claims"]
+    assert (report["claims_found"], report["claims_expected"]) == (1, 2)
+    assert claim["status"] == "matches" and report["needs_attention_count"] == 1, "the statement left out counts"
+    expert = await client_for(served.expert)
+    url = served.url(f"opposing-claims/{claim['id']}")
+    done = await expert.patch(url, json={"confirm": True}, headers={"If-Match": etag(claim["version"])})
+    assert done.status_code == 200, done.text
+    again = (await read_report(client_for, served, document)).json()
+    assert again["needs_attention_count"] == 0, "the expert has been through every claim found: the notice clears"
+
+
+async def test_the_expert_cannot_set_matches_on_a_claim_with_no_evidence_page_but_may_set_other_outcomes(
+    client_for: ClientFor,
+    storage: CaseFileStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    model.answers.update({"T-21b": t21b_answer(), "T-21c": lambda r: {"status": CANARY}, "T-21d": t21d_for(served)})
+    document, report = await checked(client_for, storage, admin, aconn, worker_db, served, ONE_CLAIM)
+    (claim,) = report["claims"]
+    url = served.url(f"opposing-claims/{claim['id']}")
+    expert = await client_for(served.expert)
+    refused = await expert.patch(
+        url, json={"status": "matches", "confirm": True}, headers={"If-Match": etag(claim["version"])}
+    )
+    assert refused.status_code == 409 and refused.json()["error"]["code"] == "no_evidence"
+    after = (await read_report(client_for, served, document)).json()["claims"][0]
+    assert (after["status"], after["expert_confirmed"], after["version"]) == ("unchecked", False, claim["version"])
+    other = await expert.patch(
+        url, json={"status": "not_on_page", "confirm": True}, headers={"If-Match": etag(claim["version"])}
+    )
+    assert other.status_code == 200 and other.json()["status"] == "not_on_page", "the other outcomes stay open"
+
+
+async def test_the_expert_can_set_matches_when_the_evidence_is_on_a_page_they_have_read(
+    client_for: ClientFor,
+    storage: CaseFileStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    model.answers.update({"T-21b": t21b_answer(), "T-21c": t21c_wrong_value, "T-21d": t21d_for(served)})
+    _, report = await checked(client_for, storage, admin, aconn, worker_db, served, ONE_CLAIM)
+    (claim,) = report["claims"]
+    expert = await client_for(served.expert)
+    done = await expert.patch(
+        served.url(f"opposing-claims/{claim['id']}"),
+        json={"status": "matches", "confirm": True},
+        headers={"If-Match": etag(claim["version"])},
+    )
+    assert done.status_code == 200 and done.json()["status"] == "matches", "positive control"
+
+
+async def test_a_round_where_no_questions_are_found_is_not_put_to_the_model_again_unless_the_expert_asks(
+    client_for: ClientFor,
+    storage: CaseFileStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    model.answers["T-20a"] = lambda r: {"questions": []}
+    client = await client_for(served.expert)
+    made = await open_round(client, storage, admin, aconn, served)
+    queued = await client.post(served.url("written-questions/import"), json={"round_id": made["id"]})
+    await run_job(worker_db, served, queued, "extract_written_questions")
+    await run_job(worker_db, served, queued, "extract_written_questions")
+    assert len(model.by_task("T-20a")) == 1, "a later run does not ask again about a round already read"
+    rounds = (await client.get(served.url("written-question-rounds"))).json()["rounds"]
+    assert rounds[0]["extracted_at"] is None, "still not a finished extraction: the expert is shown the round"
+    again = await client.post(served.url("written-questions/import"), json={"round_id": made["id"]})
+    await run_job(worker_db, served, again, "extract_written_questions")
+    assert len(model.by_task("T-20a")) == 2, "positive control: the expert asking to read it again is honoured"

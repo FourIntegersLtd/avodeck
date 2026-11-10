@@ -115,7 +115,7 @@ async def extract_written_questions(ctx: JobContext) -> None:
         rounds = await fetch_all(
             conn,
             "select id, document_id from app.written_question_rounds where case_id = %s and extracted_at is null"
-            " and document_id is not null order by number",
+            " and none_found_at is null and document_id is not null order by number",
             (ctx.case_id,),
         )
     rule_ref = next((str(r.get("rule_ref")) for r in pack.deadline_rules() if r.get("key") == WRITTEN_QUESTIONS), None)
@@ -171,8 +171,12 @@ async def _extract_round(
             conn, "select count(*) as n from app.written_questions where round_id = %s", (round_id,)
         )
         if not (stored and stored["n"]):
-            # A document with no questions found is not a finished read: the round stays open to be read again.
+            # A document with no questions found is not a finished read (the round stays open for the expert to
+            # read again), but a later run must not ask the model about it again: that is marked here.
             logger.warning("written questions: none found in the round's document")
+            await conn.execute(
+                "update app.written_question_rounds set none_found_at = now() where id = %s", (round_id,)
+            )
             return
         await conn.execute("update app.written_question_rounds set extracted_at = now() where id = %s", (round_id,))
 
@@ -343,13 +347,10 @@ async def _verify_report(ctx: JobContext, pack: MergedPack, report_id: uuid.UUID
 
 
 def _supports(value: str, evidence: Sequence[str], words: Sequence[tuple[str, str]]) -> bool:
-    """The evidence words are on the page and every one of them, in order, is part of what they claim."""
+    """The claimed value is found, whole, in the page words the evidence cites (the same check as every fact)."""
     from app.core.ai import provenance
 
-    held = dict(words)
-    shown = [a for w in evidence for a in provenance.atoms(held[w])]
-    wanted = iter(provenance.atoms(value))
-    return bool(shown) and all(atom in wanted for atom in shown)
+    return provenance.supported(value, list(evidence), dict(words))
 
 
 def _within(value: str, text: str) -> bool:

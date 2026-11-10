@@ -17,7 +17,7 @@ Nothing here logs or returns text in errors (rule 6).
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
@@ -31,6 +31,7 @@ _PARAGRAPH = re.compile(r"^(\d{1,3})\.$")
 _ITEM = re.compile(r"^\(([a-z]{1,4}|\d{1,2})\)$")
 _NUMBER = re.compile(r"^(\d{1,6})$")
 _EDGE = ".,;:()[]\"'"
+_FURNITURE_WORDS = 6  # a page-number line is short ("Page 3 of 20")
 
 
 def _pages(sentence: Sequence[str], markers: Sequence[str]) -> list[str]:
@@ -137,9 +138,31 @@ class Letter:
             return "not_whole_words"
         return Found([w.id for w in run], " ".join(w.text for w in run), positions[0])
 
-    def _sentences(self, words: Sequence[Word]) -> Iterator[list[str]]:
+    def _furniture(self, markers: Sequence[str]) -> set[str]:
+        """Ids of the words on page-furniture lines ("Page 3 of 20"): a short line that only numbers a page."""
+        lines: list[list[Word]] = []
+        for w in self.words:
+            if w.line_start or not lines:
+                lines.append([])
+            lines[-1].append(w)
+        found: set[str] = set()
+        for line in lines:
+            texts = [w.text for w in line]
+            plain = [t.strip(_EDGE) for t in texts]
+            if (
+                len(line) <= _FURNITURE_WORDS
+                and not texts[-1].endswith((".", "?", "!"))
+                and _pages(texts, markers)
+                and all(t.isdigit() or t.casefold() in markers or len(t) <= 3 for t in plain)
+            ):
+                found.update(w.id for w in line)
+        return found
+
+    def _sentences(self, words: Sequence[Word], skip: Collection[str] = ()) -> Iterator[list[str]]:
         current: list[str] = []
         for w in words:
+            if w.id in skip:
+                continue  # page furniture is neither part of a sentence nor the end of one
             if w.line_start and _PARAGRAPH.match(w.text):
                 continue  # a paragraph number is neither part of a sentence nor the end of one
             current.append(w.text)
@@ -151,12 +174,14 @@ class Letter:
 
     def page_sentences(self, markers: Sequence[str]) -> int:
         """How many sentences of the letter name a page, counted from its own words (never from a model)."""
-        return sum(1 for s in self._sentences(self.words) if _pages(s, markers))
+        skip = self._furniture(markers)
+        return sum(1 for s in self._sentences(self.words, skip) if _pages(s, markers))
 
     def cited_page(self, found: Found, markers: Sequence[str]) -> str | None:
         """The one page the claim's first page-naming sentence cites, read from its own words; none if unclear."""
         first = self.index[found.word_ids[0]]
-        for sentence in self._sentences(self.words[first : first + len(found.word_ids)]):
+        skip = self._furniture(markers)
+        for sentence in self._sentences(self.words[first : first + len(found.word_ids)], skip):
             pages = set(_pages(sentence, markers))
             if pages:
                 return next(iter(pages)) if len(pages) == 1 else None

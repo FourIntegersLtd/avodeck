@@ -315,6 +315,14 @@ async def _positions(
     return out
 
 
+def _left_out(expected: int | None, claims: list[OpposingClaimOut]) -> int:
+    """Statements the check could not read out of their report. They stop counting once the expert has confirmed
+    every claim that was found (they have been through the report); with none found there is nothing to confirm."""
+    if claims and all(c.expert_confirmed for c in claims):
+        return 0
+    return max((expected or 0) - len(claims), 0)
+
+
 @router.get("/cases/{case_id}/opposing-reports/{document_id}", response_model=OpposingReport)
 async def opposing_report(
     case_id: uuid.UUID, document_id: uuid.UUID, access: View, conn: DbConn, crypto: Crypto, reads: Reads
@@ -350,7 +358,7 @@ async def opposing_report(
         other_claims=[c for c in claims if c.status != "matches"],
         # A statement the check could not read out of their report counts too: it is not a clean check.
         needs_attention_count=sum(1 for c in claims if c.needs_attention)
-        + max((report["claims_expected"] or 0) - len(claims), 0),
+        + _left_out(report["claims_expected"], claims),
         positions=await _positions(conn, crypto, case_id, report["positions"], claims),
     )
 
@@ -380,6 +388,9 @@ async def change_claim(
         raise conflict("not_checked", "This claim has not been checked yet.")
     if not (await _evidence(conn, case_id, row, reads))[1]:
         raise conflict(READ_FIRST, "Read that page first.")
+    if body.status == "matches" and row["evidence_page_id"] is None:
+        # No page of ours backs this claim, so there is nothing the expert has read that shows it matches.
+        raise conflict("no_evidence", "No page you have read shows that this matches.")
     sets: list[str] = []
     params: list[Any] = []
     if body.status is not None and body.status != row["status"]:
