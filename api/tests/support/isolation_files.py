@@ -199,6 +199,12 @@ async def seed_document_file(env: Env, t: Tenant) -> Obj:
     env.admin.execute(
         "update app.documents set storage_path = %s, sha256 = %s where id = %s", (prefix, sha(plain), document)
     )
+    # The download waits for a clean virus scan (423 file_not_ready), so the seeded file has one on record.
+    env.admin.execute(
+        "insert into app.document_scans (document_id, bundle_id, clean)"
+        " values (%s, (select bundle_id from app.cases where id = %s), true)",
+        (document, t.case),
+    )
     return Obj(f"/documents/{document}/file", plain, (token.encode(),), "application/octet-stream")
 
 
