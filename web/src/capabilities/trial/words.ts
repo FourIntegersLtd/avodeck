@@ -25,6 +25,8 @@ const WORDS = {
   "meeting.agenda.none": "No agenda yet. Add it and we'll set out each question with your position from your report.",
   "meeting.agenda.add": "Add the agenda (PDF)",
   "meeting.agenda.new": "Add a new version of the agenda (PDF)",
+  "meeting.agenda.check": "We could not read every item of the agenda. Check it against the original.",
+  "meeting.agenda.check_items": "We could not read every item of the agenda. Items we could not read: {{numbers}}. Check the agenda against the original.",
   "meeting.agenda.reading": "We're reading the agenda. The questions will appear here in a minute or two.",
   "meeting.item.question": "Question {{number}}",
   "meeting.item.yours": "Your position",

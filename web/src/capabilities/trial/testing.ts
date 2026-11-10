@@ -63,7 +63,7 @@ export function meetingOut(over: Partial<Schemas["MeetingOut"]> = {}): Schemas["
     sign_by: "2027-02-19", sign_rule_ref: "Rule Z.9", sign_rule_phrase: "Zz 5 working days after the conference", send_by: "2027-02-26", send_rule_ref: "Rule Z.10", send_rule_phrase: "Zz within 10 working days",
     declarations: MEETING_TYPE.declarations, prepared_sha256: null, prepared_pages: null, certificate_sha256: null, signed_sha256: null,
     version: 4, items: [item(1), item(2), item(3)],
-    agenda_versions: [{ id: "a9777777-7777-4777-8777-777777777777", version_no: 2, read_at: "2027-02-10T09:00:00Z", item_count: 3, created_at: "2027-02-10T09:00:00Z" }],
+    agenda_versions: [{ id: "a9777777-7777-4777-8777-777777777777", version_no: 2, read_at: "2027-02-10T09:00:00Z", item_count: 3, created_at: "2027-02-10T09:00:00Z", needs_check: false, unread_numbers: [] }],
     ...over,
   };
 }
