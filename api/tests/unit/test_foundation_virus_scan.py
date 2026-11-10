@@ -11,7 +11,7 @@ from collections.abc import AsyncIterator
 import pytest
 
 from app.core.config import ConfigError
-from app.core.scan import RecordedScanner, ScanResult, VirusScanner, scanner_from_env
+from app.core.scan import ClamdScanner, RecordedScanner, ScanResult, VirusScanner, scanner_from_env
 
 pytestmark = pytest.mark.anyio
 
@@ -40,39 +40,58 @@ async def test_an_empty_file_is_clean() -> None:
     assert (await RecordedScanner().scan(stream())).clean
 
 
-def test_the_cell_config_chooses_the_scanner() -> None:
+CELL = {"RAILWAY_PROJECT_ID": "d1f0a1c2-0000-4000-8000-000000000000"}  # what Railway puts in every service
+
+
+def test_off_railway_nothing_needs_setting() -> None:
     assert isinstance(scanner_from_env({"VIRUS_SCANNER": "recorded"}), RecordedScanner)
-    with pytest.raises(ConfigError):  # nothing set: never the stand-in by default (audit 12, V1)
-        scanner_from_env({})
+    assert isinstance(scanner_from_env({}), RecordedScanner)  # local, tests, CI: the stand-in
+    assert isinstance(scanner_from_env({"CLAMD_HOST": "127.0.0.1"}), ClamdScanner)
     with pytest.raises(ConfigError):
         scanner_from_env({"VIRUS_SCANNER": "elsewhere"})
 
 
-async def test_the_worker_stops_at_start_up_when_no_scanner_is_configured() -> None:
+def test_a_cell_with_nothing_else_set_scans_with_clamav_at_the_fixed_host() -> None:
+    scanner = scanner_from_env(CELL)
+    assert isinstance(scanner, ClamdScanner)
+    assert (scanner.host, scanner.port, scanner.timeout_s) == ("clamav.railway.internal", 3310, 60)
+    assert isinstance(scanner_from_env({**CELL, "VIRUS_SCANNER": "clamd", "CLAMD_HOST": ""}), ClamdScanner)
+    override = scanner_from_env({**CELL, "CLAMD_HOST": "clamd.other", "CLAMD_PORT": "3311"})
+    assert isinstance(override, ClamdScanner)
+    assert (override.host, override.port) == ("clamd.other", 3311)
+
+
+def test_a_cell_refuses_the_stand_in_even_with_a_clamd_host() -> None:
+    for extra in ({}, {"CLAMD_HOST": "clamav.railway.internal"}):
+        with pytest.raises(ConfigError, match="VIRUS_SCANNER=recorded"):
+            scanner_from_env({**CELL, "VIRUS_SCANNER": "recorded", **extra})
+    with pytest.raises(ConfigError):
+        scanner_from_env({**CELL, "VIRUS_SCANNER": "elsewhere"})
+
+
+async def test_the_worker_stops_at_start_up_when_a_cell_asks_for_the_stand_in() -> None:
     from app.worker.main import run
 
     url = "postgresql://app_worker:x@127.0.0.1:1/postgres"
-    env = {"DATABASE_URL": url, "DATABASE_URL_DIRECT": url, "WORKER_QUEUES": "bulk"}
-    with pytest.raises(ConfigError, match="No virus scanner is configured"):
+    env = {
+        **CELL,
+        "VIRUS_SCANNER": "recorded",
+        "DATABASE_URL": url,
+        "DATABASE_URL_DIRECT": url,
+        "WORKER_QUEUES": "bulk",
+    }
+    with pytest.raises(ConfigError, match="VIRUS_SCANNER=recorded"):
         await run(env)
 
 
-def test_recorded_with_a_clamd_host_is_refused_without_naming_the_value() -> None:
-    """A cell that copies api/.env.example and sets CLAMD_HOST must not silently run the stand-in (audit 12, V1)."""
-    with pytest.raises(ConfigError, match="VIRUS_SCANNER=recorded") as caught:
-        scanner_from_env({"VIRUS_SCANNER": "recorded", "CLAMD_HOST": "clamav.secret-host.internal"})
-    assert "secret-host" not in str(caught.value)
-    assert isinstance(scanner_from_env({"VIRUS_SCANNER": "recorded", "CLAMD_HOST": "  "}), RecordedScanner)
-
-
-async def test_the_api_stops_at_start_up_when_no_scanner_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_the_api_stops_at_start_up_when_a_cell_asks_for_the_stand_in(monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace
     from typing import Any
 
     from app.main import create_app
 
-    monkeypatch.delenv("VIRUS_SCANNER", raising=False)
-    monkeypatch.delenv("CLAMD_HOST", raising=False)
+    monkeypatch.setenv("RAILWAY_PROJECT_ID", CELL["RAILWAY_PROJECT_ID"])
+    monkeypatch.setenv("VIRUS_SCANNER", "recorded")
     auth: Any = SimpleNamespace(
         settings=SimpleNamespace(
             app_origin="https://zz.invalid", app_origins=("https://zz.invalid",), cookie_domain=None
@@ -86,6 +105,6 @@ async def test_the_api_stops_at_start_up_when_no_scanner_is_configured(monkeypat
         crypto=SimpleNamespace(),  # type: ignore[arg-type]
         features="app.worker",  # a package with no features inside
     )
-    with pytest.raises(ConfigError, match="No virus scanner is configured"):
+    with pytest.raises(ConfigError, match="VIRUS_SCANNER=recorded"):
         async with app.router.lifespan_context(app):
             pass

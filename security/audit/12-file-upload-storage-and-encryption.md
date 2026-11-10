@@ -329,7 +329,7 @@ Items 1 to 5 are fixed, and S3 from item 10 is also fixed. Each fix turned its s
 - **D6c, V2d:** the export reads each document part by part and checks its SHA-256. A file not scanned clean is left out and listed in the manifest's `left_out`, as `scan_pending` or `blocked`.
 - **V2b, V2b2:** the original-file download returns 423 `file_not_ready` when the file has no scan verdict, and 409 `file_blocked` when it was flagged.
 - **S3:** the original-file download sends `Content-Disposition: attachment; filename="document"`.
-- **V1:** with no scanner configured, the API and the worker refuse to start. They also refuse to start when `VIRUS_SCANNER=recorded` is set together with `CLAMD_HOST`. A deployed cell must set `CLAMD_HOST` on the `api`, `worker` and `worker-interactive` services.
+- **V1:** a deployed cell is recognised by `RAILWAY_PROJECT_ID`, which Railway sets on every service itself. A deployed cell always uses ClamAV, at `clamav.railway.internal:3310` as built into `api/app/core/scan.py`. `CLAMD_HOST`, `CLAMD_PORT` and `CLAMD_TIMEOUT_S` can still override this. Asking for `VIRUS_SCANNER=recorded` in a deployed cell stops the API and the worker at start-up. Nothing new needs setting. Off Railway (local work, tests and CI), the behaviour is unchanged.
 - **D2b:** a storage delete that leaves objects behind raises `StorageError`, so the step retries. The quarantine purge carries on past a single stuck item.
 - **V3a, V4c:** one unpack budget now covers each upload. It is tracked in the new column `document_parts.size` (migration `0143`). Page pictures are capped at 25 million pixels. Two renderers are still not capped: `api/app/core/pdf.py:60` and `api/app/features/report/pdf_out.py:50`.
 

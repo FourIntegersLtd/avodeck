@@ -57,7 +57,7 @@ The `cron` service runs each daily schedule once for today's date and exits (cod
 
 Copy every name from `api/.env.example` into both services (Railway "shared variables"), with cloud values. Never paste them into chat or commit them.
 
-- `CLAMD_HOST` (`clamav.railway.internal`; `CLAMD_PORT` 3310): must be set on `api`, `worker` and `worker-interactive`; each refuses to start without a scanner. Do not copy `VIRUS_SCANNER` into a cell (it is commented out in `api/.env.example`): `VIRUS_SCANNER=recorded` together with `CLAMD_HOST` stops the process at start-up, and `recorded` alone is the local stand-in.
+- Virus scanner: nothing to set. On Railway the API and workers detect the cell from `RAILWAY_PROJECT_ID` (Railway sets it) and always scan with ClamAV at `clamav.railway.internal:3310`. Do not set `VIRUS_SCANNER=recorded` in a cell: the process stops at start-up.
 - `DATABASE_URL` and `DATABASE_URL_DIRECT`: the Supabase **session pooler**, not the direct host (IPv6 only):
   `postgresql://<role>.<project-ref>:<password>@aws-0-eu-west-2.pooler.supabase.com:5432/postgres?sslmode=require`
   with `app_api` for `DATABASE_URL` and `app_worker` for `DATABASE_URL_DIRECT`.

@@ -12,8 +12,8 @@ from app.core.scan import ClamdScanner
 
 pytestmark = [pytest.mark.anyio, pytest.mark.clamd]
 
-HOST = os.environ.get("CLAMD_LIVE_HOST", "127.0.0.1")
-PORT = int(os.environ.get("CLAMD_LIVE_PORT", "3310"))
+HOST = os.environ.get("CLAMD_HOST", "127.0.0.1")
+PORT = int(os.environ.get("CLAMD_PORT", "3310"))
 
 # The EICAR test string, built from parts so this file is not itself flagged by a scanner.
 EICAR = ("X5O!P%@AP[4\\PZX54(P^)7CC)7}$" + "EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*").encode()
@@ -30,7 +30,7 @@ def clamd_reachable() -> bool:
 @pytest.fixture(autouse=True)
 def need_clamd() -> None:
     if not clamd_reachable():
-        pytest.skip("clamd is not reachable (set CLAMD_LIVE_HOST and CLAMD_LIVE_PORT)")
+        pytest.skip("clamd is not reachable (set CLAMD_HOST and CLAMD_PORT)")
 
 
 async def stream(*parts: bytes) -> AsyncIterator[bytes]:

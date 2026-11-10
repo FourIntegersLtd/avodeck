@@ -162,27 +162,22 @@ def test_v1_the_scanner_settings_can_choose_clamd_and_refuse_nonsense() -> None:
             scanner_from_env(env)
 
 
+# A live cell is a Railway service: Railway itself puts RAILWAY_PROJECT_ID in its environment.
 @pytest.mark.parametrize(
     "env",
     [
+        pytest.param({"REGION": "uk", "RAILWAY_PROJECT_ID": "d1f0a1c2"}, id="unset"),
         pytest.param(
-            {"REGION": "uk"},
-            id="unset",
-        ),
-        pytest.param(
-            {"REGION": "uk", "VIRUS_SCANNER": "recorded"},
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="AUDIT-12 POLICY V1b: ADR 0027 keeps `recorded` selectable in any cell; nothing ties it "
-                "to tests and local: app/core/scan.py:115-116",
-            ),
-            id="recorded-in-a-cell",
+            {"REGION": "uk", "RAILWAY_PROJECT_ID": "d1f0a1c2", "VIRUS_SCANNER": "recorded"}, id="recorded-in-a-cell"
         ),
     ],
 )
 def test_v1_a_live_cell_never_runs_the_stand_in_scanner(env: dict[str, str]) -> None:
-    with pytest.raises(ConfigError):
-        scanner_from_env(env)
+    try:
+        scanner = scanner_from_env(env)
+    except ConfigError:
+        return
+    assert not isinstance(scanner, RecordedScanner), "a live cell built the stand-in scanner"
 
 
 @pytest.mark.xfail(
