@@ -491,6 +491,78 @@ async def test_r_e_2_asking_again_while_one_is_waiting_does_not_queue_another_jo
     assert queued is not None and queued[0] <= 1
 
 
+def jobs_of(admin: psycopg.Connection, case: uuid.UUID) -> int:
+    row = admin.execute(
+        "select count(*) from app.jobs where case_id = %s and kind = 'second_reading'", (case,)
+    ).fetchone()
+    assert row is not None
+    return int(row[0])
+
+
+async def test_r_e_2_a_repeat_ask_for_an_unchanged_page_returns_its_own_reading_and_calls_no_model(
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    storage: CaseFileStorage,
+    crypto: CaseCrypto,
+    model: ScriptedBedrock,
+    world: dict[str, Any],
+) -> None:
+    case = world["case"]
+    page_one = await named_page(aconn, storage, crypto, case, 1)
+    await named_page(aconn, storage, crypto, case, 2)
+    client = await client_for(world["expert"])
+    first = await ask(client, case, 1)
+    await run_job(worker_db, admin, case, first)
+    admin.execute("update app.jobs set status = 'done' where id = %s", (first,))
+    assert stored_status(admin, page_one)[0] == "done" and len(model.requests) == 1  # control: it did read once
+    second_page_job = await ask(client, case, 2)  # a newer job, for another page
+    assert second_page_job != first
+    before = jobs_of(admin, case)
+
+    # the same page, same turn, same picture: the reading it already has, never the newest job of the case
+    assert await ask(client, case, 1) == first
+    assert await ask(client, case, 1) == first
+    assert await ask(client, case, 2) == second_page_job  # a waiting page answers with its own job too
+    assert jobs_of(admin, case) == before and len(model.requests) == 1
+
+
+@pytest.mark.parametrize("change", ["turned", "redrawn"])
+async def test_r_e_2_a_turned_or_redrawn_page_can_be_read_again(
+    change: str,
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    storage: CaseFileStorage,
+    crypto: CaseCrypto,
+    model: ScriptedBedrock,
+    world: dict[str, Any],
+) -> None:
+    case = world["case"]
+    page = await named_page(aconn, storage, crypto, case)
+    client = await client_for(world["expert"])
+    first = await ask(client, case)
+    await run_job(worker_db, admin, case, first)
+    admin.execute("update app.jobs set status = 'done' where id = %s", (first,))
+    assert await ask(client, case) == first  # control: unchanged, so the same reading
+
+    if change == "turned":
+        admin.execute("update app.pages set rotation = 90 where id = %s", (page,))
+    else:
+        path = f"cases/{case}/pages/{page}/image.jpg"
+        picture = io.BytesIO()
+        Image.new("RGB", (int(WIDTH_IN * DPI), int(HEIGHT_IN * DPI)), "black").save(picture, format="JPEG", quality=95)
+        await storage.put(path, await crypto.encrypt(aconn, case, picture.getvalue(), purpose=path))
+    again = await ask(client, case)
+    assert again != first and jobs_of(admin, case) == 2
+    row = admin.execute("select status, page_rotation from app.second_readings where page_id = %s", (page,)).fetchone()
+    assert row == ("queued", 90 if change == "turned" else 0)
+    assert await ask(client, case) == again  # still one at a time: asking again while it waits queues nothing
+    assert jobs_of(admin, case) == 2
+
+
 # --- R-O: output validation ---
 
 _LINE = {"text": "a", "confidence": 0.5}

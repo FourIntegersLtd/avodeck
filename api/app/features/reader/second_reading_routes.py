@@ -48,12 +48,12 @@ class SecondReadingOut(BaseModel):
     read_at: datetime | None = Field(default=None, description="When the software finished reading the page.")
 
 
-async def _job_for(conn: DbConn, case_id: uuid.UUID, *, active_only: bool) -> uuid.UUID | None:
-    """The case's newest second-reading job (one still waiting or running when `active_only`)."""
+async def _own_job(conn: DbConn, job_id: uuid.UUID | None, *, active_only: bool) -> uuid.UUID | None:
+    """The job queued for this page's reading (one still waiting or running when `active_only`)."""
+    if job_id is None:
+        return None
     cur = await conn.execute(
-        "select id from app.jobs where case_id = %s and kind = %s and (not %s or status = any(%s))"
-        " order by created_at desc limit 1",
-        (case_id, second_reading.KIND, active_only, list(_ACTIVE)),
+        "select id from app.jobs where id = %s and (not %s or status = any(%s))", (job_id, active_only, list(_ACTIVE))
     )
     row = await cur.fetchone()
     return None if row is None else row[0]
@@ -82,12 +82,17 @@ async def ask_second_reading(
         raise conflict()
     if int(getattr(request.app.state, "api_rate_per_minute", 0)) > 0:
         await rate_limits.check(conn, f"POST {request.scope['route'].path_format}", ASK_PER_MINUTE)
-    cur = await conn.execute("select status from app.second_readings where page_id = %s", (page["id"],))
+    asked = (page["rotation"], await _picture_sha(request, page))
+    cur = await conn.execute(
+        "select status, job_id, page_rotation, image_sha256 from app.second_readings where page_id = %s",
+        (page["id"],),
+    )
     have = await cur.fetchone()
-    if have is not None and have[0] in ("queued", "done"):
-        # One reading per page at a time (R-E-2): waiting or finished, asking again queues nothing and answers
-        # with the job already there. A refused or failed one may be asked for again.
-        existing = await _job_for(conn, case_id, active_only=have[0] == "queued")
+    if have is not None and have[0] in ("queued", "done") and (have[2], have[3]) == asked:
+        # One reading per page and state (R-E-2): waiting or finished, and the page turned and drawn as it was,
+        # asking again queues nothing and answers with this page's own job. A turned or redrawn page, a refused
+        # or failed reading, may be asked for again.
+        existing = await _own_job(conn, have[1], active_only=have[0] == "queued")
         if existing is not None:
             return JobOut(job_id=existing)
     await conn.execute(
@@ -95,12 +100,14 @@ async def ask_second_reading(
         " values (%s, %s, %s, %s, %s)"
         " on conflict (page_id) do update set status = 'queued', reason = null, lines = null,"
         " requested_by = excluded.requested_by, page_rotation = excluded.page_rotation,"
-        " image_sha256 = excluded.image_sha256,"
+        " image_sha256 = excluded.image_sha256, job_id = null,"
         " requested_at = clock_timestamp(), finished_at = null",
-        (case_id, page["id"], scope.person_id, page["rotation"], await _picture_sha(request, page)),
+        (case_id, page["id"], scope.person_id, *asked),
     )
     await audit.record(conn, action="page.second_reading_requested", target=f"page:{page['id']}", case_id=case_id)
-    return JobOut(job_id=await registry.enqueue(conn, case_id, second_reading.KIND))
+    job_id = await registry.enqueue(conn, case_id, second_reading.KIND)
+    await conn.execute("update app.second_readings set job_id = %s where page_id = %s", (job_id, page["id"]))
+    return JobOut(job_id=job_id)
 
 
 @router.get("/pages/{page_no}/second-reading", response_model=SecondReadingOut, response_model_exclude_unset=True)
