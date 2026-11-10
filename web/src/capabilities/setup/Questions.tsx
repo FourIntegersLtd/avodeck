@@ -59,7 +59,13 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
       reload();
     } catch (err) {
       if (err instanceof ApiError && err.code === "stale") reload();
-      setError(errorMessage(err, { stale: "setup.questions.changed", letter_not_read: "setup.questions.letter_not_read" }));
+      setError(
+        errorMessage(err, {
+          stale: "setup.questions.changed",
+          letter_not_read: "setup.questions.letter_not_read",
+          letter_blocked: "setup.questions.warning.letter_blocked",
+        }),
+      );
     }
   };
   const readAgain = async () => {

@@ -146,7 +146,7 @@ def url(world: dict[str, uuid.UUID], tail: str) -> str:
     return f"/v1/cases/{world['case']}/{tail}"
 
 
-async def upload(client: Any, case: uuid.UUID, data: bytes, filename: str) -> str:
+async def upload(client: Any, case: uuid.UUID, data: bytes, filename: str, *, scanned: bool = True) -> str:
     body = {"kind": "instructions", "filename": filename, "size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
     started = await client.post(f"/v1/cases/{case}/uploads", json=body)
     assert started.status_code == 201, started.status_code
@@ -157,7 +157,8 @@ async def upload(client: Any, case: uuid.UUID, data: bytes, filename: str) -> st
         headers={"content-type": "application/octet-stream", "x-chunk-sha256": hashlib.sha256(data).hexdigest()},
     )
     assert put.status_code == 200
-    return await complete_and_finalize(client, upload_id, hashlib.sha256(data).hexdigest())
+    # The scan job is not run here; a letter is read only once its scan is recorded clean (audit 12, V2e).
+    return await complete_and_finalize(client, upload_id, hashlib.sha256(data).hexdigest(), scanned=scanned)
 
 
 async def add_letter(

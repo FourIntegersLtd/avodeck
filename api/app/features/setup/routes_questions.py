@@ -29,7 +29,7 @@ from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
 from app.core.pdf import render_page, split_pages
 from app.features.setup.common import CODE, invalid, not_found
-from app.features.setup.jobs import read_document
+from app.features.setup.jobs import read_document, scan_verdict
 from app.features.setup.letter import short_title
 from app.features.setup.notes import NoteDraft, NoteItem, NoteTopic, draft
 from app.features.setup.router import router
@@ -165,6 +165,10 @@ async def _latest(conn: DbConn, case_id: uuid.UUID) -> dict[str, Any] | None:
             " exists (select 1 from app.instruction_versions u where u.case_id = v.case_id and u.kind <> 'oral'"
             "   and u.document_id is not null and not exists (select 1 from app.instruction_extractions x"
             "   where x.instruction_version_id = u.id)) as unread,"
+            " exists (select 1 from app.instruction_versions u"
+            "   join app.document_scans s on s.document_id = u.document_id"
+            "   where u.case_id = v.case_id and u.kind <> 'oral' and not s.clean and not exists (select 1"
+            "   from app.instruction_extractions x where x.instruction_version_id = u.id)) as blocked,"
             " coalesce((select j.status = 'failed' from app.jobs j where j.case_id = v.case_id"
             "   and j.kind = 'extract_questions' order by j.created_at desc, j.updated_at desc limit 1), false)"
             "   as failed"
@@ -203,10 +207,13 @@ async def list_questions(
     total = len(questions) + len(assumptions)
     locked = bool(latest and latest["locked"])
     unread = bool(latest and latest["unread"])
-    read_failed = unread and bool(latest and latest["failed"])
-    reading = unread and not read_failed
+    blocked = unread and bool(latest and latest["blocked"])
+    read_failed = unread and not blocked and bool(latest and latest["failed"])
+    reading = unread and not read_failed and not blocked
     reopened = bool(latest and latest["reopened"] and not locked)
     warnings = []
+    if blocked:
+        warnings.append("setup.questions.warning.letter_blocked")
     if read_failed:
         warnings.append("setup.questions.warning.read_failed")
     if reopened:
@@ -435,6 +442,8 @@ async def confirm_all(case_id: uuid.UUID, access: Confirm, conn: DbConn) -> Conf
     if latest["locked"]:
         raise conflict("The questions are already confirmed.")
     if latest["unread"]:
+        if latest["blocked"]:
+            raise ApiError("letter_blocked", "The letter was blocked for safety, so it cannot be read.", 409)
         if latest["failed"]:
             raise ApiError("letter_not_read", "The letter could not be read. Ask for it to be read again.", 409)
         raise conflict("The letter is still being read.")
@@ -539,6 +548,13 @@ async def _letter_pages(
         raise not_found()
     if storage is None:
         raise ApiError("unavailable", "Saving is not ready.", 503)
+    verdict = await scan_verdict(conn, row["storage_path"])  # the same rule as the file download route
+    if verdict is None:
+        pending = ApiError("file_not_ready", "This file is still being checked. Please try again shortly.", 423)
+        pending.headers = {"Retry-After": "5"}
+        raise pending
+    if not verdict:
+        raise ApiError("file_blocked", "This file was blocked for safety and cannot be shown.", 409)
     document = await read_document(conn, storage, crypto, case_id, row["storage_path"])
     return await asyncio.to_thread(split_pages, document)
 

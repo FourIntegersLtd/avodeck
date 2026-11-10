@@ -690,6 +690,7 @@
   "setup.questions.further": "Got a further letter or phone call? Add it",
   "setup.questions.locked": "You've confirmed what you've been asked.",
   "setup.questions.reading": "We're still reading the letter. This page will update by itself.",
+  "setup.questions.warning.letter_blocked": "This letter was blocked for safety, so we haven't read it. Please add a different copy of the letter.",
   "setup.questions.warning.read_failed": "We couldn't read the letter. Please try again.",
   "setup.questions.warning.letter_without_file": "A further letter was added without its file. Please add the letter so we can find what you've been asked.",
   "setup.questions.read_again": "Read the letter again",
