@@ -674,6 +674,7 @@ class ClamdSettings:
     host: str
     port: int = 3310
     timeout_s: float = 60.0
+    wake_s: float = 120.0  # how long a connect keeps trying while the service sleeps (ADR 0027)
 
 
 def clamd_settings(env: Mapping[str, str] | None = None) -> ClamdSettings:
@@ -684,6 +685,9 @@ def clamd_settings(env: Mapping[str, str] | None = None) -> ClamdSettings:
     try:
         port = env_int(source, "CLAMD_PORT", 3310, minimum=1)
         timeout_s = float(source.get("CLAMD_TIMEOUT_S", "").strip() or 60)
+        wake_s = float(source.get("CLAMD_WAKE_S", "").strip() or 120)
     except ValueError as exc:
-        raise ConfigError("CLAMD_PORT and CLAMD_TIMEOUT_S must be numbers") from exc
-    return ClamdSettings(host=host, port=port, timeout_s=timeout_s)
+        raise ConfigError("CLAMD_PORT, CLAMD_TIMEOUT_S and CLAMD_WAKE_S must be numbers") from exc
+    if not 0 <= wake_s < float("inf"):
+        raise ConfigError("CLAMD_WAKE_S must be zero or more seconds")
+    return ClamdSettings(host=host, port=port, timeout_s=timeout_s, wake_s=wake_s)

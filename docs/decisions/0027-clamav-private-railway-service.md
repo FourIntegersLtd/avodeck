@@ -17,5 +17,6 @@ Date: 2026-10-30 · Status: accepted · Decided by: the founder (plan "lazy-mapp
 - One more service to run (memory about 1.5 GB for the signature database). If it is down, uploads wait at "checking" and are not accepted.
 - The image tag is pinned in `railway/clamav.Dockerfile`; pin its digest in the Railway build when the first image is chosen.
 - Worker and API settings: `VIRUS_SCANNER=clamd`, `CLAMD_HOST=clamav.railway.internal`.
+- The service may sleep when idle and wakes when the worker connects (a cold start loads the signature database, about 30 s). `ClamdScanner` retries only the connect, with back-off (2, 4, 8, 15 s, then 15 s), for up to the wake budget `CLAMD_WAKE_S` (default 120 s), then raises `ScanUnavailable` as before. A failure after the stream has started raises at once and the job retries from the start. Still fail closed. Test: `api/tests/unit/test_foundation_clamd_wake.py`.
 
 **Tests.** `api/tests/unit/test_foundation_clamd_scanner.py` (fake clamd), `api/tests/unit/test_foundation_clamd_live.py` (`@pytest.mark.clamd`, a clamav service container in `ci-api.yml`).

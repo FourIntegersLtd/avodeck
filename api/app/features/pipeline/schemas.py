@@ -75,7 +75,7 @@ class Document(TypedDict):
     bundle_version: int
     media_type: NotRequired[str]
     part_of: NotRequired[uuid.UUID | None]
-    unreadable_reason: NotRequired[str]  # `locked` or `damaged`: the file could not be opened (F2)
+    unreadable_reason: NotRequired[str]  # `locked`, `damaged` (F2) or `infected` (F3): the file was not opened
 
 
 class Exhibit(BaseModel):

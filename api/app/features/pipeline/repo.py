@@ -1223,12 +1223,12 @@ class DocumentRow:
 _DOCUMENT = (
     "select d.id, d.kind, d.filename, d.pages, min(p.bundle_page_no), max(p.bundle_page_no), d.received_on,"
     " d.obtained_how, d.bundle_version, d.created_at, s.media_type, dp.parent_document_id,"
-    " d.unreadable_reason"
+    " coalesce(d.unreadable_reason, case when s.clean is false then 'infected' end)"  # V2c: a flagged file is told
     " from app.documents d left join app.pages p on p.document_id = d.id"
     " left join app.document_scans s on s.document_id = d.id"
     " left join app.document_parts dp on dp.document_id = d.id"
 )
-_GROUP = " group by d.id, s.media_type, dp.parent_document_id"
+_GROUP = " group by d.id, s.media_type, s.clean, dp.parent_document_id"
 
 
 async def documents(conn: AsyncConnection, case_id: uuid.UUID) -> list[DocumentRow]:

@@ -157,6 +157,7 @@ async def upload(client: Any, case: uuid.UUID, data: bytes, filename: str, *, sc
         headers={"content-type": "application/octet-stream", "x-chunk-sha256": hashlib.sha256(data).hexdigest()},
     )
     assert put.status_code == 200
+    # The scan job is not run here; a letter is read only once its scan is recorded clean (audit 12, V2e).
     return await complete_and_finalize(client, upload_id, hashlib.sha256(data).hexdigest(), scanned=scanned)
 
 
@@ -545,15 +546,16 @@ def make_pdf(pages: int) -> bytes:
 async def test_each_question_has_a_short_label_from_the_model_or_its_own_first_clause(
     client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
 ) -> None:
-    """AUDIT-14 O-1 changed the rule: a model label is kept only if every word of it is one of the question's own
-    words (any order); otherwise the question's first clause is used."""
+    """AUDIT-14 O-1 changed the rule: a model label is kept only if it is a run of the question's own words, side by
+    side and in the question's order; otherwise the question's first clause is used."""
     got = await read_letter(await client_for(world["expert"]), world, worker_db)
     titles = [q["short_title"] for q in got["questions"]]
-    # two come from the model's label (made of the question's words); "Urgent referral" is not (the question says
-    # "referred"), so it falls back to the first clause, as the fourth does where the model gave none
+    # one comes from the model's label ("Standard of care" is a run of its question's words); "The May consultation"
+    # and "Urgent referral" are not (words missing or changed), so they fall back to the first clause, as the fourth
+    # does where the model gave none
     assert titles == [
         "Standard of care",
-        "The May consultation",
+        "In particular",
         "Would a reasonably competent general",
         "If Mrs Ashworth had been referred",
     ]

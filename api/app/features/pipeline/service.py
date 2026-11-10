@@ -173,9 +173,15 @@ def _head(path: Path) -> bytes:
 
 def _checked_pages(source: Path | bytes) -> int:
     """The page count of a PDF, after cutting every page once and dropping it, so a damaged page stops the
-    document here (F2), as it always did, not part-way through the pictures."""
-    with pikepdf.open(io.BytesIO(source) if isinstance(source, bytes) else source) as pdf:
+    document here (F2), as it always did, not part-way through the pictures.
+
+    The reader is told not to repair (`attempt_recovery=False`): a cut-off file, or one whose cross-reference
+    table is wrong, raises `PdfError` instead of being silently rebuilt with pages lost (V4d). A PDF with no
+    pages raises too (V4e), so either way the file is listed as damaged and the expert is told."""
+    with pikepdf.open(io.BytesIO(source) if isinstance(source, bytes) else source, attempt_recovery=False) as pdf:
         count = len(pdf.pages)
+        if count == 0:
+            raise pikepdf.PdfError("no pages")
         for index in range(count):
             cut_page(pdf, index)
         return count

@@ -113,6 +113,7 @@ const WORDS = {
   "bundle.unopened_other": "{{n}} files we couldn't open.",
   "bundle.unopened_locked": "{{name}} is password-protected.",
   "bundle.unopened_damaged": "{{name}} looks damaged.",
+  "bundle.unopened_infected": "{{name}} was blocked for safety.",
   "bundle.unopened_note": "The other files are not affected.",
   "bundle.straightened_one": "1 page turned the right way up.",
   "bundle.straightened_other": "{{n}} pages turned the right way up.",

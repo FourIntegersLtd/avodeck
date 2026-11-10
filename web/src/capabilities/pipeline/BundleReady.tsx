@@ -95,7 +95,7 @@ export function BundleReady() {
     >
       <ul className="pl-missing">
         {unopened.map((d) => (
-          <li key={d.id}>{w(d.unreadable_reason === "locked" ? "bundle.unopened_locked" : "bundle.unopened_damaged", { name: d.filename })}</li>
+          <li key={d.id}>{w(d.unreadable_reason === "locked" ? "bundle.unopened_locked" : d.unreadable_reason === "infected" ? "bundle.unopened_infected" : "bundle.unopened_damaged", { name: d.filename })}</li>
         ))}
       </ul>
       <p>{w("bundle.unopened_note")}</p>

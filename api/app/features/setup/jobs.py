@@ -58,11 +58,26 @@ async def read_document(
     return b"".join(parts)
 
 
+async def scan_verdict(conn: AsyncConnection, document_prefix: str) -> bool | None:
+    """Whether the document stored under this path was scanned clean; None while it has no verdict (audit 12, V2e)."""
+    cur = await conn.execute(
+        "select s.clean from app.documents d join app.document_scans s on s.document_id = d.id"
+        " where d.storage_path = %s",
+        (document_prefix,),
+    )
+    row = await cur.fetchone()
+    return None if row is None else bool(row[0])
+
+
 async def read_letter(ctx: JobContext, pack: MergedPack, document_prefix: str, who: Identity) -> Letter:
     services = current()
     _, ocr = services.ai()
     storage, crypto = services.files()
     async with ctx.transaction() as conn:
+        if await scan_verdict(conn, document_prefix) is not True:
+            # Nothing reaches OCR or the AI unless the scan recorded the file clean. The callers choose the letters
+            # first, so this is the last stop: wait for the verdict like any busy service.
+            raise ProcessingPaused("service_busy")
         document = await read_document(conn, storage, crypto, ctx.case_id, document_prefix)
     letter = Letter.from_ocr(await ocr.analyse(document, "layout"))
     letter.mask(pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
@@ -73,54 +88,45 @@ async def read_letter(ctx: JobContext, pack: MergedPack, document_prefix: str, w
 _LETTERS = "app.instruction_versions v join app.documents d on d.id = v.document_id where v.kind <> 'oral'"
 
 
-# The virus scan's verdict on a letter's file: True clean, False flagged, None not finished. Nothing reads a letter
-# (OCR, then a model) until its scan is clean: a flagged one is never read, an unfinished one is waited for.
-_SCAN = " left join app.document_scans s on s.document_id = d.id"
-
-
-def _with_scan(sql: str) -> str:
-    return sql.replace(" where v.kind", _SCAN + " where v.kind", 1)
-
-
 async def _latest_letter(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[uuid.UUID, int, str] | None:
-    """The latest letter with a file whose scan is clean; ProcessingPaused while its scan has not finished."""
     cur = await conn.execute(
-        _with_scan(f"select v.id, v.version_no, d.storage_path, s.clean from {_LETTERS} and v.case_id = %s")  # noqa: S608
-        + " order by v.version_no desc limit 1",
+        f"select v.id, v.version_no, d.storage_path from {_LETTERS} and v.case_id = %s"  # noqa: S608
+        " order by v.version_no desc limit 1",
         (case_id,),
     )
     row = await cur.fetchone()
-    if row is None or row[2] is None or row[3] is False:
+    if row is None or row[2] is None:
         return None
-    if row[3] is None:
-        raise ProcessingPaused("service_busy")
     return row[0], int(row[1]), str(row[2])
 
 
-async def _unread(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[list[tuple[uuid.UUID, int, str]], bool]:
-    cur = await conn.execute(
-        _with_scan(f"select v.id, v.version_no, d.storage_path, s.clean from {_LETTERS} and v.case_id = %s")  # noqa: S608
-        + " and d.storage_path is not null and not exists (select 1 from app.instruction_extractions e"
-        " where e.instruction_version_id = v.id) order by v.version_no",
-        (case_id,),
-    )
-    ready: list[tuple[uuid.UUID, int, str]] = []
-    for r in await cur.fetchall():
-        if r[3] is None:
-            return ready, True  # read in order: nothing after a letter still being scanned
-        if r[3]:
-            ready.append((r[0], int(r[1]), str(r[2])))
-    return ready, False
+_NOT_READ = (
+    " and d.storage_path is not null and not exists (select 1 from app.instruction_extractions e"
+    " where e.instruction_version_id = v.id)"
+)
 
 
 async def unread_letters(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, int, str]]:
-    """The case's letters not read yet, oldest first, whose virus scan is clean. A flagged letter is left out for
-    good; the list stops at a letter whose scan has not finished (`letters_waiting_for_scan`)."""
-    return (await _unread(conn, case_id))[0]
+    """The case's letters not read yet, oldest first. Only a letter whose scan is recorded clean (audit 12, V2e):
+    one that is flagged is never read, and one not scanned yet waits (`waiting_for_scan`)."""
+    cur = await conn.execute(
+        f"select v.id, v.version_no, d.storage_path from {_LETTERS} and v.case_id = %s"  # noqa: S608
+        f"{_NOT_READ} and exists (select 1 from app.document_scans s where s.document_id = d.id and s.clean)"
+        " order by v.version_no",
+        (case_id,),
+    )
+    return [(r[0], int(r[1]), str(r[2])) for r in await cur.fetchall()]
 
 
-async def letters_waiting_for_scan(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
-    return (await _unread(conn, case_id))[1]
+async def waiting_for_scan(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
+    """Some unread letter has no scan verdict yet."""
+    cur = await conn.execute(
+        f"select exists (select 1 from {_LETTERS} and v.case_id = %s"  # noqa: S608
+        f"{_NOT_READ} and not exists (select 1 from app.document_scans s where s.document_id = d.id))",
+        (case_id,),
+    )
+    row = await cur.fetchone()
+    return bool(row and row[0])
 
 
 async def _case_pack(conn: AsyncConnection, case_id: uuid.UUID) -> MergedPack:
@@ -140,9 +146,11 @@ async def extract_questions(ctx: JobContext) -> None:
     for version_id, version_no, prefix in letters:
         await _extract_one(ctx, version_id, version_no, prefix)
     async with ctx.transaction() as conn:
-        waiting = await letters_waiting_for_scan(conn, ctx.case_id)
+        waiting = await waiting_for_scan(conn, ctx.case_id)
     if waiting:
-        raise ProcessingPaused("service_busy")  # resumable: carries on when the virus scan has finished
+        # The scan has not answered for a letter: it is not read until it is clean. The queue puts this job back
+        # after a back-off (F5), so it carries on once the scan has recorded its verdict; nothing loops here.
+        raise ProcessingPaused("service_busy")
 
 
 async def _extract_one(ctx: JobContext, version_id: uuid.UUID, version_no: int, prefix: str) -> None:
@@ -359,8 +367,11 @@ async def prefill_case(ctx: JobContext) -> None:
         if latest is None:
             return
         version_id, _, prefix = latest
+        verdict = await scan_verdict(conn, prefix)
         pack = await _case_pack(conn, ctx.case_id)
         who = await identity_for(conn, crypto, ctx.case_id)
+    if verdict is False:
+        return  # flagged by the scan: never read; the questions screen tells the expert it was blocked
     await ctx.progress(10, step="ocr")
     letter = await read_letter(ctx, pack, prefix, who)
     await ctx.progress(50, step="prefill")
