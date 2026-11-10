@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core import audit
 from app.core.ai.kit import InvalidOutput
+from app.core.ai.provenance import atoms, has_hidden_characters
 from app.core.auth.step_up import require_step_up
 from app.core.contracts.case_identity import identity_for
 from app.core.contracts.served import latest_served
@@ -32,6 +33,7 @@ from app.features.trial.common import (
     NO_STORE,
     Build,
     Crypto,
+    ModelCalls,
     Pack,
     Storage,
     View,
@@ -290,26 +292,49 @@ async def download_pack(case_id: uuid.UUID, conn: DbConn, access: View, storage:
     )
 
 
+_CITATION = re.compile(r"\[[^\]]*\]")
+
+
+def is_whole_sentence_of(sentence: str, source: str) -> bool:
+    """`sentence` is one whole sentence of `source` (words and numbers as written; a citation mark such as
+    [p.214] in the source does not count). A model's claim that a sentence comes from a document is not enough."""
+    if has_hidden_characters(sentence):
+        return False
+    wanted = atoms(sentence)
+    clean = " ".join(_CITATION.sub(" ", source).split())
+    return bool(wanted) and any(atoms(s) == wanted for s in _SENTENCE.split(clean) if s.strip())
+
+
 def sentences_of(text: str) -> list[str]:
     return [s.strip() for s in _SENTENCE.split(" ".join(text.split())) if s.strip()][:MAX_SENTENCES]
 
 
 @router.post("/cases/{case_id}/trial-pack/check-new", response_model=NoteChecked)
 async def check_new_note(
-    case_id: uuid.UUID, body: TrialNoteIn, request: Request, conn: DbConn, access: Build, pack: Pack, crypto: Crypto
+    case_id: uuid.UUID,
+    body: TrialNoteIn,
+    request: Request,
+    conn: DbConn,
+    access: Build,
+    limit: ModelCalls,
+    pack: Pack,
+    crypto: Crypto,
 ) -> NoteChecked:
     sentences = sentences_of(body.text)
     served = await latest_served(conn, crypto, case_id)
     answers = answers_of(await current().answers.served(conn, crypto, case_id))
     sources: dict[str, Source] = {}
+    source_texts: dict[str, str] = {}
     lines = [f"s{i}\t{s}" for i, s in enumerate(sentences)]
     for paragraph in served.paragraphs if served else ():
         ref = f"p{paragraph.para_no}"
         sources[ref] = ReportSource(para_no=paragraph.para_no)
+        source_texts[ref] = paragraph.text
         lines.append(f"{ref}\t{' '.join(paragraph.text.split())}")
     for answer in answers:
         ref = f"q{answer.question_no}"
         sources[ref] = AnswerSource(question_no=answer.question_no)
+        source_texts[ref] = answer.text
         lines.append(f"{ref}\t{' '.join(answer.text.split())}")
     found: dict[int, tuple[str | None, str]] = {}
     if sentences and sources:
@@ -327,12 +352,19 @@ async def check_new_note(
                 dates_of_birth=who.dates_of_birth,
             )
             for s in result["sentences"]:
-                found[int(s["sentence_index"])] = (s["source"], str(s["reason"]))
+                i = int(s["sentence_index"])
+                if i in found:
+                    continue  # the first answer for a sentence stands
+                cited = s["source"]
+                if cited is not None and not is_whole_sentence_of(sentences[i], source_texts[cited]):
+                    cited = None  # code, not the model, decides a sentence is copied: it is new
+                found[i] = (cited, str(s["reason"]))
         except (ProcessingPaused, InvalidOutput):
             found = {i: (None, "check_unavailable") for i in range(len(sentences))}
     out = []
     for i, text in enumerate(sentences):
-        ref, reason = found.get(i, (None, None))  # type: ignore[assignment]
+        # a sentence the answer left out is shown as "could not check", never as found in no served document
+        ref, reason = found.get(i, (None, "check_unavailable"))  # type: ignore[assignment]
         source = sources.get(ref) if ref else None
         sentence = SentenceOut(index=i, text=text, sourced=source is not None, source=source, reason=reason)
         if source is None and reason != "check_unavailable":

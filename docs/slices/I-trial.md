@@ -40,11 +40,11 @@ The expert prepares the joint statement with the other expert, with deviations f
 ## AI tasks (architecture 6.3)
 | Task | Model | Output | Check |
 |---|---|---|---|
-| T-22a Agenda items | Azure DI + Sonnet 5 | Same schema as T-06 | Exact substring; expert confirms |
+| T-22a Agenda items | Azure DI + Sonnet 5 | Same schema as T-06 | Code decides what an item is: one unbroken run of the agenda's own words, after its printed number, to the next item or sentence end; numbers not copied are kept (`unread_numbers`); expert confirms |
 | T-22b Prefill from served report | bge-small + Sonnet 5 | `{agenda_id, paragraph_ids}` | Code inserts the verbatim text; the expert edits |
 | T-22c Deviation check | Opus 5.5 | `{status: consistent\|changed\|unclear, reason}` | "Changed position" warning; the expert records the reason (a change of opinion also creates a G `report_changes` row) |
 | T-23 OCR | Azure DI Read | Words | — |
-| T-24 Nothing new on the day | bge-small + Sonnet 5 | `{sentence_index, source: {document, paragraph_id} \| null}` | Unsourced notes flagged; the expert decides |
+| T-24 Nothing new on the day | bge-small + Sonnet 5 | `{sentence_index, source: {document, paragraph_id} \| null}` | A source counts only if the sentence is a whole sentence of it (code); unsourced notes flagged; a sentence the answer left out is "could not check"; the expert decides |
 
 ## Contracts
 - **In:** the served version and citations (F), positions and supplementary versions (G), `citable_facts()` (B), page-read log (B), pack meetings, deadlines and legal tests (foundation).
@@ -106,3 +106,7 @@ Root checklist, plus: on staging the synthetic case produces a signed joint stat
 ## Design pass (S22-S24)
 
 S22-S24 now follow their boards. New server parts: `pages` on each agenda item, `source_type`/`document_date` on each concordance row and `replaces_received_on` on the bundle, a `readiness` pack section (one page per question) and the preview endpoint above. Also built (migration 0901): the expert's reply on each readiness sheet (`readiness_replies`, printed in the pack), the Tell / Leave out choice on a sentence found in nothing served (`trial_notes`, the choice is only recorded, nothing is sent), "told" remembered on the court bundle (`missing_told_at`), exact per-section page counts (`trial_packs.section_pages`, the preview counts by the same render) and the "Built for the trial from" line (from the pack's `created_at`).
+
+## Security audit step 14 (AI)
+
+Audit tests: `api/tests/security/test_trial_ai_agenda.py` (findings T-01 to T-11; failure modes F98 to F102). The model-calling routes (agenda upload, position change, check-new) share a per-person limit of 30 a minute (`common.limit_model_calls`). Left for the screen: a notice on S22 when an agenda version has `needs_check` (needs the regenerated client).

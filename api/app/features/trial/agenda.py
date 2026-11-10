@@ -15,6 +15,7 @@ from typing import Any
 from psycopg import AsyncConnection
 
 from app.core.ai.kit import AiKit
+from app.core.ai.provenance import has_hidden_characters
 from app.core.contracts.case_identity import identity_for
 from app.core.contracts.served import ServedReport
 from app.core.crypto import CaseCrypto
@@ -29,16 +30,54 @@ def same_words(a: str, b: str) -> bool:
     return _SPACE.sub(" ", a).strip().casefold() == _SPACE.sub(" ", b).strip().casefold()
 
 
+# an item number as printed in an agenda: "3.", "3)", "3:" or "(3)"
+_MARKER = re.compile(r"^(?:\(?(\d{1,3})[.):]|\((\d{1,3})\))$")
+_ENDS_SENTENCE = re.compile(r"[.?!][\"')\]]*$")
+
+
+def marker_number(word: str) -> int | None:
+    found = _MARKER.match(word.strip())
+    return int(found.group(1) or found.group(2)) if found else None
+
+
+def expected_numbers(words: dict[str, str]) -> list[int]:
+    """The item numbers printed in the agenda, counting up from 1 in reading order (1, 2, 3, ...)."""
+    numbers: list[int] = []
+    for word in words.values():
+        if marker_number(word) == len(numbers) + 1:
+            numbers.append(len(numbers) + 1)
+    return numbers
+
+
 def copied_items(answer: dict[str, Any], words: dict[str, str]) -> list[tuple[int, str, list[str]]]:
-    """(number, text, word ids) of each item whose words are exactly the cited words, one per number."""
+    """(number, text, word ids) of each item the agenda's own words back, one per number.
+
+    Code, not the model, decides what an item is (rule 2): its words are one unbroken run of the agenda in
+    reading order, the word before the run is the item's own printed number, and the run ends where the next
+    item begins, at the end of the agenda or at the end of a sentence. Words are exactly the cited words.
+    """
+    listed = list(words)
+    position = {w: i for i, w in enumerate(listed)}
     out: dict[int, tuple[int, str, list[str]]] = {}
     for item in answer.get("items", []):
         ids = list(item["word_ids"])
-        if not ids or any(w not in words for w in ids) or len(set(ids)) != len(ids):
+        if not ids or any(w not in position for w in ids) or len(set(ids)) != len(ids):
             continue
+        at = [position[w] for w in ids]
+        if any(b != a + 1 for a, b in zip(at, at[1:], strict=False)):
+            continue  # a word left out (a negation) or the words reordered
+        number = item["number"]
+        if at[0] == 0 or marker_number(words[listed[at[0] - 1]]) != number:
+            continue  # starts mid-sentence, or under another item's number
+        if any(marker_number(words[w]) == number + 1 for w in ids):
+            continue  # runs on into the next item
+        after = listed[at[-1] + 1] if at[-1] + 1 < len(listed) else None
+        if after is not None and marker_number(words[after]) is None and not _ENDS_SENTENCE.search(words[ids[-1]]):
+            continue  # ends mid-sentence
         text = " ".join(words[w] for w in ids)
-        if same_words(text, item["text_verbatim"]) and item["number"] not in out:
-            out[item["number"]] = (item["number"], text, ids)
+        if has_hidden_characters(text) or not same_words(text, item["text_verbatim"]) or number in out:
+            continue
+        out[number] = (number, text, ids)
     return [out[n] for n in sorted(out)]
 
 
@@ -64,7 +103,7 @@ async def links(
     by_ref = {f"p{p.para_no}": p for p in served.paragraphs}
     request = "\n".join(
         [*(f"{ref}\t{t}" for ref, t in zip(agenda_refs, texts, strict=True))]
-        + [f"{ref}\t{p.text}" for ref, p in by_ref.items()]
+        + [f"{ref}\t{' '.join(p.text.split())}" for ref, p in by_ref.items()]
     )
     task = ai_tasks.t22b(pack, agenda_refs, list(by_ref))
     who = await identity_for(conn, crypto, case_id)

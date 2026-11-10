@@ -56,7 +56,8 @@ async def read_agenda(ctx: JobContext) -> None:
         pack = await pack_for(conn, services.packs, ctx.case_id)
         pdf = await get_sealed(services, conn, ctx.case_id, version["storage_path"])
         flat = [w for page in await page_texts(services, pdf) for w in page]
-        words = {f"w{n}": text for n, text in enumerate(flat, start=1)}
+        # one line per word: a word with a line break in it cannot add a forged line (a fake id) to the request
+        words = {f"w{n}": " ".join(text.split()) for n, text in enumerate(flat, start=1)}
         request = "\n".join(f"{ref}\t{text}" for ref, text in words.items())
         who = await identity_for(conn, crypto, ctx.case_id)
         answer = await kit.run(
@@ -82,8 +83,12 @@ async def read_agenda(ctx: JobContext) -> None:
             conn, crypto, kit, pack, ctx.case_id, version["meeting_id"], version["id"], copied, previous, served
         )
         await conn.execute(
-            "update app.agenda_versions set read_at = now(), item_count = %s where id = %s",
-            (len(copied), version["id"]),
+            "update app.agenda_versions set read_at = now(), item_count = %s, unread_numbers = %s where id = %s",
+            (
+                len(copied),
+                [n for n in agenda_reading.expected_numbers(words) if n not in {c[0] for c in copied}],
+                version["id"],
+            ),
         )
         await conn.execute(
             "update app.expert_meetings set status = 'draft', signing_reference_sha256 = null, sent_at = null,"
