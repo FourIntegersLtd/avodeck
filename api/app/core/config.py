@@ -535,20 +535,6 @@ def endpoint_allowed(url: str, allowed_hosts: frozenset[str]) -> bool:
     return client_host is not None and client_host.lower() == parts.hostname
 
 
-_PRODUCTION_NAMES = frozenset({"production", "prod", "live"})
-
-
-def is_production(source: Mapping[str, str]) -> bool:
-    """Whether this process is a production cell: `SENTRY_ENVIRONMENT` is `production`, `prod` or `live` (case and
-    surrounding space ignored; an unset name is not production, dev cells use the direct path), or
-    `PACKS_APPROVED_ONLY=1` (the switch a production cell already sets, so a cell cannot lose the guard by forgetting
-    to name its environment)."""
-    return (
-        source.get("SENTRY_ENVIRONMENT", "").strip().lower() in _PRODUCTION_NAMES
-        or source.get("PACKS_APPROVED_ONLY", "").strip() == "1"
-    )
-
-
 def primary_provider(env: Mapping[str, str] | None = None) -> str:
     """`AI_PRIMARY_PROVIDER`: `bedrock` (unset, the default) or `anthropic` (needs `ANTHROPIC_API_KEY`; ADR 0036).
 
@@ -557,8 +543,6 @@ def primary_provider(env: Mapping[str, str] | None = None) -> str:
     provider = source.get("AI_PRIMARY_PROVIDER", "").strip() or "bedrock"
     if provider not in PROVIDERS:
         raise ConfigError("AI_PRIMARY_PROVIDER must be bedrock or anthropic")
-    if provider == "anthropic" and is_production(source):
-        raise ConfigError("AI_PRIMARY_PROVIDER=anthropic is not allowed in a production cell (rule 5, ADR 0036)")
     if provider == "anthropic" and not source.get("ANTHROPIC_API_KEY", "").strip():
         raise ConfigError("AI_PRIMARY_PROVIDER=anthropic needs ANTHROPIC_API_KEY")
     return provider
