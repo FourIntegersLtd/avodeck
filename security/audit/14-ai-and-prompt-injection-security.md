@@ -114,7 +114,7 @@ Rules 1 to 3 were tested and held throughout: no prompt asks for an opinion, no 
 
 | Id | What | Severity | Status |
 |---|---|---|---|
-| M7 | `AI_PRIMARY_PROVIDER=anthropic` worked in any cell, including production | Medium | Fixed: start-up fails in a production cell |
+| M7 | `AI_PRIMARY_PROVIDER=anthropic` worked in any cell, including production | Medium | Guard added, then removed on 2026-11-11 at the owner's request: the switch is the owner's to set; set `bedrock` before any real bundle |
 | M10 | T-02 (letter reading) had no case, so no cost guard | Medium | Fixed: per-person daily token allowance and 4 a minute |
 | M1 to M6 | Model id matched by prefix; endpoint region not tied to the cell region; allow-list accepted user-info, odd ports, padding and backslashes | Low | Fixed |
 | M8, M9 | Direct client read `ANTHROPIC_*` environment variables and followed redirects | Low | Fixed |
