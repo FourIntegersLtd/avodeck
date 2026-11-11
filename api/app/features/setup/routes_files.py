@@ -21,6 +21,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from psycopg.rows import dict_row
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core import rate_limits
 from app.core.ai.kit import InvalidOutput
 from app.core.crypto import SecretBox
 from app.core.errors import ApiError, ProcessingPaused
@@ -32,6 +33,12 @@ from app.features.setup.common import cell, invalid, library, not_found, registr
 from app.features.setup.router import router
 
 TEMPLATE_MAX = 20 * 1024 * 1024
+# T-02 has no case, so the per-case cost guard does not apply. Two per-person limits stand in for it: a few tries a
+# minute (a loop is stopped at once), and a token allowance for the day (the kit pauses the call at the limit,
+# `processing_paused`). Sized for a handful of templates a day.
+T02_PER_MINUTE = 4
+T02_RATE_KEY = "ai POST /me/template/suggestions"
+T02_TOKENS_PER_DAY = 60_000
 SIGNATURE_MAX = 5 * 1024 * 1024
 SIGNATURE_SIDE = 2000
 NO_STORE = {"cache-control": "private, no-store"}
@@ -332,18 +339,26 @@ async def suggest_sections(request: Request, conn: DbConn) -> SectionSuggestions
     kit = services.current().kit
     if kit is None:
         raise ProcessingPaused("model_unavailable")
+    await rate_limits.check(conn, T02_RATE_KEY, T02_PER_MINUTE)  # a plain read, no lock
+    # The try is counted in a short transaction of its own, committed at once: the count's row lock must not be
+    # held through the model call, or a second try from the same person would wait for the first.
+    async with request.app.state.database.request(request.state.scope) as counting:
+        await counting.execute("select hits from app.rate_limit_hit(%s)", (T02_RATE_KEY,))
     pack = await _profile_pack(request, conn)
     task = ai_tasks.t02(pack)
     quick = kit.with_retries(0)
+    headings = ai_tasks.t02_headings(row["headings"])
     try:
-        out = await quick.run(conn, task, pack=pack, text=ai_tasks.t02_text(row["headings"]))
+        out = await quick.run(
+            conn, task, pack=pack, text=ai_tasks.t02_text(headings), person_token_limit=T02_TOKENS_PER_DAY
+        )
     except InvalidOutput:
         return SectionSuggestions(suggestions=[], rejected=0)  # nothing usable: the expert maps them
-    headings = {h["index"] for h in row["headings"]}
+    sent = {h["index"] for h in headings}
     kept: dict[int, SectionSuggestion] = {}
     rejected = 0
     for s in out["suggestions"]:
-        if s["index"] not in headings or s["index"] in kept:
+        if s["index"] not in sent or s["index"] in kept:
             rejected += 1
             continue
         kept[s["index"]] = SectionSuggestion(**s)

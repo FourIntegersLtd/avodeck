@@ -50,7 +50,7 @@ from app.features.after_serving.common import (
 )
 from app.features.after_serving.services import current
 from app.features.after_serving.text import Letter, checked_items
-from app.features.after_serving.words import word
+from app.features.after_serving.words import page_markers, word
 
 logger = logging.getLogger("app.after_serving")
 
@@ -115,7 +115,7 @@ async def extract_written_questions(ctx: JobContext) -> None:
         rounds = await fetch_all(
             conn,
             "select id, document_id from app.written_question_rounds where case_id = %s and extracted_at is null"
-            " and document_id is not null order by number",
+            " and none_found_at is null and document_id is not null order by number",
             (ctx.case_id,),
         )
     rule_ref = next((str(r.get("rule_ref")) for r in pack.deadline_rules() if r.get("key") == WRITTEN_QUESTIONS), None)
@@ -167,6 +167,17 @@ async def _extract_round(
                 )
     await _suggest(ctx, pack, round_id)
     async with ctx.transaction() as conn:
+        stored = await fetch_one(
+            conn, "select count(*) as n from app.written_questions where round_id = %s", (round_id,)
+        )
+        if not (stored and stored["n"]):
+            # A document with no questions found is not a finished read (the round stays open for the expert to
+            # read again), but a later run must not ask the model about it again: that is marked here.
+            logger.warning("written questions: none found in the round's document")
+            await conn.execute(
+                "update app.written_question_rounds set none_found_at = now() where id = %s", (round_id,)
+            )
+            return
         await conn.execute("update app.written_question_rounds set extracted_at = now() where id = %s", (round_id,))
 
 
@@ -304,6 +315,8 @@ async def _verify_report(ctx: JobContext, pack: MergedPack, report_id: uuid.UUID
                 dates_of_birth=who.dates_of_birth,
             )
             accepted, _ = checked_items(letter, out.get("claims", []))
+            markers = page_markers(pack.language)
+            expected = letter.page_sentences(markers)
             number = 0
             seen: set[tuple[str, ...]] = set()
             for item, found in accepted:
@@ -319,15 +332,25 @@ async def _verify_report(ctx: JobContext, pack: MergedPack, report_id: uuid.UUID
                         ctx.case_id,
                         document_id,
                         number,
-                        (str(item["paragraph_ref"])[:20] if item.get("paragraph_ref") else None),
+                        letter.para_ref(found.start),  # read from their layout, never from the model
                         await seal(conn, crypto, ctx.case_id, found.text, CLAIM),
                         found.word_ids,
-                        str(item.get("cited_page", ""))[:20],
+                        letter.cited_page(found, markers),  # read from their words, never from the model
                         await seal(conn, crypto, ctx.case_id, value, CLAIM_VALUE),
                     ),
                 )
+            await conn.execute(
+                "update app.opposing_reports set claims_expected = %s where document_id = %s", (expected, document_id)
+            )
     await _check_claims(ctx, pack, document_id)
     await _compare_positions(ctx, pack, report_id, document_id)
+
+
+def _supports(value: str, evidence: Sequence[str], words: Sequence[tuple[str, str]]) -> bool:
+    """The claimed value is found, whole, in the page words the evidence cites (the same check as every fact)."""
+    from app.core.ai import provenance
+
+    return provenance.supported(value, list(evidence), dict(words))
 
 
 def _within(value: str, text: str) -> bool:
@@ -348,9 +371,11 @@ async def _check_claims(ctx: JobContext, pack: MergedPack, document_id: uuid.UUI
             (document_id,),
         )
     for claim in claims:
+        if claim["cited_page_ref"] is None:
+            continue  # no single page could be read from their words: stays unchecked, for the expert
         async with ctx.transaction() as conn:
             value = await unseal(conn, crypto, ctx.case_id, claim["cited_value"], CLAIM_VALUE) or ""
-            ref = str(claim["cited_page_ref"] or "")
+            ref = str(claim["cited_page_ref"])
             page = (
                 await fetch_one(
                     conn,
@@ -387,18 +412,22 @@ async def _check_claims(ctx: JobContext, pack: MergedPack, document_id: uuid.UUI
                     dates_of_birth=who.dates_of_birth,
                 )
                 if out.get("status") not in ai_tasks.CLAIM_RESULTS:
-                    continue  # stays unchecked; the job can run again
+                    continue  # stays unchecked (shown as needing the expert); the job can run again
                 on_page = {w for w, _ in words}
                 status, checked_by = str(out["status"]), "model"
                 evidence = [w for w in _ids(out.get("evidence_word_ids")) if w in on_page]
                 reason = str(out.get("reason", ""))[:80] or None
+                if status == "matches" and not _supports(value, evidence, words):
+                    # A match is only a match when the page words the model points to are real and say what
+                    # they say; otherwise it is not one, and the expert sees it as not checked.
+                    status, evidence, reason = "unchecked", [], None
             await conn.execute(
                 "update app.opposing_claims set status = %s, checked_by = %s, evidence_page_id = %s,"
                 " evidence_word_ids = %s, reason = %s where id = %s",
                 (
                     status,
                     checked_by,
-                    page["id"] if page and status != "not_on_page" else None,
+                    page["id"] if page and status not in ("not_on_page", "unchecked") else None,
                     evidence,
                     reason,
                     claim["id"],

@@ -40,6 +40,7 @@ from app.features.trial.common import (
     POSITION,
     REASON,
     Crypto,
+    ModelCalls,
     Pack,
     Setup,
     Sign,
@@ -49,6 +50,7 @@ from app.features.trial.common import (
     Write,
     conflict,
     invalid,
+    limit_model_calls,
     meeting_type,
     not_found,
     pdf_body,
@@ -100,6 +102,8 @@ class AgendaVersionOut(BaseModel):
     read_at: datetime | None
     item_count: int | None
     created_at: datetime
+    unread_numbers: list[int] = Field(default_factory=list)  # printed item numbers nothing was copied for
+    needs_check: bool = False  # the read left items out: "please check the agenda yourself"
 
 
 class AgendaVersionsOut(BaseModel):
@@ -447,6 +451,7 @@ async def upload_agenda(
     request: Request,
     conn: DbConn,
     access: Upload,
+    limit: ModelCalls,
     storage: Storage,
     crypto: Crypto,
 ) -> AgendaQueued:
@@ -462,6 +467,7 @@ async def new_agenda_version(
     request: Request,
     conn: DbConn,
     access: Upload,
+    limit: ModelCalls,
     storage: Storage,
     crypto: Crypto,
 ) -> AgendaQueued:
@@ -509,6 +515,7 @@ async def change_item(
     crypto: Crypto,
     if_match: IfMatch,
     response: Response,
+    request: Request,
 ) -> ItemOut:
     row = await repo.one(
         conn, "select * from app.agenda_items where case_id = %s and id = %s for update", (case_id, item_id)
@@ -532,6 +539,7 @@ async def change_item(
         elif same_words(original, body.own_position):
             sets["deviation"], sets["deviation_reason"] = "consistent", "copied_from_report"
         else:
+            await limit_model_calls(request, conn)  # only a change that asks the model counts against the limit
             sets["deviation"], sets["deviation_reason"] = await _check_position(
                 conn, crypto, pack, case_id, original, body.own_position
             )

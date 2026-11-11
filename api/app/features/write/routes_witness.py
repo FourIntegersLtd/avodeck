@@ -24,7 +24,17 @@ from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
 from app.core.packs import MergedPack
-from app.features.write.common import Crypto, PointFact, Queued, Write, case_pack, invalid, not_found, refused
+from app.features.write.common import (
+    Crypto,
+    PointFact,
+    Queued,
+    Write,
+    case_pack,
+    invalid,
+    limit_model_calls,
+    not_found,
+    refused,
+)
 from app.features.write.router import router
 
 Verdict = Literal["supports", "contradicts", "not_addressed"]
@@ -59,6 +69,32 @@ class ClaimOut(BaseModel):
     status: str
     version: int
     facts: list[PointFact]
+
+
+ComparisonStatus = Literal["not_yet_run", "queued", "waiting_to_be_read", "done", "refused"]
+
+
+class ComparisonOut(BaseModel):
+    """Where a witness statement stands: asked for yet, waiting for its page to be read, compared, or refused.
+    A comparison the model refused is never shown as one that found nothing."""
+
+    document_id: uuid.UUID
+    status: ComparisonStatus
+    claims: int | None
+
+
+async def comparison_states(conn: DbConn, case_id: uuid.UUID, pack: MergedPack) -> list[ComparisonOut]:
+    """Each statement document of the case with the state of its latest comparison."""
+    cur = await conn.execute(
+        "select d.id, c.status, c.claims from app.documents d"
+        " left join lateral (select status, claims from app.witness_comparisons w"
+        "   where w.document_id = d.id and w.case_id = %s order by w.created_at desc, w.id desc limit 1) c on true"
+        " where d.bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and exists (select 1 from app.pages p where p.document_id = d.id and p.source_type = any(%s))"
+        " order by d.id",
+        (case_id, case_id, sorted(pack.statement_sources())),
+    )
+    return [ComparisonOut(document_id=r[0], status=r[1] or "not_yet_run", claims=r[2]) for r in await cur.fetchall()]
 
 
 class ClaimChange(BaseModel):
@@ -112,6 +148,7 @@ async def compare(case_id: uuid.UUID, document_id: uuid.UUID, request: Request, 
     )
     if await cur.fetchone() is None:
         raise not_found()
+    await limit_model_calls(request, conn)
     if not await statement_pages(conn, case_id, document_id, await case_pack(request, conn, case_id)):
         raise ApiError(
             "not_a_statement",

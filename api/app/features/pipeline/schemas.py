@@ -132,6 +132,9 @@ class SortedPage(BaseModel):
     page_id: uuid.UUID
     page_no: int  # the page's own number; sorting never changes it
     source_type: str | None
+    # Where the page is from is the software's reading of its words, never confirmed by a person: shown as a suggestion
+    # (null when the page has no label). It is set only by T-07b, so its origin is that page's `page_analysis` row.
+    source_type_status: Literal["suggested"] | None = None
     date: dt.date | None
 
 

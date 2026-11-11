@@ -23,6 +23,7 @@ import asyncio
 import contextlib
 import copy
 import logging
+import re
 import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
@@ -132,9 +133,31 @@ def looks_cut_off(output_tokens: int, max_tokens: int, output: Any, validator: A
     return False
 
 
-def _starred(path: Sequence[Any]) -> str:
-    """A place in an answer with list positions as `*`: where, never what (rule 6)."""
-    return ".".join("*" if isinstance(part, int) else str(part) for part in path)
+def _starred(path: Sequence[Any], schema_path: Sequence[Any] = ()) -> str:
+    """A place in an answer with list positions as `*`: where, never what (rule 6).
+
+    A name stays only when the schema itself declares it at that place (`properties`, then the name); a key the
+    model chose (a map's key, or anything that cannot be lined up with the schema's own path) is starred too, so a
+    model-chosen key never reaches a log line (AUDIT-14 E-LOG2)."""
+    place = list(path)
+    keywords = list(schema_path)
+    shown: list[str] = []
+    i = j = 0
+    while i < len(place) and j < len(keywords):
+        word = keywords[j]
+        if word == "properties" and j + 1 < len(keywords):
+            shown.append(str(place[i]) if place[i] == keywords[j + 1] else "*")
+            i, j = i + 1, j + 2
+        elif word == "prefixItems":
+            shown.append("*")
+            i, j = i + 1, j + 2
+        elif word == "items":
+            shown.append("*")
+            i, j = i + 1, j + 1
+        else:
+            j += 1
+    shown.extend("*" for _ in place[i:])  # anything left over could not be lined up with the schema: never shown
+    return ".".join(shown)
 
 
 def mend_labels(output: Any, validator: Any) -> tuple[Any, list[str]]:
@@ -159,7 +182,7 @@ def mend_labels(output: Any, validator: Any) -> tuple[Any, list[str]]:
             if len(lists) < 2:
                 continue
             drops.add(tuple(path[: lists[-1] + 1]))
-        places.append(_starred(path))
+        places.append(_starred(path, error.schema_path))
     if not places:
         return output, []
     mended = copy.deepcopy(output)
@@ -176,6 +199,39 @@ def _at(value: Any, path: Sequence[Any]) -> Any:
     return value
 
 
+MAX_ANSWER_DEPTH = 64  # no task's schema nests this deep; a deeper answer is refused before it is validated
+
+
+def too_deep(value: Any, limit: int = MAX_ANSWER_DEPTH) -> bool:
+    """Whether `value` nests lists and objects deeper than `limit` (checked without recursion)."""
+    level = [value]
+    for _ in range(limit):
+        level = [
+            child
+            for item in level
+            for child in (item.values() if isinstance(item, dict) else item if isinstance(item, list) else ())
+        ]
+        if not level:
+            return False
+    return bool(level)
+
+
+_SAFE_CODE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
+
+
+def vetted_refusal(refused: ModelRequestRefused) -> ModelRequestRefused:
+    """A copy of `refused` whose message is its code, only if that has the shape of one (never text), else
+    `unknown`; its typed fields are kept (AUDIT-14 E-LOG1)."""
+    code = refused.error_code or (str(refused.args[0]) if len(refused.args) == 1 else "")
+    return ModelRequestRefused(code if _SAFE_CODE.fullmatch(code) else "unknown").annotated(
+        status=refused.status,
+        error_type=refused.error_type,
+        error_code=refused.error_code,
+        request_id=refused.request_id,
+        cause=refused.cause,
+    )
+
+
 def backoff_delays(retries: int, base: float = 2.0, limit: float = MAX_WAIT_SECONDS) -> list[float]:
     """Growing waits between attempts, never more than `limit` seconds in all. No jitter: guard F5 pins the schedule."""
     delays: list[float] = []
@@ -185,6 +241,11 @@ def backoff_delays(retries: int, base: float = 2.0, limit: float = MAX_WAIT_SECO
             break
         delays.append(delay)
     return delays
+
+
+def _needs_case(case_id: uuid.UUID | None) -> None:
+    if case_id is None:
+        raise ValueError("this call needs a case id: only `run` has a per-person allowance for a call with no case")
 
 
 class AiKit:
@@ -262,6 +323,7 @@ class AiKit:
         subject: str | None = None,
         job_id: uuid.UUID | None = None,
         provider: str | None = None,
+        person_token_limit: int | None = None,
     ) -> dict[str, Any]:
         """`subject` is what the call is about (`answers.page_subject`), so recorded answers can be found.
 
@@ -269,10 +331,15 @@ class AiKit:
         call): with it, the call waits its turn under the provider's requests-per-minute ceiling, fairly
         across every job wanting one (`_wait_for_slot`, migrations 0049 and 0055).
 
-        `provider=None` asks the primary provider, then the fallback; `"bedrock"` asks Bedrock only."""
+        `provider=None` asks the primary provider, then the fallback; `"bedrock"` asks Bedrock only.
+
+        A call with no case has no case allowance. `person_token_limit` gives it one per person: the caller's own
+        case-less calls of the last day are counted (AUDIT-14 M10), and the call is paused at the limit."""
         model_id = self._prepare(provider, task)
         if case_id is not None:
             await self._cost_guard(conn, case_id)
+        elif person_token_limit is not None:
+            await self._person_guard(conn, person_token_limit)
         stripped = pii.strip(text, pack=pack, names=names, dates_of_birth=dates_of_birth)
         return await self._ask(conn, task, model_id, case_id, pack, stripped.text, subject, None, job_id, provider)
 
@@ -291,7 +358,9 @@ class AiKit:
         job_id: uuid.UUID | None = None,
         provider: str | None = None,
     ) -> dict[str, Any]:
-        """Like `run`, with a page picture whose identifiers `mask.mask_page` painted out. Raw bytes are refused."""
+        """Like `run`, with a page picture whose identifiers `mask.mask_page` painted out. Raw bytes are refused.
+        A call needs a case: it has no per-person allowance, so with no case it would have no cost guard."""
+        _needs_case(case_id)
         if not isinstance(masked, MaskedImage):
             raise TypeError("run_image takes a MaskedImage made by mask.mask_page")
         if not is_genuine(masked):
@@ -318,10 +387,10 @@ class AiKit:
     ) -> dict[str, Any]:
         """Like ``run``, but for worker jobs: opens short-lived transactions for each DB
         operation so no pool connection is held during slot waits or model calls."""
+        _needs_case(case_id)
         model_id = self._prepare(provider, task)
-        if case_id is not None:
-            async with database.job(case_id) as conn:
-                await self._cost_guard(conn, case_id)
+        async with database.job(case_id) as conn:
+            await self._cost_guard(conn, case_id)
         stripped = pii.strip(text, pack=pack, names=names, dates_of_birth=dates_of_birth)
         return await self._ask_detached(
             database, case_id, task, model_id, pack, stripped.text, subject, job_id, provider
@@ -458,7 +527,20 @@ class AiKit:
         raise InvalidOutput(task.task_id)
 
     def _checked(self, task: AiTask, response: ModelResponse, validator: Any) -> tuple[ModelResponse, bool]:
-        """The answer and whether it matches the schema, once any off-list labels are mended (`mend_labels`)."""
+        """The answer and whether it matches the schema, once any off-list labels are mended (`mend_labels`).
+
+        An answer nested deeper than `MAX_ANSWER_DEPTH` is wrong without being read further: it is replaced by an
+        empty one in the result, so no later step walks it (AUDIT-14 O12)."""
+        if too_deep(response.output):
+            return replace(response, output={}), False
+        try:
+            return self._checked_within_depth(task, response, validator)
+        except (ValueError, RecursionError):  # the validator's own limit: still a wrong answer, never an exception
+            return replace(response, output={}), False
+
+    def _checked_within_depth(
+        self, task: AiTask, response: ModelResponse, validator: Any
+    ) -> tuple[ModelResponse, bool]:
         if validator.is_valid(response.output):
             return response, True
         if not task.mends_labels:
@@ -523,6 +605,19 @@ class AiKit:
         allowance = self.settings.cost_guard.allowance(pages)
         if used >= allowance:
             logger.error("cost_guard tripped for case %s: %d of %d tokens used", case_id, used, allowance)
+            raise ProcessingPaused("cost_guard")
+
+    async def _person_guard(self, conn: AsyncConnection, limit: int) -> None:
+        """Pause a case-less call once the caller has used `limit` tokens in the last day. Row-level security shows
+        a person only their own case-less rows; the `person_id` test is repeated so it does not depend on that."""
+        cur = await conn.execute(
+            "select coalesce(sum(input_tokens + output_tokens), 0) from app.ai_calls"
+            " where case_id is null and person_id = app.current_person_id() and at > now() - interval '1 day'"
+        )
+        row = await cur.fetchone()
+        used = int(row[0]) if row else 0
+        if used >= limit:
+            logger.error("cost_guard tripped for a person: %d of %d tokens used today", used, limit)
             raise ProcessingPaused("cost_guard")
 
     async def _answer(
@@ -603,6 +698,16 @@ class AiKit:
         raise AssertionError("unreachable")  # pragma: no cover
 
     async def _invoke_bedrock(self, request: ModelRequest, wait: _Wait | None) -> ModelResponse:
+        """The Bedrock leg. A refusal is re-raised carrying only a code of a safe shape, outside the handler so the
+        original (whose message a client may have filled from the provider's body) is not kept as its context."""
+        refused: ModelRequestRefused | None = None
+        try:
+            return await self._invoke_bedrock_checked(request, wait)
+        except ModelRequestRefused as exc:
+            refused = exc
+        raise vetted_refusal(refused)
+
+    async def _invoke_bedrock_checked(self, request: ModelRequest, wait: _Wait | None) -> ModelResponse:
         if self.bedrock is None:
             logger.error("no in-region model client; processing paused")
             raise ProcessingPaused("model_unavailable")

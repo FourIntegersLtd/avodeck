@@ -84,6 +84,29 @@ def _turn(polygon: tuple[float, ...], rotation: int, width: float, height: float
     return tuple(out)
 
 
+_SPACES = {"\r": " ", "\x85": " ", "\u2028": " ", "\u2029": " "}
+
+
+def _clean_text(text: str) -> str:
+    """The word without control characters (C0 and C1 other than tab and line break); a line separator becomes a
+    space. Nothing else about the word changes."""
+    out = []
+    for ch in text:
+        if ch in _SPACES:
+            out.append(_SPACES[ch])
+        elif ch in "\n\t" or not (ord(ch) < 32 or 127 <= ord(ch) < 160):
+            out.append(ch)
+    return "".join(out)
+
+
+def sanitised(page: OcrPage) -> OcrPage:
+    """The page as taken in: control characters stripped from every word (they are never stored or sent to a model),
+    and a word with no id left out (every stored word has an id, since a fact cites words by id). Ids of the other
+    words are untouched."""
+    words = tuple(replace(w, text=_clean_text(w.text)) for w in page.words if w.id.strip())
+    return replace(page, words=words)
+
+
 def turned(page: OcrPage, rotation: int) -> OcrPage:
     """The page's words as they sit on the picture turned clockwise by `rotation` degrees."""
     if rotation % 360 == 0:

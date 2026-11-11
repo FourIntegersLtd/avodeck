@@ -24,6 +24,7 @@ from app.core.http import DbConn
 from app.features.understand import guidelines, repo
 from app.features.understand.as_seen import SeenItem
 from app.features.understand.as_seen import as_seen as seen_on
+from app.features.understand.availability import AvailabilityBasis, basis_of
 from app.features.understand.common import case_pack, not_found, undated_entry
 from app.features.understand.guidelines import in_force
 from app.features.understand.router import router
@@ -43,6 +44,8 @@ class Entry(BaseModel):
     source: str | None = None
     has_finding: bool = False
     author_line: str | None = None
+    availability_basis: AvailabilityBasis | None = None
+    """How `available_at` was worked out (`software_label` means only the software's page label decided it)."""
 
 
 class Box(BaseModel):
@@ -113,6 +116,9 @@ def _entry(fact: repo.SeenFact, flagged: set[uuid.UUID] = frozenset(), pack: Any
         summary=repo.summary_of(fact),
         source=fact.source,
         has_finding=fact.fact_id in flagged,
+        availability_basis=(
+            basis_of(fact.kind, fact.stored_basis, fact.override, pack.arriving_kinds()) if pack is not None else None
+        ),
     )
 
 

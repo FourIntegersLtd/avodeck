@@ -1,7 +1,8 @@
 """Screen 17: the final check before signing, and acknowledging corrected declaration wording (F34).
 
 `POST .../report/final-check` queues `final_check` on the latest draft (202; 409 `not_built` without a
-draft). `GET .../report/final-check/latest` gives the newest run: each check's outcome with its "Fix it"
+draft); while one is already queued for the case it returns that job instead of queueing another.
+`GET .../report/final-check/latest` gives the newest run: each check's outcome with its "Fix it"
 targets, T-17's warnings with the flagged words read back from the sealed draft, whether the run is for the
 newest version (`current`) and whether the pack's declaration wording changed since the expert last
 acknowledged it. `POST .../report/declarations/acknowledge` records that the named expert has read the
@@ -82,6 +83,17 @@ class Acknowledged(BaseModel):
 async def run_final_check(case_id: uuid.UUID, access: Build, conn: DbConn) -> Queued:
     if await latest_draft(conn, case_id) is None:
         raise ApiError("not_built", "Build the report first.", 409)
+    # One waiting check per case: every click while one is queued gets that job back, so a loop of requests
+    # cannot queue a model call each (one may run and one may wait at most).
+    await conn.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (f"final_check:{case_id}",))
+    cur = await conn.execute(
+        "select id from app.jobs where case_id = %s and kind = 'final_check' and status = 'queued'"
+        " order by created_at limit 1",
+        (case_id,),
+    )
+    waiting = await cur.fetchone()
+    if waiting is not None:
+        return Queued(job_id=waiting[0])
     return Queued(job_id=await registry.enqueue(conn, case_id, "final_check"))
 
 

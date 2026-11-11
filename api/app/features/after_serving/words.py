@@ -31,6 +31,9 @@ _WORDS: Final[dict[str, dict[str, str]]] = {
     },
 }
 
+# The words that introduce a page number when one expert cites a page of the records ("page 12", "p.12").
+_PAGE_MARKERS: Final[dict[str, tuple[str, ...]]] = {"en": ("page", "pages", "p", "pp")}
+
 _MONTHS: Final[dict[str, tuple[str, ...]]] = {
     "en": (
         "January",
@@ -52,6 +55,10 @@ _MONTHS: Final[dict[str, tuple[str, ...]]] = {
 def _lang(language: str) -> str:
     code = language.split("-")[0].lower()
     return code if code in _WORDS else "en"
+
+
+def page_markers(language: str) -> tuple[str, ...]:
+    return _PAGE_MARKERS[_lang(language)]
 
 
 def word(language: str, key: str, **values: object) -> str:

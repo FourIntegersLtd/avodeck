@@ -55,10 +55,24 @@ class FindingOut(BaseModel):
     icon: str | None = None
 
 
+class CheckRan(BaseModel):
+    """One check the latest run used, so the expert can tell a clean list from a check that was held back."""
+
+    key: str
+    rule: str | None = None
+    title: str | None = None
+    used_labels: bool = False
+    """The check asked the software to label which entries count as the action (T-13a)."""
+    acted_on: int = 0
+    """How many entries the software labelled as already acted on (the follow-up this check looks for)."""
+
+
 class Findings(BaseModel):
     findings: list[FindingOut]
     done: int = 0
     total: int = 0
+    checks_run: list[CheckRan] = []
+    """The checks the latest run used (none before any run), with the label counts."""
 
 
 class FindingDecision(BaseModel):
@@ -112,6 +126,31 @@ async def _with_evidence(conn: DbConn, rows: list[dict[str, Any]], pack: Any) ->
     ]
 
 
+async def _checks_run(conn: DbConn, case_id: uuid.UUID, pack: Any) -> list[CheckRan]:
+    """The checks of the case's latest run and how many entries the software counted as the action in each."""
+    cur = await conn.execute(
+        "select checks, acted_on from app.check_runs where case_id = %s order by created_at desc, id desc limit 1",
+        (case_id,),
+    )
+    row = await cur.fetchone()
+    if row is None:
+        return []
+    titles = pack.vocabulary.get("finding_titles")
+    titles = titles if isinstance(titles, dict) else {}
+    rules = {str(c["key"]): c.get("rule") for c in pack.checks()}
+    counts = row[1] if isinstance(row[1], dict) else {}
+    return [
+        CheckRan(
+            key=str(key),
+            rule=rules.get(str(key)),
+            title=titles.get(str(key)),
+            used_labels=str(key) in counts,
+            acted_on=int(counts.get(str(key), 0)),
+        )
+        for key in row[0]
+    ]
+
+
 async def _one(request: Request, conn: DbConn, case_id: uuid.UUID, finding_id: uuid.UUID) -> FindingOut:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(f"{_F} where f.id = %s and f.case_id = %s and {_SHOWN}", (finding_id, case_id))
@@ -130,8 +169,14 @@ async def list_findings(case_id: uuid.UUID, access: View, request: Request, conn
             (case_id,),
         )
         rows = await cur.fetchall()
-    out = await _with_evidence(conn, rows, await case_pack(request, conn, case_id))
-    return Findings(findings=out, done=sum(1 for f in out if f.decision is not None), total=len(out))
+    pack = await case_pack(request, conn, case_id)
+    out = await _with_evidence(conn, rows, pack)
+    return Findings(
+        findings=out,
+        done=sum(1 for f in out if f.decision is not None),
+        total=len(out),
+        checks_run=await _checks_run(conn, case_id, pack),
+    )
 
 
 @router.post("/cases/{case_id}/findings/rerun", status_code=202, response_model=Queued)

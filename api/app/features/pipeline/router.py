@@ -383,7 +383,18 @@ async def bundle_sorted(
     rows = await repo.sorted_pages(conn, case_id)
     rows.sort(key=lambda r: (order.get(r[2], len(order)) if r[2] else len(order) + 1, r[3] is None, r[3] or 0, r[1]))
     response.headers["cache-control"] = "private, no-store"
-    return SortedPages(pages=[SortedPage(page_id=r[0], page_no=r[1], source_type=r[2], date=r[3]) for r in rows])
+    return SortedPages(
+        pages=[
+            SortedPage(
+                page_id=r[0],
+                page_no=r[1],
+                source_type=r[2],
+                source_type_status="suggested" if r[2] else None,
+                date=r[3],
+            )
+            for r in rows
+        ]
+    )
 
 
 def _retry_progress(found: repo.RetryProgress | None) -> RetryProgress | None:

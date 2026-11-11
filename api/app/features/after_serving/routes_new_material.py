@@ -178,6 +178,7 @@ class OpposingReport(BaseModel):
     pages: int | None = None
     checked_at: datetime | None
     claims_found: int | None
+    claims_expected: int | None = None
     claims: list[OpposingClaimOut]
     positions: list[Position]
     matching_claims: list[OpposingClaimOut]
@@ -276,7 +277,7 @@ async def claim_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, A
         confirmed_at=row["confirmed_at"],
         discrepancy=bool(row["expert_confirmed"] and row["status"] != "matches"),
         version=row["version"],
-        needs_attention=not row["expert_confirmed"] and row["status"] not in ("matches", READ_FIRST, "unchecked"),
+        needs_attention=not row["expert_confirmed"] and row["status"] not in ("matches", READ_FIRST),
     )
 
 
@@ -314,6 +315,14 @@ async def _positions(
     return out
 
 
+def _left_out(expected: int | None, claims: list[OpposingClaimOut]) -> int:
+    """Statements the check could not read out of their report. They stop counting once the expert has confirmed
+    every claim that was found (they have been through the report); with none found there is nothing to confirm."""
+    if claims and all(c.expert_confirmed for c in claims):
+        return 0
+    return max((expected or 0) - len(claims), 0)
+
+
 @router.get("/cases/{case_id}/opposing-reports/{document_id}", response_model=OpposingReport)
 async def opposing_report(
     case_id: uuid.UUID, document_id: uuid.UUID, access: View, conn: DbConn, crypto: Crypto, reads: Reads
@@ -321,7 +330,8 @@ async def opposing_report(
     report = await fetch_one(
         conn,
         "select r.id, r.document_id, r.received_on, r.expert_name, r.expert_role, d.pages, r.checked_at,"
-        " r.claims_found, r.positions from app.opposing_reports r join app.documents d on d.id = r.document_id"
+        " r.claims_found, r.claims_expected, r.positions from app.opposing_reports r"
+        " join app.documents d on d.id = r.document_id"
         " where r.case_id = %s and r.document_id = %s",
         (case_id, document_id),
     )
@@ -342,10 +352,13 @@ async def opposing_report(
         pages=report["pages"],
         checked_at=report["checked_at"],
         claims_found=report["claims_found"],
+        claims_expected=report["claims_expected"],
         claims=claims,
         matching_claims=[c for c in claims if c.status == "matches"],
         other_claims=[c for c in claims if c.status != "matches"],
-        needs_attention_count=sum(1 for c in claims if c.needs_attention),
+        # A statement the check could not read out of their report counts too: it is not a clean check.
+        needs_attention_count=sum(1 for c in claims if c.needs_attention)
+        + _left_out(report["claims_expected"], claims),
         positions=await _positions(conn, crypto, case_id, report["positions"], claims),
     )
 
@@ -369,15 +382,22 @@ async def change_claim(
         raise not_found()
     if row["version"] != if_match:
         raise stale()
-    if row["status"] == "unchecked":
+    unchecked = row["status"] == "unchecked"
+    if unchecked and body.status is None:
+        # Nothing was checked, so there is nothing to confirm: the expert gives their own verdict instead.
         raise conflict("not_checked", "This claim has not been checked yet.")
     if not (await _evidence(conn, case_id, row, reads))[1]:
         raise conflict(READ_FIRST, "Read that page first.")
+    if body.status == "matches" and row["evidence_page_id"] is None:
+        # No page of ours backs this claim, so there is nothing the expert has read that shows it matches.
+        raise conflict("no_evidence", "No page you have read shows that this matches.")
     sets: list[str] = []
     params: list[Any] = []
     if body.status is not None and body.status != row["status"]:
         sets.append("status = %s")
         params.append(body.status)
+        if unchecked:
+            sets.append("checked_by = 'expert'")
     if body.confirm and not row["expert_confirmed"]:
         sets.append("expert_confirmed = true, confirmed_by = app.current_person_id(), confirmed_at = now()")
     if sets:

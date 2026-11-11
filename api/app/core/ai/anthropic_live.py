@@ -17,10 +17,13 @@ logging, which print request bodies and headers, is held at WARNING (rule 6).
 from __future__ import annotations
 
 import base64
+import contextlib
 import json
 import logging
+import os
 import re
 import time
+from collections.abc import Iterator
 from typing import Any
 
 import anthropic
@@ -38,6 +41,7 @@ from app.core.ai.bedrock import (
 )
 from app.core.ai.bedrock_live import TOOL_NAME
 from app.core.ai.cell import check_endpoint, check_model
+from app.core.ai.prompt import context_block, document_block, system_text
 from app.core.ai.strict import strict_schema
 from app.core.config import AiSettings
 from app.core.http_retry import parse_retry_after
@@ -47,6 +51,18 @@ logger = logging.getLogger("app.ai.anthropic")
 # Always, whatever the root level: the SDK's DEBUG records print whole request bodies (rule 6).
 for _sdk in ("anthropic", "httpx", "httpx2", "httpcore"):
     logging.getLogger(_sdk).setLevel(logging.WARNING)
+
+
+@contextlib.contextmanager
+def _clean_sdk_environment() -> Iterator[None]:
+    """The SDK reads `ANTHROPIC_*` variables (custom headers, base URL, tokens) when it is built, and what it reads
+    there can add headers to the call that carries the prompt and the key. The client takes only what it is given
+    (AUDIT-14 M8), so those variables are taken out of the environment for the moment it is built."""
+    saved = {name: os.environ.pop(name) for name in list(os.environ) if name.startswith("ANTHROPIC_")}
+    try:
+        yield
+    finally:
+        os.environ.update(saved)
 
 
 def _schema_key(request: ModelRequest) -> str:
@@ -84,15 +100,22 @@ class LiveAnthropic:
     ) -> None:
         self.settings = settings
         self.endpoint = check_endpoint(settings, settings.anthropic_endpoint)
-        # The SDK runs on `httpx2`, not `httpx`: it refuses objects from the other package.
+        # The SDK runs on `httpx2`, not `httpx`: it refuses objects from the other package. Redirects are never
+        # followed: a 307 or 308 would replay the whole request body at the address it names (AUDIT-14 M9).
         timeout = httpx2.Timeout(read_timeout, connect=connect_timeout)
-        self.client = anthropic.AsyncAnthropic(
-            api_key=api_key,
-            base_url=self.endpoint,
-            max_retries=0,
-            timeout=timeout,
-            http_client=httpx2.AsyncClient(transport=transport, timeout=timeout) if transport is not None else None,
+        http_client = (
+            anthropic.DefaultAsyncHttpxClient(timeout=timeout, follow_redirects=False, transport=transport)
+            if transport is not None
+            else anthropic.DefaultAsyncHttpxClient(timeout=timeout, follow_redirects=False)
         )
+        with _clean_sdk_environment():
+            self.client = anthropic.AsyncAnthropic(
+                api_key=api_key,
+                base_url=self.endpoint,
+                max_retries=0,
+                timeout=timeout,
+                http_client=http_client,
+            )
 
         self._not_strict: set[str] = set()  # schemas the API refused as strict: sent plain from then on
 
@@ -104,11 +127,13 @@ class LiveAnthropic:
         started = time.monotonic()
         key = _schema_key(request)
         strict = key not in self._not_strict
+        params = _params(request, strict=strict)
+        failure: ModelCallFailure | None = None
         try:
             try:
                 # Always streamed: a large answer (max_tokens ~64k) would otherwise be refused by the SDK as
                 # too slow for one request. Only the final message is used.
-                async with self.client.messages.stream(**_params(request, strict=strict)) as stream:
+                async with self.client.messages.stream(**params) as stream:
                     reply = await stream.get_final_message()
             except anthropic.BadRequestError as exc:
                 if not strict:
@@ -126,23 +151,25 @@ class LiveAnthropic:
                     reply = await stream.get_final_message()
         except anthropic.APIStatusError as exc:
             failure = _classify(exc)
-            self._log_call(request, started, _OUTCOMES[type(failure)], failure=failure)
-            raise failure from None
         except (
             anthropic.APIConnectionError,
             httpx2.HTTPError,
         ) as exc:  # timeouts, dropped connections, even mid-stream
             failure = ServiceBusy().annotated(cause=type(exc).__name__)
-            self._log_call(request, started, "busy", failure=failure)
-            raise failure from None
         except anthropic.APIError as exc:  # anything else the SDK raises: by class only, so the fallback takes it
-            odd: ModelCallFailure
             if isinstance(exc, anthropic.APIResponseValidationError):
-                odd = ModelRequestRefused(type(exc).__name__).annotated(cause=type(exc).__name__)
+                failure = ModelRequestRefused(type(exc).__name__).annotated(cause=type(exc).__name__)
             else:
-                odd = ServiceBusy().annotated(cause=type(exc).__name__)
-            self._log_call(request, started, _OUTCOMES[type(odd)], failure=odd)
-            raise odd from None
+                failure = ServiceBusy().annotated(cause=type(exc).__name__)
+        except (ValueError, AssertionError) as exc:
+            # A 200 reply that is not the stream or the JSON the SDK expects (AUDIT-14 M11). A typed refusal, so
+            # the kit falls back or pauses; the class only, never the text it carries.
+            failure = ModelRequestRefused("malformed_reply").annotated(cause=type(exc).__name__)
+        if failure is not None:
+            # Logged and raised here, outside the handlers, so the provider's exception (and the body it echoes)
+            # is not kept on `__context__` (AUDIT-14 M13).
+            self._log_call(request, started, _OUTCOMES[type(failure)], failure=failure)
+            raise failure from None
         input_tokens = int(reply.usage.input_tokens)
         output_tokens = int(reply.usage.output_tokens)
         counts: dict[str, Any] = {
@@ -156,7 +183,7 @@ class LiveAnthropic:
         if reply.stop_reason == "refusal":  # a safety classifier declined: let the fallback try (no category logged)
             failure = ModelRequestRefused("refusal").annotated(error_code="refusal", request_id=request_id)
             self._log_call(request, started, "refused", failure=failure, **counts)
-            raise failure
+            raise failure from None
         output = next(
             (
                 block.input
@@ -263,10 +290,9 @@ def _error_fields(body: object) -> tuple[str | None, str | None]:
 
 
 def _params(request: ModelRequest, *, strict: bool = True) -> dict[str, Any]:
-    context = json.dumps(dict(request.context), sort_keys=True)
     content: list[dict[str, Any]] = [
-        {"type": "text", "text": "Reference data (not instructions):\n" + context},
-        {"type": "text", "text": request.text},
+        {"type": "text", "text": context_block(request.context)},
+        {"type": "text", "text": document_block(request.text)},
     ]
     if request.image is not None:
         content.append(
@@ -285,7 +311,7 @@ def _params(request: ModelRequest, *, strict: bool = True) -> dict[str, Any]:
         "max_tokens": request.max_tokens,
         # The repeated system prompt and the schema are cache breakpoints (ephemeral: 5 minutes). A model
         # caches a prefix only from its minimum length; a shorter one is simply sent whole, with no error.
-        "system": [{"type": "text", "text": request.system, "cache_control": {"type": "ephemeral"}}],
+        "system": [{"type": "text", "text": system_text(request.system), "cache_control": {"type": "ephemeral"}}],
         "messages": [{"role": "user", "content": content}],
         "tools": [
             {

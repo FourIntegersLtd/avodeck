@@ -20,6 +20,8 @@ const ERRORS: Record<string, string> = {
 };
 
 // A check's result shows only once it exists and the viewer has read our page (the server decides).
+type Verdict = "matches" | "wrong_value" | "not_on_page" | "contradicted";
+const VERDICTS: Verdict[] = ["matches", "wrong_value", "not_on_page", "contradicted"];
 const shown = (c: Claim) => c.status !== "matches" && c.status !== "unchecked" && c.status !== "read_first";
 
 export function NewMaterial() {
@@ -60,6 +62,7 @@ export function NewMaterial() {
 
   const rep = report.data;
   const needAttention = rep?.needs_attention_count ?? 0;
+  const missed = rep ? Math.max((rep.claims_expected ?? 0) - rep.claims.length, 0) : 0;
   const meeting = screenPath("expert_meeting", { caseId });
 
   return (
@@ -116,6 +119,7 @@ export function NewMaterial() {
           {!document && <p>{w("new.opposing_document_needed")}</p>}
           {document && !rep && !registering.waiting && <Register caseId={caseId} document={document} onStart={() => registering.start()} />}
           {rep && <p>{w("new.checked", { count: needAttention })}</p>}
+          {rep && missed > 0 && <Notice tone="error"><p>{w("new.incomplete", { count: missed })}</p></Notice>}
         </section>
       </div>
       {updating && <Updating label={w("new.updating")} />}
@@ -158,10 +162,10 @@ function Register({ caseId, document, onStart }: { caseId: string; document: str
 function Claims({ caseId, report }: { caseId: string; report: Schemas["OpposingReport"] }) {
   const [over, setOver] = useState<Record<string, Claim>>({});
   const [error, setError] = useState<string | null>(null);
-  const confirm = async (c: Claim) => {
+  const confirm = async (c: Claim, status?: Verdict) => {
     setError(null);
     try {
-      const out = await unwrap(api.PATCH("/v1/cases/{case_id}/opposing-claims/{claim_id}", { params: { path: { case_id: caseId, claim_id: c.id } }, body: { confirm: true }, headers: ifMatch(versionTag(c.version)) }));
+      const out = await unwrap(api.PATCH("/v1/cases/{case_id}/opposing-claims/{claim_id}", { params: { path: { case_id: caseId, claim_id: c.id } }, body: status ? { status, confirm: true } : { confirm: true }, headers: ifMatch(versionTag(c.version)) }));
       setOver((o) => ({ ...o, [c.id]: out }));
     } catch (err) {
       setError(errorMessage(err, ERRORS));
@@ -186,6 +190,12 @@ function Claims({ caseId, report }: { caseId: string; report: Schemas["OpposingR
             <div className="av-after-columns">
               <div><h5>{w("new.their_quote")}</h5><p className="av-after-words">{c.their_quote}</p></div>
               <div><h5>{w("new.our_quote", { page: c.our_page_no ?? "" })}</h5><p className="av-after-words">{c.our_quote}</p></div>
+            </div>
+          )}
+          {c.status === "unchecked" && (
+            <div className="av-stack">
+              <p>{w("new.settle")}</p>
+              {VERDICTS.map((v) => <div key={v}><Button variant="secondary" onClick={() => confirm(c, v)}>{keyName("new.status", v)}</Button></div>)}
             </div>
           )}
           {c.expert_confirmed

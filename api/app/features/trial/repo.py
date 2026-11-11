@@ -47,7 +47,9 @@ async def meeting(conn: AsyncConnection, case_id: uuid.UUID, meeting_id: uuid.UU
 async def agenda_versions(conn: AsyncConnection, meeting_id: uuid.UUID) -> list[dict[str, Any]]:
     return await many(
         conn,
-        "select id, version_no, read_at, item_count, created_at from app.agenda_versions"
+        "select id, version_no, read_at, item_count, unread_numbers, created_at,"
+        " (read_at is not null and (coalesce(item_count, 0) = 0 or cardinality(unread_numbers) > 0)) as needs_check"
+        " from app.agenda_versions"
         " where meeting_id = %s order by version_no",
         (meeting_id,),
     )

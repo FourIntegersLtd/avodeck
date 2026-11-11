@@ -114,11 +114,26 @@ test("a statement that matches has nothing to confirm", async () => {
   expect(screen.queryByRole("button", { name: M["after_serving.new.confirm"]! })).toBeNull();
 });
 
+test("a report with statements we could not read says so", async () => {
+  serve("launch", { opposing: { ...report(), claims_expected: 3 } });
+  renderAt(`${url}?document=${DOC}`);
+  expect(await screen.findByText("We could not read 2 statements in their report. Please read them yourself.")).toBeInTheDocument();
+});
+
 test("a statement that hasn't been checked yet says so and can't be confirmed", async () => {
   serve("launch", { opposing: report([claim({ status: "unchecked", discrepancy: false })]) });
   renderAt(`${url}?document=${DOC}`);
   expect(await screen.findByText(M["after_serving.new.status.unchecked"]!)).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: M["after_serving.new.confirm"]! })).toBeNull();
+});
+
+test("a statement that hasn't been checked can be settled by you, sending your own verdict and the version it saw", async () => {
+  const { sent, record } = serve("launch", { opposing: report([claim({ status: "unchecked", discrepancy: false, version: 2 })]) });
+  server.use(http.patch("/v1/cases/:caseId/opposing-claims/:id", async ({ request }) => (await record(request), json(claim({ status: "wrong_value", checked_by: "expert", expert_confirmed: true, version: 3 })))));
+  const { user } = renderAt(`${url}?document=${DOC}`);
+  await user.click(await screen.findByRole("button", { name: M["after_serving.new.status.wrong_value"]! }));
+  await waitFor(() => expect(sent[0]).toMatchObject({ method: "PATCH", path: `/v1/cases/${CASE_A}/opposing-claims/${CLAIM}`, ifMatch: '"2"', body: { status: "wrong_value", confirm: true } }));
+  expect(await screen.findByText(M["after_serving.new.confirmed"]!)).toBeInTheDocument();
 });
 
 test("a statement checked against a page you haven't read asks you to read that page first and shows nothing else", async () => {

@@ -420,7 +420,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 |---|---|
 | document_id | Which file the page came from |
 | bundle_page_no | Its permanent page number (never changes) |
-| source_type | Where the page is from (GP record, hospital, results…) from the pack |
+| source_type | Where the page is from (GP record, hospital, results…) from the pack. It is the software's reading of the page, never confirmed by a person, and the sorted-pages answer marks it `suggested` (`source_type_status`) |
 | image_path | Where the picture of the page is kept |
 | text_source | Whether its words came from the file itself or from OCR |
 | ocr_confidence | How sure the computer is that it read the page correctly |
@@ -444,7 +444,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | word_count / typed_words | How many words were read, and how many were typed rather than handwritten |
 | phash / minhash | Fingerprints of the picture and the words, used to find duplicates |
 | printed_dates | Dates printed on the page (used to find gaps) |
-| extraction | What was read from the page, sealed with the case key |
+| extraction | What was read from the page, sealed with the case key. When the page is read again, the page's first answer is kept inside it (`first_answer`) beside the latest one |
 | availability_evidence | When the page was received, filed, seen or sent to the clinician: each with its words on the page and the date read by code in the pack's date order (empty when the printed date could be read two ways) |
 | needs_human / reason | Whether a person must check the page, with a short reason: OCR or words-check reasons (`no_words`, `invalid_output`, `not_in_words`), or, when the page reads cleanly but extraction found too little of it, `no_facts` (nothing kept) or `low_coverage` (under half the page's words covered) |
 | model_id | Which model read the page |
@@ -532,6 +532,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | seq | Its place in the case's list of checks |
 | action | Correct, not right, changed, moved to a clearer copy, or `remapped`: the page was read again (turned or typed out) and the fact was moved onto the same words in the new reading (0207) |
 | old_value / new_value / reason | What it was, what it became, and why |
+| (shown to the client) | A fact read by the client carries `verified_by` and `verified_at`: the person and time of its latest check, taken from this log; empty while the fact is only suggested |
 | old_fields / new_fields | The details before and after a change |
 | old_word_ids / new_word_ids | The words it pointed to before and after a change |
 | old_page_id / new_page_id | The page it was on before and after a move to a clearer copy |
@@ -559,6 +560,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 | requested_by / requested_at / finished_at | Who asked, when, and when it ended (0216). A job records its outcome only for the request it read, so asking again is never overwritten by an older job |
 | page_rotation | How the page was turned when the expert asked; if it differs when the job runs, the request is refused (`page_changed`, 0217) |
 | image_sha256 | A fingerprint of the page picture as stored when the expert asked; if the picture was redrawn since, the request is refused (`page_changed`, 0218) |
+| prompt_version | The version of the instructions the model was given for this reading, so the screen can say the lines were read by the software (0224) |
+| job_id | The job queued for this page's reading (0225); asking again for a page turned and drawn as before answers with this job, never another page's |
 
 ### transcript_views
 | Field | In plain words |
@@ -687,6 +690,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 |---|---|
 | pack_version | Which version of the packs the checks came from |
 | checks | Which checks ran |
+| acted_on | For each check that asks the software to label which entries count as the follow-up, how many entries it labelled that way (numbers only, no words), so a label that hides a finding stays visible |
 
 ### case_guideline_versions
 | Field | In plain words |
@@ -773,7 +777,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | document_id | Which witness statement the expert asked to compare |
 | job_id | The background job doing the comparison |
 | requested_by | Who asked |
-| status | Waiting, done, or refused (the answer could not be checked) |
+| status | Waiting, waiting for the expert to read the statement's page, done, or refused (the answer could not be checked) |
 | claims | How many claims were kept |
 | created_at / finished_at | When asked and when finished |
 
@@ -800,6 +804,14 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | sentence_index / type / words | Which sentence, what kind of warning, which words |
 | (shown, not stored) sentence_start / sentence_end | Where that sentence sits in the saved text, worked out when the warning is sent, so screen 15 can mark it |
 | dismissed_reason | Why the expert chose to ignore it |
+
+### opinion_lint_checks
+| Field | In plain words |
+|---|---|
+| opinion_id / opinion_version | Which opinion, and which saved version of its text the model check was made on |
+| model_answered | Whether the model answered (false: the check could not be made and shows as not run, never as passed) |
+| case_id | The case the opinion belongs to |
+| checked_at / created_at | When the check was last made; when the row was first made |
 
 ## Report
 
@@ -960,6 +972,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 |---|---|
 | from_party_id / received_on | Which side sent the questions, and when |
 | deadline_id | When the answers are due |
+| none_found_at | Set when the worker read the document and found no questions, so it is not asked again; the round is still shown as not read, and the expert asking to read it again clears it |
 
 ### written_questions
 | Field | In plain words |
@@ -976,6 +989,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | document_id / received_on | The other expert's report (an uploaded document) and when it arrived |
 | expert_name / expert_role | Who wrote it and in what role, as the expert typed them when adding it (both optional). The page count comes from the document. |
 | job_id / checked_at / claims_found | The check that read it, when it finished and how many statements it found |
+| claims_expected | How many sentences naming a page our own code counted in their report (page numbers such as "Page 3 of 20" are not counted); if the check found fewer, the gap is shown as needing the expert's attention until the expert has confirmed every claim that was found |
 | positions | Each question's answer in their report beside ours, for the expert to compare (no new wording) |
 
 ### opposing_claims
@@ -984,6 +998,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | text_verbatim / word_ids[] | The other expert's statement and where it is in their report |
 | cited_page_ref / cited_value | The page and value they quote |
 | status | Matches, wrong page, wrong value, not on page, contradicted; shown as "read this page first" (with our words hidden) until the viewer has read our page |
+| checked_by | Who settled it: the code, the larger model, or our expert (when the check left it unchecked and the expert gave their own verdict) |
 | evidence_word_ids[] / expert_confirmed | The words on our page that show it, and whether our expert agrees |
 
 ### report_changes
@@ -1014,6 +1029,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | Field | In plain words |
 |---|---|
 | version_no / document_id / received_on | Each version of the agenda, the file, and when it arrived |
+| unread_numbers[] | The item numbers printed in the agenda that were not copied (numbers only, never words); the agenda is then shown as "please check it yourself" |
 
 ### agenda_items
 | Field | In plain words |

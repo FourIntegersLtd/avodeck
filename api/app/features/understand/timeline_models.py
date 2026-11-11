@@ -10,6 +10,8 @@ from datetime import date
 
 from pydantic import BaseModel
 
+from app.features.understand.availability import AvailabilityBasis
+
 
 class Event(BaseModel):
     fact_id: uuid.UUID
@@ -24,6 +26,8 @@ class Event(BaseModel):
     source: str | None = None
     series_key: str | None = None
     date_basis: str | None = None
+    availability_basis: AvailabilityBasis | None = None
+    """How `available_at` was worked out (`software_label` means only the software's page label decided it)."""
     first_word_n: int | None = None
     rank: int = 3
     """How much the entry matters, lower first: 0 thing to look at, 1 question link, 2 please check, 3 checked."""

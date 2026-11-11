@@ -154,6 +154,10 @@ async def check_now(client_for: ClientFor, worker_db: Database, w: World, person
     queued = await client.post(w.url("report/final-check"))
     assert queued.status_code == 202, queued.text
     await final_check(JobContext(worker_db, uuid.UUID(queued.json()["job_id"]), w.case, "final_check", 1))
+    async with worker_db.job(w.case) as conn:  # what the worker does when a job ends: the next request is a new job
+        job = queued.json()["job_id"]
+        await conn.execute("update app.jobs set status = 'running' where id = %s", (job,))
+        await conn.execute("update app.jobs set status = 'done', finished_at = now() where id = %s", (job,))
     latest = await client.get(w.url("report/final-check/latest"))
     assert latest.status_code == 200, latest.text
     return latest.json()

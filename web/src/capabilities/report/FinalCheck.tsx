@@ -142,6 +142,7 @@ export function FinalCheck() {
       )}
       {check && check.warnings.length > 0 && <Warnings warnings={check.warnings} />}
       {check?.warnings_status === "pending" && <p className="av-muted">{w("check.warnings_pending")}</p>}
+      {check?.warnings_status === "not_run" && <p className="av-muted">{w("check.warnings_not_run")}</p>}
 
       {spotOpen && <SpotCheck caseId={caseId} />}
 

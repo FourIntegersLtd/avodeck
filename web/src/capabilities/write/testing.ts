@@ -44,6 +44,7 @@ export function pointsBody(run: PackRun, over: Partial<Schemas["Points"]> = {}):
     unused: [pointFact({ id: FACT_2, page_id: PAGE_2, page_no: 214, value: "Iron deficiency on file" })],
     relevant: [],
     claims: [],
+    comparisons: [],
     range_note: { prompt: (casePack(run) as unknown as { range_note_prompt: string }).range_note_prompt, text: null, version: 0, dictated_on: null },
     question: header(run),
     ...over,
@@ -88,6 +89,7 @@ export function workspace(run: PackRun, over: Partial<Schemas["Workspace"]> = {}
     legal_test: "The pack's own test of what a reasonable practitioner does.",
     opinion: null,
     checks: checksFor(over.opinion?.lint),
+    not_run: [],
     question: header(run),
     ...over,
   };

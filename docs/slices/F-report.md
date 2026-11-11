@@ -50,7 +50,7 @@ Core checks include:
 - required contents are present (pack);
 - dismissed lint issues all have reasons.
 
-**T-17** runs T-15a over the whole report (tone and expertise). It produces warnings, never edits.
+**T-17** runs T-15a over the whole report (tone and expertise). It produces warnings, never edits. If it cannot run (invalid answer twice, cost budget paused, no model) the run stores `warnings_status = not_run` and S17 says so; it never reads as "no warnings". Asking for a final check while one is queued returns that job (AUDIT-14 F95 to F97).
 
 ## AI tasks (architecture 6.3)
 | Task | Model | Input | Output | Check |

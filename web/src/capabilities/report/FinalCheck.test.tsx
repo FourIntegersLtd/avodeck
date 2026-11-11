@@ -34,6 +34,19 @@ test("a clean run says all clear, counts what passed and offers signing", async 
   expect(screen.getByRole("link", { name: M["report.check.sign"]! })).toHaveAttribute("href", `/cases/${CASE_A}/sign`);
 });
 
+test("a tone check that did not run is said so, never shown as nothing to warn about", async () => {
+  serve("launch", { check: finalCheck({ warnings: [], warnings_status: "not_run" }) });
+  renderAt(url);
+  expect(await screen.findByText(M["report.check.warnings_not_run"]!)).toBeInTheDocument();
+});
+
+test("a tone check that ran and found nothing shows no note", async () => {
+  serve("launch", { check: finalCheck({ warnings: [], warnings_status: "done" }) });
+  renderAt(url);
+  expect(await screen.findByRole("heading", { level: 1, name: M["report.check.title_ok"]! })).toBeInTheDocument();
+  expect(screen.queryByText(M["report.check.warnings_not_run"]!)).not.toBeInTheDocument();
+});
+
 test("while something fails, signing is not offered", async () => {
   serve("launch", { check: failedCheck() });
   renderAt(url);

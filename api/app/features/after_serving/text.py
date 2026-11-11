@@ -17,7 +17,7 @@ Nothing here logs or returns text in errors (rule 6).
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
@@ -29,6 +29,28 @@ from app.core.packs import MergedPack
 _PLACEHOLDER = re.compile(r"\[[A-Z][A-Z0-9_]*_\d+\]")
 _PARAGRAPH = re.compile(r"^(\d{1,3})\.$")
 _ITEM = re.compile(r"^\(([a-z]{1,4}|\d{1,2})\)$")
+_NUMBER = re.compile(r"^(\d{1,6})$")
+_EDGE = ".,;:()[]\"'"
+_FURNITURE_WORDS = 6  # a page-number line is short ("Page 3 of 20")
+
+
+def _pages(sentence: Sequence[str], markers: Sequence[str]) -> list[str]:
+    """The page numbers a sentence cites: a marker word followed by a number ("page 12", "p.12", "p 12")."""
+    words = [w.strip(_EDGE) for w in sentence]
+    found: list[str] = []
+    for i, token in enumerate(words):
+        low = token.casefold()
+        number = None
+        for marker in markers:
+            if low == marker and i + 1 < len(words) and (m := _NUMBER.match(words[i + 1])):
+                number = m.group(1)
+            elif low.startswith(marker) and (m := _NUMBER.match(low[len(marker) :].lstrip("."))):
+                number = m.group(1)
+            if number:
+                break
+        if number:
+            found.append(str(int(number)))
+    return found
 
 
 class MaskingFailed(Exception):
@@ -115,6 +137,55 @@ class Letter:
         if provenance.atoms(value) != provenance.atoms(" ".join(self.masked[w.id] for w in run)):
             return "not_whole_words"
         return Found([w.id for w in run], " ".join(w.text for w in run), positions[0])
+
+    def _furniture(self, markers: Sequence[str]) -> set[str]:
+        """Ids of the words on page-furniture lines ("Page 3 of 20"): a short line that only numbers a page."""
+        lines: list[list[Word]] = []
+        for w in self.words:
+            if w.line_start or not lines:
+                lines.append([])
+            lines[-1].append(w)
+        found: set[str] = set()
+        for line in lines:
+            texts = [w.text for w in line]
+            plain = [t.strip(_EDGE) for t in texts]
+            if (
+                len(line) <= _FURNITURE_WORDS
+                and not texts[-1].endswith((".", "?", "!"))
+                and _pages(texts, markers)
+                and all(t.isdigit() or t.casefold() in markers or len(t) <= 3 for t in plain)
+            ):
+                found.update(w.id for w in line)
+        return found
+
+    def _sentences(self, words: Sequence[Word], skip: Collection[str] = ()) -> Iterator[list[str]]:
+        current: list[str] = []
+        for w in words:
+            if w.id in skip:
+                continue  # page furniture is neither part of a sentence nor the end of one
+            if w.line_start and _PARAGRAPH.match(w.text):
+                continue  # a paragraph number is neither part of a sentence nor the end of one
+            current.append(w.text)
+            if w.text.endswith((".", "?", "!")):
+                yield current
+                current = []
+        if current:
+            yield current
+
+    def page_sentences(self, markers: Sequence[str]) -> int:
+        """How many sentences of the letter name a page, counted from its own words (never from a model)."""
+        skip = self._furniture(markers)
+        return sum(1 for s in self._sentences(self.words, skip) if _pages(s, markers))
+
+    def cited_page(self, found: Found, markers: Sequence[str]) -> str | None:
+        """The one page the claim's first page-naming sentence cites, read from its own words; none if unclear."""
+        first = self.index[found.word_ids[0]]
+        skip = self._furniture(markers)
+        for sentence in self._sentences(self.words[first : first + len(found.word_ids)], skip):
+            pages = set(_pages(sentence, markers))
+            if pages:
+                return next(iter(pages)) if len(pages) == 1 else None
+        return None
 
     def para_ref(self, start: int) -> str | None:
         """ "4(a)" when the run follows an item marker inside paragraph 4; "5" for paragraph 5 itself."""

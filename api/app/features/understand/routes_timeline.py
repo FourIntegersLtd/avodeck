@@ -20,7 +20,7 @@ from app.core.auth.access import CaseAccess, require_case_access
 from app.core.errors import ApiError
 from app.core.http import DbConn
 from app.core.packs import MergedPack
-from app.features.understand import gaps, guidelines, overview, repo, series
+from app.features.understand import availability, gaps, guidelines, overview, repo, series
 from app.features.understand.common import case_pack
 from app.features.understand.lanes import arrange, subtitle
 from app.features.understand.router import router
@@ -125,6 +125,8 @@ async def timeline(
     links = await repo.linked_questions(conn, case_id, [f.fact_id for f in facts])
     flagged = await repo.flagged_facts(conn, case_id)
 
+    arriving = pack.arriving_kinds()
+
     def event(fact: repo.SeenFact, series_key: str | None = None) -> Event:
         rank = _rank(fact, flagged, links)
         return Event(
@@ -139,6 +141,7 @@ async def timeline(
             summary=repo.summary_of(fact),
             source=fact.source,
             date_basis=fact.date_basis,
+            availability_basis=availability.basis_of(fact.kind, fact.stored_basis, fact.override, arriving),
             first_word_n=fact.first_word_n,
             series_key=series_key,
             rank=rank,

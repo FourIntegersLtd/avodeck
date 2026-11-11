@@ -279,6 +279,15 @@ test("the question shows which paragraph of the instructions it came from", asyn
   expect(await screen.findByText("from paragraph 4.1 of your instructions")).toBeInTheDocument();
 });
 
+test("a check the model could not make is said so and is not shown as passed", async () => {
+  const checks = checksFor().map((c) => (c.type === "outside_expertise" ? { ...c, passed: false } : c));
+  serve("launch", { workspace: workspace("launch", { opinion: opinionOut({ checks, not_run: ["outside_expertise"] }), checks, not_run: ["outside_expertise"] }) });
+  renderAt(url);
+  const region = await screen.findByRole("region", { name: M["write.opinion.checks"] });
+  expect(within(region).getByText(M["write.opinion.check_not_run"]!)).toBeInTheDocument();
+  expect(within(region).queryByText(M["write.opinion.check_expertise_ok"]!)).not.toBeInTheDocument();
+});
+
 test("checks that found nothing say so, one line each, beside the one that found something", async () => {
   serve("launch", { workspace: workspace("launch", { opinion: opinionOut({ lint: [lintIssue()] }) }) });
   renderAt(url);

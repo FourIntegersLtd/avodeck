@@ -115,6 +115,7 @@ export function TimelineInspector({
         </p>
         {current.summary && <blockquote className="av-story-panel__summary">{current.summary}</blockquote>}
         {mark && <Notice tone="amber">{w(mark)}</Notice>}
+        {current.availability_basis === "software_label" && <Notice tone="amber">{w("availability.software_label")}</Notice>}
         <dl className="av-story-panel__facts">
           <div>
             <dt>{w("timeline.inspector.page")}</dt>

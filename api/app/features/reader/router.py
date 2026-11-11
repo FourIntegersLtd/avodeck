@@ -438,8 +438,9 @@ async def verify_fact(
         raise ApiError("conflict", "This suggestion cannot be changed that way.", 409)
     value, word_ids, bbox = before["value"], before["word_ids"], before["bbox"]
     fields, event_date = before["fields"], before["event_date"]
-    if rechecking and body.action == "correct":
-        # Rule 2: the page's words were replaced, so the old word ids must still show the value.
+    if body.action == "correct" and value:
+        # Rule 2: checking a suggestion as right is a claim that its cited words show the value (a row changed
+        # outside the pipeline, or a page read again, may no longer); the expert can edit it to what the page says.
         await _shows(request, conn, case_id, before["page_id"], value, word_ids)
     if (
         body.action in ("edit", "not_right")
@@ -534,7 +535,7 @@ async def verify_fact(
     if before["needs_recheck"]:  # after the change: facts_guard reads the flag for verified -> edited
         await repo.set_flag(conn, case_id, fact_id, RECHECK, scope.person_id, on=False)
         out = out.model_copy(update={"needs_recheck": False})
-    await repo.log_check(
+    logged_at = await repo.log_check(
         conn,
         case_id,
         scope.person_id,
@@ -544,7 +545,7 @@ async def verify_fact(
         reason=body.reason if body.action == "not_right" else None,
         correction_id=correction_id,
     )
-    return out
+    return out.model_copy(update={"verified_by": scope.person_id, "verified_at": logged_at})
 
 
 @router.post("/facts/{fact_id}/move", response_model=FactOut)
@@ -587,8 +588,8 @@ async def move_fact(
     )
     out = _changed(response, after)
     assert after is not None
-    await repo.log_check(conn, case_id, scope.person_id, "move", before, after, new_page_id=target)
-    return out
+    logged_at = await repo.log_check(conn, case_id, scope.person_id, "move", before, after, new_page_id=target)
+    return out.model_copy(update={"verified_by": scope.person_id, "verified_at": logged_at})
 
 
 @router.post("/facts/{fact_id}/flag-point", response_model=FlagOut)

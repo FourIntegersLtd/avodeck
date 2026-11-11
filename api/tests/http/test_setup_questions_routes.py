@@ -546,13 +546,17 @@ def make_pdf(pages: int) -> bytes:
 async def test_each_question_has_a_short_label_from_the_model_or_its_own_first_clause(
     client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
 ) -> None:
+    """AUDIT-14 O-1 changed the rule: a model label is kept only if it is a run of the question's own words, side by
+    side and in the question's order; otherwise the question's first clause is used."""
     got = await read_letter(await client_for(world["expert"]), world, worker_db)
     titles = [q["short_title"] for q in got["questions"]]
-    # three come from the model's label; the fourth was left out, so it is the question's first clause
+    # one comes from the model's label ("Standard of care" is a run of its question's words); "The May consultation"
+    # and "Urgent referral" are not (words missing or changed), so they fall back to the first clause, as the fourth
+    # does where the model gave none
     assert titles == [
         "Standard of care",
-        "The May consultation",
-        "Urgent referral",
+        "In particular",
+        "Would a reasonably competent general",
         "If Mrs Ashworth had been referred",
     ]
     assert all(0 < len(t) <= 40 for t in titles)

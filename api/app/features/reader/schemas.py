@@ -78,6 +78,10 @@ class FactOut(BaseModel):
     cites_correction: bool = Field(
         default=False, description="Cites words the expert read differently from the computer ('Read by you')."
     )
+    verified_by: uuid.UUID | None = Field(
+        default=None, description="Who last checked it (right, changed or not right); none while it is only suggested."
+    )
+    verified_at: datetime | None = Field(default=None, description="When that check was made.")
     related: list[RelatedFact] = Field(
         default_factory=list,
         description="Other suggestions or checked facts on this page for the same day, of another kind.",

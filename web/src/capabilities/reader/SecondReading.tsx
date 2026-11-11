@@ -53,6 +53,7 @@ export function SecondReading({ caseId, pageNo }: { caseId: string; pageNo: numb
         <div className="av-card">
           <SectionIcon glyph="book" />
           <h2 className="rd-label">{w("second.title")}</h2>
+          <p className="rd-note">{w("second.machine")}</p>
           <ol className="rd-second__lines">
             {reading.lines.map((line, i) => (
               <li key={i}>{line.text}</li>

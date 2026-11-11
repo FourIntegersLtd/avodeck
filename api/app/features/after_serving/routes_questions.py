@@ -252,6 +252,8 @@ async def import_questions(case_id: uuid.UUID, body: ImportIn, access: Upload, c
         raise invalid("round_id")
     if found["status"] != "open" or found["extracted_at"] is not None:
         raise conflict("already_read", "These questions have already been read.")
+    # The expert asking to read the document again lifts the "nothing found" mark a worker run left.
+    await conn.execute("update app.written_question_rounds set none_found_at = null where id = %s", (body.round_id,))
     return Queued(job_id=await registry.enqueue(conn, case_id, "extract_written_questions"))
 
 

@@ -39,7 +39,7 @@ from app.core.jobs import JobContext, registry
 from app.core.packs import MergedPack
 from app.core.storage import CaseFileStorage
 from app.features.setup import ai_tasks
-from app.features.setup.letter import Found, Letter, checked_items, short_title
+from app.features.setup.letter import Found, Letter, checked_items, own_label, short_title
 from app.features.setup.services import current
 
 logger = logging.getLogger("app.setup")
@@ -227,7 +227,7 @@ async def _extract_one(ctx: JobContext, version_id: uuid.UUID, version_no: int, 
                     kind in outside,
                     outside_parts if kind in outside else None,
                     "pack" if kind in outside else None,
-                    short_title(found.text, item.get("short_title")),
+                    short_title(found.text, own_label(found.text, item.get("short_title"))),
                 ),
             )
             number += 1

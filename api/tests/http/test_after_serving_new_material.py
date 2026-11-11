@@ -71,7 +71,8 @@ CLAIMS = (
     ("Page 951 records a home visit.", "951", "home visit", "not_on_page", "code"),
     ("Page 2 records ferritin 19.", "2", "ferritin 19", "wrong_value", "model"),
     ("Page 1 records that no bloods were taken.", "1", "no bloods were taken", "contradicted", "model"),
-    ("Page 2 records that iron was started.", "2", "iron was started", "matches", "model"),
+    # The model says "matches" on the words "Iron started", but "iron was started" is not those words: not stored.
+    ("Page 2 records that iron was started.", "2", "iron was started", "unchecked", "model"),
 )
 EVIDENCE = {
     "ferritin 19": "Ferritin 9",
@@ -187,7 +188,7 @@ def t21b(request: ModelRequest) -> dict[str, Any]:
 
 def t21c(request: ModelRequest) -> dict[str, Any]:
     value = _VALUE.findall(request.text)[0]
-    status = next(c[3] for c in CLAIMS if c[2] == value)
+    status = "matches" if value == "iron was started" else next(c[3] for c in CLAIMS if c[2] == value)
     return {
         "status": status,
         "evidence_word_ids": ids_for(request.text, EVIDENCE[value], after="[page"),

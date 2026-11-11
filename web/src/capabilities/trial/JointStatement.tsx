@@ -211,6 +211,11 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
         </ul>
       </div>
       {adding && <AddExpert path={path} onDone={() => { setAdding(false); people.reload(); }} onCancel={() => setAdding(false)} />}
+      {agenda?.needs_check && (
+        <Notice tone="warning">
+          <p>{agenda.unread_numbers?.length ? w("meeting.agenda.check_items", { numbers: agenda.unread_numbers.join(", ") }) : w("meeting.agenda.check")}</p>
+        </Notice>
+      )}
       {meeting.status === "signed" && <Notice tone="success"><p>{w("meeting.signed")}</p></Notice>}
       {meeting.status === "signed_external" && <Notice tone="success"><p>{w("meeting.signed_elsewhere")}</p></Notice>}
       {meeting.status === "out_for_signature" && !message && <Notice><p>{w("meeting.out_for_signature")}</p></Notice>}

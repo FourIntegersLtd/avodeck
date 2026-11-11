@@ -7,8 +7,13 @@ of a number, unless it follows a letter or digit ("1-2", "Co-amoxiclav"), and a 
 part of the number, so "<60" is not "60" and "45%" is not "45". The cited words must be one unbroken
 run of the page's words (the order of `words` is reading order), and the value's atoms must appear,
 in order and whole, among their atoms. So "AMOXICILLIN 500 mg" is in "Amoxicillin 500mg", "1000"
-is in "1,000", but "12" is not in "120" and "amoxi" is not in "Amoxicillin". Errors carry a reason
-code only, never text.
+is in "1,000", but "12" is not in "120" and "amoxi" is not in "Amoxicillin". A number written with a
+decimal comma or a slash ("12,5", "3/4") is one number: neither part alone is found in it. A hyphen with a
+space on both sides ("120 - 80") separates two numbers; it is not a minus sign. The layout characters a text
+layer really carries (soft hyphen, zero-width space, byte-order mark, word joiner) are ignored on both sides
+(`without_ignorable`), so a word copied as written still matches. A value carrying any other invisible or
+control character (right-to-left and other direction marks, zero-width joiners, tag characters) is refused
+whatever it says. Errors carry a reason code only, never text.
 """
 
 from __future__ import annotations
@@ -19,12 +24,14 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-Reason = Literal["not_in_words", "no_words", "unknown_word", "empty_value", "not_contiguous"]
+Reason = Literal["not_in_words", "no_words", "unknown_word", "empty_value", "not_contiguous", "hidden_characters"]
 
 _SIGNS = "-+<>≤≥"
 _ATOM = re.compile(
-    r"(?:(?<![^\W_])[-+<>≤≥]\s*)?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)(?:\s*%)?|[^\W\d_]+"
+    r"(?:(?<![^\W_])(?:[+<>≤≥]\s*|-))?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)(?:\s*%)?|[^\W\d_]+"
 )
+_IGNORABLE = dict.fromkeys(map(ord, "\u00ad\u200b\ufeff\u2060"))  # soft hyphen, zero-width space, BOM, word joiner
+_JOINERS = ",/"  # between two digit runs with no space ("12,5", "3/4"): one number written in two parts
 _SPELLINGS = (("\u2212", "-"), ("<=", "≤"), (">=", "≥"))
 
 
@@ -56,19 +63,56 @@ def _plain(atom: str) -> str:
 
 
 def atoms(text: str) -> list[str]:
-    folded = unicodedata.normalize("NFKC", text).casefold()
+    """The text as atoms. A `,` or `/` written straight between two numbers is kept as an atom of its own, so a
+    number written with a decimal comma or a slash is not found by one of its parts (see `contains_whole`)."""
+    folded = unicodedata.normalize("NFKC", without_ignorable(text)).casefold()
     for spelling, sign in _SPELLINGS:
         folded = folded.replace(spelling, sign)
-    return [a if a[0].isalpha() else _number(a) for a in _ATOM.findall(folded)]
+    found: list[str] = []
+    joined_at = -1
+    for match in _ATOM.finditer(folded):
+        raw = match.group()
+        if raw[0].isalpha():
+            found.append(raw)
+            continue
+        if found and match.start() == joined_at + 1 and folded[joined_at] in _JOINERS and raw[0].isdigit():
+            found.append(folded[joined_at])
+        found.append(_number(raw))
+        joined_at = match.end() if raw[-1].isdigit() else -1
+    return found
 
 
-def _contains(haystack: list[str], needle: list[str]) -> bool:
+def contains_whole(haystack: list[str], needle: list[str]) -> bool:
+    """`needle` appears whole in `haystack`: not cut out of the middle of a number written in parts."""
     size = len(needle)
-    return any(haystack[i : i + size] == needle for i in range(len(haystack) - size + 1))
+    for i in range(len(haystack) - size + 1):
+        if haystack[i : i + size] != needle:
+            continue
+        if i > 0 and haystack[i - 1] in _JOINERS or i + size < len(haystack) and haystack[i + size] in _JOINERS:
+            continue
+        return True
+    return False
+
+
+def without_ignorable(text: str) -> str:
+    """`text` without the layout characters that carry no meaning (soft hyphen, zero-width space, byte-order mark,
+    word joiner). Slices that keep a model's value (`value`, `quote_verbatim`, `text_verbatim`) store this form."""
+    return text.translate(_IGNORABLE)
+
+
+def has_hidden_characters(text: str) -> bool:
+    """Whether `text` has an invisible or control character that could hide something (format and control
+    categories, not tab or newline). The layout characters of `without_ignorable` do not count."""
+    return any(
+        unicodedata.category(char) == "Cf" or (unicodedata.category(char) == "Cc" and char not in "\t\n\r")
+        for char in without_ignorable(text)
+    )
 
 
 def check(value: str, word_ids: Sequence[str], words: Mapping[str, str]) -> None:
     """Raise `ProvenanceError` unless `value` is found in the words `word_ids` cite."""
+    if has_hidden_characters(value):
+        raise ProvenanceError("hidden_characters")
     wanted = atoms(value)
     if not wanted:
         raise ProvenanceError("empty_value")
@@ -82,7 +126,7 @@ def check(value: str, word_ids: Sequence[str], words: Mapping[str, str]) -> None
         raise ProvenanceError("not_contiguous")
     run = list(words)[positions[0] : positions[-1] + 1]
     cited = atoms(" ".join(words[w] for w in run))
-    if not _contains(cited, wanted):
+    if not contains_whole(cited, wanted):
         raise ProvenanceError("not_in_words")
 
 

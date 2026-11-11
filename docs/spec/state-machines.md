@@ -219,7 +219,7 @@ suggested → confirmed / edited / dismissed (expert). Becomes `stale` if any fa
 
 ## Witness comparison (`witness_comparisons.status`)
 
-queued (named expert asks) → done (claims kept, possibly none) / refused (the model's answer failed twice). Set by the worker only. Final. Comparing the same statement again adds no claims.
+queued (named expert asks) → done (claims kept, possibly none) / refused (the model's answer failed twice) / waiting_to_be_read (the named expert has not recorded the statement's page as read; nothing was sent to the model, rule 3). Set by the worker only. done and refused are final; waiting_to_be_read is final for that row, and asking again after the page is read queues a new one. Comparing the same statement again adds no claims. The points response shows the latest status per statement, with `not_yet_run` when none was asked.
 
 ## Written question (`written_questions.status`)
 
@@ -227,11 +227,11 @@ received → answering (first edit) → answered (expert marks done) → served 
 
 ## Written question round
 
-open (received) → answered (every question answered) → served (answers served; `report_servings` row) . open → withdrawn if the party withdraws the questions.
+open (received; `extracted_at` is set only once at least one question was found, so a document that yields none can be read again) → answered (every question answered) → served (answers served; `report_servings` row) . open → withdrawn if the party withdraws the questions.
 
 ## Opposing claim (`opposing_claims.status`)
 
-unchecked → matches / wrong_page / wrong_value / not_on_page / contradicted (worker) → confirmed by the expert (`expert_confirmed`). The expert can change any result; each change is audited. `read_first` is not a stored status: the API shows it in place of the result (with no quote of ours or reason) until that viewer has read the evidence page, and confirming then is 409 `read_first` (rule 3).
+unchecked → matches / wrong_page / wrong_value / not_on_page / contradicted (worker) → confirmed by the expert. The page a claim cites and its paragraph are read by code from their words and layout, never taken from the model. A claim stays `unchecked` (and counts as needing the expert's attention) when no single page can be read from its words, when the larger model's answer is unusable, or when it says `matches` without page words that, as a whole run, contain the claimed value (the same check as every fact). Code also counts the sentences naming a page (`opposing_reports.claims_expected`); claims the check missed are added to the attention count until the expert has confirmed every claim that was found (`expert_confirmed`); lines that only number a page ("Page 3 of 20") are not counted. The expert can change any result; each change is audited. An `unchecked` claim can be settled only by the named expert giving their own verdict (a status other than `unchecked`); it is then stored as checked by `expert`, never by the model. Confirming an unchecked claim without a verdict is 409 `not_checked`; setting `matches` on a claim with no evidence page of ours is 409 `no_evidence`. `read_first` is not a stored status: the API shows it in place of the result (with no quote of ours or reason) until that viewer has read the evidence page, and confirming then is 409 `read_first` (rule 3).
 
 ## Session (`sessions`)
 `aal1` (password only) → `aal2` (authenticator code entered) → revoked. Since ADR 0025 a session lives at `aal1` until the first risky action: every ordinary route works, and step-up routes, the support console and support grants answer 403 `mfa_required` (`mfa_enrolled` false: set up the authenticator; true: enter a code). Enrolling and verifying from `aal1` move it to `aal2` with `mfa_verified_at` now; `aal2` with the code more than 10 minutes old answers step-up routes 403 `step_up_required`. A recovery code signs in at `aal1` with the authenticator removed. Revoked is final: signed out, signed out everywhere, idle (30 minutes), too old (12 hours) or password reset. Entering a code again keeps `aal2` and restarts the 10-minute step-up window; the cookie changes each time.

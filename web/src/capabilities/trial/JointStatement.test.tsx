@@ -171,6 +171,29 @@ test("a signed copy made elsewhere is added as a PDF", async () => {
 });
 
 describe("the screen as designed", () => {
+  const agendaVersion = (over: Record<string, unknown>) => ({ id: "a9777777-7777-4777-8777-777777777777", version_no: 2, read_at: "2027-02-10T09:00:00Z", item_count: 3, created_at: "2027-02-10T09:00:00Z", needs_check: false, unread_numbers: [], ...over });
+
+  test("when the agenda could not be read in full, a notice names the items and says to check the original", async () => {
+    serveMeeting("launch", { meeting: meetingOut({ agenda_versions: [agendaVersion({ needs_check: true, unread_numbers: [2, 5] })] }) });
+    renderAt(url);
+    const notice = await screen.findByText(fill(k("meeting.agenda.check_items"), { numbers: "2, 5" }));
+    expect(notice).toBeInTheDocument();
+  });
+
+  test("when the agenda could not be read in full and no item is named, the notice still says to check the original", async () => {
+    serveMeeting("launch", { meeting: meetingOut({ agenda_versions: [agendaVersion({ needs_check: true })] }) });
+    renderAt(url);
+    expect(await screen.findByText(k("meeting.agenda.check"))).toBeInTheDocument();
+  });
+
+  test("when nothing needs a check, there is no agenda notice", async () => {
+    serveMeeting("launch", { meeting: meetingOut({ agenda_versions: [agendaVersion({ needs_check: false, unread_numbers: [4] })] }) });
+    renderAt(url);
+    await screen.findByTestId("meeting-line");
+    expect(screen.queryByText(k("meeting.agenda.check"))).toBeNull();
+    expect(screen.queryByText(fill(k("meeting.agenda.check_items"), { numbers: "4" }))).toBeNull();
+  });
+
   test("a link back to after serving, who it is with, the agenda version and when it arrived", async () => {
     serveMeeting("launch");
     renderAt(url);

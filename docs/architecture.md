@@ -309,7 +309,7 @@ How facts relate to the questions, and what the checks found.
 | `fact_question_links` | Which facts relate to which question (suggested by the computer, confirmed by the expert). | fact_id, question_id, status, reason |
 | `check_config` | The expert's on/off choices for "Things to look at" checks, any window they changed, and the checks they add themselves (a name and a "not followed up" rule). | person_id, check_key, enabled, window_days, label, custom |
 | `findings` | Things a check found for the expert to decide on, with the evidence pages. | case_id, check_key, rule, gentle, evidence_fact_ids[], evidence_page_ids[], status (open, gone), decision, reason, run_id |
-| `check_runs` | Each time the checks ran on a case, with the pack version and which checks ran. | case_id, job_id, pack_version, checks |
+| `check_runs` | Each time the checks ran on a case, with the pack version and which checks ran and how many entries the labels counted as the action. | case_id, job_id, pack_version, checks, acted_on |
 | `case_guideline_versions` | Which guideline version a case was shown, so a later change to the guidance table shows a notice. | case_id, code, version_label, table_reviewed_at, entry_hash |
 | `availability_overrides` | The expert's corrections to when an item became available to the clinician. | case_id, fact_id, available_at, unknown, reason, at |
 | `consultation_notes` | Each person's private note on a consultation (only its author sees it). | case_id, fact_id, person_id, text |
@@ -330,6 +330,7 @@ The expert's own reasoning and words.
 | `opinions` | The expert's own words answering each question, with citations to checked facts. | case_id, question_id, body, citation_refs, view, provisional, test_text, updated_at, etag |
 | `opinion_versions` | Every saved version of an opinion, so earlier wording can be seen or restored. | opinion_id, version_no, body, citation_refs, test_text, saved_at, saved_by |
 | `lint_issues` | Gentle warnings about wording (uncited facts, loaded words, outside expertise) and why the expert dismissed them. | case_id, opinion_id or paragraph_id, sentence_index, type, words, dismissed_reason |
+| `opinion_lint_checks` | Whether the model check ran on the saved text of an opinion, readable by everyone who may view it (so a check that could not run never shows as passed). | opinion_id, opinion_version, model_answered |
 
 ### 4.7 Report
 
@@ -373,8 +374,8 @@ Everything after serving: deadlines, hearings, questions, meetings and court bun
 | `hearings` | Trials and other hearings, with adjournments kept as history. | case_id, type, starts_on, ends_on, venue, status, replaced_by_hearing_id |
 | `written_question_rounds` | Each batch of written questions from a party, with its deadline. | case_id, from_party_id, received_on, deadline_id |
 | `written_questions` | Each written question and the expert's answer. | case_id, round_id, rule_ref, number, text_verbatim, word_ids[], classification, paragraph_ids[], answer_text, status |
-| `opposing_reports` | Each other side's expert report registered for checking, with when it was checked and the positions compared. | case_id, document_id, received_on, expert_name, expert_role, job_id, checked_at, claims_found, positions |
-| `opposing_claims` | Statements in the other side's expert report checked against the pages they cite. | case_id, document_id, text_verbatim, word_ids[], cited_page_ref, cited_value, status, evidence_word_ids[], expert_confirmed |
+| `opposing_reports` | Each other side's expert report registered for checking, with when it was checked and the positions compared. | case_id, document_id, received_on, expert_name, expert_role, job_id, checked_at, claims_found, claims_expected, positions |
+| `opposing_claims` | Statements in the other side's expert report checked against the pages they cite. | case_id, document_id, text_verbatim, word_ids[], cited_page_ref, cited_value, status, checked_by, evidence_word_ids[], expert_confirmed |
 | `report_changes` | Corrections or changes of opinion after serving, which become a supplementary report. | case_id, kind, paragraph_id, old_text, new_text, reason, dependent_paragraph_ids[], supplementary_version_id |
 | `expert_meetings` | A meeting of experts and the document they sign (e.g. joint statement). | case_id, type, discussion_on, sign_by, send_by, status, signed_document_id, signed_hash |
 | `expert_meeting_participants` | Everyone in that meeting (any number, any discipline, on Avodeck or not). | meeting_id, name, discipline, side, person_id (if on Avodeck) |
@@ -963,6 +964,9 @@ Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for s
 7. **Logged for the methodology appendix:** model ID, region, prompt version and date for every task, never the content.
 8. **Logging off:** Bedrock invocation logging off; Azure data logging off; no prompts or outputs in app logs.
 9. **Prompts and schemas come from packs:** prompt templates are neutral and contain no country, specialty or case-type words. `pack.prompt_context()` injects, as data, the fact kinds and their field schemas, source types, record-system cues, vocabulary and date order. Output JSON schemas (e.g. allowed `kind` values) are generated from the merged pack registries, so a new specialty needs no prompt rewrite. Each prompt version is evaluated per pack combination in `evals/`.
+10. **Document text is data, framed by the kit (`app/core/ai/prompt.py`):** every system prompt ends with the same one-sentence data rule, so no task template has to repeat it. The live clients send the pack context as labelled reference data and the document text as a labelled block between two marker lines; a line in the text that imitates the context header or a marker is prefixed `> `, so nothing in a document can be the real header or the real end marker. The context and schema never carry document text, and the direct path's prompt caching (system and tool) is unchanged.
+11. **A hostile answer ends as an error, never as data:** an answer nested deeper than 64 levels is `InvalidOutput` (with an `ai_calls` row, never a raw `ValueError`); a rejected or mended answer is logged by schema place with list positions and model-chosen keys starred; a refusal reaches the caller with a code-shaped message only (letters, digits, `_`, `.`, `-`, at most 64, else `unknown`); the provider's own exception is not kept on the raised failure. `provenance.check` also refuses a value with a hidden, bidirectional, zero-width or control character; a number written `12,5` or `3/4` is one number (neither part alone is found in it); a hyphen with a space on both sides is a range, not a minus sign.
+12. **Cell configuration is checked as a whole:** a model ID must match the in-region pattern in full (`fullmatch`); the Bedrock endpoint must be on the allow-list with no credentials in the URL, the default port, no padding or control characters, and the region of `AWS_REGION`; the direct API is refused in a production cell (ADR 0036). A call with no case may pass `person_token_limit` to `AiKit.run` for a per-person allowance over the last day.
 
 ### 6.3 AI tasks in journey order
 

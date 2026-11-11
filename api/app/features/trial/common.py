@@ -9,6 +9,7 @@ from fastapi import Depends, Request
 from psycopg import AsyncConnection
 from pydantic import BaseModel
 
+from app.core import rate_limits
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
@@ -25,6 +26,22 @@ Verify = Annotated[CaseAccess, Depends(require_case_access("fact.verify"))]
 Build = Annotated[CaseAccess, Depends(require_case_access("report.build"))]
 Sign = Annotated[CaseAccess, Depends(require_case_access("report.sign"))]
 Draft = Annotated[CaseAccess, Depends(require_case_access("request.draft"))]
+
+# The routes that ask a model (T-22a on upload, T-22c on a changed position, T-24 on a new note): a person may
+# make this many requests a minute to each (the lesser of this and the app-wide limit; off where that is off).
+MODEL_CALLS_PER_MINUTE = 30
+
+
+async def limit_model_calls(request: Request, conn: DbConn) -> None:
+    """429 `slow_down` when this person has made `MODEL_CALLS_PER_MINUTE` requests to this route this minute."""
+    default = int(getattr(request.app.state, "api_rate_per_minute", 0))
+    if default <= 0:
+        return
+    route = request.scope["route"]
+    await rate_limits.check(conn, f"{request.method} {route.path_format}", min(MODEL_CALLS_PER_MINUTE, default))
+
+
+ModelCalls = Annotated[None, Depends(limit_model_calls)]  # put after the access check: a stranger still gets 404
 
 NO_STORE = {"Cache-Control": "private, no-store"}
 MAX_PDF_BYTES = 1024 * 1024 * 1024

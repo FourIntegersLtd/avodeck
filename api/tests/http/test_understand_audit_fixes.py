@@ -67,12 +67,12 @@ async def test_after_the_named_expert_changes_each_keeps_their_own_note(client_f
     facts = (await second.get(f"/v1/cases/{case.id}/pages/1/facts")).json()["facts"]
     [shown] = [f for f in facts if f["id"] == str(visit)]
     assert shown["status"] == "suggested"
-    checked = await second.post(
-        f"/v1/cases/{case.id}/facts/{visit}/verify",
-        json={"action": "correct"},
-        headers={"If-Match": f'"{shown["version"]}"'},
+    # The seeded visit has no page words to cite, and checking a fact as right now requires them (AUDIT-14 R-I-6b),
+    # so the check is recorded directly: this test is about whose note is shown, not about the check itself.
+    case.admin.execute(
+        "update app.facts set status = 'verified' where id = %s",
+        (visit,),
     )
-    assert checked.status_code == 200, checked.text
     assert (await second.get(url)).json()["note"] is None, "the new expert never sees the old note"
     assert (await second.put(f"{url}/note", json={"body": "second expert"})).status_code == 200
     assert (await second.get(url)).json()["note"] == "second expert"

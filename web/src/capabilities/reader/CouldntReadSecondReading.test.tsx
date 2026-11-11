@@ -20,7 +20,7 @@ const PATH = `/cases/${CASE_ID}/read/couldnt-read`;
 describe("another reading", () => {
   test("asking sends the request and shows the lines to check against the page, with no merge button", async () => {
     const api = mockReader(launchPack, {
-      secondReading: { status: "done", reason: null, lines: [{ text: "Seen today chest clear", confidence: 0.7 }] },
+      secondReading: { source: "machine_read", status: "done", reason: null, lines: [{ text: "Seen today chest clear", confidence: 0.7 }] },
     });
     const { user, container } = renderAt(PATH);
     await user.click(await screen.findByRole("button", { name: "Ask for another reading" }));
@@ -32,7 +32,7 @@ describe("another reading", () => {
   });
 
   test("a queued reading shows its lines when the case stream says it is done, with no refresh", async () => {
-    mockReader(launchPack, { secondReading: { status: "queued", reason: null, lines: [] } });
+    mockReader(launchPack, { secondReading: { source: "machine_read", status: "queued", reason: null, lines: [] } });
     const { user } = renderAt(PATH);
     await user.click(await screen.findByRole("button", { name: "Ask for another reading" }));
     await waitFor(() => expect(FakeEventSource.open()).toHaveLength(1));
@@ -43,14 +43,14 @@ describe("another reading", () => {
   });
 
   test("a refusal says nothing was sent", async () => {
-    mockReader(launchPack, { secondReading: { status: "refused", reason: "low_confidence", lines: [] } });
+    mockReader(launchPack, { secondReading: { source: "machine_read", status: "refused", reason: "low_confidence", lines: [] } });
     const { user } = renderAt(PATH);
     await user.click(await screen.findByRole("button", { name: "Ask for another reading" }));
     expect(await screen.findByText("We couldn't hide the name safely on this page, so we didn't send it.")).toBeVisible();
   });
 
   test("a failed reading offers a plain message", async () => {
-    mockReader(launchPack, { secondReading: { status: "failed", reason: "invalid_output", lines: [] } });
+    mockReader(launchPack, { secondReading: { source: "machine_read", status: "failed", reason: "invalid_output", lines: [] } });
     const { user } = renderAt(PATH);
     await user.click(await screen.findByRole("button", { name: "Ask for another reading" }));
     expect(await screen.findByText("We couldn't get another reading just now. Please try again.")).toBeVisible();

@@ -23,10 +23,11 @@ from typing import Any
 from app.core.ai.kit import AiTask
 from app.core.ai.provenance import atoms
 from app.core.packs import MergedPack
+from app.features.pipeline.extract import MAX_PAGE_NO
 from app.features.pipeline.gaps import Page
 
 TASK_ID = "T-07c"
-PROMPT_VERSION = "2026-10-17.1"
+PROMPT_VERSION = "2026-11-10.1"  # the page words are material to read, never instructions
 MODEL_ROLE = "sonnet"
 CANDIDATES = 40
 
@@ -50,7 +51,7 @@ def output_schema(pack: MergedPack) -> dict[str, Any]:
         "required": ["reference_id", "matched_page", "confidence"],
         "properties": {
             "reference_id": {"type": "string", "maxLength": 40},
-            "matched_page": {"type": ["integer", "null"], "minimum": 1},
+            "matched_page": {"type": ["integer", "null"], "minimum": 1, "maximum": MAX_PAGE_NO},
             "confidence": {"type": "number", "minimum": 0, "maximum": 1},
         },
     }

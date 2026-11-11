@@ -199,3 +199,15 @@ test("'Start writing' uses the points-against screen when a slice has registered
   open();
   expect(await screen.findByRole("link", { name: "Start writing" })).toHaveAttribute("href", `/cases/${CASE_A}/points-against`);
 });
+
+test("with nothing open, says which checks were run and where entries were counted as already followed up", async () => {
+  inCase("launch");
+  server.use(
+    http.get("/v1/cases/:caseId/findings", () =>
+      json({ ...findingsReply([]), checks_run: [{ key: "abnormal_result_no_action", rule: "no_action_within", title: null, used_labels: true, acted_on: 2 }, { key: "referral_acknowledged", rule: "not_acknowledged_within", title: null, used_labels: false, acted_on: 0 }] }),
+    ),
+  );
+  open();
+  expect(await screen.findByText("Nothing to look at just now. These checks were run:", { exact: false })).toBeInTheDocument();
+  expect(screen.getByText("2 of the entries we looked at were counted as already followed up", { exact: false })).toBeInTheDocument();
+});

@@ -50,7 +50,7 @@ def t22a(pack: MergedPack) -> AiTask:
                 "type": "array",
                 "minItems": 1,
                 "maxItems": 400,
-                "items": {"type": "string", "pattern": "^w[0-9]{1,6}$"},
+                "items": {"type": "string", "maxLength": 7, "pattern": "^w[0-9]{1,6}$"},
             },
             "reason": REASON,
         },

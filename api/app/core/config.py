@@ -13,9 +13,27 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from urllib.parse import urlsplit
 
+from urllib3.exceptions import LocationParseError
+from urllib3.util import parse_url
+
 
 class ConfigError(RuntimeError):
     """A required setting is missing or invalid."""
+
+
+def _whole(raw: str) -> int | None:
+    """`raw` as a whole number, or None. Parsed here so a failure never chains the raw value into a traceback."""
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _decimal(raw: str) -> float | None:
+    try:
+        return float(raw)
+    except ValueError:
+        return None
 
 
 def env_int(source: Mapping[str, str], name: str, default: int, *, minimum: int | None = None) -> int:
@@ -23,10 +41,9 @@ def env_int(source: Mapping[str, str], name: str, default: int, *, minimum: int 
     raw = source.get(name, "").strip()
     if not raw:
         return default
-    try:
-        value = int(raw)
-    except ValueError as exc:
-        raise ConfigError(f"{name} must be a whole number") from exc
+    value = _whole(raw)
+    if value is None:
+        raise ConfigError(f"{name} must be a whole number")
     if minimum is not None and value < minimum:
         raise ConfigError(f"{name} must be at least {minimum}")
     return value
@@ -37,10 +54,9 @@ def env_float(source: Mapping[str, str], name: str, default: float, *, minimum: 
     raw = source.get(name, "").strip()
     if not raw:
         return default
-    try:
-        value = float(raw)
-    except ValueError as exc:
-        raise ConfigError(f"{name} must be a number") from exc
+    value = _decimal(raw)
+    if value is None:
+        raise ConfigError(f"{name} must be a number")
     if minimum is not None and value < minimum:
         raise ConfigError(f"{name} must be at least {minimum}")
     return value
@@ -361,7 +377,7 @@ MODEL_ROLES = {"sonnet": "BEDROCK_SONNET_MODEL_ID", "opus": "BEDROCK_OPUS_MODEL_
 ENDPOINTS = ("BEDROCK_ENDPOINT", "AZURE_DI_ENDPOINT", "AZURE_SPEECH_ENDPOINT")
 # A bare in-region foundation-model ID: provider, dot, model. Cross-region inference profiles
 # (`global.`, `eu.`, `us.`, `apac.` ...) and ARNs (which can name any region) are refused.
-_IN_REGION_MODEL = re.compile(r"^anthropic\.[a-z0-9][a-z0-9.\-]*(:\d+)?$")
+_IN_REGION_MODEL = re.compile(r"anthropic\.[a-z0-9][a-z0-9.\-]*(:\d+)?")
 
 
 # The direct Anthropic API as the primary model provider. Sets rule 5 aside knowingly, behind
@@ -493,12 +509,44 @@ class AiSettings:
 
 
 def in_region_model_id(model_id: str) -> bool:
-    return bool(_IN_REGION_MODEL.match(model_id))
+    return _IN_REGION_MODEL.fullmatch(model_id) is not None
 
 
 def endpoint_allowed(url: str, allowed_hosts: frozenset[str]) -> bool:
-    parts = urlsplit(url)
-    return parts.scheme in ("https", "wss") and parts.hostname is not None and parts.hostname in allowed_hosts
+    """An address the cell may talk to: `https` or `wss`, a host on the allow-list, the default port, no credentials.
+
+    Fails closed on anything two parsers could read differently: padding, control characters and backslashes are
+    refused, and the host the HTTP client's own parser (urllib3, which the AWS SDK uses) finds must be the host
+    checked here (AUDIT-14 M3 to M6)."""
+    if url != url.strip() or "\\" in url or any(ord(char) <= 0x20 or ord(char) == 0x7F for char in url):
+        return False
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+        client_host = parse_url(url).host
+    except (ValueError, LocationParseError):
+        return False
+    if parts.scheme not in ("https", "wss") or parts.hostname is None or parts.hostname not in allowed_hosts:
+        return False
+    if parts.username is not None or parts.password is not None or "@" in parts.netloc:
+        return False
+    if port not in (None, 443):
+        return False
+    return client_host is not None and client_host.lower() == parts.hostname
+
+
+_PRODUCTION_NAMES = frozenset({"production", "prod", "live"})
+
+
+def is_production(source: Mapping[str, str]) -> bool:
+    """Whether this process is a production cell: `SENTRY_ENVIRONMENT` is `production`, `prod` or `live` (case and
+    surrounding space ignored; an unset name is not production, dev cells use the direct path), or
+    `PACKS_APPROVED_ONLY=1` (the switch a production cell already sets, so a cell cannot lose the guard by forgetting
+    to name its environment)."""
+    return (
+        source.get("SENTRY_ENVIRONMENT", "").strip().lower() in _PRODUCTION_NAMES
+        or source.get("PACKS_APPROVED_ONLY", "").strip() == "1"
+    )
 
 
 def primary_provider(env: Mapping[str, str] | None = None) -> str:
@@ -509,6 +557,8 @@ def primary_provider(env: Mapping[str, str] | None = None) -> str:
     provider = source.get("AI_PRIMARY_PROVIDER", "").strip() or "bedrock"
     if provider not in PROVIDERS:
         raise ConfigError("AI_PRIMARY_PROVIDER must be bedrock or anthropic")
+    if provider == "anthropic" and is_production(source):
+        raise ConfigError("AI_PRIMARY_PROVIDER=anthropic is not allowed in a production cell (rule 5, ADR 0036)")
     if provider == "anthropic" and not source.get("ANTHROPIC_API_KEY", "").strip():
         raise ConfigError("AI_PRIMARY_PROVIDER=anthropic needs ANTHROPIC_API_KEY")
     return provider
@@ -541,23 +591,24 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
     for name in ENDPOINTS:
         if not endpoint_allowed(values[name], hosts):
             raise ConfigError(f"{name} is not a secure endpoint on AI_ENDPOINT_ALLOW_LIST")
+    # The model service's host names the region it serves; it must be the one the cell signs for (AUDIT-14 M2).
+    if values["AWS_REGION"].lower() not in (urlsplit(values["BEDROCK_ENDPOINT"]).hostname or "").split("."):
+        raise ConfigError("BEDROCK_ENDPOINT is not in the region named by AWS_REGION")
 
     def number(name: str, default: int) -> int:
         raw = source.get(name, "").strip()
-        try:
-            value = int(raw) if raw else default
-        except ValueError as exc:
-            raise ConfigError(f"{name} must be a whole number") from exc
+        value = _whole(raw) if raw else default
+        if value is None:
+            raise ConfigError(f"{name} must be a whole number")
         if value < 1:
             raise ConfigError(f"{name} must be at least 1")
         return value
 
     def share(name: str, default: float) -> float:
         raw = source.get(name, "").strip()
-        try:
-            value = float(raw) if raw else default
-        except ValueError as exc:
-            raise ConfigError(f"{name} must be a number") from exc
+        value = _decimal(raw) if raw else default
+        if value is None:
+            raise ConfigError(f"{name} must be a number")
         if not 0 < value <= 1:  # also false for nan
             raise ConfigError(f"{name} must be more than 0 and at most 1")
         return value

@@ -43,6 +43,7 @@ function EntryRow({ entry, variant, onChange }: { entry: Entry; variant: EntryVa
         </span>
         <div className="av-understand-entry__meta">
           {variant === "known" && entry.available_at && <span className="av-muted">{w("consultation.arrived", { date: longDate(entry.available_at) })}</span>}
+          {entry.availability_basis === "software_label" && <span className="av-muted">{w("availability.software_label")}</span>}
           <span className="av-visually-hidden">{statusOf(entry.status) === "checked" ? t("ui.status.checked") : t("ui.status.please_check")}</span>
           {entry.has_finding && <StatusBadge status="look" />}
           {onChange && (variant === "unknown" || !entry.available_at) && (
