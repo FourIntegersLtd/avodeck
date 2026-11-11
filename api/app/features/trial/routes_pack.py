@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core import audit
 from app.core.ai.kit import InvalidOutput
-from app.core.ai.provenance import atoms, has_hidden_characters
+from app.core.ai.provenance import atoms, has_hidden_characters, without_ignorable
 from app.core.auth.step_up import require_step_up
 from app.core.contracts.case_identity import identity_for
 from app.core.contracts.served import latest_served
@@ -306,7 +306,7 @@ def is_whole_sentence_of(sentence: str, source: str) -> bool:
 
 
 def sentences_of(text: str) -> list[str]:
-    return [s.strip() for s in _SENTENCE.split(" ".join(text.split())) if s.strip()][:MAX_SENTENCES]
+    return [s.strip() for s in _SENTENCE.split(" ".join(without_ignorable(text).split())) if s.strip()][:MAX_SENTENCES]
 
 
 @router.post("/cases/{case_id}/trial-pack/check-new", response_model=NoteChecked)

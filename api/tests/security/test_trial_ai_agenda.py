@@ -25,6 +25,7 @@ Slice I has exactly four AI tasks (`app/features/trial/ai_tasks.py`), roles `son
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import uuid
@@ -354,15 +355,67 @@ async def test_the_item_number_is_the_one_printed_before_its_words(
     assert 3 in [i["number"] for i in items]  # positive control: the untouched item is there
 
 
-def test_an_invisible_character_in_an_agenda_word_drops_the_item() -> None:
-    words = {"w1": "1.", "w2": "Was", "w3": "iron​", "w4": "low?", "w5": "2.", "w6": "Done", "w7": "well?"}
+@pytest.mark.parametrize("mark", ["\u00ad", "\u200b"])
+@pytest.mark.parametrize("model_copies_it", [True, False])
+def test_an_ignorable_layout_character_in_an_agenda_word_is_kept_and_stored_cleaned(
+    mark: str, model_copies_it: bool
+) -> None:
+    words = {"w1": "1.", "w2": "Was", "w3": f"iron{mark}", "w4": "low?", "w5": "2.", "w6": "Done", "w7": "well?"}
+    shown = f"Was iron{mark} low?" if model_copies_it else "Was iron low?"
     answer = {
         "items": [
-            {"number": 1, "text_verbatim": "Was iron​ low?", "word_ids": ["w2", "w3", "w4"], "reason": "a"},
+            {"number": 1, "text_verbatim": shown, "word_ids": ["w2", "w3", "w4"], "reason": "a"},
             {"number": 2, "text_verbatim": "Done well?", "word_ids": ["w6", "w7"], "reason": "a"},
         ]
     }
-    assert [(n, t) for n, t, _ in agenda_module.copied_items(answer, words)] == [(2, "Done well?")]
+    got = agenda_module.copied_items(answer, words)
+    assert [(n, t) for n, t, _ in got] == [(1, "Was iron low?"), (2, "Done well?")]  # stored without the mark
+    assert not any(ch in t for _, t, _ in got for ch in ("\u00ad", "\u200b"))
+
+
+@pytest.mark.parametrize("mark", ["\u202e", "\u200d", "\u202a", "\x07"])
+def test_a_bidi_joiner_or_control_character_in_an_agenda_word_still_drops_the_item(mark: str) -> None:
+    words = {"w1": "1.", "w2": "Was", "w3": f"iron{mark}", "w4": "low?", "w5": "2.", "w6": "Done", "w7": "well?"}
+    answer = {
+        "items": [
+            {"number": 1, "text_verbatim": f"Was iron{mark} low?", "word_ids": ["w2", "w3", "w4"], "reason": "a"},
+            {"number": 2, "text_verbatim": "Done well?", "word_ids": ["w6", "w7"], "reason": "a"},
+        ]
+    }
+    assert [(n, t) for n, t, _ in agenda_module.copied_items(answer, words)] == [(2, "Done well?")]  # control: kept
+
+
+async def test_an_item_that_stops_at_an_earlier_sentence_is_not_stored_and_is_flagged_unread(
+    client_for: ClientFor, world: World, worker_db: Database, model: Callable[..., Scripted]
+) -> None:
+    two = "Was care reasonable? Assume X was not told."
+
+    def first_sentence(items: list[dict[str, Any]]) -> None:
+        words = items[0]["text_verbatim"].split()
+        keep = slice(0, words.index("reasonable?") + 1)
+        items[0]["word_ids"], items[0]["text_verbatim"] = items[0]["word_ids"][keep], " ".join(words[keep])
+
+    model(**{"T-22a": altered(first_sentence)})
+    meeting, items = await read_one(client_for, world, worker_db, [two, *AGENDA[1:]])
+    [version] = await versions(client_for, world, meeting)
+    assert [i["number"] for i in items] == [2, 3]  # item 1 stopped before "Assume X was not told."
+    assert version.get("unread_numbers") == [1] and version.get("needs_check") is True
+    model()  # positive control: the whole run, to the next item, is stored
+    _, whole = await read_one(client_for, world, worker_db, [two, *AGENDA[1:]])
+    assert [(i["number"], i["text"]) for i in whole][0] == (1, two) and [i["number"] for i in whole] == [1, 2, 3]
+
+
+async def test_an_ignorable_character_in_a_note_sentence_is_stored_cleaned(
+    client_for: ClientFor, world: World, aconn: Any, model: Callable[..., Scripted]
+) -> None:
+    model()
+    copied, sentence = await checked(
+        client_for, world, "The plan was re\u00adcorded and repeated. Zz the pa\u00adtient later\u200b moved abroad."
+    )
+    assert copied["text"] == "The plan was recorded and repeated." and copied["sourced"] is True  # positive control
+    assert sentence["text"] == "Zz the patient later moved abroad."
+    stored = await rows(aconn, "select text_sha256 from app.trial_notes where id = %s", sentence["note_id"])
+    assert stored[0][0] == hashlib.sha256(b"Zz the patient later moved abroad.").hexdigest()
 
 
 @pytest.mark.parametrize("how", ["empty", "partial", "full"])
