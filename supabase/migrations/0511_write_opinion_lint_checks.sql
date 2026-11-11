@@ -4,38 +4,42 @@
 -- own rows, so a case member who was not the named expert saw every check as passed. It is kept here
 -- instead, where everyone who may view the opinion can read it. One row per opinion, for the opinion
 -- version it was made on: a later save moves the version on, so a new text is "not asked yet" again.
--- No case_id column: the row follows its opinion (deleted with it) and access is decided through it.
+-- The row follows its opinion (deleted with it) and carries the case, like every table holding case data.
 
 set role app_migrator;
 
 create table app.opinion_lint_checks (
   opinion_id uuid primary key references app.opinions (id) on delete cascade,
+  case_id uuid not null references app.cases (id) on delete cascade,
   opinion_version integer not null check (opinion_version > 0),
   model_answered boolean not null,
-  checked_at timestamptz not null default now()
+  checked_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
 );
 
 -- Access (rule 9) -------------------------------------------------------------------------------------------
 alter table app.opinion_lint_checks enable row level security;
 
+create index opinion_lint_checks_case_idx on app.opinion_lint_checks (case_id);
+
 create policy opinion_lint_checks_view on app.opinion_lint_checks for select to app_api
   using (exists (
     select 1 from app.opinions o
-    where o.id = opinion_id and app.can_access_case(o.case_id, 'case.view_content')
+    where o.id = opinion_id and o.case_id = opinion_lint_checks.case_id and app.can_access_case(o.case_id, 'case.view_content')
   ));
 create policy opinion_lint_checks_add on app.opinion_lint_checks for insert to app_api
   with check (exists (
     select 1 from app.opinions o
-    where o.id = opinion_id and app.can_access_case(o.case_id, 'opinion.write')
+    where o.id = opinion_id and o.case_id = opinion_lint_checks.case_id and app.can_access_case(o.case_id, 'opinion.write')
   ));
 create policy opinion_lint_checks_change on app.opinion_lint_checks for update to app_api
   using (exists (
     select 1 from app.opinions o
-    where o.id = opinion_id and app.can_access_case(o.case_id, 'opinion.write')
+    where o.id = opinion_id and o.case_id = opinion_lint_checks.case_id and app.can_access_case(o.case_id, 'opinion.write')
   ))
   with check (exists (
     select 1 from app.opinions o
-    where o.id = opinion_id and app.can_access_case(o.case_id, 'opinion.write')
+    where o.id = opinion_id and o.case_id = opinion_lint_checks.case_id and app.can_access_case(o.case_id, 'opinion.write')
   ));
 
 reset role;

@@ -3,6 +3,6 @@
 
 set role app_migrator;
 
-alter table app.second_readings add column job_id uuid references app.jobs (id) on delete set null;
+alter table app.second_readings add column job_id uuid;  -- no foreign key: jobs are purged on their own schedule and a stale id only means "ask again"
 
 reset role;

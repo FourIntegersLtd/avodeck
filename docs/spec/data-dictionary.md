@@ -810,7 +810,8 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 |---|---|
 | opinion_id / opinion_version | Which opinion, and which saved version of its text the model check was made on |
 | model_answered | Whether the model answered (false: the check could not be made and shows as not run, never as passed) |
-| checked_at | When the check was last made |
+| case_id | The case the opinion belongs to |
+| checked_at / created_at | When the check was last made; when the row was first made |
 
 ## Report
 

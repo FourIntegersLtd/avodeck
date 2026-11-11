@@ -67,10 +67,11 @@ async def checks_not_run(conn: DbConn, case_id: uuid.UUID, opinion_id: uuid.UUID
 async def record_model_check(conn: DbConn, opinion_id: uuid.UUID, version: int, *, answered: bool) -> None:
     """Remember, for everyone who may view the opinion, whether the model answered for this saved text."""
     await conn.execute(
-        "insert into app.opinion_lint_checks (opinion_id, opinion_version, model_answered) values (%s, %s, %s)"
+        "insert into app.opinion_lint_checks (opinion_id, case_id, opinion_version, model_answered)"
+        " select o.id, o.case_id, %s, %s from app.opinions o where o.id = %s"
         " on conflict (opinion_id) do update set opinion_version = excluded.opinion_version,"
         " model_answered = excluded.model_answered, checked_at = now()",
-        (opinion_id, version, answered),
+        (version, answered, opinion_id),
     )
 
 
