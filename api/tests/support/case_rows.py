@@ -377,6 +377,11 @@ def _write_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[s
         (w.case, row[0], b"sealed"),
     )
     admin.execute(
+        "insert into app.opinion_lint_checks (opinion_id, case_id, opinion_version, model_answered)"
+        " values (%s, %s, 1, true)",
+        (row[0], w.case),
+    )
+    admin.execute(
         "insert into app.relevant_facts (case_id, question_id, fact_id, why_relevant, fact_version)"
         " values (%s, %s, %s, 'advice to return', 2)",
         (w.case, question, fact),
@@ -393,6 +398,7 @@ def _write_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[s
         "opinions": 1,
         "opinion_versions": 1,
         "lint_issues": 1,
+        "opinion_lint_checks": 1,
         "relevant_facts": 1,
         "witness_comparisons": 1,
     }
