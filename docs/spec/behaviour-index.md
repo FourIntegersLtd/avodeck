@@ -91,6 +91,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `opinions` | E | Named expert only | One per question | ETag on every save; versions kept | Case deletion |
 | `opinion_versions` | E | System on save | Many | Append only | Case deletion |
 | `lint_issues` | E | Worker; named expert dismisses | Many | Recalculated on save; dismissals kept | Case deletion |
+| `opinion_lint_checks` | E | Named expert's lint request | One per opinion | Replaced on each lint request; stale once the text is saved again | Deleted with its opinion |
 | `report_versions` | F (table and lock trigger: Foundation) | Named expert builds, signs, serves | Many per case | Locked after signing (database refuses changes, 409 `locked`); withdrawn never deleted | Case deletion only |
 | `report_snapshots` | F | System at signing | Several per signed version | Never change | Case deletion |
 | `report_paragraphs` | F | System at build | Many | Locked with the version | Case deletion |

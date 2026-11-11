@@ -330,6 +330,7 @@ The expert's own reasoning and words.
 | `opinions` | The expert's own words answering each question, with citations to checked facts. | case_id, question_id, body, citation_refs, view, provisional, test_text, updated_at, etag |
 | `opinion_versions` | Every saved version of an opinion, so earlier wording can be seen or restored. | opinion_id, version_no, body, citation_refs, test_text, saved_at, saved_by |
 | `lint_issues` | Gentle warnings about wording (uncited facts, loaded words, outside expertise) and why the expert dismissed them. | case_id, opinion_id or paragraph_id, sentence_index, type, words, dismissed_reason |
+| `opinion_lint_checks` | Whether the model check ran on the saved text of an opinion, readable by everyone who may view it (so a check that could not run never shows as passed). | opinion_id, opinion_version, model_answered |
 
 ### 4.7 Report
 

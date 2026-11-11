@@ -1,7 +1,8 @@
 """Screen 17: the final check before signing, and acknowledging corrected declaration wording (F34).
 
 `POST .../report/final-check` queues `final_check` on the latest draft (202; 409 `not_built` without a
-draft); while one is already queued for the case it returns that job instead of queueing another. `GET .../report/final-check/latest` gives the newest run: each check's outcome with its "Fix it"
+draft); while one is already queued for the case it returns that job instead of queueing another.
+`GET .../report/final-check/latest` gives the newest run: each check's outcome with its "Fix it"
 targets, T-17's warnings with the flagged words read back from the sealed draft, whether the run is for the
 newest version (`current`) and whether the pack's declaration wording changed since the expert last
 acknowledged it. `POST .../report/declarations/acknowledge` records that the named expert has read the

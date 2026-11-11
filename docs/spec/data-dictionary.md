@@ -561,6 +561,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | page_rotation | How the page was turned when the expert asked; if it differs when the job runs, the request is refused (`page_changed`, 0217) |
 | image_sha256 | A fingerprint of the page picture as stored when the expert asked; if the picture was redrawn since, the request is refused (`page_changed`, 0218) |
 | prompt_version | The version of the instructions the model was given for this reading, so the screen can say the lines were read by the software (0224) |
+| job_id | The job queued for this page's reading (0225); asking again for a page turned and drawn as before answers with this job, never another page's |
 
 ### transcript_views
 | Field | In plain words |
@@ -804,6 +805,13 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | (shown, not stored) sentence_start / sentence_end | Where that sentence sits in the saved text, worked out when the warning is sent, so screen 15 can mark it |
 | dismissed_reason | Why the expert chose to ignore it |
 
+### opinion_lint_checks
+| Field | In plain words |
+|---|---|
+| opinion_id / opinion_version | Which opinion, and which saved version of its text the model check was made on |
+| model_answered | Whether the model answered (false: the check could not be made and shows as not run, never as passed) |
+| checked_at | When the check was last made |
+
 ## Report
 
 ### report_versions
@@ -963,6 +971,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 |---|---|
 | from_party_id / received_on | Which side sent the questions, and when |
 | deadline_id | When the answers are due |
+| none_found_at | Set when the worker read the document and found no questions, so it is not asked again; the round is still shown as not read, and the expert asking to read it again clears it |
 
 ### written_questions
 | Field | In plain words |
@@ -979,7 +988,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | document_id / received_on | The other expert's report (an uploaded document) and when it arrived |
 | expert_name / expert_role | Who wrote it and in what role, as the expert typed them when adding it (both optional). The page count comes from the document. |
 | job_id / checked_at / claims_found | The check that read it, when it finished and how many statements it found |
-| claims_expected | How many sentences naming a page our own code counted in their report; if the check found fewer, the gap is shown as needing the expert's attention |
+| claims_expected | How many sentences naming a page our own code counted in their report (page numbers such as "Page 3 of 20" are not counted); if the check found fewer, the gap is shown as needing the expert's attention until the expert has confirmed every claim that was found |
 | positions | Each question's answer in their report beside ours, for the expert to compare (no new wording) |
 
 ### opposing_claims
