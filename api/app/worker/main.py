@@ -32,6 +32,7 @@ from app.core.config import (
     pipeline_batch_settings,
     queue_retention_days,
 )
+from app.core.crypto import key_provider_from_env
 from app.core.db import Database
 from app.core.email import Mailer
 from app.core.email_live import mailer_from_env
@@ -54,6 +55,12 @@ def start_observability(env: Mapping[str, str] | None = None) -> None:
     if dsn:
         environment = source.get("SENTRY_ENVIRONMENT", "").strip() or source.get("REGION", "").strip() or "worker"
         logs.init_sentry(dsn, environment=environment)
+
+
+def check_cell_key(source: Mapping[str, str]) -> None:
+    """Deferred work (BG-16) is sealed under the cell key, so the worker needs it as the API does. Missing or wrong
+    settings end the process at start-up with the setting's name (never its value)."""
+    key_provider_from_env(source)
 
 
 def worker_queues(source: Mapping[str, str]) -> list[str] | None:
@@ -149,6 +156,7 @@ async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_P
     worker = build_worker(env, features=features)
     source = os.environ if env is None else env
     scanner_from_env(source)  # no scanner configured ends the process now, not at the first scan job
+    check_cell_key(source)  # no cell key ends it now, not at the first deferred mail
     concurrency = env_int(source, "WORKER_CONCURRENCY", 4, minimum=1)
     check_pipeline_window(source, concurrency=concurrency)
     await open_database_with_retry(worker.database)
