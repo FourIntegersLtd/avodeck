@@ -12,8 +12,11 @@ as Document Intelligence gives them for PDFs. `struck` marks a word that is cros
 from __future__ import annotations
 
 import hashlib
+import uuid
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, runtime_checkable
+
+from psycopg import AsyncConnection
 
 from app.core.ai.cell import check_endpoint
 from app.core.ai.recordings import FixtureStore
@@ -50,6 +53,7 @@ class OcrPage:
 class OcrResult:
     model: str
     pages: tuple[OcrPage, ...]
+    api_version: str | None = None  # the service's API version that answered; None for a recorded answer (PV-18)
 
 
 class OcrFailed(Exception):
@@ -64,6 +68,25 @@ class OcrClient(Protocol):
         """Read `document`. `locale` (a language tag from the pack, e.g. en-GB) tells the reader which language and
         script to expect; without it the reader guesses."""
         ...
+
+
+async def record_call(
+    conn: AsyncConnection,
+    *,
+    case_id: uuid.UUID,
+    task: str,
+    result: OcrResult,
+    region: str,
+    job_id: uuid.UUID | None = None,
+) -> None:
+    """One `ai_calls` row for an OCR call (PV-18): the model, the service's API version, the region and the job (so
+    the job's `code_version` is recoverable). Metadata only: no page text, no token counts (rule 6)."""
+    await conn.execute(
+        "insert into app.ai_calls (case_id, person_id, task_id, model_id, region, prompt_version, input_tokens,"
+        " output_tokens, job_id, api_version, outcome)"
+        " values (%s, app.current_person_id(), %s, %s, %s, %s, 0, 0, %s, %s, 'ok')",
+        (case_id, f"ocr.{task}", result.model, region, "n/a", job_id, result.api_version),
+    )
 
 
 def _result(model: str, data: dict[str, Any]) -> OcrResult:

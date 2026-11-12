@@ -13,6 +13,7 @@ from app.core.contracts.pipeline import EntryPoint
 from app.core.packs import MergedPack
 
 DATE_BASIS_PRINTED = "printed"
+DATE_BASIS_EXPERT = "expert_entered"  # a date the expert typed, not one read from the page
 
 
 class ResolveFactEventDate(Protocol):

@@ -177,6 +177,7 @@ def _result(model: str, analysed: dict[str, Any]) -> OcrResult:
     pages = sorted(analysed.get("pages") or (), key=lambda p: int(p["pageNumber"]))
     return OcrResult(
         model=model,
+        api_version=API_VERSION,
         pages=tuple(
             OcrPage(
                 number=int(page["pageNumber"]),

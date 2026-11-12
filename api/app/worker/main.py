@@ -17,6 +17,7 @@ from typing import Protocol
 
 from psycopg_pool import PoolTimeout
 
+import app.core.chain_check  # noqa: F401 - the run-time hash chain check (PV-13c)
 import app.core.deferred  # noqa: F401 - the delivery sweep for after-commit work
 import app.core.housekeeping  # noqa: F401 - registers the foundation's daily schedules
 import app.core.notifications  # noqa: F401 - the daily messages schedule
