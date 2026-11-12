@@ -184,7 +184,7 @@ class JobTimeLimits:
 
 
 def job_time_limits(env: Mapping[str, str] | None = None) -> JobTimeLimits:
-    """`JOB_TIME_LIMIT_BULK_SECONDS` (default 21600, 6 hours) and `JOB_TIME_LIMIT_INTERACTIVE_SECONDS` (default 3600)."""
+    """`JOB_TIME_LIMIT_BULK_SECONDS` (default 21600, 6 hours), `JOB_TIME_LIMIT_INTERACTIVE_SECONDS` (default 3600)."""
     source = os.environ if env is None else env
     return JobTimeLimits(
         bulk=env_float(source, "JOB_TIME_LIMIT_BULK_SECONDS", DEFAULT_JOB_TIME_LIMIT_BULK_SECONDS, minimum=1),

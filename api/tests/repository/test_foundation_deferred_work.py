@@ -299,8 +299,7 @@ async def test_a_mail_is_sent_while_only_its_own_row_is_held(
 
     def look() -> None:
         row = admin.execute(
-            "select count(*) from (select id from app.deferred_work where status = 'pending'"
-            " for update skip locked) s"
+            "select count(*) from (select id from app.deferred_work where status = 'pending' for update skip locked) s"
         ).fetchone()
         assert row is not None
         free_while_sending.append(row[0])
@@ -310,9 +309,7 @@ async def test_a_mail_is_sent_while_only_its_own_row_is_held(
     assert free_while_sending == [3, 2, 1, 0][: len(free_while_sending)] and free_while_sending[0] == 3
 
 
-async def test_two_sweeps_at_once_never_send_a_row_twice(
-    api_db: Database, worker_db: Database, seed: Seed
-) -> None:
+async def test_two_sweeps_at_once_never_send_a_row_twice(api_db: Database, worker_db: Database, seed: Seed) -> None:
     ids = await _defer_many(api_db, seed.person(), 8)
     mailer = SlowMailer(delay=0.05)
     sent = await asyncio.gather(

@@ -74,6 +74,7 @@ JobHandler = Callable[["JobContext"], Awaitable[None]]
 ScheduleHandler = Callable[[AsyncConnection, date], Awaitable[None]]
 StepWork = Callable[[AsyncConnection], Awaitable[None]]
 SweepHandler = Callable[[AsyncConnection], Awaitable[None]]
+DatabaseSweepHandler = Callable[["Database"], Awaitable[None]]
 
 # F5: pauses the worker resumes by itself, because the service comes back without anyone acting.
 RESUMABLE_PAUSES = frozenset({"service_busy", "model_unavailable"})
@@ -136,6 +137,7 @@ class JobRegistry:
         self.kinds: dict[str, JobKind] = {}
         self.schedules: dict[str, ScheduleHandler] = {}
         self.sweeps: dict[str, SweepHandler] = {}
+        self.database_sweeps: dict[str, DatabaseSweepHandler] = {}
 
     def kind(
         self,
@@ -173,6 +175,18 @@ class JobRegistry:
             if name in self.sweeps:
                 raise ValueError(f"sweep {name!r} is registered twice")
             self.sweeps[name] = handler
+            return handler
+
+        return register
+
+    def database_sweep(self, name: str) -> Callable[[DatabaseSweepHandler], DatabaseSweepHandler]:
+        """Register a handler `(database)` for work that must not sit in one transaction (a slow call to another
+        service, row by row). It runs in every housekeeping round after all the `sweep`s, so it cannot delay them."""
+
+        def register(handler: DatabaseSweepHandler) -> DatabaseSweepHandler:
+            if name in self.database_sweeps or name in self.sweeps:
+                raise ValueError(f"sweep {name!r} is registered twice")
+            self.database_sweeps[name] = handler
             return handler
 
         return register
@@ -493,13 +507,20 @@ class JobWorker:
             await asyncio.sleep(max(self.stalled_after_seconds / 2, self.poll_seconds))
 
     async def run_sweeps(self) -> int:
-        """Run every registered sweep once, each on its own anonymous connection. One that fails logs only its name
-        and the exception type (rule 6) and does not stop the others. Returns how many ran without failing."""
+        """Run every registered sweep once, each on its own anonymous connection, then the database sweeps (they take
+        as long as they take, so they go last). One that fails logs only its name and the exception type (rule 6) and
+        does not stop the others. Returns how many ran without failing."""
         ok = 0
         for name, handler in self.registry.sweeps.items():
             try:
                 async with self.database.anonymous() as conn:
                     await handler(conn)
+                ok += 1
+            except Exception as exc:  # noqa: BLE001 - the type only: messages may carry patient text
+                logger.error("worker sweep %s failed: %s", name, type(exc).__name__)
+        for name, database_handler in self.registry.database_sweeps.items():
+            try:
+                await database_handler(self.database)
                 ok += 1
             except Exception as exc:  # noqa: BLE001 - the type only: messages may carry patient text
                 logger.error("worker sweep %s failed: %s", name, type(exc).__name__)

@@ -67,9 +67,7 @@ def enqueue(conn: psycopg.Connection, case: uuid.UUID, kind: str, queue: str = "
 # --- BG-12: the time limit ------------------------------------------------------------------------------------------
 
 
-def test_the_time_limits_default_to_a_hung_job_backstop_six_hours_bulk_one_hour_interactive_and_take_the_environment() -> (
-    None
-):
+def test_the_time_limits_default_to_a_hung_job_backstop_of_six_hours_bulk_and_one_hour_interactive() -> None:
     """A limit catches a hung job, not a slow one: a 4,000-page export, trial pack or deletion may run for hours."""
     assert job_time_limits({}) == JobTimeLimits(bulk=6 * 3600, interactive=3600)
     chosen = job_time_limits({"JOB_TIME_LIMIT_BULK_SECONDS": "60", "JOB_TIME_LIMIT_INTERACTIVE_SECONDS": "30"})
