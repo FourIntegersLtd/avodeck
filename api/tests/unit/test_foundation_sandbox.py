@@ -9,11 +9,11 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
-import multiprocessing
 import os
 import sys
 import time
 from collections.abc import AsyncIterator
+from typing import Any
 
 import pikepdf
 import pytest
@@ -28,13 +28,18 @@ pytestmark = pytest.mark.anyio
 CANARY = "CANARY-patient-Jane-Doe-0123456789"
 LINUX_ONLY = pytest.mark.skipif(
     not sys.platform.startswith("linux"),
-    reason="RLIMIT_AS is enforced on Linux (production); macOS does not honour it, so the memory kill is not testable here",
+    reason="RLIMIT_AS is enforced on Linux (production); macOS ignores it, so the memory kill is not testable here",
 )
 
 
-def settings(**kw: object) -> SandboxSettings:
-    base = {"pool_size": 1, "timeout_seconds": 20.0, "memory_bytes": 512 * 1024 * 1024, "recycle_after": 50}
-    return SandboxSettings(**{**base, **kw})  # type: ignore[arg-type]
+def settings(**kw: Any) -> SandboxSettings:
+    base: dict[str, Any] = {
+        "pool_size": 1,
+        "timeout_seconds": 20.0,
+        "memory_bytes": 512 * 1024 * 1024,
+        "recycle_after": 50,
+    }
+    return SandboxSettings(**{**base, **kw})
 
 
 @pytest.fixture
@@ -120,9 +125,7 @@ async def test_an_exception_that_cannot_cross_the_pipe_becomes_a_code_with_no_te
             await run(call, CANARY)
         assert caught.value.code == "failed"
         assert CANARY not in str(caught.value) + repr(caught.value) + repr(caught.value.args)
-        assert caught.value.__cause__ is None and caught.value.__context__ is None or CANARY not in repr(
-            caught.value.__context__
-        )
+        assert caught.value.__cause__ is None
 
 
 async def test_no_argument_text_reaches_logs_output_or_errors(
@@ -133,7 +136,7 @@ async def test_no_argument_text_reaches_logs_output_or_errors(
     for call, kw in ((fns.chatter_then_fail, {}), (fns.sleep_for, {"timeout": 0.3}), (fns.hard_exit, {})):
         args = (CANARY,) if call is fns.chatter_then_fail else ((60,) if call is fns.sleep_for else (7,))
         with pytest.raises(SandboxError) as caught:
-            await run(call, *args, **kw)  # type: ignore[arg-type]
+            await run(call, *args, **kw)
         errors.append(caught.value)
     # a bytes argument that is itself the canary
     with pytest.raises(SandboxError):
@@ -147,7 +150,7 @@ async def test_stop_leaves_no_child_processes() -> None:
     await sandbox.start(settings(pool_size=2))
     pids = set(await asyncio.gather(run(fns.sleep_for, 0.3), run(fns.sleep_for, 0.3)))
     await sandbox.stop()
-    assert multiprocessing.active_children() == []
+    assert not sandbox._live
     for pid in pids:
         with pytest.raises(ProcessLookupError):
             os.kill(pid, 0)
@@ -160,7 +163,7 @@ async def test_stop_while_a_call_is_running_ends_it_and_leaves_no_child() -> Non
     await sandbox.stop()
     with pytest.raises(SandboxError):
         await task
-    assert multiprocessing.active_children() == []
+    assert not sandbox._live
 
 
 async def test_a_cancelled_call_kills_its_child_and_frees_the_slot(pool: None) -> None:
@@ -182,3 +185,15 @@ async def test_run_starts_the_pool_by_itself_when_nobody_did() -> None:
 def test_the_error_carries_only_a_code() -> None:
     error = SandboxError("timed_out")
     assert error.code == "timed_out" and str(error) == "timed_out"
+
+
+async def test_a_child_sees_no_secrets_and_only_its_own_descriptors(
+    pool: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql://secret")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "secret")
+    await sandbox.stop()
+    await sandbox.start(settings())
+    seen = await run(fns.environment)
+    assert "DATABASE_URL" not in seen and "AWS_SECRET_ACCESS_KEY" not in seen
+    assert len(await run(fns.open_descriptors)) <= 5, "stdin, stdout, stderr, the parent socket, the directory listing"

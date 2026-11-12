@@ -38,7 +38,9 @@ def test_a_document_cap_above_the_bundle_cap_is_refused() -> None:
         document_limits({"MAX_DOCUMENT_PAGES": "5000", "MAX_BUNDLE_PAGES": "4000"})
 
 
-@pytest.mark.parametrize("name", ["MAX_DOCUMENT_PAGES", "MAX_BUNDLE_PAGES", "MAX_IMAGE_PIXELS", "MAX_OCR_RESPONSE_BYTES"])
+@pytest.mark.parametrize(
+    "name", ["MAX_DOCUMENT_PAGES", "MAX_BUNDLE_PAGES", "MAX_IMAGE_PIXELS", "MAX_OCR_RESPONSE_BYTES"]
+)
 def test_zero_or_text_is_refused_naming_the_setting(name: str) -> None:
     for bad in ("0", "lots"):
         with pytest.raises(ConfigError, match=name):

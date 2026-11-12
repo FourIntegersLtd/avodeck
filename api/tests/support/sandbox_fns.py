@@ -71,3 +71,11 @@ def open_encrypted_pdf(pdf: bytes) -> int:
 
     with pikepdf.open(io.BytesIO(pdf)) as opened:
         return len(opened.pages)
+
+
+def environment() -> dict[str, str]:
+    return dict(os.environ)
+
+
+def open_descriptors() -> list[int]:
+    return sorted(int(name) for name in os.listdir("/dev/fd") if name.isdigit())
