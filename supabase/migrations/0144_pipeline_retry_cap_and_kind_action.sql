@@ -21,11 +21,13 @@ create table app.pipeline_job_retries (
 alter table app.pipeline_job_retries enable row level security;
 revoke all on app.pipeline_job_retries from public, app_api, app_worker;
 
-create function app.pipeline_retry_cap() returns integer language sql immutable set search_path = '' as 'select 5';
+create function app.pipeline_retry_cap() returns integer
+  language sql immutable security definer set search_path = ''
+as 'select 5';
 
 -- The action a person needs to put this failed job back: that of its kind, for the kinds the route retries; else null.
 create function app.pipeline_retry_action(p_kind text) returns text
-  language sql stable set search_path = ''
+  language sql stable security definer set search_path = ''
 as $$
   select a.action from app.job_kind_actions a
    where a.kind = p_kind and p_kind in ('scan_document', 'process_bundle', 'process_pages', 'reprocess_case')
