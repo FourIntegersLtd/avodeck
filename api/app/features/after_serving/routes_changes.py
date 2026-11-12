@@ -23,7 +23,7 @@ from app.core.contracts.citations import Citation
 from app.core.contracts.profile import named_expert
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
-from app.features.after_serving import docs, supplementary
+from app.features.after_serving import docs, signing, supplementary
 from app.features.after_serving.common import (
     CHANGE_NEW,
     CHANGE_OLD,
@@ -357,21 +357,35 @@ async def sign_supplementary(
     conn: DbConn,
     crypto: Crypto,
     storage: Storage,
+    reads: Reads,
     pack: Pack,
 ) -> Signed:
     if not body.declaration_confirmed:
         raise invalid("declaration_confirmed")
+    # Lock the draft and its changes: a second sign waits here and finds it locked, and an edit cannot slip in
+    # between reading the changes and locking them (PV-19a).
     row = await fetch_one(
-        conn, "select type, status from app.report_versions where id = %s and case_id = %s", (version_id, case_id)
+        conn,
+        "select type, status, docx_path from app.report_versions where id = %s and case_id = %s for update",
+        (version_id, case_id),
     )
     if row is None:
         raise not_found()
     if row["type"] != "supplementary" or row["status"] != "draft":
         raise conflict("locked", "This version is signed and does not change.")
+    changes = await fetch_all(
+        conn,
+        "select citation_refs from app.report_changes where case_id = %s and supplementary_version_id = %s for update",
+        (case_id, version_id),
+    )
     lang = pack.language
     blocks = await supplementary.blocks(conn, crypto, case_id, pack, version_id)
+    if not await signing.draft_matches(conn, storage, crypto, case_id, row["docx_path"], blocks):
+        raise conflict("draft_changed", "Build the supplementary report again and read it before you sign.")
+    if not await signing.citations_stand(conn, case_id, reads, [c["citation_refs"] for c in changes]):
+        raise conflict("citation_problems", "A cited fact has changed since you wrote the change.")
     blocks.append(("body", word(lang, "dated", date=long_date(lang, pack.date_order, court_today(pack.timezone)))))
     path = report_file(case_id, version_id, "supplementary-signed.docx")
-    version = await lock_version(conn, storage, crypto, case_id, version_id, path, docs.build(blocks))
+    version = await lock_version(conn, storage, crypto, case_id, version_id, path, docs.build(blocks), pack)
     await audit.record(conn, action="supplementary.signed", target=f"report_version:{version_id}", case_id=case_id)
     return Signed(version=AnswersSignedVersion(**version))

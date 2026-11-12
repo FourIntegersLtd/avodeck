@@ -25,7 +25,9 @@ from collections.abc import Sequence
 from datetime import date, timedelta
 from typing import Any
 
+from app.core.ai import ocr as ocr_calls
 from app.core.ai.kit import InvalidOutput
+from app.core.config import ConfigError
 from app.core.contracts.case_identity import Identity, identity_for
 from app.core.contracts.facts import CITABLE_STATUSES
 from app.core.contracts.questions import confirmed_questions
@@ -80,8 +82,12 @@ async def _run(
         return {}
 
 
-async def _read_document(ctx: JobContext, pack: MergedPack, document_id: uuid.UUID) -> tuple[Letter, Identity]:
+async def _read_document(
+    ctx: JobContext, pack: MergedPack, document_id: uuid.UUID, task: str
+) -> tuple[Letter, Identity]:
     services = current()
+    if not services.region:  # a residency record never holds a guess: refuse the call, never record a made-up region
+        raise ConfigError("the cell's region is not configured: an OCR call cannot be recorded without it")
     storage, crypto = services.files()
     ocr = services.reader()
     async with ctx.transaction() as conn:
@@ -91,7 +97,12 @@ async def _read_document(ctx: JobContext, pack: MergedPack, document_id: uuid.UU
         for path in sorted(await storage.list(doc["storage_path"])):
             parts.append(await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path))
         who = await identity_for(conn, crypto, ctx.case_id)
-    letter = Letter.from_ocr(await ocr.analyse(b"".join(parts), "layout"))
+    result = await ocr.analyse(b"".join(parts), "layout")
+    async with ctx.transaction() as conn:  # one `ai_calls` row: the model, API version, region and this job (PV-18)
+        await ocr_calls.record_call(
+            conn, case_id=ctx.case_id, task=task, result=result, region=services.region, job_id=ctx.job_id
+        )
+    letter = Letter.from_ocr(result)
     letter.mask(pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
     return letter, who
 
@@ -130,7 +141,7 @@ async def _extract_round(
     async with ctx.transaction() as conn:
         have = await fetch_one(conn, "select count(*) as n from app.written_questions where round_id = %s", (round_id,))
     if not (have and have["n"]):
-        letter, who = await _read_document(ctx, pack, document_id)
+        letter, who = await _read_document(ctx, pack, document_id, "written_questions")
         async with ctx.transaction() as conn:
             out = await _run(
                 conn,
@@ -303,7 +314,7 @@ async def _verify_report(ctx: JobContext, pack: MergedPack, report_id: uuid.UUID
             conn, "select count(*) as n from app.opposing_claims where document_id = %s", (document_id,)
         )
     if not (have and have["n"]):
-        letter, who = await _read_document(ctx, pack, document_id)
+        letter, who = await _read_document(ctx, pack, document_id, "opposing_report")
         async with ctx.transaction() as conn:
             out = await _run(
                 conn,

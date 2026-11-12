@@ -15,6 +15,7 @@ from psycopg import AsyncConnection
 
 from app.core.contracts import events
 from app.features.after_serving.common import pack_for
+from app.features.after_serving.services import current
 
 _app: Any = None
 
@@ -33,10 +34,10 @@ async def handle_served(conn: AsyncConnection, event: events.ReportServed) -> No
 
     if event.served_by is None:
         raise ValueError("report_served needs served_by")
-    app = _app
-    if app is None:
-        raise RuntimeError("after_serving is not started")
-    pack = await pack_for(conn, app.state.packs, event.case_id)
+    # The cell's pack library from the started app; an app that never ran this slice's start-up (a worker, a test
+    # app built for another slice) uses the slice's own services, never failing the serving over it.
+    packs = _app.state.packs if _app is not None else current().packs
+    pack = await pack_for(conn, packs, event.case_id)
     await ensure_pack_deadlines(conn, pack, event.case_id)
     await conn.execute("select app.after_serving_answers_served(%s, %s)", (event.case_id, event.report_version_id))
 
