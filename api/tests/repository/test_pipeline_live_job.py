@@ -76,3 +76,21 @@ async def test_another_case_and_another_kind_are_not_live(
     seed.job(other, requested_by=expert)
     seed.job(case, kind="repair_fact_dates", requested_by=expert)
     assert await _live(api_db, expert, case) is None
+
+
+@pytest.mark.parametrize(
+    ("state", "live"), [("ocr_waiting", False), ("finishing", False), ("done", True), ("closed", True)]
+)
+async def test_a_running_job_with_an_open_page_batch_run_is_not_live(
+    api_db: Database, admin: psycopg.Connection, seed: Seed, state: str, live: bool
+) -> None:
+    """Its pages are planned, so a request made now (an append) needs a run of its own (ADR 0038), not this job."""
+    expert = seed.person()
+    case = seed.case(seed.org(kind="personal", members={expert: "owner"}), expert)
+    job = seed.job(case, requested_by=expert)
+    _move(admin, job, ("running", None))
+    admin.execute(
+        'insert into app.pipeline_runs (job_id, case_id, state, batch_pages, "window") values (%s, %s, %s, 5, 2)',
+        (job, case, state),
+    )
+    assert await _live(api_db, expert, case) == (job if live else None)
