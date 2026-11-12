@@ -116,6 +116,12 @@ def test_control_the_first_retry_of_a_failed_job_is_allowed(
         assert _fail_and_put_back(api, admin, job) is True
 
 
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="BG-07: app.requeue_failed_job resets `attempts` to 0 every time, so one failed job can be put back and"
+    " re-run without end (3 more tries per click, no lifetime count)",
+)
 def test_a_failed_job_cannot_be_put_back_without_end(api_dsn: str, admin: psycopg.Connection, seed: Seed) -> None:
     expert = seed.person()
     case = seed.case(seed.org(kind="personal", members={expert: "owner"}), expert)

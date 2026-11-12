@@ -111,7 +111,9 @@ async def test_a_job_the_expert_cancelled_is_not_live(h: Harness) -> None:
 async def test_a_running_job_with_no_recent_heartbeat_is_an_orphan_and_not_live(h: Harness) -> None:
     first = await start(h)
     h.admin.execute("update app.jobs set status = 'running' where id = %s", (first,))
+    h.admin.execute("alter table app.jobs disable trigger jobs_guard")  # the guard stamps updated_at on every change
     h.admin.execute("update app.jobs set updated_at = now() - interval '2 hours' where id = %s", (first,))
+    h.admin.execute("alter table app.jobs enable trigger jobs_guard")
     assert await start(h) != first
 
 

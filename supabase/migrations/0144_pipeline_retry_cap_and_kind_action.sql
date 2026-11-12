@@ -15,6 +15,7 @@ set role app_migrator;
 create table app.pipeline_job_retries (
   job_id uuid primary key references app.jobs (id) on delete cascade,
   retries integer not null default 0 check (retries >= 0),
+  created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 alter table app.pipeline_job_retries enable row level security;
@@ -42,9 +43,14 @@ declare
   v_action text;
   v_used integer;
 begin
-  select j.case_id, j.kind into v_case, v_kind from app.jobs j where j.id = p_job and j.status = 'failed' for update;
+  -- Check the person first, without a lock: a refused person must not wait on a row another request holds.
+  select j.case_id, j.kind into v_case, v_kind from app.jobs j where j.id = p_job;
   v_action := app.pipeline_retry_action(v_kind);
   if v_case is null or v_action is null or not coalesce(app.can_access_case(v_case, v_action), false) then
+    return false;
+  end if;
+  perform 1 from app.jobs j where j.id = p_job and j.status = 'failed' for update;
+  if not found then
     return false;
   end if;
   select r.retries into v_used from app.pipeline_job_retries r where r.job_id = p_job for update;
