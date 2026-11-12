@@ -17,6 +17,7 @@ import io
 import logging
 import os
 import shutil
+import stat
 import tempfile
 import uuid
 from collections.abc import AsyncIterator, Iterator
@@ -110,12 +111,24 @@ class SpoolTooLarge(Exception):
     """The content is larger than the cap (`MAX_FILE_SIZE` unless the caller sets one)."""
 
 
+def _scratch_path() -> str:
+    """Where scratch files go: `AVODECK_SCRATCH_DIR`, else `<system temp>/avodeck-scratch-<uid>` (never the shared
+    temp directory itself, F-i)."""
+    if AVODECK_SCRATCH_DIR:
+        return AVODECK_SCRATCH_DIR
+    return os.path.join(tempfile.gettempdir(), f"avodeck-scratch-{os.getuid()}")
+
+
 def _scratch_dir() -> str:
-    """The private scratch directory (`AVODECK_SCRATCH_DIR`, else the system temp), created `0700` if missing."""
-    directory = AVODECK_SCRATCH_DIR or tempfile.gettempdir()
+    """The private scratch directory, created `0700` if missing. A default directory that is a link or is owned by
+    another account is refused (`OSError`); our own is tightened to `0700`."""
+    directory = _scratch_path()
     os.makedirs(directory, mode=0o700, exist_ok=True)
-    if AVODECK_SCRATCH_DIR:  # ours to lock down; never chmod the shared system temp directory
-        os.chmod(directory, 0o700)
+    if not AVODECK_SCRATCH_DIR:
+        info = os.lstat(directory)
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+            raise OSError("the scratch directory is not ours")
+    os.chmod(directory, 0o700)
     return directory
 
 
@@ -169,7 +182,7 @@ def sweep_scratch() -> int:
     running or is this process (nothing of ours is open yet at start), so a second worker sharing the directory
     keeps its files. Never reports a path.
     """
-    directory = AVODECK_SCRATCH_DIR or tempfile.gettempdir()
+    directory = _scratch_path()
     try:
         names = os.listdir(directory)
     except FileNotFoundError:
