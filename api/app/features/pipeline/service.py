@@ -32,7 +32,6 @@ import io
 import json
 import logging
 import os
-import tempfile
 import time
 import uuid
 import weakref
@@ -46,7 +45,7 @@ from typing import Any
 import pikepdf
 from psycopg import AsyncConnection
 
-from app.core import audit, notifications
+from app.core import audit, case_files, notifications
 from app.core.ai import embed, pii, provenance
 from app.core.ai.answers import page_subject, reference_subject
 from app.core.ai.bedrock import ServiceBusy
@@ -153,19 +152,28 @@ async def scan_document(ctx: JobContext) -> None:
     await ctx.progress(100, step="scan")
 
 
-async def _download(ctx: JobContext, services: PipelineServices, prefix: str) -> Path:
-    """A stored document's bytes in a temp file, written as the parts are read (one part in memory at a time).
-    The caller deletes the file; if the download itself fails, it is deleted here."""
-    handle, name = tempfile.mkstemp(prefix="avodeck-split-")
-    path = Path(name)
+@contextlib.asynccontextmanager
+async def _scratch(data: bytes | None = None) -> AsyncIterator[Path]:
+    """A plaintext file in the private scratch directory (`0600` in a `0700` directory, DP-06), deleted when the
+    block ends however it ends. Creating and deleting it are single system calls; the writing is done by the caller
+    in a thread."""
+    scratch = case_files.scratch_file(data)
+    path = Path(scratch.__enter__())
     try:
-        with os.fdopen(handle, "wb") as out:
+        yield path
+    finally:  # synchronous on purpose: it must run even while the task is being cancelled
+        scratch.__exit__(None, None, None)
+
+
+@contextlib.asynccontextmanager
+async def _download(ctx: JobContext, services: PipelineServices, prefix: str) -> AsyncIterator[Path]:
+    """A stored document's bytes in a scratch file, written as the parts are read (one part in memory at a time).
+    The file is deleted when the block ends, however it ends."""
+    async with _scratch() as path:
+        with path.open("wb") as out:
             async for chunk in _chunks_free(ctx, services, prefix):  # S3 with no connection held
                 await asyncio.to_thread(out.write, chunk)
-    except BaseException:
-        path.unlink(missing_ok=True)
-        raise
-    return path
+        yield path
 
 
 def _head(path: Path) -> bytes:
@@ -280,27 +288,32 @@ class _Source:
         self.ctx, self.services, self.document_id = ctx, services, document_id
         self.waiting = waiting
         self.lock = asyncio.Lock()
-        self.path: Path | None = None
+        self.files: contextlib.AsyncExitStack | None = None  # holds the scratch file while the document is open
         self.pdf: pikepdf.Pdf | None = None
 
     async def _open(self) -> pikepdf.Pdf:
         async with self.ctx.transaction() as conn:
             prefix, filename = await repo.document_file(conn, self.document_id)
-        self.path = await _download(self.ctx, self.services, prefix)
-        if convert.sniff(await asyncio.to_thread(_head, self.path)) != convert.PDF:  # a Word file, an email, a picture
-            data = await asyncio.to_thread(self.path.read_bytes)
-            found = await asyncio.to_thread(convert.unpack, data, filename, LIMITS)
-            del data
-            assert found.pdf is not None
-            self.path.unlink(missing_ok=True)
-            handle, name = tempfile.mkstemp(prefix="avodeck-split-")
-            self.path = Path(name)
-            with os.fdopen(handle, "wb") as out:
-                await asyncio.to_thread(out.write, found.pdf)
-        # the same reader the count used (no repair), so the pages counted are the pages cut
-        return await asyncio.get_running_loop().run_in_executor(
-            _CUT, functools.partial(pikepdf.open, self.path, attempt_recovery=False)
-        )
+        files = contextlib.AsyncExitStack()
+        try:
+            path = await files.enter_async_context(_download(self.ctx, self.services, prefix))
+            if convert.sniff(await asyncio.to_thread(_head, path)) != convert.PDF:  # a Word file, an email, a picture
+                data = await asyncio.to_thread(path.read_bytes)
+                found = await asyncio.to_thread(convert.unpack, data, filename, LIMITS)
+                del data
+                assert found.pdf is not None
+                await files.aclose()  # the original goes; the converted PDF takes its place
+                files = contextlib.AsyncExitStack()
+                path = await files.enter_async_context(_scratch(found.pdf))
+            # the same reader the count used (no repair), so the pages counted are the pages cut
+            pdf = await asyncio.get_running_loop().run_in_executor(
+                _CUT, functools.partial(pikepdf.open, path, attempt_recovery=False)
+            )
+        except BaseException:
+            await files.aclose()
+            raise
+        self.files = files
+        return pdf
 
     async def cut(self, index: int) -> bytes:
         async with self.lock:
@@ -318,9 +331,9 @@ class _Source:
             pdf, self.pdf = self.pdf, None
             if pdf is not None:
                 await asyncio.get_running_loop().run_in_executor(_CUT, pdf.close)
-            if self.path is not None:
-                self.path.unlink(missing_ok=True)
-                self.path = None
+            files, self.files = self.files, None
+            if files is not None:
+                await files.aclose()
 
 
 async def _split(ctx: JobContext, services: PipelineServices) -> None:
@@ -335,8 +348,7 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
         if not documents:
             break
         for doc in documents:
-            path = await _download(ctx, services, doc.storage_path)
-            try:
+            async with _download(ctx, services, doc.storage_path) as path:
                 async with ctx.transaction() as conn:
                     try:
                         count = await _unpack(conn, services, ctx.case_id, doc, path)
@@ -355,8 +367,6 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
                     await repo.add_pages(conn, ctx.case_id, doc.id, count)
                     await repo.link_replacements(conn, ctx.case_id)
                     await repo.link_splits(conn, ctx.case_id)
-            finally:
-                path.unlink(missing_ok=True)
     async with ctx.transaction() as conn:
         waiting = await repo.pages_without_image(conn, ctx.case_id)
     sources: dict[uuid.UUID, _Source] = {}
