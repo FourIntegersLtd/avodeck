@@ -152,8 +152,19 @@ jobs:
           poetry -C api run pip freeze --exclude-editable > "$RUNNER_TEMP/req.txt"
           ignores=()
           while read -r id _; do ignores+=(--ignore-vuln "$id"); done < <(grep -Ev '^[[:space:]]*(#|$)' .github/pip-audit-ignore.txt)
-          pipx run pip-audit -r "$RUNNER_TEMP/req.txt" --no-deps --disable-pip "${ignores[@]}" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
-          exit "${PIPESTATUS[0]}"
+          # The tool version is pinned (a new release must not change what fails the build). A failed look-up (the
+          # advisory service unreachable) is tried once more; a found vulnerability is never retried.
+          audit() { pipx run pip-audit==2.10.1 -r "$RUNNER_TEMP/req.txt" --no-deps --disable-pip "${ignores[@]}" > "$RUNNER_TEMP/audit.txt" 2>&1; }
+          status=0
+          audit || status=$?
+          if [ "$status" -ne 0 ] && grep -Eqi 'ConnectionError|Max retries|Timeout|timed out|Temporary failure|Name or service|50[0-9] ' "$RUNNER_TEMP/audit.txt" && ! grep -q 'Found [0-9]* known vulnerabilit' "$RUNNER_TEMP/audit.txt"; then
+            echo "pip-audit could not reach the advisory service; trying once more"
+            sleep 20
+            status=0
+            audit || status=$?
+          fi
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/audit.txt"
+          exit "$status"
 
   # The shards together ran every collected test exactly once, and the combined coverage meets the floor (85, as `make -C api test`).
   api-verify:
