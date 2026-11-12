@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import BackgroundTasks, Depends, Header, Query, Request, Response
+from fastapi import Depends, Header, Query, Request, Response
 
 from app.core.auth.support import SupportStaff, require_support_lookup, require_support_staff
 from app.core.flags import require_flag
@@ -106,16 +106,14 @@ def _shown_once(request: Request, response: Response, made: SupportAccountWithPa
 @router.post("/support/accounts", response_model=SupportAccountWithPassword, status_code=201)
 async def create_account(
     body: SupportAccountCreate, request: Request, response: Response, conn: DbConn, _: Staff, __: IdempotencyKey,
-    after_commit: BackgroundTasks,
 ) -> SupportAccountWithPassword:  # fmt: skip
     """A new person's account with a temporary password, shown once (ADR 0024), and no team; when mail is set
-    up, also a set-password email sent after commit (409 `conflict` if the email already has an account, 422
+    up, also a set-password email the worker sends after commit (409 `conflict` if the email already has an account, 422
     `invalid_email` if Auth will not take it; at most 20 an hour per staff member counting refused attempts,
     429 `too_many_attempts`)."""
     state = request.app.state
     made = await accounts.create(
-        conn, state.mailer, state.auth, _app_origin(request), state.region, body, after_commit,
-        mail=bool(getattr(state, "mail_configured", False)),
+        conn, state.auth, _app_origin(request), state.region, body, mail=bool(getattr(state, "mail_configured", False)),
     )  # fmt: skip
     return _shown_once(request, response, made)
 
