@@ -13,7 +13,6 @@ from collections.abc import AsyncIterator
 from types import SimpleNamespace
 from typing import Any
 
-import psycopg
 import pytest
 
 from app.core.crypto import CaseCrypto, LocalKeyProvider
@@ -85,7 +84,14 @@ def request_with(storage: Any) -> Any:
         async def release(self, conn: Any) -> None:
             return None
 
-    state = SimpleNamespace(storage=storage, crypto=CaseCrypto(LocalKeyProvider.generate()), database=_Db())
+    class _Crypto:
+        async def key(self, conn: Any, case: uuid.UUID) -> bytes:
+            return b"k"
+
+        def open_with(self, key: bytes, case: uuid.UUID, sealed: bytes, *, purpose: str) -> bytes:
+            raise AssertionError("nothing to open")
+
+    state = SimpleNamespace(storage=storage, crypto=_Crypto(), database=_Db())
     return SimpleNamespace(app=SimpleNamespace(state=state), state=SimpleNamespace(conn=None))
 
 
@@ -96,10 +102,10 @@ async def test_a_picture_missing_from_storage_is_not_found_not_a_server_error(ap
             await router.page_image(
                 w["case"],
                 1,
-                None,
+                None,  # type: ignore[arg-type]
                 request_with(_Missing()),
                 conn,
-                scope_for(w["expert"]),  # type: ignore[arg-type]
+                scope_for(w["expert"]),
             )
     assert (gone.value.code, gone.value.status) == ("not_found", 404)
 

@@ -44,7 +44,7 @@ archived ──reopen──▶ active (if not past delete_after)
 | `superseded_by_page_id` | null → page (a clearer copy was uploaded); never back | A |
 | `split_of_page_id` | null → the page a half was cut from (set once, when the halves are numbered); never back | A |
 | `rotation` | any → any (expert); re-runs OCR, keeps verified facts (boxes re-mapped or flagged) | B |
-| `unreadable` | false → true (worker); true → false only when an expert transcription is saved | A, B |
+| `unreadable` | false → true (worker); true → false when an expert transcription is saved, or (migration 0074) for a page lost to a failed cut or picture that a later run has cut (image set) and read for the first time (text source set, words stored); a page that was already read and found unreadable needs the transcription | A, B |
 | `documents.unreadable_reason` | null → `locked`, `damaged` or `too_many_pages` (worker at split, set once with no pages; a short key, never text from the file); never back. `too_many_pages` (migration 0147) is a document over `MAX_DOCUMENT_PAGES` or one that would take the bundle past `MAX_BUNDLE_PAGES` | A |
 | `duplicate_of_page_id` | null → page (worker suggestion or expert); page → null (expert undo) | A, B |
 | `relevance` | null → yes/background; any → any by the expert | B |
