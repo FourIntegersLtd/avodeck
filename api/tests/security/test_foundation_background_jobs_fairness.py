@@ -86,6 +86,28 @@ def test_a_worker_inside_another_cases_job_is_still_lowered(admin: psycopg.Conne
         assert _queued(admin, case, "zz_fair_bulk", 1) == [-2]
 
 
+def test_putting_an_existing_job_back_on_the_queue_is_not_new_backlog(admin: psycopg.Connection, seed: Seed) -> None:
+    """A job that already had a queue row (the heal sweep's hand-back, a wake, a retry) keeps its priority: it is the
+    same work again, and lowering it would let other cases overtake a bundle that is already under way."""
+    case = _case(seed)
+    job = uuid.uuid4()
+    defer(admin, "zz_fair_bulk", job, case)
+    _queued(admin, case, "zz_fair_bulk", 4)
+    admin.execute("set search_path = procrastinate, public")  # the queue's own status trigger needs it
+    try:
+        admin.execute(
+            "update procrastinate.procrastinate_jobs set status = 'succeeded' where args ->> 'job_id' = %s",
+            (str(job),),
+        )
+    finally:
+        admin.execute("reset search_path")
+    defer(admin, "zz_fair_bulk", job, case)
+    got = admin.execute(
+        "select priority from procrastinate.procrastinate_jobs where args ->> 'job_id' = %s order by id", (str(job),)
+    ).fetchall()
+    assert got == [(0,), (0,)]
+
+
 def test_a_special_priority_is_left_as_it_was_given(admin: psycopg.Connection, seed: Seed) -> None:
     """The parent's wake (priority 20) and any other non-base value are the queue code's own choice: untouched."""
     case = _case(seed)
