@@ -50,7 +50,7 @@ from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput, OutputTruncated, TooLargeForFallback
 from app.core.ai.ocr import OcrFailed, OcrPage, OcrResult
-from app.core.config import document_limits
+from app.core.config import document_limits, sandbox_settings
 from app.core.contracts.fact_dates import case_anchor, latest_printed_date
 from app.core.contracts.fact_flags import flag_for_recheck
 from app.core.contracts.fact_verifications import log_remaps
@@ -72,6 +72,7 @@ from app.features.pipeline import (
     gaps,
     language,
     missing,
+    parser_calls,
     parsing,
     paths,
     quarantine,
@@ -186,6 +187,13 @@ def _file_sha256(path: Path) -> str:
 TooManyPages = parsing.TooManyPages
 
 
+def _count_timeout(size: int) -> float | None:
+    """The page count's timeout for a file of this size: the pool's own (`None`) for a small one, more for a big one."""
+    base = sandbox_settings().timeout_seconds
+    scaled = parser_calls.count_timeout(size, base)
+    return scaled if scaled > base else None
+
+
 def _checked_pages(source: Path | bytes) -> int:
     """The in-process form of `parsing.count_pages` with the cell's per-document cap (the split itself runs the
     count in a sandbox child, `_unpack`)."""
@@ -210,7 +218,9 @@ async def _unpack(
     media = await asyncio.to_thread(convert.sniff_path, path)
     if media == convert.PDF:
         await repo.set_media_type(conn, doc.id, convert.PDF)
-        return await sandbox.run(parsing.count_pages, str(path), LIMITS.max_document_pages)
+        return await parser_calls.run(
+            parsing.count_pages, str(path), LIMITS.max_document_pages, timeout=_count_timeout(path.stat().st_size)
+        )
     size = path.stat().st_size
     if media != convert.ZIP and size > LIMITS.max_convert_bytes:
         # Too big to read whole and convert: kept as it is, like any file we cannot turn into pages.
@@ -219,7 +229,7 @@ async def _unpack(
         digest = await asyncio.to_thread(_file_sha256, path)
     else:
         data = await asyncio.to_thread(path.read_bytes)
-        found = await sandbox.run(parsing.unpack, data, doc.filename, LIMITS)
+        found = await parser_calls.run(parsing.unpack, data, doc.filename, LIMITS)
         digest = hashlib.sha256(data).hexdigest()
     if found.members and await repo.part_depth(conn, doc.id) >= LIMITS.max_depth:
         found = convert.Unpacked(found.media_type, exhibit=True)
@@ -255,7 +265,9 @@ async def _unpack(
     await repo.set_media_type(conn, doc.id, found.media_type)
     if found.pdf is None:
         return 0
-    return await sandbox.run(parsing.count_pages, found.pdf, LIMITS.max_document_pages)
+    return await parser_calls.run(
+        parsing.count_pages, found.pdf, LIMITS.max_document_pages, timeout=_count_timeout(len(found.pdf))
+    )
 
 
 WINDOW = 16  # pages cut in one sandbox call: one child opens the document once for all of them
@@ -290,7 +302,7 @@ class _Source:
             path = await files.enter_async_context(_download(self.ctx, self.services, prefix))
             if convert.sniff(await asyncio.to_thread(_head, path)) != convert.PDF:  # a Word file, an email, a picture
                 data = await asyncio.to_thread(path.read_bytes)
-                found = await sandbox.run(parsing.unpack, data, filename, LIMITS)
+                found = await parser_calls.run(parsing.unpack, data, filename, LIMITS)
                 del data
                 assert found.pdf is not None
                 await files.aclose()  # the original goes; the converted PDF takes its place
@@ -309,12 +321,15 @@ class _Source:
             blobs = await sandbox.run(parsing.cut_pages, str(path), window)
             self.cut_pages.update(zip(window, blobs, strict=True))
             return
-        except sandbox.SandboxError:
-            pass
-        for i in window:  # one of them is the trouble: cut each alone
+        except sandbox.SandboxError as error:
+            if not parser_calls.is_input_fault(error):
+                raise  # no child could run it: the job is retried, no page is lost
+        for i in window:  # one of them is the trouble: cut each alone (a timed-out or crashed cut gets a second try)
             try:
-                self.cut_pages[i] = (await sandbox.run(parsing.cut_pages, str(path), [i]))[0]
+                self.cut_pages[i] = (await parser_calls.run(parsing.cut_pages, str(path), [i]))[0]
             except sandbox.SandboxError as error:
+                if not parser_calls.is_input_fault(error):
+                    raise
                 self.failed[i] = error.code
 
     async def cut(self, index: int) -> bytes:
@@ -360,6 +375,8 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
                         await repo.mark_unopened(conn, ctx.case_id, doc.id, reason)
                         continue
                     except sandbox.SandboxError as error:  # DP-09: a parser child hung or died: damaged, the rest go on
+                        if not parser_calls.is_input_fault(error):
+                            raise  # no child could run it: not the file's doing, so the job is retried
                         log.warning("document could not be opened: sandbox %s", error.code)  # a code only
                         await repo.mark_unopened(conn, ctx.case_id, doc.id, "damaged")
                         continue
@@ -390,6 +407,8 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
             page_pdf = await source.cut(index)
             pictures = await _pictures(page_pdf, page.rotation)
         except sandbox.SandboxError as error:
+            if not parser_calls.is_input_fault(error):
+                raise  # no child could run it: the job is retried, the page is not listed as lost
             # DP-09: a parser child hung or died on this page. No stand-in is stored as the page: its image stays
             # unset so a later run cuts it again, and it is listed meanwhile as a page we could not read.
             log.warning("page could not be cut or pictured: %s", error.code)  # a code only
@@ -429,7 +448,7 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
 async def _pictures(page_pdf: bytes, rotation: int) -> Pictures:
     """The page picture and thumbnail, drawn and JPEG-encoded in a sandbox child (`SandboxError` if it hangs or
     dies)."""
-    return await sandbox.run(parsing.pictures, page_pdf, rotation)
+    return await parser_calls.run(parsing.pictures, page_pdf, rotation)
 
 
 async def _seal_all(
@@ -709,6 +728,8 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
                 found = await sandbox.run(parsing.text_layer, page_pdf)
                 layer_lost = False
             except sandbox.SandboxError as exc:  # DP-09: this page alone is marked unreadable, as an OCR failure is
+                if not parser_calls.is_input_fault(exc):
+                    raise  # no child could run it: the job is retried
                 if run is not None:
                     run.page_failed(numbers.get(page_id), exc, "failed")
                 # TODO(read_failure): set the failure code from `exc.code` here once that column merges.
@@ -1283,6 +1304,8 @@ async def _duplicates(ctx: JobContext, services: PipelineServices) -> None:
         try:
             picture = await sandbox.run(parsing.picture_hash, thumbnail)
         except sandbox.SandboxError as error:  # DP-09: no hash, so never compared as a copy; tried again next run
+            if not parser_calls.is_input_fault(error):
+                raise
             log.warning("picture could not be hashed: %s", error.code)  # a code only
             return
         typed = sum(1 for w in words if not w.handwritten)

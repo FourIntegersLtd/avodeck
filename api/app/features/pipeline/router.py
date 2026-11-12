@@ -62,7 +62,7 @@ from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, router, stale
 from app.core.jobs import BATCH_PRIORITY, INTERACTIVE_PRIORITY, RESUMABLE_PAUSES
 from app.core.storage import CaseFileStorage
-from app.features.pipeline import missing, parsing, paths, repo, wiring
+from app.features.pipeline import missing, parser_calls, parsing, paths, repo, wiring
 from app.features.pipeline.schemas import (
     Appended,
     AppendRecords,
@@ -860,6 +860,8 @@ async def split_page(
         # before anything is stored or queued (the sandbox starts itself on first use).
         cut = await sandbox.run(parsing.halves, page_pdf, body.axis, body.at, body.first)
     except sandbox.SandboxError as error:
+        if not parser_calls.is_input_fault(error):  # no child could run it: say so, the page is not at fault
+            raise ApiError("unavailable", "Page cutting is not ready. Try again in a moment.", 503) from error
         raise ApiError("invalid", "This page could not be cut in two.", 422) from error
     document_id = uuid.uuid4()
     prefix = paths.part_prefix(case_id, document_id)
