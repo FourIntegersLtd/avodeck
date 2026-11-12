@@ -291,6 +291,13 @@ async def unpacked_so_far(conn: AsyncConnection, root_id: uuid.UUID, document_id
     return (int(row[0]), int(row[1])) if row else (0, 0)
 
 
+def stored_name(name: str) -> str:
+    """A file's name as kept on its document: no control characters (a NUL cannot be stored at all), at most 255
+    characters, never empty. The name is only ever a label; it is not used as a path or a storage key."""
+    clean = "".join(c for c in name if ord(c) >= 32 and ord(c) != 127).strip()[:255]
+    return clean or "file"
+
+
 async def add_part(
     conn: AsyncConnection,
     case_id: uuid.UUID,
@@ -315,7 +322,7 @@ async def add_part(
         " bundle_version, uploaded_by)"
         " select %s, bundle_id, kind, %s, %s, %s, received_on, obtained_how, bundle_version, uploaded_by"
         " from app.documents where id = %s",
-        (document_id, filename[:255], storage_path, sha256, parent_id),
+        (document_id, stored_name(filename), storage_path, sha256, parent_id),
     )
     await conn.execute(
         "insert into app.document_scans (document_id, bundle_id, clean)"

@@ -171,6 +171,14 @@ def _head(path: Path) -> bytes:
         return handle.read(2048)  # all `convert.sniff` needs to tell a PDF apart
 
 
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while block := handle.read(1024 * 1024):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def _checked_pages(source: Path | bytes) -> int:
     """The page count of a PDF, after cutting every page once and dropping it, so a damaged page stops the
     document here (F2), as it always did, not part-way through the pictures.
@@ -202,11 +210,20 @@ async def _unpack(
     """Counts one document's pages; the files inside an email or a zip become documents of their
     own (cut on the next round) and files that cannot be paged become exhibits (F36). A PDF is opened from
     its file and never held as one `bytes`."""
-    if convert.sniff(await asyncio.to_thread(_head, path)) == convert.PDF:
+    media = await asyncio.to_thread(convert.sniff_path, path)
+    if media == convert.PDF:
         await repo.set_media_type(conn, doc.id, convert.PDF)
         return await asyncio.to_thread(_checked_pages, path)
-    data = await asyncio.to_thread(path.read_bytes)
-    found = await asyncio.to_thread(convert.unpack, data, doc.filename, LIMITS)
+    size = path.stat().st_size
+    if media != convert.ZIP and size > LIMITS.max_convert_bytes:
+        # Too big to read whole and convert: kept as it is, like any file we cannot turn into pages.
+        data: bytes | None = None
+        found = convert.Unpacked(media, exhibit=True)
+        digest = await asyncio.to_thread(_file_sha256, path)
+    else:
+        data = await asyncio.to_thread(path.read_bytes)
+        found = await asyncio.to_thread(convert.unpack, data, doc.filename, LIMITS)
+        digest = hashlib.sha256(data).hexdigest()
     if found.members and await repo.part_depth(conn, doc.id) >= LIMITS.max_depth:
         found = convert.Unpacked(found.media_type, exhibit=True)
     if found.members and not await _within_upload_budget(conn, doc.id, found.members):
@@ -234,8 +251,8 @@ async def _unpack(
             case_id,
             doc.id,
             media_type=found.media_type,
-            size=len(data),
-            sha256=hashlib.sha256(data).hexdigest(),
+            size=size,
+            sha256=digest,
             storage_path=doc.storage_path,
         )
     await repo.set_media_type(conn, doc.id, found.media_type)
