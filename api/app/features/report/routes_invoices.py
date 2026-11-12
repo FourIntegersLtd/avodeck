@@ -24,12 +24,12 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import BackgroundTasks, Depends, Request, Response
+from fastapi import Depends, Request, Response
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core import audit
+from app.core import audit, deferred
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.auth.session import current_session
 from app.core.auth.step_up import check_step_up
@@ -46,7 +46,6 @@ from app.features.report.common import Crypto, Pack, Storage, invalid, not_found
 from app.features.report.invoice_pdf import InvoiceDoc, render_invoice
 from app.features.report.router import router
 from app.features.report.routes_time import estimate_amount, totals
-from app.features.report.services import current
 
 CreateInvoice = Annotated[CaseAccess, Depends(require_case_access("invoice.create"))]
 SendInvoice = Annotated[CaseAccess, Depends(require_case_access("invoice.send"))]
@@ -362,7 +361,6 @@ async def send_invoice(
     pack: Pack,
     crypto: Crypto,
     storage: Storage,
-    after_commit: BackgroundTasks,
 ) -> InvoiceOut:
     already_sent = ApiError("already_sent", "This invoice was sent; correct it with a credit note.", 409)
     invoice = await _one(conn, case_id, invoice_id)
@@ -391,7 +389,7 @@ async def send_invoice(
     mail = invoice_sent_mail(
         to, case_id=case_id, invoice_no=invoice.number_text, amount=invoice.total, currency=invoice.currency
     )
-    after_commit.add_task(current().mailer.send, mail)  # runs after commit
+    await deferred.defer_mail(conn, mail)  # written with this request; the worker sends it (BG-16)
     return invoice
 
 
