@@ -151,13 +151,34 @@ def test_the_basis_must_be_a_short_code(
         conn.execute("select app.set_fact_availability(%s, %s, 'Not A Code')", (fact, WHEN))
 
 
+CHECK_LOG = (
+    "insert into app.fact_verifications (case_id, fact_id, person_id, action, old_value, new_value)"
+    " values (%s, %s, %s, 'edit', '9', '10')"
+)
+
+
+def test_a_checked_fact_changes_only_with_a_row_in_the_check_log(
+    admin: psycopg.Connection, api_dsn: str, world: dict[str, uuid.UUID]
+) -> None:
+    """PV-02: the bare update, with no check-log row in its transaction, is refused and changes nothing."""
+    fact = a_fact(admin, world)
+    with pytest.raises(psycopg.Error) as err:
+        with as_person(api_dsn, world["expert"]) as conn:
+            conn.execute("update app.facts set value = '10' where id = %s", (fact,))
+    assert "check log" in str(err.value)
+    assert fact_row(admin, fact)[4] == "9"  # type: ignore[index]
+
+
 def test_any_other_change_to_a_fact_still_raises_its_version(
-    admin: psycopg.Connection, worker_dsn: str, world: dict[str, uuid.UUID]
+    admin: psycopg.Connection, api_dsn: str, worker_dsn: str, world: dict[str, uuid.UUID]
 ) -> None:
     fact = a_fact(admin, world)
     version = fact_row(admin, fact)[2]  # type: ignore[index]
-    with as_job(worker_dsn, world["case"]) as conn:
+    # PV-02: a checked fact changes only with a row in the check log, in the same transaction. A worker may not log a
+    # value change (it logs only a remap), so the change is made as the named expert, as the real route does.
+    with as_person(api_dsn, world["expert"]) as conn:
         conn.execute("update app.facts set available_at = %s, value = '10' where id = %s", (WHEN, fact))
+        conn.execute(CHECK_LOG, (world["case"], fact, world["expert"]))
     assert fact_row(admin, fact)[2] == version + 1  # type: ignore[index, operator]
     with as_job(worker_dsn, world["case"]) as conn:
         conn.execute("update app.facts set available_at = %s where id = %s", (None, fact))

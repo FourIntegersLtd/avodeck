@@ -61,6 +61,11 @@ async def test_the_fact_service_refuses_an_undocumented_move_with_409(
             await change_fact_status(conn, fact, "verified")
         assert (err.value.status, err.value.code) == (409, "conflict")
     async with api_db.request(scope_for(expert)) as conn:
+        await conn.execute(  # PV-02: leaving a checked status writes its check-log row in the same transaction
+            "insert into app.fact_verifications (case_id, fact_id, person_id, action, old_value, new_value)"
+            " select f.case_id, f.id, %s, 'not_right', f.value, f.value from app.facts f where f.id = %s",
+            (expert, fact),
+        )
         await change_fact_status(conn, fact, "rejected")
     assert admin.execute("select status from app.facts where id = %s", (fact,)).fetchone() == ("rejected",)
 

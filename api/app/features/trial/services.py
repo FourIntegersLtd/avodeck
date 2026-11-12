@@ -36,6 +36,7 @@ class TrialServices:
     reads: PageReadLog | None = None
     kit: AiKit | None = None
     ocr: OcrClient | None = None
+    region: str | None = None  # the cell's region, written on each OCR call's `ai_calls` row
     packs: PackLibrary = field(default_factory=default_library)
     hearings: Hearings = field(default_factory=GHearings)
     answers: WrittenAnswers = field(default_factory=GWrittenAnswers)
@@ -80,7 +81,14 @@ def from_env() -> TrialServices:
     except ConfigError:
         storage = None
     ai = live_or_recorded()
-    return TrialServices(crypto=crypto, storage=storage, reads=PageReads(), kit=ai.kit, ocr=ai.ocr)
+    return TrialServices(
+        crypto=crypto,
+        storage=storage,
+        reads=PageReads(),
+        kit=ai.kit,
+        ocr=ai.ocr,
+        region=ai.settings.region if ai.settings else None,
+    )
 
 
 def current() -> TrialServices:

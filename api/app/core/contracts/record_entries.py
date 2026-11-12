@@ -38,6 +38,7 @@ from typing import Literal
 from psycopg import AsyncConnection
 
 from app.core.config import CostGuard, cost_guard
+from app.core.contracts.set_aside import not_set_aside_sql
 from app.core.errors import ApiError
 from app.core.jobs import registry
 
@@ -80,9 +81,9 @@ async def entries_ready(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
     and has had its entries read or failed (a person reads those). No such pages at all is ready."""
     cur = await conn.execute(
         "select count(*) from app.pages p left join app.page_analysis a on a.page_id = p.id"
-        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined and "
-        "p.duplicate_of_page_id is null and (a.extracted_at is null or"
-        " (a.entries_extracted_at is null and a.entries_failed_at is null))",
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and "
+        + not_set_aside_sql("p")
+        + " and (a.extracted_at is null or (a.entries_extracted_at is null and a.entries_failed_at is null))",
         (case_id,),
     )
     row = await cur.fetchone()
@@ -94,9 +95,9 @@ async def entries_unread_pages(conn: AsyncConnection, case_id: uuid.UUID) -> lis
     """Page numbers whose entries could not be read (the model failed); a person reads them, they are not empty."""
     cur = await conn.execute(
         "select p.bundle_page_no from app.page_analysis a join app.pages p on p.id = a.page_id"
-        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and a.extracted_at is not null and not "
-        "p.quarantined"
-        " and a.entries_extracted_at is null and a.entries_failed_at is not null order by p.bundle_page_no",
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and a.extracted_at is not null and "
+        + not_set_aside_sql("p")
+        + " and a.entries_extracted_at is null and a.entries_failed_at is not null order by p.bundle_page_no",
         (case_id,),
     )
     return [r[0] for r in await cur.fetchall()]
@@ -118,8 +119,9 @@ async def entries_status(conn: AsyncConnection, case_id: uuid.UUID) -> EntriesSt
 @dataclass(frozen=True)
 class EntriesProgress:
     """`total`: every page of the bundle that is not set aside by quarantine (shown as-is). `required`: the pages
-    the pipeline and the entries job read, which leaves out set-aside copies (`duplicate_of_page_id`); a copy
-    marked kept has that cleared, so it counts. `extracted` and `entries_done` count required pages only."""
+    the pipeline and the entries job read, which leaves out set-aside pages (`core/contracts/set_aside.py`:
+    quarantined, replaced, or a confirmed copy); a copy only suggested, or kept, counts.
+    `extracted` and `entries_done` count required pages only."""
 
     total: int
     extracted: int
@@ -129,12 +131,13 @@ class EntriesProgress:
 
 async def entries_progress(conn: AsyncConnection, case_id: uuid.UUID) -> EntriesProgress:
     cur = await conn.execute(
-        "select count(*), count(a.extracted_at) filter (where p.duplicate_of_page_id is null),"
-        " count(*) filter (where p.duplicate_of_page_id is null and"
+        "select count(*), count(a.extracted_at) filter (where " + not_set_aside_sql("p") + "),"
+        " count(*) filter (where " + not_set_aside_sql("p") + " and"
         " (a.entries_extracted_at is not null or a.entries_failed_at is not null)),"
-        " count(*) filter (where p.duplicate_of_page_id is null)"
+        " count(*) filter (where " + not_set_aside_sql("p") + ")"
         " from app.pages p left join app.page_analysis a on a.page_id = p.id"
-        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined",
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined"
+        " and p.superseded_by_page_id is null",
         (case_id,),
     )
     row = await cur.fetchone()
@@ -172,8 +175,7 @@ async def retryable_unread_page_ids(conn: AsyncConnection, case_id: uuid.UUID) -
         "select p.id from app.page_analysis a join app.pages p on p.id = a.page_id"
         " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
         " and a.entries_extracted_at is null and a.entries_failed_at is not null and p.text_source is not null"
-        " and not p.quarantined and p.duplicate_of_page_id is null"
-        " order by p.bundle_page_no",
+        " and " + not_set_aside_sql("p") + " order by p.bundle_page_no",
         (case_id,),
     )
     return [r[0] for r in await cur.fetchall()]

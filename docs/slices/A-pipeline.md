@@ -93,6 +93,13 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - Jurisdiction `quarantine_purge_days` (the delay before a set-aside page's image and text are deleted) is in `CasePack`, so S30 shows the real number of days.
 - `Document` in the bundle summary is a typed OpenAPI schema; the web uses the generated type.
 
+## Provenance integrity (audit 16, PV-04 to PV-11)
+- The file's whole-file SHA-256 and part count are re-checked when the pipeline first reads it (`service._download`); a mismatch marks the document `unreadable_reason` = `altered`. Each page's own file is fingerprinted (`pages.content_sha256`) and checked at read-back (`page_analysis.read_failure` = `altered`).
+- `pages.source_page_index` (immutable) is where a page is cut from; `bundles.page_high_water` stops a page number being given twice.
+- Only a confirmed duplicate is set aside (`repo.NOT_SET_ASIDE`); a suggested copy is read and extracted. A page a later page replaced (`superseded_by_page_id`) is always set aside too, in the same constant and in `pipeline_report_progress`'s sort count, as in `core/contracts/set_aside.py`. Every log row the pipeline writes for a checked fact (quarantine, its undo, a date repair) carries the fact's value, details, words, page, date and basis on both sides; the OCR call record takes its region from the cell config and raises the config error when it is missing.
+- Setting a page aside and undoing a quarantine log a `fact_verifications` row; a system withdrawal is marked by `facts.withdrawn_reason`.
+- `page_analysis.refusal_codes`, `read_failure` and the `few_words` code (under 40 words, no facts, no person needed) tell failures from empty pages. `documents.pages_declared` against the pages found shows in `GET .../missing-items` as `page_shortfalls`. A "page x of y" sequence check stays deferred (`docs/decisions/deferred.md`).
+
 ## Out of scope
 Showing facts to the expert (B), verifying facts (B), Gmail/Outlook sending (Phase 2), the timeline (D).
 

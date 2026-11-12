@@ -36,6 +36,8 @@ class Coverage:
     bundle_pages: int = 0  # every page of the bundle: the pages in this transcript plus the pages set aside
     words_read: int = 0  # words the computer read on the pages in this transcript
     words_printed: int = 0  # words the files print; the files are never built when it differs from `words_read`
+    # (bundle page number, reason key) of each page set aside, so the file shows exactly which pages are absent
+    set_aside_pages: tuple[tuple[int, str], ...] = ()
 
     def __post_init__(self) -> None:
         if self.bundle_pages == 0:

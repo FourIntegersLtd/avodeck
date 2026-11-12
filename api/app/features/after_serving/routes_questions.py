@@ -24,7 +24,7 @@ from app.core import audit
 from app.core.contracts.citations import Citation
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
-from app.features.after_serving import docs
+from app.features.after_serving import docs, signing
 from app.features.after_serving.common import (
     ANSWER,
     QUESTION,
@@ -439,9 +439,18 @@ def court_today(timezone: str) -> date:
 
 
 async def lock_version(
-    conn: Any, storage: Any, crypto: Any, case_id: uuid.UUID, version_id: uuid.UUID, path: str, data: bytes
+    conn: Any,
+    storage: Any,
+    crypto: Any,
+    case_id: uuid.UUID,
+    version_id: uuid.UUID,
+    path: str,
+    data: bytes,
+    pack: Any,
 ) -> dict[str, Any]:
-    """Store the signed file, freeze its snapshot (while still a draft) and lock the version with its hash."""
+    """Store the signed file, freeze its snapshots (while still a draft) and lock the version with its hash.
+
+    The file is Word only, so its hash is the version's hash; what it was signed with is frozen beside it (PV-19a)."""
     sha = hashlib.sha256(data).hexdigest()
     await storage.put(path, await crypto.encrypt(conn, case_id, data, purpose=path))
     await conn.execute("update app.report_versions set docx_path = %s where id = %s", (path, version_id))
@@ -450,6 +459,7 @@ async def lock_version(
         " values (%s, %s, 'docx', %s, %s)",
         (case_id, version_id, path.rsplit("/", 1)[-1], sha),
     )
+    await signing.freeze(conn, crypto, case_id, version_id, pack)
     row = await fetch_one(
         conn,
         "update app.report_versions set status = 'locked', sha256 = %s where id = %s"
@@ -462,18 +472,32 @@ async def lock_version(
 
 @router.post("/cases/{case_id}/written-questions/answers/sign", response_model=Signed)
 async def sign_answers(
-    case_id: uuid.UUID, body: SignAnswers, access: Sign, conn: DbConn, crypto: Crypto, storage: Storage, pack: Pack
+    case_id: uuid.UUID,
+    body: SignAnswers,
+    access: Sign,
+    conn: DbConn,
+    crypto: Crypto,
+    storage: Storage,
+    reads: Reads,
+    pack: Pack,
 ) -> Signed:
     if not body.declaration_confirmed:
         raise invalid("declaration_confirmed")
-    found = await _round(conn, case_id, body.round_id)
+    # Lock the round, then its questions: a second sign waits here and finds the round answered, and an edit
+    # cannot slip in between reading the answers and locking them (PV-19a).
+    found = await fetch_one(
+        conn,
+        f"select {_ROUND} from app.written_question_rounds where id = %s and case_id = %s for update",
+        (body.round_id, case_id),
+    )
     if found is None:
         raise invalid("round_id")
     if found["status"] != "open":
         raise conflict("already_signed", "These answers are already signed.")
     rows = await fetch_all(
         conn,
-        f"select {_QUESTION} from app.written_questions where round_id = %s and case_id = %s order by number",
+        f"select {_QUESTION} from app.written_questions where round_id = %s and case_id = %s order by number"
+        " for update",
         (body.round_id, case_id),
     )
     if not rows or any(r["answer_text"] is None for r in rows):
@@ -481,6 +505,8 @@ async def sign_answers(
     served = await served_version(conn, case_id)
     if served is None:
         raise conflict("not_served", "The report has not been served yet.")
+    if not await signing.citations_stand(conn, case_id, reads, [r["citation_refs"] for r in rows]):
+        raise conflict("citation_problems", "A cited fact has changed since you wrote the answer.")
     lang = pack.language
     name, served_on = await served_details(conn, case_id, served)
     blocks: list[docs.Block] = [("title", word(lang, "answers", n=found["number"]))]
@@ -506,7 +532,7 @@ async def sign_answers(
         " values (%s, %s, %s, 'answers', %s, %s)",
         (version_id, case_id, await next_version_no(conn, case_id), word(lang, "answers", n=found["number"]), served),
     )
-    version = await lock_version(conn, storage, crypto, case_id, version_id, path, docs.build(blocks))
+    version = await lock_version(conn, storage, crypto, case_id, version_id, path, docs.build(blocks), pack)
     await conn.execute(
         "update app.written_questions set status = 'answered' where round_id = %s and status in ('received',"
         " 'answering')",

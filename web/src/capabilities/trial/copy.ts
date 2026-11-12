@@ -10,6 +10,13 @@ export interface CopyContent {
   built_at: string;
   date_order: string;
   court_bundle: string;
+  /** What the copy was built from (the reader ignores it; a later About area may show it). */
+  sources?: {
+    court_bundle: { id: string; sha256: string; version: number } | null;
+    report: { version_id: string; version_no: number; sha256: string | null };
+    pack_versions: Record<string, string>;
+    built_at: string;
+  };
   case_label?: string | null;
   source_types?: { key: string; label: string; colour: string | null }[];
   report: { version_no: number; served_on: string | null; paragraphs: { para_no: number; section: string; text: string; pages: CopyPage[] }[] } | null;

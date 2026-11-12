@@ -433,7 +433,13 @@ class AiKit:
             self._log_validation(task, model_id, response, valid, attempt, validator, request.max_tokens)
             async with database.job(case_id) as conn:
                 await self._log(
-                    conn, task, response.model_id or model_id, case_id, response, "ok" if valid else "invalid_output"
+                    conn,
+                    task,
+                    response.model_id or model_id,
+                    case_id,
+                    response,
+                    "ok" if valid else "invalid_output",
+                    job_id,
                 )
             if valid:
                 return response.output
@@ -511,7 +517,13 @@ class AiKit:
             response, valid = self._checked(task, response, validator)
             self._log_validation(task, model_id, response, valid, attempt, validator, request.max_tokens)
             await self._log(
-                conn, task, response.model_id or model_id, case_id, response, "ok" if valid else "invalid_output"
+                conn,
+                task,
+                response.model_id or model_id,
+                case_id,
+                response,
+                "ok" if valid else "invalid_output",
+                job_id,
             )
             if valid:
                 return response.output
@@ -919,14 +931,17 @@ class AiKit:
         case_id: uuid.UUID | None,
         response: ModelResponse,
         outcome: str,
+        job_id: uuid.UUID | None = None,
     ) -> None:
+        """One metadata row per call. `job_id` (a worker call) makes the job's `code_version` recoverable (PV-18)."""
         answered_directly = response.model_id is not None and response.model_id in self.settings.direct_models.values()
         model_id = response.model_id or model_id
         # A direct-API answer is told apart by its region (temporary, ADR 0036).
         region = "anthropic-direct" if answered_directly else self.settings.bedrock_region
         await conn.execute(
             "insert into app.ai_calls (case_id, person_id, task_id, model_id, region, prompt_version,"
-            " input_tokens, output_tokens, outcome) values (%s, app.current_person_id(), %s, %s, %s, %s, %s, %s, %s)",
+            " input_tokens, output_tokens, job_id, outcome)"
+            " values (%s, app.current_person_id(), %s, %s, %s, %s, %s, %s, %s, %s)",
             (
                 case_id,
                 task.task_id,
@@ -935,6 +950,7 @@ class AiKit:
                 task.prompt_version,
                 response.input_tokens,
                 response.output_tokens,
+                job_id,
                 outcome,
             ),
         )

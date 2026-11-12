@@ -279,6 +279,11 @@ async def test_a_page_set_aside_as_a_copy_or_given_a_clearer_copy_is_done(
         "update app.pages set duplicate_of_page_id = %s where id = %s",
         (world["pages"][1], world["pages"][copy_no]),
     )
+    admin.execute(  # PV-09: a page is set aside as a copy only when the copy is confirmed
+        "insert into app.page_analysis (page_id, bundle_id, duplicate_status) select id, bundle_id, 'confirmed'"
+        " from app.pages where id = %s on conflict (page_id) do update set duplicate_status = 'confirmed'",
+        (world["pages"][copy_no],),
+    )
     later = seed.document(world["case"])
     admin.execute(
         "insert into app.page_replacements (case_id, bundle_id, page_id, document_id, requested_by)"

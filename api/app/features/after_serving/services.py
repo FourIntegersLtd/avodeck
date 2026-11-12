@@ -31,6 +31,7 @@ class AfterServingServices:
     ocr: OcrClient | None = None
     packs: PackLibrary = field(default_factory=default_library)
     mailer: OutboxMailer = field(default_factory=OutboxMailer)  # the cell mailer's stand-in until Resend
+    region: str | None = None  # the cell's region, written on each OCR call's `ai_calls` row (PV-18)
 
     def files(self) -> tuple[CaseFileStorage, CaseCrypto]:
         if self.storage is None or self.crypto is None:
@@ -73,7 +74,8 @@ def from_env() -> AfterServingServices:
         crypto: CaseCrypto | None = CaseCrypto(key_provider_from_env())
     except ConfigError:
         crypto = None
-    return AfterServingServices(crypto=crypto, storage=storage, reads=PageReads(), kit=kit, ocr=ocr)
+    region = ai.settings.region if ai.settings else None
+    return AfterServingServices(crypto=crypto, storage=storage, reads=PageReads(), kit=kit, ocr=ocr, region=region)
 
 
 def current() -> AfterServingServices:

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -22,6 +22,7 @@ from app.core import audit, deferred
 from app.core.contracts.availability import evidence_for_case
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ApiError
+from app.core.hashing import sha256_hex
 from app.core.jobs import JobContext, JobRegistry, registry
 from app.core.packs import MergedPack, PackLibrary, default_library
 from app.core.storage import CaseFileStorage, StorageError, case_prefix, storage_settings
@@ -33,6 +34,8 @@ KIND = "export_transcript"
 KIND_PDF = "export_transcript_pdf"
 PAGE = 200
 DOWNLOADED = "case.transcript_downloaded"
+# Jobs made from this day on record the hash of what they build; a file with no recorded hash is not handed over.
+HASH_RECORDED_FROM = datetime(2026, 11, 12, tzinfo=UTC)
 
 
 class _Services:
@@ -98,6 +101,7 @@ async def _layout(
         if not got.entries or len(everything) >= got.total:
             break
     total, set_aside = await repo.page_counts(conn, ctx.case_id)
+    absent = await repo.pages_set_aside(conn, ctx.case_id)
     words_read = sum((await transcript.page_word_counts(conn, crypto, ctx.case_id)).values())  # apart from the print
     coverage = transcript_layout.Coverage(
         total_pages=total,
@@ -105,6 +109,7 @@ async def _layout(
         no_entries=len(pictures),
         unreadable=len(unread),
         set_aside=set_aside,
+        set_aside_pages=tuple(absent),
         bundle_pages=total + set_aside,
         words_read=words_read,
         words_printed=transcript_layout.printed_words(everything, picture_words),
@@ -135,6 +140,16 @@ def _today(pack: MergedPack) -> date:
     return datetime.now(ZoneInfo(pack.timezone)).date()
 
 
+async def _record_hash(conn: AsyncConnection, job_id: uuid.UUID, fmt: str, document: bytes) -> None:
+    """Writes down the SHA-256 of the file as built; the download checks the file it hands over against it. The row
+    is append-only, so a second insert for one job fails the job loudly rather than leave a hash that does not
+    match the stored file (a job that stopped before committing has no row yet)."""
+    await conn.execute(
+        "insert into app.transcript_files (job_id, fmt, sha256) values (%s, %s, %s)",
+        (job_id, fmt, sha256_hex(document)),
+    )
+
+
 async def export_transcript(ctx: JobContext) -> None:
     """Builds the requester's Word copy. A job nobody asked for (`requested_by` empty) builds nothing."""
     storage, crypto = services.get_storage(), services.get_crypto()
@@ -149,6 +164,7 @@ async def export_transcript(ctx: JobContext) -> None:
         )  # fmt: skip
         path = transcript_path(ctx.case_id, ctx.job_id)
         await storage.put(path, await crypto.encrypt(conn, ctx.case_id, document, purpose=path))
+        await _record_hash(conn, ctx.job_id, "docx", document)
 
 
 async def _picture(
@@ -184,6 +200,7 @@ async def export_transcript_pdf(ctx: JobContext) -> None:
         )  # fmt: skip
         path = transcript_path(ctx.case_id, ctx.job_id, "pdf")
         await storage.put(path, await crypto.encrypt(conn, ctx.case_id, document, purpose=path))
+        await _record_hash(conn, ctx.job_id, "pdf", document)
 
 
 def _missing(error: StorageError) -> bool:
@@ -216,6 +233,17 @@ async def take(
             raise ApiError("not_found", "This file has already been downloaded.", 404) from None
         raise ApiError("unavailable", "File storage is not ready.", 503) from None
     data = await crypto.decrypt(conn, case_id, blob, purpose=path)
+    cur = await conn.execute("select sha256 from app.transcript_files where job_id = %s", (job_id,))
+    recorded = await cur.fetchone()
+    if recorded is None:
+        # A file built before the hash was recorded has none (such files are removed within a day). A job made
+        # after that has one, written in the transaction that stored the file, so its absence is not a gap to excuse.
+        cur = await conn.execute("select created_at from app.jobs where id = %s", (job_id,))
+        made = await cur.fetchone()
+        if made is None or made[0] >= HASH_RECORDED_FROM:
+            raise ApiError("hash_mismatch", "This file does not match the file that was built.", 409)
+    elif recorded[0] != sha256_hex(data):
+        raise ApiError("hash_mismatch", "This file does not match the file that was built.", 409)
     await audit.record(conn, action=DOWNLOADED, target=f"export:{job_id}", case_id=case_id)
     return data
 

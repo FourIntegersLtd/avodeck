@@ -44,10 +44,20 @@ class MissingItem(BaseModel):
     version: int
 
 
+class PageShortfall(BaseModel):
+    """A file whose own page count is higher than the pages that were numbered from it (PV-11)."""
+
+    document_id: uuid.UUID
+    filename: str
+    declared: int
+    found: int
+
+
 class MissingItems(BaseModel):
     missing_items: list[MissingItem]
     still_missing: list[MissingItem] = []  # the items that still count: open or requested
     still_missing_count: int = 0
+    page_shortfalls: list[PageShortfall] = []  # files that state more pages than were found in them
 
 
 class MissingItemChange(BaseModel):

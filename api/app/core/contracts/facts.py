@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.contracts.fact_flags import RECHECK
 from app.core.contracts.reading import PageReadLog
+from app.core.contracts.set_aside import not_set_aside_sql
 
 FactStatus = Literal["suggested", "verified", "edited", "rejected"]
 CITABLE_STATUSES: frozenset[str] = frozenset({"verified", "edited"})
@@ -63,8 +64,10 @@ async def citable_facts(conn: AsyncConnection, case_id: uuid.UUID, reads: PageRe
         await rows.execute(
             "select f.*, exists (select 1 from app.word_corrections c where c.page_id = f.page_id"
             " and c.superseded_at is null and c.word_ids && f.word_ids) as cites_correction"
-            " from app.facts f where f.case_id = %s and f.status = any(%s) and f.page_id = any(%s)"
-            " and not exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %s)"
+            " from app.facts f join app.pages p on p.id = f.page_id"
+            " where f.case_id = %s and f.status = any(%s) and f.page_id = any(%s) and "
+            + not_set_aside_sql("p")
+            + " and not exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %s)"
             " order by f.created_at, f.id",
             (case_id, sorted(CITABLE_STATUSES), list(read), RECHECK),
         )

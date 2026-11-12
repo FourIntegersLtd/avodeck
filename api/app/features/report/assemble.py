@@ -25,10 +25,12 @@ from psycopg import AsyncConnection
 
 from app.core.contracts import ai_calls, opinions, profile, questions
 from app.core.contracts.citations import Citation, differs
+from app.core.contracts.fact_dates import DATE_BASIS_PRINTED
 from app.core.contracts.facts import Fact, citable_facts
 from app.core.contracts.reading import PageReadLog
 from app.core.crypto import CaseCrypto
 from app.core.packs import MergedPack
+from app.features.report.provenance import Completeness, completeness, page_states, usable_pages
 from app.features.report.words import word
 
 OPINION = "opinion"
@@ -83,6 +85,8 @@ class Methodology:
     pages_read: int
     pages_total: int
     tasks: list[ai_calls.AiCallSummary]
+    pages_set_aside: int = 0
+    incomplete: Completeness = field(default_factory=Completeness)
 
 
 def appendices(pack: MergedPack) -> list[str]:
@@ -117,18 +121,23 @@ def template_mapping(keys: Sequence[str], template: profile.ReportTemplate | Non
 
 
 async def methodology(conn: AsyncConnection, case_id: uuid.UUID, reads: PageReadLog | None) -> Methodology:
-    """Pages the named expert has read out of the case's pages, and each AI task's metadata (no content)."""
-    cur = await conn.execute(
-        "select id from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)", (case_id,)
-    )
-    pages = {r[0] for r in await cur.fetchall()}
+    """Pages the named expert has read out of the case's pages (those set aside are counted apart, PV-15), what
+    was incomplete about the records, and each AI task's metadata (no content)."""
+    states = await page_states(conn, case_id)
+    pages = {pid for pid, s in states.items() if not s.set_aside}
     read: set[uuid.UUID] = set()
     if reads is not None:
         cur = await conn.execute("select named_expert_id from app.cases where id = %s", (case_id,))
         row = await cur.fetchone()
         if row is not None:
             read = await reads.read_page_ids(conn, case_id, row[0]) & pages
-    return Methodology(len(read), len(pages), await ai_calls.ai_call_summary(conn, case_id))
+    return Methodology(
+        len(read),
+        len(pages),
+        await ai_calls.ai_call_summary(conn, case_id),
+        pages_set_aside=len(states) - len(pages),
+        incomplete=await completeness(conn, case_id, states),
+    )
 
 
 def _day(value: date | datetime, pack: MergedPack) -> str:
@@ -189,11 +198,7 @@ async def assemble(
     style: str,
 ) -> Assembly:
     language = pack.language
-    cur = await conn.execute(
-        "select id, bundle_page_no from app.pages where bundle_id = (select bundle_id from app.cases where id = %s)",
-        (case_id,),
-    )
-    page_nos = {r[0]: int(r[1]) for r in await cur.fetchall()}
+    page_nos = usable_pages(await page_states(conn, case_id))  # a citation to any other page is `[?]` (PV-14)
     citable = await citable_facts(conn, case_id, reads)
     citer = _Citer(style, citable, page_nos)
     texts = await section_texts(conn, case_id, crypto)
@@ -207,7 +212,7 @@ async def assemble(
         elif key == METHODOLOGY:
             paragraphs = _methodology(await methodology(conn, case_id, reads), language)
         elif key == CHRONOLOGY:
-            paragraphs = _chronology(citable, page_nos, pack)
+            paragraphs = _chronology(citable, page_nos, pack, language, style)
         elif key == DOCUMENTS_LIST:
             paragraphs = await _documents(conn, case_id, language)
         elif key in texts:
@@ -249,6 +254,15 @@ async def _declarations(conn: AsyncConnection, case_id: uuid.UUID, pack: MergedP
 
 def _methodology(found: Methodology, language: str) -> list[Para]:
     out = [Para(word(language, "pages_read", read=found.pages_read, total=found.pages_total))]
+    if found.pages_set_aside:
+        out.append(Para(word(language, "pages_set_aside", n=found.pages_set_aside)))
+    gaps = found.incomplete
+    if gaps.untyped:
+        out.append(Para(word(language, "incomplete_unreadable", n=len(gaps.untyped))))
+    if gaps.processing_open:
+        out.append(Para(word(language, "incomplete_processing")))
+    if gaps.shortfall:
+        out.append(Para(word(language, "incomplete_shortfall", n=gaps.shortfall)))
     for t in found.tasks:
         out.append(
             Para(
@@ -270,13 +284,32 @@ def _methodology(found: Methodology, language: str) -> list[Para]:
     return out
 
 
-def _chronology(citable: Sequence[Fact], page_nos: dict[uuid.UUID, int], pack: MergedPack) -> list[Para]:
-    dated = sorted((f for f in citable if f.event_date is not None), key=lambda f: (f.event_date, f.created_at))
-    return [
-        Para(f"{_day(f.event_date, pack)} {' '.join((f.value or '').split())} [p.{page_nos[f.page_id]}]")
-        for f in dated
-        if f.event_date is not None and f.page_id in page_nos
-    ]
+def _chronology(
+    citable: Sequence[Fact], page_nos: dict[uuid.UUID, int], pack: MergedPack, language: str, style: str
+) -> list[Para]:
+    """Dated entries in date order, each with how its date was known unless it is the printed one, then the entries
+    that have no date, counted and listed (PV-15): an entry never drops out of the chronology for lacking a date.
+    The page is shown as `[p.N]` in the page style and as a plain `(p.N)` in the numbered style, whose bracketed
+    numbers are reserved for the references list."""
+    usable = [f for f in citable if f.page_id in page_nos]
+    dated = sorted((f for f in usable if f.event_date is not None), key=lambda f: (f.event_date, f.created_at))
+    undated = sorted((f for f in usable if f.event_date is None), key=lambda f: (page_nos[f.page_id], f.created_at))
+
+    def line(f: Fact, lead: str) -> Para:
+        page = f"[p.{page_nos[f.page_id]}]" if style == "page" else f"(p.{page_nos[f.page_id]})"
+        text = f"{lead}{' '.join((f.value or '').split())} {page}"
+        if f.event_date is not None and f.date_basis not in (None, DATE_BASIS_PRINTED):
+            known = word(
+                language, "date_basis_expert_entered" if f.date_basis == "expert_entered" else "date_basis_other"
+            )
+            text = f"{text} ({known})"
+        return Para(text)
+
+    out = [line(f, f"{_day(f.event_date, pack)} ") for f in dated if f.event_date is not None]
+    if undated:
+        out.append(Para(word(language, "undated_entries", n=len(undated))))
+        out.extend(line(f, "") for f in undated)
+    return out
 
 
 async def _documents(conn: AsyncConnection, case_id: uuid.UUID, language: str) -> list[Para]:

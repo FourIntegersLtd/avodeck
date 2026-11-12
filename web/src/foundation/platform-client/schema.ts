@@ -8878,8 +8878,12 @@ export interface components {
         };
         /** MethodologyOut */
         MethodologyOut: {
+            /** Incomplete */
+            incomplete: string[];
             /** Pages Read */
             pages_read: number;
+            /** Pages Set Aside */
+            pages_set_aside: number;
             /** Pages Total */
             pages_total: number;
             /** Tasks */
@@ -8935,6 +8939,11 @@ export interface components {
         MissingItems: {
             /** Missing Items */
             missing_items: components["schemas"]["MissingItem"][];
+            /**
+             * Page Shortfalls
+             * @default []
+             */
+            page_shortfalls: components["schemas"]["PageShortfall"][];
             /**
              * Still Missing
              * @default []
@@ -10110,6 +10119,23 @@ export interface components {
              * Format: uuid
              */
             page_id: string;
+        };
+        /**
+         * PageShortfall
+         * @description A file whose own page count is higher than the pages that were numbered from it (PV-11).
+         */
+        PageShortfall: {
+            /** Declared */
+            declared: number;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            /** Found */
+            found: number;
         };
         /** PageSummary */
         PageSummary: {

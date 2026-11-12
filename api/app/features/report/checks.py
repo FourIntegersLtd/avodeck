@@ -24,7 +24,7 @@ from psycopg import AsyncConnection
 from app.core.ai.kit import AiKit, InvalidOutput
 from app.core.contracts import opinions, profile, questions
 from app.core.contracts.case_identity import identity_for
-from app.core.contracts.citations import CitationProblem, citation_problems, markers, quote_within
+from app.core.contracts.citations import Citation, CitationProblem, citation_problems, differs, markers, quote_within
 from app.core.contracts.facts import Fact, citable_facts
 from app.core.contracts.reading import PageReadLog
 from app.core.crypto import CaseCrypto
@@ -40,6 +40,7 @@ from app.features.report.assemble import (
     section_texts,
     writable_keys,
 )
+from app.features.report.provenance import Completeness, PageState, completeness, page_states
 from app.features.report.words import months
 
 CORE = (
@@ -183,6 +184,9 @@ class Inputs:
     opinions: list[opinions.OpinionText]
     questions: list[questions.Question]
     sections: dict[str, str]
+    section_refs: dict[str, list[Citation]]
+    states: dict[uuid.UUID, PageState]
+    completeness: Completeness
     addressed: list[str]
     acknowledged: str | None
     court_track: str | None
@@ -192,6 +196,27 @@ class Inputs:
         if paragraph.question_id is not None:
             return fix("S15", paragraph.question_id)
         return fix("S16", paragraph.section)
+
+    def page_fix(self, page_id: uuid.UUID) -> list[dict[str, str]]:
+        """Names a cited page the report may not stand on (set aside, or unreadable with no typing): PV-14."""
+        state = self.states.get(page_id)
+        return [fix(*state.fix())] if state is not None and not state.usable else []
+
+    def section_problems(self) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+        """The expert's own sections' citations that do not stand now: (cannot be cited, no longer the words
+        cited), each as a place to fix (S16, the section) and the page when it is one the report may not use."""
+        cannot: list[dict[str, str]] = []
+        changed: list[dict[str, str]] = []
+        for key, refs in self.section_refs.items():
+            if key not in self.sections:
+                continue
+            for c in refs:
+                fact = self.citable.get(c.fact_id)
+                if fact is None or c.page_id in self.states and not self.states[c.page_id].usable:
+                    cannot += [fix("S16", key), *self.page_fix(c.page_id)]
+                elif differs(c, fact):
+                    changed.append(fix("S16", key))
+        return cannot, changed
 
 
 async def gather(
@@ -246,6 +271,8 @@ async def gather(
     case_row = await cur.fetchone()
     assert case_row is not None
     track, expert, addressed, acknowledged = case_row
+    texts = await section_texts(conn, case_id, crypto)
+    states = await page_states(conn, case_id)
     return Inputs(
         conn=conn,
         case_id=case_id,
@@ -261,12 +288,37 @@ async def gather(
         problems=await citation_problems(conn, case_id, reads),
         opinions=await opinions.latest_opinions(conn, case_id, crypto),
         questions=await questions.confirmed_questions(conn, case_id),
-        sections={k: body for k, (body, _) in (await section_texts(conn, case_id, crypto)).items()},
+        sections={k: body for k, (body, _) in texts.items()},
+        section_refs={k: refs for k, (_, refs) in texts.items()},
+        states=states,
+        completeness=await completeness(conn, case_id, states),
         addressed=list(addressed or []),
         acknowledged=acknowledged,
         court_track=track,
         named_expert=expert,
     )
+
+
+async def standing_problems(
+    conn: AsyncConnection, case_id: uuid.UUID, crypto: CaseCrypto, reads: PageReadLog | None
+) -> bool:
+    """Whether any citation, in an opinion or in the expert's own sections, is to a page the report may not stand on
+    or (in a section) no longer matches its fact: what signing re-checks, as the final check does (PV-14)."""
+    states = await page_states(conn, case_id)
+
+    def unusable(page_id: uuid.UUID) -> bool:
+        return page_id in states and not states[page_id].usable
+
+    for o in await opinions.latest_opinions(conn, case_id, crypto):
+        if any(unusable(c.page_id) for c in o.citations):
+            return True
+    citable = {f.id: f for f in await citable_facts(conn, case_id, reads)}
+    for _, refs in (await section_texts(conn, case_id, crypto)).values():
+        for c in refs:
+            fact = citable.get(c.fact_id)
+            if fact is None or unusable(c.page_id) or differs(c, fact):
+                return True
+    return False
 
 
 # core checks -------------------------------------------------------------------------------------------------
@@ -294,6 +346,14 @@ async def _questions_locked(i: Inputs, r: Result) -> Result:
 async def _citations_resolve(i: Inputs, r: Result) -> Result:
     fixes = [fix("S15", p.question_id) for p in i.problems if p.kind in ("not_citable", "missing")]
     fixes += [i.where(c.paragraph) for c in i.citations if c.fact_id not in i.citable]
+    for c in i.citations:  # a page set aside since the build (PV-14)
+        if i.page_fix(c.page_id):
+            fixes += [i.where(c.paragraph), *i.page_fix(c.page_id)]
+    for o in i.opinions:
+        for cited in o.citations:
+            if i.page_fix(cited.page_id):
+                fixes += [fix("S15", o.question_id), *i.page_fix(cited.page_id)]
+    fixes += i.section_problems()[0]
     return r.counted(len({c.fact_id for c in i.citations}), "fact").failing(fixes)
 
 
@@ -305,6 +365,7 @@ async def _facts_unchanged(i: Inputs, r: Result) -> Result:
             fact.version != c.fact_version or fact.page_id != c.page_id or not quote_within(c.quote, fact.value)
         ):
             fixes.append(i.where(c.paragraph))
+    fixes += i.section_problems()[1]
     return r.counted(max(0, len(i.citations) - len(fixes)), "fact", len(i.citations)).failing(fixes)
 
 
@@ -315,15 +376,15 @@ async def _quotes_verbatim(i: Inputs, r: Result) -> Result:
 
 
 async def _all_pages_read(i: Inputs, r: Result) -> Result:
-    cur = await i.conn.execute(
-        "select id, bundle_page_no from app.pages"
-        " where bundle_id = (select bundle_id from app.cases where id = %s) order by bundle_page_no",
-        (i.case_id,),
-    )
-    pages = await cur.fetchall()
+    """Every page still in the records is read by the named expert, can be read (or the expert typed it in) and the
+    records are fully processed (PV-15). A page set aside as a copy, quarantined or replaced is not one to read."""
+    pages = {pid: s for pid, s in i.states.items() if not s.set_aside}
     read = await i.reads.read_page_ids(i.conn, i.case_id, i.named_expert) if i.reads is not None else set()
-    unread = [fix("S09", no) for pid, no in pages if pid not in read]
-    return r.counted(len(pages) - len(unread), "page", len(pages)).failing(unread)
+    unread = [fix("S09", s.no) for pid, s in pages.items() if pid not in read]
+    fixes = unread + [fix("S10", no) for no in i.completeness.untyped]
+    if i.completeness.processing_open:
+        fixes.append(fix("S07", "processing"))
+    return r.counted(len(pages) - len(unread), "page", len(pages)).failing(fixes)
 
 
 async def _findings_decided(i: Inputs, r: Result) -> Result:

@@ -215,12 +215,13 @@ async def download_export(
 ) -> Response:
     # Storage is looked up after the access check, so a refusal never says whether storage is ready.
     await service.check_export_done(conn, access.case_id, job_id)
-    data = await service.download_export(conn, _storage(request), _crypto(request), access, job_id)
+    data, digest = await service.download_export(conn, _storage(request), _crypto(request), access, job_id)
     return StreamingResponse(
         service.chunks(data),
         media_type="application/zip",
         headers={
             "Cache-Control": "private, no-store",
             "Content-Disposition": f'attachment; filename="export-{job_id}.zip"',
+            "X-Content-SHA256": digest,
         },
     )

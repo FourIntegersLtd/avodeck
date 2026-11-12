@@ -82,6 +82,7 @@ from app.features.pipeline.schemas import (
     MissingItemChange,
     MissingItems,
     PageReplacement,
+    PageShortfall,
     Processing,
     ProcessingCancelled,
     ProcessingJob,
@@ -276,7 +277,10 @@ async def list_missing_items(
     items = [await _missing_item(conn, crypto, case_id, i) for i in await repo.missing_items(conn, case_id)]
     response.headers["cache-control"] = "private, no-store"
     still = [i for i in items if i.status in STILL_MISSING]
-    return MissingItems(missing_items=items, still_missing=still, still_missing_count=len(still))
+    shortfalls = [PageShortfall(**s) for s in await repo.page_shortfalls(conn, case_id)]
+    return MissingItems(
+        missing_items=items, still_missing=still, still_missing_count=len(still), page_shortfalls=shortfalls
+    )
 
 
 @pipeline_router.patch("/{case_id}/missing-items/{item_id}", response_model=MissingItem)

@@ -13,8 +13,16 @@ from psycopg.types.json import Jsonb
 
 from app.core.config import CostGuard
 from app.core.contracts import record_entries
-from app.features.pipeline import gaps
+from app.features.pipeline import gaps, verification_log
 from app.features.pipeline.batches import BatchScope, PlannedBatch
+
+# A page is set aside as a copy only when the expert has confirmed it (PV-09), and a page a later page replaced is
+# always set aside (`core/contracts/set_aside.py`): a copy the pipeline merely suggested is still read and counted.
+# Every use pairs it with `not p.quarantined`. Needs `p` (pages) and `a` (page_analysis, outer-joined).
+NOT_SET_ASIDE = (
+    "(p.superseded_by_page_id is null"
+    " and (p.duplicate_of_page_id is null or coalesce(a.duplicate_status, '') <> 'confirmed'))"
+)
 
 RECORDS_KIND = "records"  # the core document kind that becomes numbered pages
 
@@ -24,6 +32,8 @@ class Document:
     id: uuid.UUID
     storage_path: str
     filename: str = ""
+    sha256: str | None = None  # what was uploaded (PV-07): checked against the stored bytes before they are used
+    parts: int | None = None  # how many parts the upload sent; None for a file unpacked from another
 
 
 async def unscanned_documents(conn: AsyncConnection, case_id: uuid.UUID) -> list[Document]:
@@ -51,14 +61,15 @@ async def record_scan(
 
 async def clean_unsplit(conn: AsyncConnection, case_id: uuid.UUID) -> list[Document]:
     cur = await conn.execute(
-        "select d.id, d.storage_path, d.filename from app.documents d"
-        " join app.document_scans s on s.document_id = d.id"
+        "select d.id, d.storage_path, d.filename, d.sha256,"
+        " (select max(u.chunk_count) from app.uploads u where u.document_id = d.id)"
+        " from app.documents d join app.document_scans s on s.document_id = d.id"
         " where d.bundle_id = (select bundle_id from app.cases where id = %s)"
         " and s.clean and s.split_at is null and d.kind = %s"
         " order by d.created_at, d.id",
         (case_id, RECORDS_KIND),
     )
-    return [Document(r[0], r[1], r[2]) for r in await cur.fetchall()]
+    return [Document(r[0], r[1], r[2], r[3], r[4]) for r in await cur.fetchall()]
 
 
 async def add_pages(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID, count: int) -> bool:
@@ -68,18 +79,23 @@ async def add_pages(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid
     )
     if await cur.fetchone() is None:
         return False
+    # Numbers are never reused (PV-08): the start is the bundle's high-water mark, not the highest page now present.
     cur = await conn.execute(
-        "select coalesce(max(bundle_page_no), 0) from app.pages"
-        " where bundle_id = (select bundle_id from app.cases where id = %s)",
+        "select b.id, greatest(b.page_high_water, coalesce((select max(p.bundle_page_no) from app.pages p"
+        " where p.bundle_id = b.id), 0)) from app.bundles b"
+        " where b.id = (select bundle_id from app.cases where id = %s) for update",
         (case_id,),
     )
     row = await cur.fetchone()
-    start = int(row[0]) if row else 0
+    assert row is not None
+    bundle_id, start = row[0], int(row[1])
     await conn.execute(
-        "insert into app.pages (bundle_id, document_id, bundle_page_no)"
-        " select (select bundle_id from app.cases where id = %s), %s, %s + g from generate_series(1, %s) g",
-        (case_id, document_id, start, count),
+        "insert into app.pages (bundle_id, document_id, bundle_page_no, source_page_index)"
+        " select %s, %s, %s + g, g - 1 from generate_series(1, %s) g",
+        (bundle_id, document_id, start, count),
     )
+    if count:
+        await conn.execute("update app.bundles set page_high_water = %s where id = %s", (start + count, bundle_id))
     await conn.execute("update app.documents set pages = %s where id = %s", (count, document_id))
     await conn.execute("update app.document_scans set split_at = now() where document_id = %s", (document_id,))
     return True
@@ -107,14 +123,14 @@ class PageRow:
     id: uuid.UUID
     document_id: uuid.UUID
     bundle_page_no: int
-    first_page_no: int
+    source_index: int
     rotation: int = 0
 
 
 async def pages_without_image(conn: AsyncConnection, case_id: uuid.UUID) -> list[PageRow]:
     cur = await conn.execute(
         "select p.id, p.document_id, p.bundle_page_no,"
-        " (select min(q.bundle_page_no) from app.pages q where q.document_id = p.document_id), p.rotation"
+        " p.source_page_index, p.rotation"
         " from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %s)"
         " and p.image_path is null order by p.bundle_page_no",
         (case_id,),
@@ -149,18 +165,20 @@ class ReadingState:
     unreadable: bool
     handwriting: bool
     straightened: bool = False
+    content_sha256: str | None = None  # the page file's SHA-256 when it was written (PV-07)
 
 
 async def reading_state(conn: AsyncConnection, page_id: uuid.UUID) -> ReadingState:
     cur = await conn.execute(
-        "select rotation, transcribed_by_expert_text, unreadable, handwriting, straightened from app.pages"
+        "select rotation, transcribed_by_expert_text, unreadable, handwriting, straightened, content_sha256"
+        " from app.pages"
         " where id = %s",
         (page_id,),
     )
     row = await cur.fetchone()
     assert row is not None
     return ReadingState(
-        int(row[0]), None if row[1] is None else bytes(row[1]), bool(row[2]), bool(row[3]), bool(row[4])
+        int(row[0]), None if row[1] is None else bytes(row[1]), bool(row[2]), bool(row[3]), bool(row[4]), row[5]
     )
 
 
@@ -201,17 +219,24 @@ async def settle_facts(
             (word_ids, Jsonb(bbox) if bbox is not None else None, fact_id),
         )
     await conn.execute(
-        "update app.facts set status = 'rejected' where page_id = %s and status = 'suggested'", (page_id,)
+        "update app.facts set status = 'rejected', withdrawn_reason = 'reread'"
+        " where page_id = %s and status = 'suggested'",
+        (page_id,),
     )
     await conn.execute("update app.page_analysis set extracted_at = null where page_id = %s", (page_id,))
 
 
-async def document_file(conn: AsyncConnection, document_id: uuid.UUID) -> tuple[str, str]:
-    """Where a document is kept, and its filename."""
-    cur = await conn.execute("select storage_path, filename from app.documents where id = %s", (document_id,))
+async def document_to_read(conn: AsyncConnection, document_id: uuid.UUID) -> Document:
+    """A stored document with what its upload recorded about its bytes, for the check before it is read (PV-07)."""
+    cur = await conn.execute(
+        "select d.id, d.storage_path, d.filename, d.sha256,"
+        " (select max(u.chunk_count) from app.uploads u where u.document_id = d.id)"
+        " from app.documents d where d.id = %s",
+        (document_id,),
+    )
     row = await cur.fetchone()
-    assert row is not None and row[0]
-    return str(row[0]), str(row[1])
+    assert row is not None and row[1]
+    return Document(row[0], str(row[1]), str(row[2]), row[3], row[4])
 
 
 # --- pages in another language (F37) --------------------------------------------------------------
@@ -377,8 +402,14 @@ async def exhibits(conn: AsyncConnection, case_id: uuid.UUID) -> list[ExhibitRow
     return [ExhibitRow(*r) for r in await cur.fetchall()]
 
 
-async def set_image(conn: AsyncConnection, page_id: uuid.UUID, image_path: str) -> None:
-    await conn.execute("update app.pages set image_path = %s where id = %s", (image_path, page_id))
+async def set_image(
+    conn: AsyncConnection, page_id: uuid.UUID, image_path: str, content_sha256: str | None = None
+) -> None:
+    """Records the page image and, with it, the SHA-256 of the page file written (PV-07)."""
+    await conn.execute(
+        "update app.pages set image_path = %s, content_sha256 = coalesce(%s, content_sha256) where id = %s",
+        (image_path, content_sha256, page_id),
+    )
 
 
 _IN_RANGE = (
@@ -470,6 +501,7 @@ async def store_words(
     handwriting: bool,
     unreadable: bool,
     size: tuple[float, float] | None = None,
+    read_failure: str | None = None,
 ) -> None:
     await conn.execute("delete from app.ocr_words where page_id = %s", (page_id,))
     # Word ids are places on the page: the expert's readings of the old words (slice B, decision 0018)
@@ -494,14 +526,40 @@ async def store_words(
         "update app.pages set text_source = %s, ocr_confidence = %s, handwriting = %s, unreadable = %s where id = %s",
         (source, confidence, handwriting, unreadable, page_id),
     )
-    if size is not None:
+    if size is None:  # the expert's own transcription replaces any failed reading
+        await conn.execute("update app.page_analysis set read_failure = null where page_id = %s", (page_id,))
+    else:
         await conn.execute(
-            "insert into app.page_analysis (page_id, bundle_id, stage, word_count, width, height)"
-            " select id, bundle_id, 'ocr', %s, %s, %s from app.pages where id = %s"
+            "insert into app.page_analysis (page_id, bundle_id, stage, word_count, width, height, read_failure)"
+            " select id, bundle_id, 'ocr', %s, %s, %s, %s from app.pages where id = %s"
             " on conflict (page_id) do update set stage = excluded.stage, word_count = excluded.word_count,"
-            " width = excluded.width, height = excluded.height, updated_at = now()",
-            (len(rows), size[0], size[1], page_id),
+            " width = excluded.width, height = excluded.height, read_failure = excluded.read_failure,"
+            " updated_at = now()",
+            (len(rows), size[0], size[1], read_failure, page_id),
         )
+
+
+async def set_pages_declared(conn: AsyncConnection, document_id: uuid.UUID, declared: int | None) -> None:
+    """The page count the PDF itself states (PV-11), to set against the pages numbered from it."""
+    await conn.execute("update app.documents set pages_declared = %s where id = %s", (declared, document_id))
+
+
+async def page_shortfalls(conn: AsyncConnection, case_id: uuid.UUID) -> list[dict[str, Any]]:
+    """Files whose stated page count is higher than the pages numbered from them: pages that may be missing."""
+    cur = await conn.execute(
+        "select id, filename, pages_declared, pages from app.documents"
+        " where bundle_id = (select bundle_id from app.cases where id = %s)"
+        " and pages_declared is not null and pages_declared > pages order by created_at, id",
+        (case_id,),
+    )
+    return [{"document_id": r[0], "filename": r[1], "declared": r[2], "found": r[3]} for r in await cur.fetchall()]
+
+
+async def read_failure(conn: AsyncConnection, page_id: uuid.UUID) -> str | None:
+    """Why the page has no words, if its reading failed (`ocr_failed`, `altered`); None for a page read as it is."""
+    cur = await conn.execute("select read_failure from app.page_analysis where page_id = %s", (page_id,))
+    row = await cur.fetchone()
+    return None if row is None else row[0]
 
 
 async def case_codes(conn: AsyncConnection, case_id: uuid.UUID) -> dict[str, str]:
@@ -522,8 +580,11 @@ async def pages_to_extract(
     cur = await conn.execute(
         "select p.id, p.bundle_page_no from app.pages p left join app.page_analysis a on a.page_id = p.id"
         " where p.bundle_id = (select bundle_id from app.cases where id = %(case)s)"
-        " and p.text_source is not null and p.duplicate_of_page_id is null"
-        " and not p.quarantined and a.extracted_at is null" + _IN_RANGE.format(p="p.") + " order by p.bundle_page_no",
+        " and p.text_source is not null and "
+        + NOT_SET_ASIDE
+        + " and not p.quarantined and a.extracted_at is null"
+        + _IN_RANGE.format(p="p.")
+        + " order by p.bundle_page_no",
         {"case": case_id, "first": first, "last": last},
     )
     return [(r[0], r[1]) for r in await cur.fetchall()]
@@ -693,6 +754,7 @@ async def store_extraction(
     availability_evidence: list[dict[str, Any]] | None = None,
     entries: list[NewEntry] | None = None,
     entries_rejected: int = 0,
+    refusal_codes: list[str] | None = None,
 ) -> None:
     async with conn.cursor() as cur:
         await cur.executemany(
@@ -720,12 +782,12 @@ async def store_extraction(
         await conn.execute("update app.pages set source_type = %s where id = %s", (source_type, page_id))
     await conn.execute(
         "insert into app.page_analysis (page_id, bundle_id, stage, extraction, needs_human, reason, model_id,"
-        " printed_dates, availability_evidence, extracted_at)"
-        " values (%s, (select bundle_id from app.pages where id = %s), 'extract', %s, %s, %s, %s, %s, %s, now())"
+        " printed_dates, availability_evidence, extracted_at, refusal_codes)"
+        " values (%s, (select bundle_id from app.pages where id = %s), 'extract', %s, %s, %s, %s, %s, %s, now(), %s)"
         " on conflict (page_id) do update set stage = excluded.stage, extraction = excluded.extraction,"
         " needs_human = excluded.needs_human, reason = excluded.reason, model_id = excluded.model_id,"
         " printed_dates = excluded.printed_dates, availability_evidence = excluded.availability_evidence,"
-        " extracted_at = excluded.extracted_at, updated_at = now()",
+        " extracted_at = excluded.extracted_at, refusal_codes = excluded.refusal_codes, updated_at = now()",
         (
             page_id,
             page_id,
@@ -735,6 +797,7 @@ async def store_extraction(
             model_id,
             printed_dates or [],
             Jsonb(availability_evidence or []),
+            refusal_codes or None,
         ),
     )
     if entries is not None:
@@ -911,7 +974,7 @@ async def gap_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[gaps.Page
         " from app.pages p left join app.page_analysis a on a.page_id = p.id"
         " left join app.facts f on f.page_id = p.id and f.status <> 'rejected'"
         " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
-        " and p.duplicate_of_page_id is null and not p.quarantined"
+        " and " + NOT_SET_ASIDE + " and not p.quarantined"
         " group by p.id, p.bundle_page_no, p.source_type, a.printed_dates order by p.bundle_page_no",
         (case_id,),
     )
@@ -952,7 +1015,7 @@ async def pages_to_match(conn: AsyncConnection, case_id: uuid.UUID) -> list[tupl
         "select p.id, p.bundle_page_no from app.pages p join app.page_analysis a on a.page_id = p.id"
         " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
         " and a.extracted_at is not null and a.references_checked_at is null"
-        " and p.duplicate_of_page_id is null and not p.quarantined order by p.bundle_page_no",
+        " and " + NOT_SET_ASIDE + " and not p.quarantined order by p.bundle_page_no",
         (case_id,),
     )
     return [(r[0], r[1]) for r in await cur.fetchall()]
@@ -1610,7 +1673,9 @@ async def reset_for_reprocess(conn: AsyncConnection, case_id: uuid.UUID) -> int:
     stale = [r[0] for r in await cur.fetchall()]
     if stale:
         await conn.execute(
-            "update app.facts set status = 'rejected' where page_id = any(%s) and status = 'suggested'", (stale,)
+            "update app.facts set status = 'rejected', withdrawn_reason = 'replaced'"
+            " where page_id = any(%s) and status = 'suggested'",
+            (stale,),
         )
         await conn.execute("update app.page_analysis set extracted_at = null where page_id = any(%s)", (stale,))
     return len(stale)
@@ -1624,7 +1689,9 @@ async def reset_unread(conn: AsyncConnection, case_id: uuid.UUID, job_id: uuid.U
     ids = await record_entries.retryable_unread_page_ids(conn, case_id)
     if ids:
         await conn.execute(
-            "update app.facts set status = 'rejected' where page_id = any(%s) and status = 'suggested'", (ids,)
+            "update app.facts set status = 'rejected', withdrawn_reason = 'replaced'"
+            " where page_id = any(%s) and status = 'suggested'",
+            (ids,),
         )
         await conn.execute(
             "update app.page_analysis set extracted_at = null, updated_at = now(), retry_job_id = %s"
@@ -1678,7 +1745,7 @@ async def retry_progress(
         " from app.page_analysis a join app.pages p on p.id = a.page_id"
         " where a.retry_job_id = %(job)s"
         " and p.bundle_id = (select bundle_id from app.cases where id = %(case)s)"
-        " and p.text_source is not null and not p.quarantined and p.duplicate_of_page_id is null",
+        " and p.text_source is not null and not p.quarantined and " + NOT_SET_ASIDE,
         {"since": job[2], "job": job[0], "case": case_id},
     )
     done, failed, waiting = await cur.fetchone() or (0, 0, 0)
@@ -1709,10 +1776,10 @@ async def retry_progress(
 async def pages_for_identity(conn: AsyncConnection, case_id: uuid.UUID) -> list[uuid.UUID]:
     """Pages with words, not copies and not quarantined: the pages whose identifiers are compared."""
     cur = await conn.execute(
-        "select p.id from app.pages p"
+        "select p.id from app.pages p left join app.page_analysis a on a.page_id = p.id"
         " where p.bundle_id = (select bundle_id from app.cases where id = %s)"
         " and p.text_source is not null"
-        " and p.duplicate_of_page_id is null and not p.quarantined order by p.bundle_page_no",
+        " and " + NOT_SET_ASIDE + " and not p.quarantined order by p.bundle_page_no",
         (case_id,),
     )
     return [r[0] for r in await cur.fetchall()]
@@ -1796,8 +1863,10 @@ async def confirm_quarantine(conn: AsyncConnection, q: Quarantine, reason: str, 
     )
     prior = [{"id": str(r[0]), "status": r[1]} for r in await cur.fetchall()]
     if prior:
-        await conn.execute(
-            "update app.facts set status = 'rejected' where id = any(%s)", ([uuid.UUID(f["id"]) for f in prior],)
+        rejected = [uuid.UUID(f["id"]) for f in prior]
+        await conn.execute("update app.facts set status = 'rejected' where id = any(%s)", (rejected,))
+        await verification_log.log_status_change(
+            conn, rejected, person_id=person_id, action="not_right", reason=verification_log.PAGE_SET_ASIDE
         )
     await conn.execute(
         "update app.page_quarantines set status = 'confirmed', reason = %s, confirmed_by = %s, confirmed_at = now(),"
@@ -1828,8 +1897,15 @@ async def close_quarantine(conn: AsyncConnection, q: Quarantine, person_id: uuid
     row = await cur.fetchone()
     kept = [uuid.UUID(f["id"]) for f in (row[0] if row else []) if f["status"] in ("verified", "edited")]
     if kept:
-        await conn.execute(
-            "update app.facts set status = 'verified' where id = any(%s) and status = 'rejected'", (kept,)
+        cur = await conn.execute(
+            "update app.facts set status = 'verified' where id = any(%s) and status = 'rejected' returning id", (kept,)
+        )
+        await verification_log.log_status_change(
+            conn,
+            [r[0] for r in await cur.fetchall()],
+            person_id=person_id,
+            action="correct",
+            reason=verification_log.QUARANTINE_UNDONE,
         )
     await conn.execute(
         "update app.pages set quarantined = false, quarantine_reason = null, quarantined_by = null,"
@@ -1989,7 +2065,9 @@ async def link_splits(conn: AsyncConnection, case_id: uuid.UUID) -> int:
     originals = list({r[0] for r in await cur.fetchall()})
     if originals:
         await conn.execute(
-            "update app.facts set status = 'rejected' where page_id = any(%s) and status = 'suggested'", (originals,)
+            "update app.facts set status = 'rejected', withdrawn_reason = 'split'"
+            " where page_id = any(%s) and status = 'suggested'",
+            (originals,),
         )
     return len(originals)
 
@@ -2102,13 +2180,28 @@ async def set_fact_event_date(
     basis: str,
     word_ids: Sequence[str] | None = None,
 ) -> bool:
-    """Dates a fact that has none; `word_ids`, when given, replace what it cites (now with the date's words)."""
+    """Dates a fact that has none; `word_ids`, when given, replace what it cites (now with the date's words).
+
+    The new run always contains the fact's own words (`date_repair.cited_with`), so it only widens them. A fact the
+    expert has checked (`verified`, `edited`) changes only with a row in the check log, in the same transaction."""
     cur = await conn.execute(
+        "select status, word_ids, date_basis from app.facts where case_id = %s and id = %s and event_date is null"
+        " for update",
+        (case_id, fact_id),
+    )
+    before = await cur.fetchone()
+    if before is None:
+        return False
+    await conn.execute(
         "update app.facts set event_date = %s, date_basis = %s, word_ids = coalesce(%s::text[], word_ids)"
-        " where case_id = %s and id = %s and event_date is null returning id",
+        " where case_id = %s and id = %s",
         (when, basis, list(word_ids) if word_ids is not None else None, case_id, fact_id),
     )
-    return (await cur.fetchone()) is not None
+    if before[0] in ("verified", "edited"):
+        await verification_log.log_date_repair(
+            conn, fact_id, old_word_ids=before[1], old_date=None, old_basis=before[2]
+        )
+    return True
 
 
 # --- page-batch runs (ADR 0038) ------------------------------------------------------------------------------------
@@ -2141,7 +2234,7 @@ async def pages_to_plan(conn: AsyncConnection, case_id: uuid.UUID) -> int:
         "select count(*) from app.pages p left join app.page_analysis a on a.page_id = p.id"
         " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined"
         " and ((p.text_source is null and p.image_path is not null)"
-        "      or (p.text_source is not null and p.duplicate_of_page_id is null and a.extracted_at is null))",
+        "      or (p.text_source is not null and " + NOT_SET_ASIDE + " and a.extracted_at is null))",
         (case_id,),
     )
     row = await cur.fetchone()

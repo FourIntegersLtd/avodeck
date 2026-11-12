@@ -27,7 +27,7 @@ import datetime as dt
 import difflib
 import logging
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from functools import cache
 from pathlib import Path
 from typing import Any
@@ -255,18 +255,24 @@ def with_header(page: str, header: str) -> str:
     return f"{HEADER_MARK}\n{header}\n\n{page}" if header.strip() else page
 
 
+# The provenance check's `no_words` means a fact cited no words; the page-level `no_words` means a page has none.
+_PAGE_CODE = {"no_words": "no_cited_words"}
+
+
 @dataclass(frozen=True)
 class Sorted:
     kept: list[Mapping[str, Any]]
     refused: int
     struck: int
+    codes: list[str] = field(default_factory=list)  # why facts were refused: distinct, in order of first appearance
 
 
 def sort_facts(output: Mapping[str, Any], words: Mapping[str, str], struck: set[str]) -> Sorted:
     facts = list(output.get("facts", []))
     clean = [f for f in facts if not set(f.get("word_ids", [])) & struck]
     kept, refused = provenance.check_items(clean, words)
-    return Sorted(kept=list(kept), refused=len(refused), struck=len(facts) - len(clean))
+    codes = list(dict.fromkeys(_PAGE_CODE.get(r.reason, r.reason) for r in refused))
+    return Sorted(kept=list(kept), refused=len(refused), struck=len(facts) - len(clean), codes=codes)
 
 
 def checked_fields(

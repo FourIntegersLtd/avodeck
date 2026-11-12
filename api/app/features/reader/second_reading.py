@@ -21,6 +21,7 @@ from typing import Any
 from psycopg import AsyncConnection
 
 from app.core.ai import mask, pii
+from app.core.ai import ocr as ocr_calls
 from app.core.ai.clients import live_or_recorded
 from app.core.ai.kit import AiKit, AiTask, InvalidOutput
 from app.core.ai.ocr import OcrClient, OcrFailed, OcrWord
@@ -82,6 +83,7 @@ class _Services:
         self.packs: PackLibrary | None = None
         self.kit: AiKit | None = _UNSET
         self.ocr: OcrClient | None = _UNSET
+        self.region: str | None = _UNSET  # the cell's region, written on each OCR call's `ai_calls` row
 
     def get_storage(self) -> CaseFileStorage:
         if self.storage is None:
@@ -102,6 +104,12 @@ class _Services:
         if self.kit is _UNSET:
             self.kit = live_or_recorded().kit
         return self.kit
+
+    def get_region(self) -> str | None:
+        if self.region is _UNSET:
+            settings = live_or_recorded().settings
+            self.region = settings.region if settings else None
+        return self.region
 
     def get_ocr(self) -> OcrClient | None:
         if self.ocr is _UNSET:
@@ -147,8 +155,10 @@ async def _fresh_words(
     case_id: uuid.UUID,
     page_id: uuid.UUID,
     rotation: int,
-) -> tuple[list[OcrWord], tuple[float, float]]:
-    """Boxes for a page the expert typed out: read the page again, so the paint knows where the words are."""
+    job_id: uuid.UUID,
+) -> tuple[list[OcrWord], tuple[float, float], str]:
+    """Boxes for a page the expert typed out: read the page again, so the paint knows where the words are. Also the
+    model that read it; the call is recorded in `ai_calls` (PV-18)."""
     ocr = services.get_ocr()
     if ocr is None:
         raise _Refused("no_place")
@@ -160,9 +170,17 @@ async def _fresh_words(
         raise _Refused("no_place") from None
     if not found.pages:
         raise _Refused("no_place")
+    await ocr_calls.record_call(
+        conn,
+        case_id=case_id,
+        task="second_reading",
+        result=found,
+        region=services.get_region() or "unknown",
+        job_id=job_id,
+    )
     page = found.pages[0]
     size = (page.height, page.width) if rotation in (90, 270) else (page.width, page.height)
-    return mask.turned_words(page.words, page.width, page.height, rotation), size
+    return mask.turned_words(page.words, page.width, page.height, rotation), size, found.model
 
 
 async def _unchanged(
@@ -201,8 +219,13 @@ def _found(words: list[OcrWord], pack: Any, identity: Any) -> Counter[str]:
 
 
 async def _read_one(
-    conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, asked: tuple[int | None, str | None]
-) -> list[dict[str, Any]]:
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    asked: tuple[int | None, str | None],
+    job_id: uuid.UUID,
+) -> tuple[list[dict[str, Any]], str | None]:
+    """The lines the model read, and the OCR model that found the boxes (None when the stored words were used)."""
     storage, crypto, library = services.get_storage(), services.get_crypto(), services.get_packs()
     kit = services.get_kit()
     if kit is None:
@@ -221,10 +244,11 @@ async def _read_one(
     pack = library.for_case({"jurisdiction": jurisdiction, "case_type": case_type, "specialty": specialty})
     identity = await identity_for(conn, crypto, case_id)
 
+    ocr_model: str | None = None
     words, typed, runs = await _stored_words(conn, crypto, case_id, page_id)
     if typed or not words:
         stored = words
-        words, size = await _fresh_words(conn, storage, crypto, case_id, page_id, rotation)
+        words, size, ocr_model = await _fresh_words(conn, storage, crypto, case_id, page_id, rotation, job_id)
         runs = []  # the fresh reading has its own word ids
         # an identifier in the expert's own text that the fresh reading did not find has no box to paint
         if _found(stored, pack, identity) - _found(words, pack, identity):  # any identifier with fewer boxes
@@ -248,7 +272,7 @@ async def _read_one(
     out = await kit.run_image(
         conn, TASK, masked, pack=pack, case_id=case_id, names=identity.names, dates_of_birth=identity.dates_of_birth
     )
-    return [{"text": ln["text"], "confidence": ln["confidence"]} for ln in out["lines"]]
+    return [{"text": ln["text"], "confidence": ln["confidence"]} for ln in out["lines"]], ocr_model
 
 
 async def _finish(
@@ -258,12 +282,13 @@ async def _finish(
     status: str,
     reason: str | None,
     sealed: bytes | None,
+    ocr_model: str | None = None,
 ) -> None:
     """Records the outcome only for the request the job read: a newer request (a later `requested_at`) stays."""
     await conn.execute(
         "update app.second_readings set status = %s, reason = %s, lines = %s, finished_at = now(),"
-        " prompt_version = %s where page_id = %s and requested_at = %s and status = 'queued'",
-        (status, reason, sealed, TASK.prompt_version, page_id, requested_at),
+        " prompt_version = %s, ocr_model_id = %s where page_id = %s and requested_at = %s and status = 'queued'",
+        (status, reason, sealed, TASK.prompt_version, ocr_model, page_id, requested_at),
     )
 
 
@@ -280,9 +305,11 @@ async def second_reading(ctx: JobContext) -> None:
     for page_id, requested_at, asked_rotation, asked_sha in waiting:
         try:
             async with ctx.transaction() as conn:
-                status, reason, sealed = "done", None, None
+                status, reason, sealed, ocr_model = "done", None, None, None
                 try:
-                    lines = await _read_one(conn, ctx.case_id, page_id, (asked_rotation, asked_sha))
+                    lines, ocr_model = await _read_one(
+                        conn, ctx.case_id, page_id, (asked_rotation, asked_sha), ctx.job_id
+                    )
                     sealed = await crypto.encrypt(
                         conn, ctx.case_id, json.dumps(lines).encode(), purpose=lines_purpose(page_id)
                     )
@@ -290,7 +317,7 @@ async def second_reading(ctx: JobContext) -> None:
                     status, reason = "refused", refused.reason
                 except InvalidOutput:
                     status, reason = "failed", "invalid_output"
-                await _finish(conn, page_id, requested_at, status, reason, sealed)
+                await _finish(conn, page_id, requested_at, status, reason, sealed, ocr_model)
         except ProcessingPaused:
             raise
         except Exception as error:  # nothing leaves the row waiting for ever; the type only, never the message

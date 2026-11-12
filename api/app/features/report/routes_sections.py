@@ -2,9 +2,10 @@
 
 Opinions are written on screen 15, declarations come from the jurisdiction pack and the generated
 appendices from Avodeck, so only the other pack sections and appendices are written here (422 otherwise).
-Words are sealed under the case key; citations have the opinion shape, every `[[cite:n]]` marker matches
-one citation and every citation must be a citable fact's own words (409 `not_citable`, rule 2). The first
-save needs no If-Match; later saves name the version they replace (428 without, 412 if stale).
+Words are sealed under the case key; every saved body is kept with who and when (PV-12). Citations have the
+opinion shape, every `[[cite:n]]` marker matches one citation and every citation must be a citable fact's own
+words (409 `not_citable`, rule 2). The first save needs no If-Match; later saves name the version they replace
+(428 without, 412 if stale).
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from fastapi import Header, Response
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core import audit
 from app.core.contracts.citations import Citation, markers, quote_within
 from app.core.contracts.facts import citable_facts
 from app.core.errors import ApiError
@@ -109,5 +111,7 @@ async def save_section(
         )
     saved = await cur.fetchone()
     assert saved is not None
+    # Every saved body is kept by a trigger (`report_section_versions`); the save itself is audited, without words.
+    await audit.record(conn, action="report.section_saved", target=f"report_section:{key}:{saved[0]}", case_id=case_id)
     response.headers["ETag"] = etag(saved[0])
     return SectionText(key=key, body=saving.body, citations=saving.citations, version=saved[0])
