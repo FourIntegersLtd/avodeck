@@ -30,6 +30,8 @@ import hashlib
 import json
 import logging
 import os
+import shutil
+import tempfile
 import time
 import uuid
 import weakref
@@ -200,13 +202,27 @@ def _checked_pages(source: Path | bytes) -> int:
     return parsing.checked_pages(source, LIMITS.max_document_pages)
 
 
-async def _within_upload_budget(conn: AsyncConnection, document_id: uuid.UUID, members: list[convert.Member]) -> bool:
+async def _within_upload_budget(
+    conn: AsyncConnection, document_id: uuid.UUID, members: list[parsing.FileMember]
+) -> bool:
     """Whether opening this file keeps everything unpacked from its ORIGINAL upload (zips in zips, emails with
     attachments, at any depth) inside the one set of limits. The original is locked first, so sibling splits
     cannot each spend the same budget."""
     root = await repo.lock_upload_root(conn, document_id)
     files, size = await repo.unpacked_so_far(conn, root, document_id)
-    return files + len(members) <= LIMITS.max_members and size + sum(len(m.data) for m in members) <= LIMITS.max_bytes
+    return files + len(members) <= LIMITS.max_members and size + sum(m.size for m in members) <= LIMITS.max_bytes
+
+
+@contextlib.asynccontextmanager
+async def _unpacked(path: Path, filename: str) -> AsyncIterator[parsing.UnpackedFiles]:
+    """`parsing.unpack_file` of a scratch file: the child reads it by path and leaves the converted PDF and the
+    members as files in a private directory beside it, which is removed when the block ends, however it ends."""
+    async with _scratch() as probe:  # the private scratch directory is the probe file's parent
+        out = Path(tempfile.mkdtemp(prefix="unpack-", dir=probe.parent))
+        try:
+            yield await parser_calls.run(parsing.unpack_file, str(path), filename, LIMITS, str(out))
+        finally:
+            shutil.rmtree(out, ignore_errors=True)
 
 
 async def _unpack(
@@ -214,7 +230,7 @@ async def _unpack(
 ) -> int:
     """Counts one document's pages; the files inside an email or a zip become documents of their
     own (cut on the next round) and files that cannot be paged become exhibits (F36). A PDF is opened from
-    its file and never held as one `bytes`."""
+    its file and never held as one `bytes`; nothing else is sent to or read back from the child whole."""
     media = await asyncio.to_thread(convert.sniff_path, path)
     if media == convert.PDF:
         await repo.set_media_type(conn, doc.id, convert.PDF)
@@ -222,19 +238,29 @@ async def _unpack(
             parsing.count_pages, str(path), LIMITS.max_document_pages, timeout=_count_timeout(path.stat().st_size)
         )
     size = path.stat().st_size
+    digest = await asyncio.to_thread(_file_sha256, path)
     if media != convert.ZIP and size > LIMITS.max_convert_bytes:
         # Too big to read whole and convert: kept as it is, like any file we cannot turn into pages.
-        data: bytes | None = None
-        found = convert.Unpacked(media, exhibit=True)
-        digest = await asyncio.to_thread(_file_sha256, path)
-    else:
-        data = await asyncio.to_thread(path.read_bytes)
-        found = await parser_calls.run(parsing.unpack, data, doc.filename, LIMITS)
-        digest = hashlib.sha256(data).hexdigest()
+        return await _record_unpacked(
+            conn, services, case_id, doc, parsing.UnpackedFiles(media, exhibit=True), size, digest
+        )
+    async with _unpacked(path, doc.filename) as found:
+        return await _record_unpacked(conn, services, case_id, doc, found, size, digest)
+
+
+async def _record_unpacked(
+    conn: AsyncConnection,
+    services: PipelineServices,
+    case_id: uuid.UUID,
+    doc: repo.Document,
+    found: parsing.UnpackedFiles,
+    size: int,
+    digest: str,
+) -> int:
     if found.members and await repo.part_depth(conn, doc.id) >= LIMITS.max_depth:
-        found = convert.Unpacked(found.media_type, exhibit=True)
+        found = parsing.UnpackedFiles(found.media_type, exhibit=True)
     if found.members and not await _within_upload_budget(conn, doc.id, found.members):
-        found = convert.Unpacked(found.media_type, exhibit=True)  # kept whole, like a file over the per-file limits
+        found = parsing.UnpackedFiles(found.media_type, exhibit=True)  # kept whole, like a file over the limits
     for n, member in enumerate(found.members, start=1):
         child = uuid.uuid4()
         prefix = paths.part_prefix(case_id, child)
@@ -245,13 +271,15 @@ async def _unpack(
             n,
             document_id=child,
             filename=member.filename,
-            media_type=convert.sniff(member.data, member.filename),
-            sha256=hashlib.sha256(member.data).hexdigest(),
+            media_type=member.media_type,
+            sha256=member.sha256,
             storage_path=prefix,
-            size=len(member.data),
+            size=member.size,
         )
-        if made:
-            await _put_sealed(conn, services, case_id, f"{prefix}/{PART_OBJECT}", member.data)
+        if made:  # one member in memory at a time
+            data = await asyncio.to_thread(Path(member.path).read_bytes)
+            await _put_sealed(conn, services, case_id, f"{prefix}/{PART_OBJECT}", data)
+            del data
     if found.exhibit:
         await repo.add_exhibit(
             conn,
@@ -263,10 +291,13 @@ async def _unpack(
             storage_path=doc.storage_path,
         )
     await repo.set_media_type(conn, doc.id, found.media_type)
-    if found.pdf is None:
+    if found.pdf_path is None:
         return 0
     return await parser_calls.run(
-        parsing.count_pages, found.pdf, LIMITS.max_document_pages, timeout=_count_timeout(len(found.pdf))
+        parsing.count_pages,
+        found.pdf_path,
+        LIMITS.max_document_pages,
+        timeout=_count_timeout(Path(found.pdf_path).stat().st_size),
     )
 
 
@@ -301,13 +332,12 @@ class _Source:
         try:
             path = await files.enter_async_context(_download(self.ctx, self.services, prefix))
             if convert.sniff(await asyncio.to_thread(_head, path)) != convert.PDF:  # a Word file, an email, a picture
-                data = await asyncio.to_thread(path.read_bytes)
-                found = await parser_calls.run(parsing.unpack, data, filename, LIMITS)
-                del data
-                assert found.pdf is not None
-                await files.aclose()  # the original goes; the converted PDF takes its place
-                files = contextlib.AsyncExitStack()
-                path = await files.enter_async_context(_scratch(found.pdf))
+                async with _unpacked(path, filename) as found:
+                    assert found.pdf_path is not None
+                    await files.aclose()  # the original goes; the converted PDF takes its place
+                    files = contextlib.AsyncExitStack()
+                    path = await files.enter_async_context(_scratch())
+                    await asyncio.to_thread(shutil.copyfile, found.pdf_path, path)
         except BaseException:
             await files.aclose()
             raise

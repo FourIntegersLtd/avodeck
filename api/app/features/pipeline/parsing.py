@@ -9,7 +9,10 @@ one for a stand-in that hangs or exits. Nothing here logs; an error carries a cl
 
 from __future__ import annotations
 
+import hashlib
 import io
+import os
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pikepdf
@@ -68,6 +71,54 @@ def picture_hash(thumbnail: bytes) -> int:
 
 def unpack(data: bytes, filename: str, limits: convert.Limits) -> convert.Unpacked:
     return convert.unpack(data, filename, limits)
+
+
+@dataclass(frozen=True)
+class FileMember:
+    """A file found inside an email or a zip, left as a file in the caller's scratch directory."""
+
+    filename: str
+    path: str
+    size: int
+    sha256: str
+    media_type: str
+
+
+@dataclass(frozen=True)
+class UnpackedFiles:
+    """`convert.Unpacked` with the bytes left on disk: only paths, sizes and hashes cross the pipe."""
+
+    media_type: str
+    pdf_path: str | None = None
+    members: list[FileMember] = field(default_factory=list)
+    exhibit: bool = False
+
+
+def _write(directory: str, name: str, data: bytes) -> str:
+    path = os.path.join(directory, name)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(data)
+    return path
+
+
+def unpack_file(path: str, filename: str, limits: convert.Limits, out_dir: str) -> UnpackedFiles:
+    """`unpack` of the file at `path`, read here and not sent through the pipe; the converted PDF and each member
+    are written to `out_dir` (the caller's private scratch directory) and come back as paths."""
+    found = convert.unpack(Path(path).read_bytes(), filename, limits)
+    pdf_path = _write(out_dir, "pdf", found.pdf) if found.pdf is not None else None
+    members = []
+    for n, member in enumerate(found.members, start=1):
+        members.append(
+            FileMember(
+                filename=member.filename,
+                path=_write(out_dir, f"member-{n}", member.data),
+                size=len(member.data),
+                sha256=hashlib.sha256(member.data).hexdigest(),
+                media_type=convert.sniff(member.data, member.filename),
+            )
+        )
+    return UnpackedFiles(found.media_type, pdf_path, members, found.exhibit)
 
 
 def text_layer(page_pdf: bytes) -> OcrPage | None:
