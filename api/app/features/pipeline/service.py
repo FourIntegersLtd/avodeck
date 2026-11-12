@@ -52,7 +52,7 @@ from app.core.ai.answers import page_subject, reference_subject
 from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput, OutputTruncated, TooLargeForFallback
-from app.core.ai.ocr import OcrFailed, OcrPage
+from app.core.ai.ocr import OcrFailed, OcrPage, OcrResult
 from app.core.contracts.fact_dates import case_anchor, latest_printed_date
 from app.core.contracts.fact_flags import flag_for_recheck
 from app.core.contracts.fact_verifications import log_remaps
@@ -622,6 +622,14 @@ async def _settle(
         await flag_for_recheck(conn, case_id, lost)
 
 
+def _the_page(result: OcrResult) -> OcrPage:
+    """The one page of an answer for a one-page document. Anything else (no page, more, or a page not numbered 1)
+    is not an answer for this page: it is treated as a failed read, so no words from a wrong page are stored (DP-01)."""
+    if len(result.pages) != 1 or result.pages[0].number != 1:
+        raise OcrFailed("malformed_response")
+    return result.pages[0]
+
+
 async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchScope | None = None) -> None:
     """Reads the words of every page without them. A page-batch child passes its `scope`: only its page range is
     read, every page write goes through the write guard, and the case-wide language pass is left to the parent."""
@@ -664,7 +672,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
                     # One account-wide slot per page sent: the submits a second and the pages in flight are
                     # shared by every bundle (no connection is held while waiting for it).
                     async with _ocr_slot(ctx, services):
-                        found = (await services.ocr.analyse(page_pdf, "layout", locale=locale)).pages[0]
+                        found = _the_page(await services.ocr.analyse(page_pdf, "layout", locale=locale))
                 except OcrFailed as exc:  # F4: this page alone is marked unreadable; the rest carry on
                     if run is not None:
                         run.page_failed(numbers.get(page_id), exc, "failed")
