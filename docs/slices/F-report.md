@@ -98,7 +98,7 @@ Core checks include:
 
 These came out of the behaviour audit and are in scope. Each bullet is an acceptance test to write first. Permissions come from `docs/spec/permissions.md`; scenarios from `docs/spec/scenarios.md`.
 
-**Extra tables owned:** `report_snapshots`, `report_servings`, `credit_notes`, `invoice_payments` (insert-only, no case_id: purged with its invoice), `report_settings`, `report_section_texts`, `report_builds`; personal `billing_profiles` (team ones in O). Colleague spot-check routes: `GET /v1/spot-checks/{token}` and `POST /v1/spot-checks/{token}/responses`.
+**Extra tables owned:** `report_snapshots`, `report_servings`, `credit_notes`, `invoice_payments` (insert-only, no case_id: purged with its invoice), `report_settings`, `report_section_texts`, `report_section_versions` (every saved body of a section, trigger-filled, append-only, no case_id), `report_builds`; personal `billing_profiles` (team ones in O). Colleague spot-check routes: `GET /v1/spot-checks/{token}` and `POST /v1/spot-checks/{token}/responses`.
 
 **Extra endpoints:** `GET /v1/cases/{id}/report/versions/{v}/snapshots`, `GET/POST /v1/cases/{id}/report/versions/{v}/servings` 🔒, `POST /v1/cases/{id}/report/versions/{v}/withdraw` 🔒, `PATCH /v1/cases/{id}/invoices/{invoice_id}/payment`, `POST /v1/cases/{id}/invoices/{invoice_id}/credit-notes` 🔒, `PUT /v1/me/billing-profile/bank-details` 🔒, `GET/PUT /v1/organisations/{org_id}/billing-profile/bank-details` 🔒 (PUT).
 
@@ -134,6 +134,14 @@ Foundation requests:
 - Done: the case frame mounts `useTimeHeartbeat` (`foundation/lib/timeHeartbeat.ts`) for every screen a pack step holds; F's routes name pack screen keys (`report`, `final_check`, `sign_send`, `invoice`).
 - Done (0608): a team case builds in the organisation's `policy.required_template_id` template when set (`app.case_report_template`), else the named expert's own; test `test_a_team_case_builds_in_the_organisations_required_template`. Agency and personal invoice numbers run apart without gaps (`test_agency_and_personal_invoice_numbers_run_separately_without_gaps`).
 - Still open: page-limit accessors and T-17 prompt context in packs; a CV snapshot source; email attachments; a per-address rate limit on the public spot-check routes (core has no limiter).
+
+## Audit 16 additions (document provenance and output integrity)
+
+- PV-14: a citation to a page set aside (confirmed copy, quarantined, replaced) or unreadable with no typing renders `[?]`, is not recorded, and fails `citations_resolve` (or `facts_unchanged_since_cited` for a changed section fact) naming the page (S08 or S10); the expert's own sections are checked like opinions, and `sign` re-checks both (409 `citation_problems`). Code: `provenance.py`, `checks.py`, `assemble.py`.
+- PV-15: `all_pages_read` also fails for unreadable pages with no typing, a failed page reading, and a processing job still going (the newest of each kind queued, running, or paused with a code the worker resumes itself; a job that failed for good or is paused for a person is not "open", and the page checks above still catch what it left unread); set-aside pages are not counted as unread. The methodology appendix (and `GET .../report/methodology`: `pages_set_aside`, `incomplete`) lists what was set aside and incomplete; builds are never blocked; a page shortfall is advisory. The chronology lists undated entries and labels an expert-entered date.
+- PV-12: `report_section_versions` (migration 0610) and the audit action `report.section_saved`.
+- PV-18: `report_builds.job_id` already joins the build to `jobs.code_version` (control test only).
+- Locked version rows (`report_paragraphs`, `citations`, `report_snapshots`, `report_builds`) refuse change and deletion (AVLCK) outside the case purge.
 
 ## Rules that apply
 1, 2, 4, 6, 7, 8, 9, 10, 11 from the root `AGENTS.md`.

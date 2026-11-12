@@ -376,6 +376,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 |---|---|
 | source_case_id | The case the bundle was first created for (lineage only; never read when deciding access or deleting, ADR 0034) |
 | page_count | How many pages it has |
+| page_high_water | The highest page number ever given out in this bundle. New pages are numbered after it, so a number a deleted file gave up is never handed to another page (never goes down) |
 
 ### documents
 | Field | In plain words |
@@ -385,9 +386,10 @@ A joint expert is one with two or more current instructing parties; no separate 
 | sha256 | Fingerprint proving the file is exactly as received |
 | sha256_verified_at | When the server last re-read the stored parts and confirmed they match the fingerprint (set when the upload finished; empty for older documents) |
 | pages | How many pages it has |
+| pages_declared | The page count the PDF itself states. When it is higher than `pages`, the file may have lost pages and the bundle summary says so (`page_shortfalls`). Empty for files we converted ourselves |
 | received_on / obtained_how | When it arrived and from whom/how |
 | bundle_version | Which delivery of records it came in (v1, v2…) |
-| unreadable_reason | Why we couldn't open it: password-protected (`locked`) or `damaged`. Empty for every file that opened. A file with a reason has no pages; the instructing party is asked for a readable copy |
+| unreadable_reason | Why we couldn't open it: password-protected (`locked`), `damaged`, or `altered` (the stored file no longer matches the fingerprint or the number of parts that were uploaded, so it was not read). Empty for every file that opened. A file with a reason has no pages; the instructing party is asked for a readable copy |
 | split_of_page_id | If these pages were made by cutting a two-page scan in two, the page that was cut |
 
 ### document_scans
@@ -419,9 +421,11 @@ A joint expert is one with two or more current instructing parties; no separate 
 | Field | In plain words |
 |---|---|
 | document_id | Which file the page came from |
+| source_page_index | The page's place in its file, counting from 0, set when the pages were numbered and never changed. The page is always cut from here, whatever happens to the pages around it |
 | bundle_page_no | Its permanent page number (never changes) |
 | source_type | Where the page is from (GP record, hospital, results…) from the pack. It is the software's reading of the page, never confirmed by a person, and the sorted-pages answer marks it `suggested` (`source_type_status`) |
 | image_path | Where the picture of the page is kept |
+| content_sha256 | Fingerprint of the page's own file when it was cut. It is checked each time the page is read again; a page file that no longer matches is not read and is listed as unreadable |
 | text_source | Whether its words came from the file itself or from OCR |
 | ocr_confidence | How sure the computer is that it read the page correctly |
 | handwriting | Whether it's handwritten |
@@ -446,8 +450,10 @@ A joint expert is one with two or more current instructing parties; no separate 
 | printed_dates | Dates printed on the page (used to find gaps) |
 | extraction | What was read from the page, sealed with the case key. When the page is read again, the page's first answer is kept inside it (`first_answer`) beside the latest one |
 | availability_evidence | When the page was received, filed, seen or sent to the clinician: each with its words on the page and the date read by code in the pack's date order (empty when the printed date could be read two ways) |
-| needs_human / reason | Whether a person must check the page, with a short reason: OCR or words-check reasons (`no_words`, `invalid_output`, `not_in_words`), or, when the page reads cleanly but extraction found too little of it, `no_facts` (nothing kept) or `low_coverage` (under half the page's words covered) |
+| needs_human / reason | Whether a person must check the page, with a short reason: OCR or words-check reasons (`ocr_failed` when the reading service failed, `altered` when the page file no longer matches its fingerprint, `no_words` when the page was read and is really empty, `invalid_output`, and the words check's own codes `not_in_words`, `unknown_word`, `not_contiguous`, `empty_value`, `hidden_characters`, `no_cited_words`), or, when the page reads cleanly but extraction found too little of it, `no_facts` (nothing kept) or `low_coverage` (under half the page's words covered). A short page with some words but no facts gets the lighter `few_words` (fewer than 40 countable words, the line below which the coverage check never speaks); it does not ask for a person to check. A suggested copy (`duplicate_status` = `suggested`) is still read and extracted; only an expert-confirmed copy is set aside |
 | model_id | Which model read the page |
+| refusal_codes | Every reason a suggestion on the page was refused for the words check (`not_in_words`, `unknown_word`, `not_contiguous`, `empty_value`, `hidden_characters`, `no_cited_words`): codes only, never text. `reason` keeps the first |
+| read_failure | Why the page has no words: `ocr_failed` (the reading service failed) or `altered` (the page file changed). Empty for a page read as it is, including one read as empty (`reason` = `no_words`) |
 | duplicate_status / duplicate_by / duplicate_at / duplicate_version | Whether it was set aside as a duplicate, who decided and when (If-Match) |
 | references_checked_at | When its mentions of other documents were checked |
 
@@ -519,9 +525,10 @@ A joint expert is one with two or more current instructing parties; no separate 
 | value | The key value (e.g. "9 ug/L") |
 | word_ids[] | The exact words on the page it came from, the proof |
 | bbox | The box drawn around it on the page |
-| event_date / date_basis | When it happened, and how the date was read. `printed`: a full date printed on the page. `printed_century`: a two-digit year (such as 87) with the century worked out by a fixed rule from the latest clear date in the bundle; please check. `line_above`: no date on the fact itself, so the nearest date on the same line or the line above was used; please check. `please_check`: the date was unclear and none was set (ADR 0017) |
+| event_date / date_basis | When it happened, and how the date was read. `printed`: a full date printed on the page. `printed_century`: a two-digit year (such as 87) with the century worked out by a fixed rule from the latest clear date in the bundle; please check. `line_above`: no date on the fact itself, so the nearest date on the same line or the line above was used; please check. `please_check`: the date was unclear and none was set (ADR 0017). `expert_entered`: the expert typed the date, or changed the one read from the page (0227); never shown as read from the page |
 | available_at / availability_basis | When the clinician could first have seen it, and how we know. Set through `app.set_fact_availability()`, which keeps the fact version |
 | status | Suggested, checked by the expert, not right, or changed |
+| withdrawn_reason | Set when the system, not the expert, withdrew a suggestion: `reread` (the page was read again), `replaced` (a clearer copy or a new run), `split` (the page was cut in two). Empty for the expert's own "not right" |
 | version | Goes up when the fact is changed, so citations know |
 | model_task / model_id / prompt_version | Which AI task, model and instructions suggested it |
 
@@ -538,6 +545,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 | old_page_id / new_page_id | The page it was on before and after a move to a clearer copy |
 | at | When the check was made |
 | correction_id | The expert's reading of misread words (`word_corrections`) the check relied on, if any (0211) |
+| old_event_date / new_event_date | The date of the fact before and after the check (0227); empty on checks that predate the column. Part of the row's hash |
+| old_date_basis / new_date_basis | How that date was read before and after: as for `facts.date_basis`, and `expert_entered` when the expert typed or changed the date (0227). Part of the row's hash |
 | prev_hash / hash | Links to the previous check so any tampering is obvious |
 
 ### page_reads
@@ -562,6 +571,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | image_sha256 | A fingerprint of the page picture as stored when the expert asked; if the picture was redrawn since, the request is refused (`page_changed`, 0218) |
 | prompt_version | The version of the instructions the model was given for this reading, so the screen can say the lines were read by the software (0224) |
 | job_id | The job queued for this page's reading (0225); asking again for a page turned and drawn as before answers with this job, never another page's |
+| ocr_model_id | The OCR model that read the page again to find where its words are (only for a page the expert typed out; empty otherwise). The call itself is also an `ai_calls` row with the service version, region and job (0230) |
 
 ### transcript_views
 | Field | In plain words |
@@ -595,6 +605,39 @@ A joint expert is one with two or more current instructing parties; no separate 
 | person_id | Who turned it last (the named expert or an assistant) |
 | created_at | When the page was first turned |
 | updated_at | When it was last turned |
+
+### page_transcriptions
+| Field | In plain words |
+|---|---|
+| page_id | The unreadable page the expert typed out; the rows go with the page (no case_id) (0228) |
+| person_id | Who typed it |
+| text | What they typed; sealed with the case key, never logged. The page holds the latest; this keeps every typing |
+| at | When it was saved |
+
+### page_changes
+| Field | In plain words |
+|---|---|
+| page_id | The page; the rows go with the page (no case_id) (0228) |
+| person_id | Who changed it |
+| field | `relevance` or `needs_clearer_copy` |
+| old_value / new_value | What it was, and what it became (`true` or `false` for the clearer-copy field); the old value is empty the first time |
+| at | When it was changed |
+
+### fact_flag_history
+| Field | In plain words |
+|---|---|
+| fact_id / page_id | The fact that was flagged and the page it was on; the rows go with them (no case_id). Read only through the fact's case: a flag is one case's own work, so the other case on a shared bundle does not see it (0228) |
+| flagged_for | Why it was flagged (`points` or `recheck`) |
+| flagged_by / flagged_at | Who flagged it (empty for `recheck`) and when |
+| removed_by / at | Who took the flag off (empty when the reading job did) and when. Written by the database when the flag row is deleted |
+
+### transcript_files
+| Field | In plain words |
+|---|---|
+| job_id | The export job that built the file; the row goes with the job (no case_id) (0229) |
+| fmt | `docx` (Word) or `pdf` |
+| sha256 | The fingerprint of the file as built. The download recomputes it and refuses a file that no longer matches, or one of a job made from 2026-11-12 on that has no fingerprint at all (409 `hash_mismatch`); it is also sent as `X-Content-SHA256`. Never changed or deleted by the application |
+| at | When the file was built |
 
 ### page_notes
 | Field | In plain words |
@@ -838,6 +881,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 |---|---|
 | kind | What was frozen (CV, declaration, signature, template, pack versions…) |
 | content_ref / sha256 | The frozen copy and its fingerprint |
+| (supplementary report, written-question answers) | Signing also freezes the declarations, the expert, and the pack and guideline versions it was signed with (PV-19a); its Word file's snapshot is its only file |
 
 ### report_paragraphs
 | Field | In plain words |
@@ -894,6 +938,14 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | body | What the expert wrote, sealed |
 | citation_refs | The facts it cites |
 | version | Goes up on each save (for If-Match) |
+| id | What each kept earlier body points to |
+
+### report_section_versions
+| Field | In plain words |
+|---|---|
+| section_text_id / version_no | Which section, and which save of it |
+| body / citation_refs | What the expert had written at that save (sealed), and the facts it cited |
+| recorded_by / created_at | Who saved it and when. Never changed or deleted |
 
 ### report_builds
 | Field | In plain words |
@@ -1057,6 +1109,16 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 |---|---|
 | page_id / trial_page_no | Our page and its number in the court bundle |
 | score / method / confirmed | How sure the match is, how it was found, and whether the expert confirmed it |
+
+A trial page number belongs to one page of the bundle: no two pages of one court bundle share one.
+
+### concordance_history
+| Field | In plain words |
+|---|---|
+| concordance_id / page_id / page_no | The row that was changed, and our page |
+| previous_trial_page_no / previous_method / previous_score / previous_confirmed | What the row held before the expert changed it: the number, how it was found, how sure the match was, and whether it was confirmed |
+| new_trial_page_no | The number the expert gave it (empty: "not in the bundle") |
+| changed_by / created_at | Who changed it and when. Rows are only ever added |
 
 ### trial_pack_settings
 | Field | In plain words |
@@ -1226,7 +1288,21 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 |---|---|
 | person_id / organisation_id | Who did it and on behalf of which organisation |
 | action / target | What they did and to what |
-| prev_hash / hash | Links each entry to the last so tampering shows |
+| at | When it was written, always by the database's own clock (a writer cannot choose it) |
+| prev_hash / hash | Links each entry to the last so tampering shows; a worker check re-verifies them in turn and raises an alert on a break |
+
+### chain_checks
+| Field | In plain words |
+|---|---|
+| name | Which chain is being checked: the audit log, or the per-case reading and checking logs |
+| last_seq / last_hash / last_case | How far the check has got, so each round carries on from there and starts again at the end |
+| breaks / last_break_at | How many broken links it has named and when it last did; ids and counts only, never any content |
+
+### case_purge_marks
+| Field | In plain words |
+|---|---|
+| purged_case | The case whose purge is running; the guards on history rows and locked reports let a delete through only while this row exists |
+| xid | The transaction that wrote it; the row counts only inside that transaction, and is removed before the purge ends. No app role can read or write it |
 
 ### idempotency_keys
 | Field | In plain words |
@@ -1253,6 +1329,8 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | input_tokens / output_tokens | How much text went in and out (for cost); never the text itself |
 | case_id / person_id | Which case it was for (empty for work outside a case) and who asked, if anyone |
 | outcome | `ok`, or `invalid_output` when the answer did not fit its schema |
+| job_id | The background job that made the call; its `code_version` says which build of the software it was |
+| api_version | For reading a page (OCR): which version of the reading service answered; empty for a language-model call |
 
 ### transcripts
 | Field | In plain words |

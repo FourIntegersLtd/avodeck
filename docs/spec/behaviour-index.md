@@ -46,13 +46,13 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `instruction_extractions` | C | Worker (`extract_questions`) | One per letter version | Append only; counts only | Case deletion |
 | `prefill_suggestions` | C | Worker (T-04); named expert or assistant decide | Many per letter version | Decided once (accepted/dismissed); never applied by the server | Case deletion |
 | `prefill_runs` | C | Worker (`prefill_case`) | One per run | Append only; counts only | Case deletion |
-| `bundles` | Foundation (ADR 0034) | Created with a case; never edited directly | One per case, shared when a case points at another's | `page_count` rises as pages are added | Outlives its creating case; a case cannot cascade-delete a bundle another case still points at |
-| `documents` | Foundation (A) | Named expert or assistant (upload) | Many; bundle versions | Never edited after hashing; provenance editable | Belongs to the bundle, not the case (ADR 0034); deleted only when every case pointing at its bundle is deleted |
+| `bundles` | Foundation (ADR 0034) | Created with a case; never edited directly | One per case, shared when a case points at another's | `page_count` rises as pages are added; `page_high_water` only rises (database trigger) so a page number is never handed out twice | Outlives its creating case; a case cannot cascade-delete a bundle another case still points at |
+| `documents` | Foundation (A) | Named expert or assistant (upload) | Many; bundle versions | Never edited after hashing (the worker re-checks the checksum and the part count when it first reads the file, else `unreadable_reason` = `altered`; database trigger: checksum, bundle, kind and filename fixed, file only cleared, page count set once); provenance editable | Belongs to the bundle, not the case (ADR 0034); deleted only when every case pointing at its bundle is deleted |
 | `document_scans` | A | Worker | One per document | Scan result set once; split time set once | Case deletion |
 | `document_parts` | A | Worker | Many per email or zip | Insert only | Case deletion |
 | `exhibits` | A | Named expert or assistant | Many | Listed only | Case deletion |
-| `pages` | Foundation (A, B) | Worker; named expert for flags | Many | Number permanent; quarantine, replacement, rotation (also set once by auto-straighten) per state machine | Belongs to the bundle, not the case (ADR 0034); quarantined images deleted earlier |
-| `page_analysis` | A | Worker; named expert or assistant for duplicate review | One per page | Worker notes; duplicate review with If-Match; cleared when a quarantined page is deleted | Case deletion |
+| `pages` | Foundation (A, B) | Worker; named expert for flags | Many | Number, document and `source_page_index` permanent (the API cannot write what a page was read from); `content_sha256` fingerprints the page file and is checked at every read; quarantine, replacement, rotation (also set once by auto-straighten) per state machine | Belongs to the bundle, not the case (ADR 0034); quarantined images deleted earlier |
+| `page_analysis` | A | Worker; named expert or assistant for duplicate review | One per page | Worker notes (`read_failure` and `refusal_codes` are codes only); duplicate review with If-Match (only a confirmed copy is set aside); cleared when a quarantined page is deleted | Case deletion |
 | `page_embeddings` | A | Worker | One per page | Remade only when the embedder changes; made from stripped text | Case deletion |
 | `pipeline_runs` | A | Worker | One per bundle job cut into page batches | State machine "Pipeline run"; closed by a newer bundle job only when its parent is paused, failed or stopped | Case deletion (first in the purge order) |
 | `pipeline_batches` | A | Worker | Many per run | A child is set once; completed once | Case deletion (first in the purge order) |
@@ -60,7 +60,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `documents.split_of_page_id`, `pages.split_of_page_id` (columns, ADR 0019) | A | Named expert or assistant (page.replace) | One split per page | Set once when the halves are numbered; the original keeps its number, facts and reads | Case deletion |
 | `page_replacements` | A | Named expert or assistant (page.replace) | One per page; one per copy | Link set once; nothing moves by itself | Case deletion |
 | `ocr_words` | A | Worker; re-run on rotation | Many per page | Replaced only by rotation or opt-in reprocessing | Belongs to the bundle, not the case (ADR 0034) |
-| `facts` | Foundation (A writes, B verifies) | Worker suggests; only named expert verifies | Many per page | Never deleted; `version` rises on change; state machine in the database; citable only when verified or edited on a page the named expert has read | Case deletion; `date_basis` is `printed`, `printed_century`, `line_above` or `please_check`; the expert's verify or correct overrides it (ADR 0017) |
+| `facts` | Foundation (A writes, B verifies) | Worker suggests; only named expert verifies | Many per page | Never deleted; `version` rises on change; `withdrawn_reason` tells a system withdrawal (`reread`, `replaced`, `split`) from the expert's "not right"; setting a page aside and undoing it write a `fact_verifications` row (reasons `page_set_aside`, `quarantine_undone`); state machine in the database; citable only when verified or edited on a page the named expert has read | Case deletion; `date_basis` is `printed`, `printed_century`, `line_above` or `please_check`; the expert's verify or correct overrides it (ADR 0017) |
 | `fact_verifications` | B | Named expert (append only); the reading job adds `remapped` rows with no person (0207) | Many per fact | Append only | Case deletion; chain head on certificate |
 | `second_readings` | B | The expert who asked (page.transcribe) | One per page; asking again resets it | Status moves queued to done, refused or failed; lines sealed | Case deletion (just after `transcript_views`) |
 | `transcript_views` | B | The person reading by transcript (own rows) | Many per entry per person | Append only | Case deletion (just after `page_reads`) |
@@ -68,6 +68,10 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `fact_flags` | B | Named expert (`points`); the reading job adds `recheck` with no person (0205), removed when the expert checks the fact again | Many | Add or remove | Case deletion |
 | `word_corrections` | B | Named expert only (`fact.verify`), while changing a fact | Many per page; one current per word | Never deleted by the app; a later reading of the same words, or new words for the page (slice A's reading job, 0211), sets `superseded_at`; other checked facts on the words of either reading that it no longer shows are flagged `recheck`; refused (409) on words a served fact cites | Goes with its page on case deletion (no case_id, decision 0018); deleted by `purge_quarantined_page` (0211) |
 | `page_turns` | B | Named expert or assistant (`page.rotate`), turning a page on screen 09 | One per page | Replaced by the next turn; never deleted by the app; display only (no reading again, words and facts unchanged) | Goes with its page on case deletion (no case_id, like `word_corrections`) |
+| `page_transcriptions` | B | Written with each typed transcription by the person with `page.transcribe` (0228) | Many per page | Append only; never changed, removed only with its page | Goes with its page on case deletion (no case_id) |
+| `page_changes` | B | Written with each change of relevance or clearer copy by the person with `page.transcribe` (0228) | Many per page | Append only; never changed, removed only with its page | Goes with its page on case deletion (no case_id) |
+| `fact_flag_history` | B | Written by the database when a `fact_flags` row is deleted (0228) | Many per fact | Append only; never changed, removed only with its fact | Goes with its fact on case deletion (no case_id). Case-level: read only through the fact's case (0228) |
+| `transcript_files` | B | Written by the export job that built the file (0229) | One per export job | Append only; never changed; removed only with its job | Goes with its job on case deletion (no case_id) |
 | `page_notes` | B | Each person for themselves (`page.read`), bookmarking or noting a page on screen 09 | One per person and page | Replaced by the next save; removed when bookmark and note are both cleared; only its owner sees it | Goes with its page on case deletion (no case_id, like `page_turns`) |
 | `missing_items` | A | Worker suggests; named expert or assistant updates | Many | State machine | Case deletion |
 | `record_gaps` | A | Worker; named expert confirms | Many | Recalculated when records are appended | Case deletion |
@@ -94,7 +98,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `lint_issues` | E | Worker; named expert dismisses | Many | Recalculated on save; dismissals kept | Case deletion |
 | `opinion_lint_checks` | E | Named expert's lint request | One per opinion | Replaced on each lint request; stale once the text is saved again | Deleted with its opinion |
 | `report_versions` | F (table and lock trigger: Foundation) | Named expert builds, signs, serves | Many per case | Locked after signing (database refuses changes, 409 `locked`); withdrawn never deleted | Case deletion only |
-| `report_snapshots` | F | System at signing | Several per signed version | Never change | Case deletion |
+| `report_snapshots` | F | System at signing (F; G for a supplementary report or answers) | Several per signed version | Never change | Case deletion |
 | `report_paragraphs` | F | System at build | Many | Locked with the version | Case deletion |
 | `citations` | F | System at build from opinions | Many | Snapshot of the fact; "changed since cited" check | Case deletion |
 | `report_servings` | F | Named expert | One per recipient | Never edited; corrections are new rows | Case deletion |
@@ -103,7 +107,8 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `spot_check_address_tries` | F | System (the colleague's signed-out routes) | One per address | Tries counted in a 15-minute window; over 20 refused (429) | Deleted a day after its window starts |
 | `report_settings` | F | Named expert or helper (`report.build`) | One per case | Editable | Case deletion |
 | `report_section_texts` | F | Named expert (`opinion.write`) | One per section | Editable with If-Match; frozen into each build | Case deletion |
-| `report_builds` | F | System at build | One per draft | Never change | Case deletion |
+| `report_section_versions` | F | System (trigger on each section save) | One per save of a section | Never change | Goes with its section text at case deletion |
+| `report_builds` | F | System at build | One per draft | Never change; refused once its version is locked | Case deletion |
 | `time_entries` | F | Person who worked; named expert adjusts | Many | Editable until invoiced | Case deletion; invoice keeps totals |
 | `time_estimates` | F | Anyone with `invoice.create` (named expert) | Many per step; newest counts | Append-only (never changed or deleted) | Case deletion; invoice keeps the amount |
 | `invoices` | F | Issuer (named expert or org admin) | Many | Immutable once sent; state machine | Kept for tax beyond case deletion as metadata only (no patient data) |
@@ -124,6 +129,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `agenda_items` | I | Named expert | Many per agenda version | Own positions editable until signed | Case deletion |
 | `court_bundles` | I | Named expert or assistant | Many versions | State machine; superseded kept | Case deletion |
 | `concordance` | I | Worker; named expert confirms | One set per court bundle version | Recomputed per version | Case deletion |
+| `concordance_history` | I | Named expert (each change to a trial page number) | Many per concordance row | Append only | Case deletion (with its row) |
 | `trial_pack_settings` | I | Named expert | One per case | Edited with If-Match | Case deletion |
 | `readiness_replies` | I | Named expert writes; case members read | One per question | Rewritten in place, version counted | Case deletion |
 | `trial_notes` | I | Named expert | One per distinct sentence | Choice may change; never sent | Case deletion |
@@ -143,9 +149,11 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `uploads` | Foundation | Case uploaders (`case.upload`) | Many per case | State machine (open → finalizing → complete; or cancelled, expired, failed); chunks only while open, each with its SHA-256; `complete` returns 202 and the `finalize_upload` job checks every part and the whole file, a mismatch closes it as failed, a missing part reopens it; daily sweep expires unfinished uploads after 7 days and deletes their chunks; the job publishes `DocumentUploaded` (with `append`) in the same transaction as the document | Case deletion |
 | `notifications` | Foundation | System; the person marks read | Many | Read state only; held while the case is on hold | Deleted after 1 year; case ones with the case |
 | `feature_flags` | Foundation | Avodeck staff | One per key per scope | Edit; audited | Removed when the feature ships |
-| `audit_log` | Foundation | System (append only) | Many | Hash-chained; a signed-in session may name a case only if it is the named expert, a current or removed member of that case, or has case access now (an organisation owner or admin for administrative actions), and an organisation only if it belongs or belonged to it; being a former organisation member alone does not allow naming a case; support staff excepted (migration 0067) | Pseudonymised metadata kept 6 years after case deletion |
+| `audit_log` | Foundation | System (append only) | Many | Hash-chained, time stamped by the database, update and delete refused by trigger, re-verified by a worker sweep; a signed-in session may name a case only if it is the named expert, a current or removed member of that case, or has case access now (an organisation owner or admin for administrative actions), and an organisation only if it belongs or belonged to it; being a former organisation member alone does not allow naming a case; support staff excepted (migration 0067) | Pseudonymised metadata kept 6 years after case deletion |
 | `idempotency_keys` | Foundation | System | One per person per key | Replaced only after it expires | Expired after 24 hours |
 | `rate_limit_hits` | Foundation | System | One per person per endpoint | Counted by one upsert per request, after it ends; a new minute resets the count; closed to the app roles (only `app.rate_limit_hit()` writes) | Removed with the person |
-| `ai_calls` | Foundation | System | Many | Append only, no content | Metadata kept 13 months |
+| `ai_calls` | Foundation | System | Many | Append only, no content; names its job and, for reading a page, the service's API version | Metadata kept 13 months |
+| `chain_checks` | Foundation | Worker sweep (`verify_audit_chain`, `verify_case_chains`) | One per chain | Cursor moved on each round; counts only | Kept |
+| `case_purge_marks` | Foundation | The purge function only (`app.purge_case_rows`) | One per case while it is purged | Written and removed inside the purge's own transaction; closed to the app roles | Gone when the purge ends |
 | `transcripts` | Foundation (dictation kit) | The speaker | Many | Kept only if the expert keeps them | Case deletion |
 | `may_matter` | G | Worker; named expert marks seen | Many | Seen state only | Case deletion |
