@@ -18,7 +18,7 @@ jobs:
     outputs:
       web: ${{ steps.check.outputs.web }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: check
         run: echo "web=$([ -f web/package.json ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
@@ -27,7 +27,7 @@ jobs:
     if: needs.detect.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
         with: { package_json_file: web/package.json }
       - uses: actions/setup-node@v4
@@ -56,7 +56,7 @@ jobs:
     if: needs.detect.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
         with: { package_json_file: web/package.json }
       - uses: actions/setup-node@v4
