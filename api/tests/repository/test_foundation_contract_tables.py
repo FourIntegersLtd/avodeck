@@ -148,8 +148,14 @@ def test_facts_are_seen_by_case_viewers_and_changed_only_by_the_named_expert(
 
 
 def test_the_worker_adds_facts_only_to_its_own_jobs_case(
-    worker_dsn: str, seed: Seed, case_page: dict[str, uuid.UUID]
+    worker_dsn: str, admin: psycopg.Connection, seed: Seed, case_page: dict[str, uuid.UUID]
 ) -> None:
+    admin.execute(  # PV-01: a fact's words must be words of its page (0226), so the page has the word it cites
+        "insert into app.ocr_words (page_id, bundle_id, n, word_id, text, polygon, confidence, source)"
+        " values (%s, (select bundle_id from app.cases where id = %s), 1, 'w1', 'x'::bytea,"
+        " array[0,0,1,0,1,1,0,1]::real[], 0.9, 'ocr')",
+        (case_page["page"], case_page["case"]),
+    )
     other = seed.case(seed.org(kind="personal", members={case_page["outsider"]: "admin"}), case_page["outsider"])
     insert = "insert into app.facts (case_id, page_id, kind, value, word_ids) values (%s, %s, 'zz_result', 'x', '{w1}')"
     with psycopg.connect(worker_dsn) as conn:

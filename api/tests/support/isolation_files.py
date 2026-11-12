@@ -271,6 +271,14 @@ async def seed_export_zip(env: Env, t: Tenant) -> Obj:
     token = token_for(t, "export")
     data = zip_of(token)
     await put_sealed(env, t.case, export_path(t.case, job, "full"), data)
+    # PV-17b: the real export job records the archive's hash once it is stored (`close/jobs.py`), and a download whose
+    # hash was not recorded is refused. The audit row is written the way the job writes it: no person, the case, and
+    # the target `export:<job>:<variant>:<sha256>`.
+    env.admin.execute(
+        "insert into app.audit_log (person_id, organisation_id, case_id, action, target)"
+        " values (null, null, %s, 'case.export_built', %s)",
+        (t.case, f"export:{job}:full:{sha(data)}"),
+    )
     return Obj(f"/export/{job}/download", data, (token.encode(),), "application/zip")
 
 

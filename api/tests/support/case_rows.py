@@ -31,6 +31,11 @@ def _documents_pages_facts(admin: psycopg.Connection, seed: Seed, w: CaseWorld) 
     first = seed.page(w.case, doc, 1)
     second = seed.page(w.case, doc, 2)
     admin.execute("update app.pages set duplicate_of_page_id = %s where id = %s", (first, second))
+    admin.execute(  # PV-09: a page is set aside as a copy only when the copy is confirmed
+        "insert into app.page_analysis (page_id, bundle_id, duplicate_status) select id, bundle_id, 'confirmed'"
+        " from app.pages where id = %s on conflict (page_id) do update set duplicate_status = 'confirmed'",
+        (second,),
+    )
     add_fact(admin, w.case, first, status="verified")
     add_fact(admin, w.case, second)
     admin.execute(
@@ -247,7 +252,7 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
         "pages": 2,
         "case_processing": 1,
         "ocr_words": 1,
-        "page_analysis": 1,
+        "page_analysis": 2,  # this seeder's page and the confirmed copy seeded for PV-09
         "page_embeddings": 1,
         "page_quarantines": 1,
         "page_replacements": 1,
@@ -457,8 +462,9 @@ def _report_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[
         (draft, w.case),
     )
     admin.execute(
-        "insert into app.report_section_texts (case_id, section, body) values (%s, 'zz_section', %s)",
-        (w.case, b"sealed"),
+        # updated_by is copied into report_section_versions.recorded_by, the column the isolation cases are keyed on
+        "insert into app.report_section_texts (case_id, section, body, updated_by) values (%s, 'zz_section', %s, %s)",
+        (w.case, b"sealed", w.expert),
     )
     profile = admin.execute(
         "insert into app.billing_profiles (owner_type, owner_id, legal_name, currency)"
@@ -538,6 +544,13 @@ def _trial_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[s
         "insert into app.concordance (case_id, court_bundle_id, page_id, page_no, method)"
         " values (%s, %s, %s, 1, 'none')",
         (w.case, bundle, page),
+    )
+    # one history row for that concordance row (changed_by is the person the isolation cases are keyed on)
+    admin.execute(
+        "insert into app.concordance_history (concordance_id, court_bundle_id, page_id, page_no, previous_method,"
+        " previous_score, previous_confirmed, changed_by)"
+        " select id, court_bundle_id, page_id, page_no, 'none', 0, false, %s from app.concordance where case_id = %s",
+        (w.expert, w.case),
     )
     admin.execute("insert into app.trial_pack_settings (case_id) values (%s)", (w.case,))
     admin.execute(
