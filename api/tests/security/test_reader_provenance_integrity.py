@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator, Iterator
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import psycopg
@@ -105,7 +105,7 @@ def attempt(conn: psycopg.Connection, *statements: tuple[str, tuple[Any, ...]]) 
             # an earlier accepted attempt left the checks immediate for the rest of the transaction
             conn.execute("set constraints all deferred")
             for query, params in statements:
-                conn.execute(query, params)  # type: ignore[arg-type]
+                conn.execute(query, params)
             conn.execute("set constraints all immediate")
         return None
     except psycopg.Error as exc:
@@ -324,7 +324,7 @@ def test_pv02_a_value_changed_while_suggested_cannot_be_re_verified_under_the_ol
     assert attempt(api_conn, verify, log_row(db_world, fact_id, action="correct", old_value="changed")) is None
 
 
-LOST = {
+LOST: dict[str, tuple[str, dict[str, Any]]] = {
     "value": ("value", {"old_value": None}),
     "value wrong": ("value", {"old_value": "other"}),
     "fields": ("fields", {"old_fields": None}),
@@ -374,13 +374,13 @@ def test_pv03_control_a_date_change_with_a_log_row_carrying_both_dates_is_accept
 
 @pytest.mark.parametrize("bad", [{"old_date": "2019-01-01"}, {"old_basis": "assumed_century"}])
 def test_pv03_the_log_row_must_carry_the_date_the_fact_had_before(
-    admin: psycopg.Connection, api_conn: psycopg.Connection, db_world: dict[str, Any], bad: dict[str, str]
+    admin: psycopg.Connection, api_conn: psycopg.Connection, db_world: dict[str, Any], bad: dict[str, Any]
 ) -> None:
     fact_id = _fact(admin, db_world, "verified")
     admin.execute("update app.facts set event_date = '2020-01-01', date_basis = 'printed' where id = %s", (fact_id,))
     as_expert(api_conn, db_world)
     change = ("update app.facts set event_date = '2020-02-02', date_basis = 'expert_entered' where id = %s", (fact_id,))
-    good = {"old_date": "2020-01-01", "old_basis": "printed"}
+    good: dict[str, Any] = {"old_date": "2020-01-01", "old_basis": "printed"}
     assert attempt(api_conn, change, log_row(db_world, fact_id, **{**good, **bad})) == REFUSED
     assert attempt(api_conn, change, log_row(db_world, fact_id, **good)) is None
 
@@ -458,11 +458,12 @@ async def checked_fact(
 
 
 async def edit(w: dict[str, Any], fact: dict[str, Any], **body: Any) -> httpx.Response:
-    return await w["client"].post(
+    response = await w["client"].post(
         f"/v1/cases/{w['case']}/facts/{fact['id']}/verify",
         json={"action": "edit", **body},
         headers={"if-match": etag(fact["version"])},
     )
+    return cast(httpx.Response, response)
 
 
 def date_row(admin: psycopg.Connection, fact_id: str) -> tuple[Any, ...]:
@@ -1083,7 +1084,7 @@ async def test_export_the_recorded_hash_cannot_be_changed_by_the_application_rol
             "delete from app.transcript_files where job_id = %s",
         ):
             with pytest.raises(psycopg.Error) as refused:
-                conn.execute(statement, (job,))  # type: ignore[arg-type]
+                conn.execute(statement, (job,))
             assert refused.value.sqlstate in ("42501", REFUSED)  # no privilege, or the append-only rule
 
 

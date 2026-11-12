@@ -91,7 +91,7 @@ def error_code(resp: Any) -> str:
 
 # --- PV-19a (2): citations that no longer stand ----------------------------------------------------------------
 
-BREAKS: dict[str, Callable[[psycopg.Connection, World, int], None]] = {
+BREAKS: dict[str, Callable[[psycopg.Connection, World, int], Any]] = {
     "rejected": lambda admin, w, i: admin.execute(
         "update app.facts set status = 'rejected' where id = %s", (w.facts[i],)
     ),

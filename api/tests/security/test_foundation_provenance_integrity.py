@@ -78,7 +78,7 @@ def _try(conn: psycopg.Connection, query: str, params: tuple[object, ...] = ()) 
     """(SQLSTATE if refused, rows changed) for one statement, in its own savepoint."""
     try:
         with conn.transaction():
-            return None, conn.execute(query, params).rowcount  # type: ignore[arg-type]
+            return None, conn.execute(query, params).rowcount
     except psycopg.Error as exc:
         return exc.sqlstate, 0
 
@@ -630,7 +630,7 @@ def _locked_citation(admin: psycopg.Connection, seed: Seed, world: World) -> uui
     ).fetchone()
     assert citation is not None
     admin.execute("update app.report_versions set status = 'locked', sha256 = %s where id = %s", ("a" * 64, report))
-    return citation[0]
+    return uuid.UUID(str(citation[0]))
 
 
 @pytest.mark.parametrize("role", PURGE_ACTORS)
@@ -664,7 +664,7 @@ def _served_case_with_a_party(admin: psycopg.Connection, seed: Seed, world: Worl
     ).fetchone()
     assert party is not None
     add_report_version(admin, world.case, status="served")
-    return party[0]
+    return uuid.UUID(str(party[0]))
 
 
 @pytest.mark.parametrize("role", PURGE_ACTORS)

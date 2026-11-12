@@ -37,7 +37,7 @@ from app.core.db import Database
 from app.core.packs import default_library
 from app.core.storage import CaseFileStorage
 from app.features.trial import jobs
-from app.features.trial.matching import Match
+from app.features.trial.matching import Match, match_pages
 from app.features.trial.ports import RecordedChanges
 from app.features.trial.services import TrialServices, configure, current
 from tests.fixtures.trial.fixtures import (  # noqa: F401
@@ -390,22 +390,23 @@ async def test_pv16c_two_pages_given_one_trial_page_both_keep_a_row_and_the_weak
     admin: psycopg.Connection,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    real, made = jobs.match_pages, []
+    counts: list[int] = []
+    picked: list[tuple[Any, Any, int | None]] = []
 
     def clashing(ours: Any, theirs: Any) -> list[Match]:
-        out = list(real(ours, theirs))
-        made.append(len(out))
+        out = list(match_pages(ours, theirs))
+        counts.append(len(out))
         numbered = [i for i, m in enumerate(out) if m.trial_page_no is not None]
         weak, strong = numbered[0], numbered[1]
         out[weak] = dataclasses.replace(out[weak], trial_page_no=out[strong].trial_page_no, score=0.7, confirmed=False)
         out[strong] = dataclasses.replace(out[strong], score=0.99, confirmed=True)
-        made.append((out[weak].key, out[strong].key, out[strong].trial_page_no))
+        picked.append((out[weak].key, out[strong].key, out[strong].trial_page_no))
         return out
 
     monkeypatch.setattr(jobs, "match_pages", clashing)
     pdf, _ = trial_bundle()
     await upload_bundle(await client_for(world.expert), worker_db, world, pdf)
-    count, (weak, strong, number) = made
+    (count,), ((weak, strong, number),) = counts, picked
     rows = admin.execute(
         "select page_id, trial_page_no, method, confirmed from app.concordance where case_id = %s", (world.case,)
     ).fetchall()
