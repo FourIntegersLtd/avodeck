@@ -31,7 +31,7 @@ def an_app() -> Any:
         database=SimpleNamespace(),  # type: ignore[arg-type]
         region="zz",
         auth=auth,  # type: ignore[arg-type]
-        storage=Storage(),
+        storage=Storage(),  # type: ignore[arg-type]
         crypto=SimpleNamespace(),  # type: ignore[arg-type]
         features="app.worker",  # a package with no features inside
     )
