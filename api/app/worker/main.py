@@ -153,13 +153,18 @@ async def open_database_with_retry(
             return
 
 
+# Modules each parser child imports as it starts, so no page pays the 2 s import. Named here because the worker is
+# what imports the features; `app.core` never does.
+SANDBOX_PREWARM = ("app.features.pipeline.parsing",)
+
+
 async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_PACKAGE) -> None:
     worker = build_worker(env, features=features)
     source = os.environ if env is None else env
     scanner_from_env(source)  # no scanner configured ends the process now, not at the first scan job
     check_cell_key(source)  # no cell key ends it now, not at the first deferred mail
     sweep_scratch()  # plaintext a crashed run left in the scratch directory (DP-06)
-    await sandbox.start()  # parser child processes start on first use (DP-09)
+    await sandbox.start(prewarm=SANDBOX_PREWARM)  # parser children start now with the parsing modules imported (DP-09)
     concurrency = env_int(source, "WORKER_CONCURRENCY", 4, minimum=1)
     check_pipeline_window(source, concurrency=concurrency)
     await open_database_with_retry(worker.database)

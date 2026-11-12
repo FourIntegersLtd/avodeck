@@ -97,7 +97,12 @@ async def test_calls_beyond_the_pool_size_queue_rather_than_fail() -> None:
 async def test_a_child_is_recycled_after_the_configured_number_of_tasks() -> None:
     await sandbox.start(settings(recycle_after=2))
     try:
-        pids = [await run(fns.pid) for _ in range(5)]
+        pids = []
+        for _ in range(5):
+            pids.append(await run(fns.pid))
+            await asyncio.sleep(
+                1.5
+            )  # the replacement starts in the background (DP-09); the old child serves until it is ready
     finally:
         await sandbox.stop()
     assert pids[0] == pids[1] != pids[2] == pids[3] != pids[4]

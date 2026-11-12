@@ -1,13 +1,16 @@
-"""The child side of `app.core.sandbox`: `python -m app.core.sandbox_child <fd> <memory_bytes>`.
+"""The child side of `app.core.sandbox`: `python -m app.core.sandbox_child <fd> <memory_bytes> [module ...]`.
 
 Imports only the standard library, so a child starts fast and carries nothing of the worker (no settings, no
 Sentry, no log handlers). It reads `(fn, args)` from the socket the parent passed, calls `fn(*args)` and sends back
 `("ok", result)`, `("raised", exception)`, `("memory", None)` or `("failed", None)`. It never writes to stdout or
-stderr and never logs, so nothing it was given can leave through them (rule 6).
+stderr and never logs, so nothing it was given can leave through them (rule 6). Modules named after the memory limit
+are imported before it says "ready" (the parent's `prewarm`), so the import cost is paid at start, not by a call; one
+that fails to import is skipped and shows up again, as it would, when a call needs it.
 """
 
 from __future__ import annotations
 
+import importlib
 import logging
 import os
 import pickle
@@ -56,9 +59,14 @@ def _reply(fn: Any, args: tuple[Any, ...]) -> tuple[str, Any]:
         return ("raised", exc)
 
 
-def main(fd: int, memory_bytes: int) -> None:
+def main(fd: int, memory_bytes: int, modules: list[str] | None = None) -> None:
     conn = Connection(fd)
     _lock_down(memory_bytes)
+    for name in modules or ():
+        try:
+            importlib.import_module(name)
+        except BaseException:  # noqa: BLE001 - a module that will not import is the call's problem, not the start's
+            pass
     conn.send("ready")
     while True:
         try:
@@ -82,4 +90,4 @@ def main(fd: int, memory_bytes: int) -> None:
 
 
 if __name__ == "__main__":
-    main(int(sys.argv[1]), int(sys.argv[2]))
+    main(int(sys.argv[1]), int(sys.argv[2]), sys.argv[3:])

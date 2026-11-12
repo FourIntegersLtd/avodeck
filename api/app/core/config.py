@@ -269,18 +269,19 @@ def document_limits(env: Mapping[str, str] | None = None) -> DocumentLimits:
 @dataclass(frozen=True)
 class SandboxSettings:
     """The parser sandbox (`app.core.sandbox`): child processes that run PDF and image parsing. `pool_size` children,
-    each recycled after `recycle_after` tasks; a call is killed after `timeout_seconds`; a child may not grow past
+    each recycled after `recycle_after` tasks (its replacement is started in the background first); a call is killed
+    after `timeout_seconds`; a child may not grow past
     `memory_bytes` of address space."""
 
-    pool_size: int = 2
+    pool_size: int = field(default_factory=lambda: min(4, max(2, os.cpu_count() or 2)))
     timeout_seconds: float = 120.0
     memory_bytes: int = 3 * 1024 * 1024 * 1024
-    recycle_after: int = 50
+    recycle_after: int = 500
 
 
 def sandbox_settings(env: Mapping[str, str] | None = None) -> SandboxSettings:
-    """`SANDBOX_POOL_SIZE` (2), `SANDBOX_TIMEOUT_SECONDS` (120), `SANDBOX_MEMORY_MB` (3072),
-    `SANDBOX_RECYCLE_AFTER` (50)."""
+    """`SANDBOX_POOL_SIZE` (the CPU count, at least 2, at most 4), `SANDBOX_TIMEOUT_SECONDS` (120),
+    `SANDBOX_MEMORY_MB` (3072), `SANDBOX_RECYCLE_AFTER` (500)."""
     source = os.environ if env is None else env
     d = SandboxSettings()
     return SandboxSettings(
