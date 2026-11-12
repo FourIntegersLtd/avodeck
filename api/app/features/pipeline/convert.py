@@ -263,12 +263,13 @@ def _typed(lines: list[str]) -> bytes:
     return _save(pdf)
 
 
-def _image_pages(data: bytes, limits: Limits) -> bytes:
+def _image_pages(data: bytes, limits: Limits | None = None) -> bytes:
     """One image-only page per image frame, for OCR to read.
 
     The declared sizes are checked first (the frame count, each frame's pixels, all frames together) and a file over
     any limit raises, so nothing is decoded; a Pillow decompression-bomb warning is an error here too. The frames are
     then decoded one at a time into a one-page PDF each, so only one decoded frame is in memory at once."""
+    limits = limits or Limits()
     with warnings.catch_warnings():
         warnings.simplefilter("error", Image.DecompressionBombWarning)
         with Image.open(io.BytesIO(data)) as image:
