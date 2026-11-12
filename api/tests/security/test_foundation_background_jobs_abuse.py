@@ -227,12 +227,6 @@ async def test_control_a_higher_priority_job_overtakes_another_cases_backlog(
     assert await _position_of_the_other_cases_job(worker_db, worker_dsn, admin, seed, priority=10) <= 2
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="BG-11: a queue is first in, first out within a priority and nothing shares it fairly between cases or"
-    " people, so one case's backlog of ordinary jobs delays everyone else's ordinary jobs",
-)
 async def test_one_cases_backlog_does_not_hold_up_another_cases_ordinary_job(
     worker_db: Database, worker_dsn: str, admin: psycopg.Connection, seed: Seed
 ) -> None:

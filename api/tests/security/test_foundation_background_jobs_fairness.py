@@ -96,9 +96,14 @@ def test_a_special_priority_is_left_as_it_was_given(admin: psycopg.Connection, s
 def test_finished_rows_do_not_count(admin: psycopg.Connection, seed: Seed) -> None:
     case = _case(seed)
     _queued(admin, case, "zz_fair_bulk", 5)
-    admin.execute(
-        "update procrastinate.procrastinate_jobs set status = 'succeeded' where args ->> 'case_id' = %s", (str(case),)
-    )
+    admin.execute("set search_path = procrastinate, public")  # the queue's own status trigger needs it
+    try:
+        admin.execute(
+            "update procrastinate.procrastinate_jobs set status = 'succeeded' where args ->> 'case_id' = %s",
+            (str(case),),
+        )
+    finally:
+        admin.execute("reset search_path")
     assert _queued(admin, case, "zz_fair_bulk", 1) == [0]
 
 
@@ -119,8 +124,9 @@ def test_the_stored_job_keeps_its_base_priority_while_the_queue_row_is_lowered(
         conn.close()
     stored = [admin.execute("select priority from app.jobs where id = %s", (r[0],)).fetchone() for r in ids if r]
     queued = [
-        admin.execute("select priority from procrastinate.procrastinate_jobs where args ->> 'job_id' = %s", (str(r[0]),))
-        .fetchone()
+        admin.execute(
+            "select priority from procrastinate.procrastinate_jobs where args ->> 'job_id' = %s", (str(r[0]),)
+        ).fetchone()
         for r in ids
         if r
     ]
