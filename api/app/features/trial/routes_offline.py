@@ -6,7 +6,7 @@
   `avodeck-offline:{id}:{format_version}`); only the ciphertext is stored and the key is kept sealed by the
   case key.
 - `GET .../{id}/download` (step-up): releases the key once, then forgets it (410 afterwards, or once
-  revoked or expired).
+  revoked or expired). The stored bytes must match `offline_packages.sha256` first (409 `hash_mismatch`).
 - `DELETE .../{id}` (step-up): revokes, deletes the file and the key.
 - `GET .../{id}/status`: the status alone (no case content), which screen 25 asks when online and wipes the
   copy on revoked, expired or 404. Case access but no step-up: the expert may be in court hours later.
@@ -133,7 +133,9 @@ async def _out(conn: Any, row: dict[str, Any]) -> PackageOut:
 
 
 async def content(conn: Any, request: Request, crypto: Any, pack: Any, case_id: uuid.UUID) -> dict[str, Any]:
-    """Format version 1 of the offline copy (what S25 searches on the device)."""
+    """Format version 1 of the offline copy (what S25 searches on the device). `sources` is an addition a reader may
+    ignore: the court bundle (id, hash, version), the served report (id, number, hash) and the pack versions it was
+    built from."""
     served = await latest_served(conn, crypto, case_id)
     if served is None:
         raise conflict("not_served", "The offline copy is made from the served report. Serve it first.")
@@ -150,15 +152,30 @@ async def content(conn: Any, request: Request, crypto: Any, pack: Any, case_id: 
         ref = refs.get(page_no) if page_no is not None else None
         return ref.trial_page_no if ref else None
 
+    bundle = await repo.current_bundle(conn, case_id)
     meeting = await repo.latest_meeting(conn, case_id)
     items = await repo.current_items(conn, crypto, case_id, meeting["id"]) if meeting else []
     rounds = await current().answers.served(conn, crypto, case_id)
+    built_at = datetime.now(UTC).isoformat()
     return {
         "format_version": FORMAT_VERSION,
         "case_id": str(case_id),
-        "built_at": datetime.now(UTC).isoformat(),
+        "built_at": built_at,
         "date_order": pack.date_order,
         "court_bundle": pack.term("court_bundle"),
+        # what the copy was built from, so a copy on a device can be tied to its exact inputs (PV-16b)
+        "sources": {
+            "court_bundle": {"id": str(bundle["id"]), "sha256": bundle["sha256"], "version": bundle["version"]}
+            if bundle
+            else None,
+            "report": {
+                "version_id": str(served.version_id),
+                "version_no": served.version_no,
+                "sha256": await repo.report_hash(conn, served.version_id),
+            },
+            "pack_versions": pack.versions,
+            "built_at": built_at,
+        },
         "case_label": case["label"] if case else None,
         "source_types": [
             {"key": str(s["key"]), "label": str(names.get(s["key"], s["key"])), "colour": s.get("colour")}
@@ -312,8 +329,11 @@ async def download_package(
         raise ApiError("already_downloaded", "This copy has already been downloaded. Make a new one.", 410)
     if status in ("revoked", "expired"):
         raise ApiError(status, "This copy can no longer be downloaded. Make a new one.", 410)
-    key = await crypto.decrypt(conn, case_id, bytes(row["key_sealed"]), purpose=offline_key_purpose(package_id))
     blob = await storage.get(row["storage_path"])
+    if sha256(blob) != row["sha256"]:  # not the bytes that were sealed: the key stays unused (PV-16b)
+        audit.record_detached(action="trial.offline_hash_mismatch", target=str(package_id), case_id=case_id)
+        raise conflict("hash_mismatch", "This copy does not match the one that was made. Make a new one.")
+    key = await crypto.decrypt(conn, case_id, bytes(row["key_sealed"]), purpose=offline_key_purpose(package_id))
     await conn.execute(
         "update app.offline_packages set status = 'downloaded', downloaded_at = now(), key_sealed = null where id = %s",
         (package_id,),

@@ -284,11 +284,19 @@ async def download_pack(case_id: uuid.UUID, conn: DbConn, access: View, storage:
     row = await _latest_pack(conn, case_id)
     if row is None:
         raise not_found()
+    data = await get_sealed(Sealer(crypto, storage), conn, case_id, row["storage_path"])
+    if sha256(data) != row["sha256"]:  # the stored file is not the one that was built (PV-16a)
+        audit.record_detached(action="trial.pack_hash_mismatch", target=str(row["id"]), case_id=case_id)
+        raise conflict("hash_mismatch", "This file does not match the trial pack that was built.")
     await audit.record(conn, action="trial.pack_downloaded", target=str(row["id"]), case_id=case_id)
     return Response(
-        content=await get_sealed(Sealer(crypto, storage), conn, case_id, row["storage_path"]),
+        content=data,
         media_type="application/pdf",
-        headers={**NO_STORE, "Content-Disposition": 'attachment; filename="trial-pack.pdf"'},
+        headers={
+            **NO_STORE,
+            "Content-Disposition": 'attachment; filename="trial-pack.pdf"',
+            "X-Content-SHA256": row["sha256"],
+        },
     )
 
 
