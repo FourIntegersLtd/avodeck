@@ -362,7 +362,7 @@ def services(
 
     configure(
         AfterServingServices(
-            crypto=CRYPTO, storage=storage, reads=reads, kit=AiKit(cell(), model), ocr=ocr, mailer=mailer
+            crypto=CRYPTO, storage=storage, reads=reads, kit=AiKit(cell(), model), ocr=ocr, mailer=mailer, region="uk"
         )
     )
     yield
