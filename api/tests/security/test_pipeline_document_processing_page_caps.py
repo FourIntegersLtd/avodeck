@@ -12,9 +12,9 @@ import dataclasses
 import pytest
 
 from app.features.pipeline import service as pipeline_service
-from tests.repository.test_pipeline_support import Harness, text_pdf
+from tests.repository.test_pipeline_support import Harness
 from tests.security import test_foundation_file_lifecycle_validation as lifecycle
-from tests.support.file_lifecycle_documents import blank_pages_pdf
+from tests.support.file_lifecycle_documents import blank_pages_pdf, text_pdf
 
 pytestmark = pytest.mark.anyio
 
