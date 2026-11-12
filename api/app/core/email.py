@@ -150,6 +150,9 @@ class Mail:
     params: dict[str, str] = field(default_factory=dict, repr=False)
     # Where a reply should go (the Help form: the expert). Never logged.
     reply_to: str | None = field(default=None, repr=False)
+    # Set by the deferred-work delivery (the row id): the mail service returns the first result for a repeat of the
+    # same key, so a send that is retried after a lost answer goes out once. Never shown.
+    idempotency_key: str | None = field(default=None, repr=False)
 
 
 def check_params(mail: Mail) -> None:

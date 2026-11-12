@@ -17,6 +17,7 @@ from typing import Protocol
 
 from psycopg_pool import PoolTimeout
 
+import app.core.deferred  # noqa: F401 - the delivery sweep for after-commit work
 import app.core.housekeeping  # noqa: F401 - registers the foundation's daily schedules
 import app.core.notifications  # noqa: F401 - the daily messages schedule
 import app.core.uploads  # noqa: F401 - the finalize_upload job

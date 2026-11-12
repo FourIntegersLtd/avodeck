@@ -37,6 +37,12 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
         await database.close()
 
 
+@pytest.fixture(autouse=True)
+def _empty_table(admin: psycopg.Connection) -> None:
+    """A delivery takes every due row, so each test starts with none (and the table is not shared state)."""
+    admin.execute("delete from app.deferred_work")
+
+
 class FailingMailer:
     def __init__(self, times: int) -> None:
         self.times = times
@@ -161,7 +167,9 @@ async def test_a_sealed_payload_copied_to_another_row_is_not_opened(
         "update app.deferred_work set sealed = (select sealed from app.deferred_work where id = %s) where id = %s",
         (first, second),
     )
-    admin.execute("update app.deferred_work set status = 'done', sealed = null where id = %s", (first,))
+    admin.execute(
+        "update app.deferred_work set status = 'done', sealed = null, finished_at = now() where id = %s", (first,)
+    )
     mailer = OutboxMailer()
     await _deliver(worker_db, mailer)
     assert mailer.outbox == [] and _row(admin, second)["attempts"] == 1
@@ -210,9 +218,7 @@ async def test_a_mail_that_does_not_fit_its_template_is_refused_when_it_is_writt
 
 async def test_a_validity_past_a_week_is_refused(api_db: Database, seed: Seed) -> None:
     with pytest.raises(psycopg.Error):
-        await _defer_as(
-            api_db, seed.person(), spot_check_code_mail(ADDRESS, code=CODE), valid_for=timedelta(days=8)
-        )
+        await _defer_as(api_db, seed.person(), spot_check_code_mail(ADDRESS, code=CODE), valid_for=timedelta(days=8))
 
 
 def test_the_api_role_cannot_read_or_write_the_table_directly(api_dsn: str) -> None:
@@ -223,7 +229,7 @@ def test_the_api_role_cannot_read_or_write_the_table_directly(api_dsn: str) -> N
             "delete from app.deferred_work",
         ):
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
-                conn.execute(statement)  # type: ignore[call-overload]
+                conn.execute(statement)
 
 
 def test_the_api_role_cannot_take_or_finish_work(api_dsn: str) -> None:
