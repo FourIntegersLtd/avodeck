@@ -116,19 +116,20 @@ def test_control_the_first_retry_of_a_failed_job_is_allowed(
         assert _fail_and_put_back(api, admin, job) is True
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="BG-07: app.requeue_failed_job resets `attempts` to 0 every time, so one failed job can be put back and"
-    " re-run without end (3 more tries per click, no lifetime count)",
-)
 def test_a_failed_job_cannot_be_put_back_without_end(api_dsn: str, admin: psycopg.Connection, seed: Seed) -> None:
+    """Eight laps at most; the first refusal ends the loop (the job is then still `failed`, and a failed job cannot
+    be moved to `running` again, so a further lap is not a retry but a database error)."""
     expert = seed.person()
     case = seed.case(seed.org(kind="personal", members={expert: "owner"}), expert)
     job = seed.job(case, requested_by=expert)
+    outcomes: list[bool] = []
     with committing_api(api_dsn, expert) as api:
-        outcomes = [_fail_and_put_back(api, admin, job) for _ in range(8)]
-    assert not all(outcomes), f"all {len(outcomes)} retries were accepted, each with attempts reset to 0"
+        for _ in range(8):
+            accepted = _fail_and_put_back(api, admin, job)
+            outcomes.append(accepted)
+            if not accepted:
+                break
+    assert not all(outcomes) and len(outcomes) < 8, f"all {len(outcomes)} retries were accepted, none refused"
 
 
 # --- 15. a flood of enqueues ----------------------------------------------------------------------------------------
