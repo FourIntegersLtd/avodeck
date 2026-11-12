@@ -20,7 +20,7 @@ moto = {version = "^5", extras = ["s3", "server"]}
 
 [tool.poetry.group.evals.dependencies]
 reportlab = "^5.0.1"
-pypdf = "^6.21.0"
+pypdf = "^7.0.0"
 scipy = "^1.18.1"
 
 [build-system]
