@@ -60,6 +60,10 @@ _WORDS: dict[str, dict[str, str]] = {
         "cov_none": "Pages with no entries",
         "cov_unread": "Pages the computer couldn't read",
         "cov_set_aside": "Pages set aside (copies, replaced or held back)",
+        "set_aside_pages": "Which pages are set aside, and why",
+        "reason_copy": "Copy of another page",
+        "reason_replaced": "Replaced by a newer page",
+        "reason_held": "Held back",
         "appendix": "Appendix {letter}",
         "page_x_of_y": "Page {page} of {total}",
         "prepared": "Prepared on {date}",
@@ -73,6 +77,16 @@ _WORDS: dict[str, dict[str, str]] = {
 def word(language: str, key: str, **values: object) -> str:
     table = _WORDS.get(language.split("-")[0].lower(), _WORDS["en"])
     return table[key].format(**values)
+
+
+def set_aside_lines(language: str, pages: tuple[tuple[int, str], ...]) -> list[str]:
+    """One line per reason: the reason, then the bundle page numbers it applies to. Numbers and reason keys only."""
+    lines = []
+    for key in ("reason_copy", "reason_replaced", "reason_held"):
+        numbers = sorted(n for n, reason in pages if reason == key)
+        if numbers:
+            lines.append(f"{word(language, key)}: {', '.join(str(n) for n in numbers)}")
+    return lines
 
 
 def month_name(language: str, month: int) -> str:
