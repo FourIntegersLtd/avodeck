@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 
 from psycopg import AsyncConnection
 
-from app.core import audit
+from app.core import audit, deferred
 from app.core.contracts.availability import evidence_for_case
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ApiError
@@ -220,12 +220,21 @@ async def take(
     return data
 
 
-async def remove(storage: CaseFileStorage, case_id: uuid.UUID, job_id: uuid.UUID, fmt: str = "docx") -> None:
-    """Removes the stored copy once the download is recorded. A failure leaves it for the daily sweep."""
-    try:
-        await storage.delete([transcript_path(case_id, job_id, fmt)])
-    except StorageError:
-        pass
+REMOVE = "reader.transcript_remove"
+
+
+async def defer_remove(conn: AsyncConnection, case_id: uuid.UUID, job_id: uuid.UUID, fmt: str = "docx") -> None:
+    """Writes down, in the caller's transaction, that the stored copy is to go once the download is recorded. The
+    worker removes it (`_remove`), so a restart between the commit and the removal cannot leave it behind."""
+    await deferred.defer_call(conn, REMOVE, {"case_id": str(case_id), "job_id": str(job_id), "fmt": fmt})
+
+
+@deferred.call(REMOVE)
+async def _remove(conn: AsyncConnection, args: dict[str, str]) -> None:
+    """Removes the stored copy. Safe to run twice: a copy already gone is success; a storage fault is raised so the
+    next delivery tries again."""
+    path = transcript_path(uuid.UUID(args["case_id"]), uuid.UUID(args["job_id"]), args["fmt"])
+    await services.get_storage().delete([path])
 
 
 def register(reg: JobRegistry) -> None:

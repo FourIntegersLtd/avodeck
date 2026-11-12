@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import BackgroundTasks, Depends, Query, Request
+from fastapi import Depends, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.core import audit
@@ -202,7 +202,7 @@ async def transcript_download_request(
     "/transcript/download/{job_id}", response_class=StreamingResponse, responses={200: {"content": {DOCX: {}, PDF: {}}}}
 )
 async def transcript_download(
-    case_id: uuid.UUID, job_id: uuid.UUID, request: Request, access: Export, conn: DbConn, after: BackgroundTasks
+    case_id: uuid.UUID, job_id: uuid.UUID, request: Request, access: Export, conn: DbConn
 ) -> StreamingResponse:
     cur = await conn.execute(
         "select status, requested_by is not distinct from app.current_person_id(), kind from app.jobs"
@@ -222,7 +222,7 @@ async def transcript_download(
         raise ApiError("unavailable", "File storage is not ready.", 503)
     fmt = "pdf" if job[2] == transcript_jobs.KIND_PDF else "docx"
     data = await transcript_jobs.take(conn, storage, crypto, case_id, job_id, fmt)
-    after.add_task(transcript_jobs.remove, storage, case_id, job_id, fmt)  # runs once the audit row is committed
+    await transcript_jobs.defer_remove(conn, case_id, job_id, fmt)  # written with the audit row; the worker removes it
     return StreamingResponse(
         iter_chunks(data, CHUNK),
         media_type=PDF if fmt == "pdf" else DOCX,
