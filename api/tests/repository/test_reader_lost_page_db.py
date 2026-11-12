@@ -40,11 +40,13 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
         await database.close()
 
 
-def world(seed: Seed, *, picture: str | None) -> dict[str, Any]:
+def world(seed: Seed, *, picture: str | None, unreadable: bool = True) -> dict[str, Any]:
     expert = seed.person()
     case = seed.case(seed.org(kind="personal", members={expert: "owner"}), expert, status="active")
     page = seed.page(case, seed.document(case), 1)
-    seed.admin.execute("update app.pages set unreadable = true, image_path = %s where id = %s", (picture, page))
+    seed.admin.execute(
+        "update app.pages set unreadable = %s, image_path = %s where id = %s", (unreadable, picture, page)
+    )
     return {"expert": expert, "case": case, "page": page}
 
 
@@ -65,6 +67,11 @@ async def test_a_page_with_no_picture_cannot_be_marked_read(api_db: Database, se
         await mark(api_db, w)
     assert (refused.value.code, refused.value.status) == ("conflict", 409)
     assert reads(seed, w["page"]) == 0
+
+
+async def test_a_page_not_yet_read_by_the_pipeline_is_not_called_lost(api_db: Database, seed: Seed) -> None:
+    w = world(seed, picture=None, unreadable=False)
+    assert (await mark(api_db, w)).read is True
 
 
 async def test_a_poor_quality_page_with_a_picture_can_still_be_marked_read(api_db: Database, seed: Seed) -> None:
