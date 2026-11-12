@@ -15,12 +15,13 @@ import pikepdf
 import pytest
 
 from app.core import sandbox
+from app.core.ai.ocr import OcrPage, OcrResult, OcrWord, word_id
 from app.core.config import SandboxSettings
-from app.features.pipeline import parsing
+from app.features.pipeline import parsing, wiring
 from tests.repository.test_pipeline_support import Harness
 from tests.security import test_foundation_file_lifecycle_validation as lifecycle
 from tests.support import pipeline_parse_stand_ins as stand_in
-from tests.support.file_lifecycle_documents import _save, _typed_page, text_pdf, upload_bytes
+from tests.support.file_lifecycle_documents import _save, _typed_page, text_pdf
 
 pytestmark = pytest.mark.anyio
 
@@ -105,16 +106,30 @@ async def test_a_page_that_cannot_be_cut_or_pictured_is_unreadable_and_the_next_
     assert middle["image_path"] is None, "the page has no stand-in picture, so a later run cuts it again"
 
 
+class AnswersOnePage:
+    """An OCR service that reads any one page as one word, and counts the pages it was sent."""
+
+    endpoint = "synthetic"
+
+    def __init__(self) -> None:
+        self.sent = 0
+
+    async def analyse(self, document: bytes, model: str = "layout", *, locale: str | None = None) -> OcrResult:
+        self.sent += 1
+        word = OcrWord(id=word_id(1, 1), text="read", polygon=(0.1, 0.1, 0.5, 0.1, 0.5, 0.2, 0.1, 0.2), confidence=0.99)
+        return OcrResult(model="synthetic", pages=(OcrPage(number=1, width=1.0, height=1.0, words=(word,)),))
+
+
 @pytest.mark.parametrize("mode", MODES)
 async def test_a_text_layer_check_that_hangs_or_dies_sends_that_page_to_ocr(
     h: Harness, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
+    ocr = AnswersOnePage()  # DP-09 review P4: no usable text layer, so that page alone goes to OCR
+    monkeypatch.setattr(wiring.current(), "ocr", ocr)
     monkeypatch.setattr(parsing, "text_layer", getattr(stand_in, f"layer_{mode}"))
-    # DP-09 review P4: no usable text layer, so the page goes to OCR (none is wired here: the job pauses for it)
-    await upload_bytes(h, three_pages(f"{stand_in.MARK} two"), filename="three.pdf")
-    await h.drain()
+    await run(h, three_pages(f"{stand_in.MARK} two"), "three.pdf")
     first, middle, last = page_rows(h)
-    assert middle["unreadable"] is False and middle["text_source"] is None and words_of(h, middle["id"]) == 0
-    # the job pauses at the page that needs OCR, so a page after it may not have been reached yet
-    assert first["unreadable"] is False and last["unreadable"] is False
-    assert words_of(h, first["id"]) + words_of(h, last["id"]) > 0, "control: the other pages are read"
+    assert ocr.sent == 1, "only the page whose text layer could not be checked is sent to OCR"
+    assert middle["unreadable"] is False and middle["text_source"] == "ocr" and words_of(h, middle["id"]) == 1
+    for page in (first, last):
+        assert page["unreadable"] is False and page["text_source"] == "embedded" and words_of(h, page["id"]) > 0
