@@ -94,7 +94,9 @@ async def test_resume_hands_a_paused_job_back_to_the_queue(
     )
     assert response.status_code == 200, response.text
     assert response.json() == {"job_id": str(job), "case_id": str(case_id), "action": "resume", "status": "paused"}
-    assert job_row(admin, job) == ("paused", 2, "cost_guard")  # the worker moves it to running
+    # `resuming` is the hand-back mark the worker's claim accepts (as the person's Try again; migration 9008); the
+    # original reason is kept in the action history below
+    assert job_row(admin, job) == ("paused", 2, "resuming")  # the worker moves it to running
     assert queue_rows(admin, job) == [("bulk", "todo", f"case:{case_id}")]  # process_bundle runs on the bulk queue
     assert history(admin, job) == [("resume", "service_restored", "paused", "cost_guard", 2, staff)]
     [mail] = app.state.mailer.outbox

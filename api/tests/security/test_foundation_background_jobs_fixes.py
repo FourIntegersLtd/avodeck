@@ -321,17 +321,16 @@ def test_a_listed_bulk_kind_cannot_be_put_on_the_interactive_queue(
         assert enqueue(api, case, "process_bundle", queue="bulk", priority=0) is not None
 
 
-def test_every_registered_job_kind_has_a_row_whose_interactive_flag_is_the_registrys() -> None:
+def test_every_registered_job_kind_has_a_row_whose_interactive_flag_is_the_registrys(
+    admin: psycopg.Connection,
+) -> None:
     """The registry says which queue and priority a kind has; the database repeats it to check the caller. A slice
     that adds a kind adds `(kind, action, interactive)` to `app.job_kind_actions` (ask foundation-owner)."""
     import app.worker.main  # noqa: F401 - registers the foundation's kinds
     from app.core.jobs import registry
 
     load_features(DEFAULT_PACKAGE)
-    import os
-
-    with psycopg.connect(os.environ["TEST_DATABASE_ADMIN_URL"]) as conn:
-        rows = {r[0]: r[1] for r in conn.execute("select kind, interactive from app.job_kind_actions").fetchall()}
+    rows = {r[0]: r[1] for r in admin.execute("select kind, interactive from app.job_kind_actions").fetchall()}
     missing = sorted(k for k in registry.kinds if rows.get(k) is None)
     assert not missing, f"no interactive flag in app.job_kind_actions for: {missing}"
     wrong = sorted(k for k, found in registry.kinds.items() if rows[k] != found.interactive)
@@ -379,11 +378,8 @@ def test_a_worker_inside_its_own_job_is_not_held_to_the_cap(worker_dsn: str, see
             assert enqueue(worker, case, "zz_cap") is not None
 
 
-def test_a_kind_that_is_queued_in_bulk_by_a_person_has_a_higher_cap() -> None:
-    import os
-
-    with psycopg.connect(os.environ["TEST_DATABASE_ADMIN_URL"]) as conn:
-        rows: dict[str, int | None] = dict(conn.execute("select kind, max_active from app.job_kind_actions").fetchall())
+def test_a_kind_that_is_queued_in_bulk_by_a_person_has_a_higher_cap(admin: psycopg.Connection) -> None:
+    rows: dict[str, int | None] = dict(admin.execute("select kind, max_active from app.job_kind_actions").fetchall())
     assert rows["finalize_upload"] is not None and rows["finalize_upload"] >= 100
     assert rows["process_bundle"] is None, "an ordinary kind takes the default of five"
 
