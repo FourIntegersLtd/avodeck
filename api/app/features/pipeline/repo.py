@@ -1569,8 +1569,7 @@ async def live_bundle_job(conn: AsyncConnection, case_id: uuid.UUID, resumable: 
         " status = 'queued'"
         f" or (status = 'running' and updated_at > now() - interval '{LIVE_MINUTES} minutes')"
         " or (status = 'paused' and error_code = any(%s))"
-        ") and not (status = 'running' and exists (select 1 from app.pipeline_runs r where r.job_id = app.jobs.id"
-        " and r.state not in ('done', 'closed')))"
+        ") and not (status = 'running' and app.pipeline_run_open(id))"
         " order by (status = 'running') desc, created_at, id limit 1",
         (case_id, [*resumable, "resuming", "busy_processing"]),
     )
