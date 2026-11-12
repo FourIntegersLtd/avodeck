@@ -56,6 +56,8 @@ EXCUSED = {
     "3c3b9653c94ce089fd977e51faa3cf34ef062425": "feat/embedder: image and CI model-cache wiring covered by 1097d950's tests, no test commit of its own; history kept (no force push)",
     "5a67267d770e14c474cc89695dff1e7c8e0de916": "feat/embedder: links ground-truth data only, covered by 1097d950's tests; history kept (no force push)",
     "f7b3c6bf883d1eec1b3e2d930fe114e685f2c5d8": "fix/upload-hardening: the audit assertion for a repeat claim arrived in this same commit (test_foundation_uploads.py, 7 lines) rather than one before it; it fails without the code beside it, history kept (no force push)",
+    "71034143077e6c0093017c756cf9abbf2bab79b0": "docs/audit-15-background-processing: BG-11 and BG-16 test commits (2dc2cb9f, c550d053) were both made before their two feats, so each feat follows the other's tests; branch head tested as a whole, history kept (no force push)",
+    "ff04f7edf9e07b36eb808b615c5ac59f6380b728": "docs/audit-15-background-processing: BG-11 and BG-16 test commits (2dc2cb9f, c550d053) were both made before their two feats, so each feat follows the other's tests; branch head tested as a whole, history kept (no force push)",
 }
 
 
