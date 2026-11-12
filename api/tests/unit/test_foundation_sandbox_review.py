@@ -181,7 +181,7 @@ async def test_a_file_in_the_scratch_directory_can_be_read_by_path(pool: None) -
 @pytest.mark.anyio
 async def test_a_child_has_a_cpu_limit_derived_from_the_calls_timeout(pool: None) -> None:
     limit, used = await run(fns.cpu_limit, timeout=5)
-    assert 25 <= limit - used <= 28, (limit, used)  # four cores' worth of the timeout, and a small margin
+    assert 24 <= limit - used <= 28, (limit, used)  # four cores' worth of the timeout, and a small margin
 
 
 def test_a_child_does_not_outlive_a_parent_that_was_killed() -> None:

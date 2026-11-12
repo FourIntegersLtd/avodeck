@@ -41,13 +41,14 @@ import atexit
 import logging
 import os
 import re
+import secrets
 import signal
 import socket
 import subprocess
 import sys
 import threading
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from multiprocessing.connection import Connection
 from typing import Any
 
@@ -95,19 +96,45 @@ def _kill_leftovers() -> None:
             pass
 
 
+CPU_FACTOR = 4  # a call may use this many cores' worth of its wall-clock timeout before the child's own limit ends it
+CPU_MARGIN_SECONDS = 5
+
+
 @dataclass
 class _Child:
-    """One running child process and the socket to it."""
+    """One running child process and the socket to it.
+
+    Only the thread that is inside `send` or `recv` on the connection may close it: another thread closing it would
+    free the descriptor number under a running call, and the next socket made in the process could get that number
+    (a stale send would then reach the wrong child). So `retire` kills the process and closes the connection only
+    when no thread is using it; otherwise the user closes it in `end_io`."""
 
     process: subprocess.Popen[bytes]
     conn: Connection
     tasks: int = 0
+    in_io: bool = False
+    retired: bool = False
+    state: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def alive(self) -> bool:
         return self.process.poll() is None
 
-    def kill(self) -> None:
-        """End the child now (blocking, short) and forget it."""
+    def begin_io(self) -> None:
+        """The calling thread is about to use the connection. `unavailable` if the child was retired meanwhile."""
+        with self.state:
+            if self.retired:
+                raise SandboxError("unavailable")
+            self.in_io = True
+
+    def end_io(self) -> None:
+        with self.state:
+            self.in_io = False
+            close = self.retired
+        if close:
+            self._close_conn()
+
+    def retire(self) -> None:
+        """End the child now (blocking, short) and forget it. Safe from any thread."""
         try:
             if self.process.poll() is None:
                 self.process.kill()
@@ -115,6 +142,15 @@ class _Child:
         except (OSError, subprocess.SubprocessError):
             pass
         _live.discard(self.process)
+        with self.state:
+            self.retired = True
+            close = not self.in_io
+        if close:
+            self._close_conn()
+
+    kill = retire
+
+    def _close_conn(self) -> None:
         try:
             self.conn.close()
         except OSError:
@@ -311,13 +347,24 @@ class _Slot:
 def _call(
     slot: _Slot, fn: Callable[..., Any], args: tuple[Any, ...], timeout: float, cancelled: threading.Event
 ) -> Any:
-    """One call in a worker thread: take the child, send, wait with a deadline, read the reply."""
+    """One call in a worker thread: take the child, send, wait with a deadline, read the reply. Every request
+    carries a fresh nonce and the reply must carry it back; anything else means the child is not trusted."""
     child = slot.acquire()
     if cancelled.is_set():  # the caller gave up while this waited for a child
         return None
-    conn = child.conn
+    child.begin_io()
     try:
-        conn.send((fn, args))
+        return _exchange(slot, child, fn, args, timeout)
+    finally:
+        child.end_io()
+
+
+def _exchange(slot: _Slot, child: _Child, fn: Callable[..., Any], args: tuple[Any, ...], timeout: float) -> Any:
+    conn = child.conn
+    nonce = secrets.token_bytes(8)
+    cpu_seconds = int(timeout * CPU_FACTOR) + CPU_MARGIN_SECONDS
+    try:
+        conn.send((nonce, cpu_seconds, fn, args))
     except (OSError, ValueError):  # the child was gone before it had the call: not this input's doing
         slot.discard(child)
         raise SandboxError("unavailable") from None
@@ -336,7 +383,16 @@ def _call(
         slot.discard(child)
         logger.warning("sandboxed call ended: %s", code)
         raise SandboxError(code) from None
-    kind, value = reply
+    except SandboxError:
+        raise
+    except Exception:  # noqa: BLE001 - a reply that cannot be unpickled here (its text stays out of the error)
+        slot.discard(child)
+        raise SandboxError("failed") from None
+    if not (isinstance(reply, tuple) and len(reply) == 3 and reply[0] == nonce):
+        slot.discard(child)  # an answer that is not to this call: never hand it to a caller
+        logger.warning("sandboxed call ended: reply out of turn")
+        raise SandboxError("crashed")
+    _, kind, value = reply
     if kind == "ok":
         slot.finished(child)
         return value
@@ -352,6 +408,8 @@ def _death_code(child: _Child) -> str:
         code = child.process.wait(1.0)
     except subprocess.SubprocessError:
         return "crashed"
+    if code == -signal.SIGXCPU:  # the child's own CPU limit ended it (see `CPU_FACTOR`)
+        return "timed_out"
     return "out_of_memory" if code == -signal.SIGKILL else "crashed"
 
 
@@ -390,17 +448,50 @@ class _Pool:
     async def run(self, fn: Callable[..., Any], args: tuple[Any, ...], timeout: float | None) -> Any:
         mine = self._slots()
         slot = await mine.idle.get()
+        if self.stopped:
+            mine.idle.put_nowait(slot)
+            raise SandboxError("stopped")
+        loop = asyncio.get_running_loop()
         cancelled = threading.Event()
+        gate = threading.Lock()
+        finished = False  # the thread has ended
+        abandoned = False  # the caller was cancelled, so the thread gives the slot back when it ends
+
+        def give_back() -> None:
+            try:
+                loop.call_soon_threadsafe(mine.idle.put_nowait, slot)
+            except RuntimeError:  # the loop is closed: its slots go with it
+                pass
+
+        def work() -> Any:
+            nonlocal finished
+            try:
+                return _call(slot, fn, args, timeout or self.cfg.timeout_seconds, cancelled)
+            finally:
+                with gate:
+                    finished = True
+                    hand_over = abandoned
+                if hand_over:
+                    give_back()
+
         try:
-            if self.stopped:
-                raise SandboxError("stopped")
-            return await asyncio.to_thread(_call, slot, fn, args, timeout or self.cfg.timeout_seconds, cancelled)
+            result = await asyncio.to_thread(work)
         except asyncio.CancelledError:
+            # The thread may still be waiting for a child to start. The slot stays out of the queue until it ends,
+            # or the next caller would wait on the same starting child and one of them would lose it.
             cancelled.set()
             slot.discard_current()  # frees the thread that is waiting on the pipe
+            with gate:
+                abandoned = True
+                done = finished
+            if done:
+                mine.idle.put_nowait(slot)
             raise
-        finally:
+        except BaseException:
             mine.idle.put_nowait(slot)
+            raise
+        mine.idle.put_nowait(slot)
+        return result
 
     async def stop(self) -> None:
         self.stopped = True

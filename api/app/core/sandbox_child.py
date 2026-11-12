@@ -2,7 +2,9 @@
 
 Imports only the standard library, so a child starts fast and carries nothing of the worker (no settings, no
 Sentry, no log handlers). It reads `(fn, args)` from the socket the parent passed, calls `fn(*args)` and sends back
-`("ok", result)`, `("raised", exception)`, `("memory", None)` or `("failed", None)`. It never writes to stdout or
+`(nonce, "ok", result)`, `(nonce, "raised", exception)`, `(nonce, "memory", None)` or `(nonce, "failed", None)`, pickled
+once and sent as bytes. A request is `(nonce, cpu_seconds, fn, args)`; the nonce comes back so the parent can tell an
+answer to this call from anything else. It never writes to stdout or
 stderr and never logs, so nothing it was given can leave through them (rule 6). Modules named after the memory limit
 are imported before it says "ready" (the parent's `prewarm`), so the import cost is paid at start, not by a call; one
 that fails to import is skipped and shows up again, as it would, when a call needs it.
@@ -15,6 +17,8 @@ import logging
 import os
 import pickle
 import sys
+import threading
+import time
 from multiprocessing.connection import Connection
 from typing import Any
 
@@ -41,27 +45,53 @@ def _lock_down(memory_bytes: int) -> None:
             pass
 
 
-def _reply(fn: Any, args: tuple[Any, ...]) -> tuple[str, Any]:
+def _cpu_limit(seconds: int) -> None:
+    """This call may use `seconds` more CPU time (the parent's timeout, times a few cores, and a margin). The parent
+    kills a child that overruns the wall clock; this limit ends one the parent can no longer reach (it died while the
+    child held the GIL in native code). SIGXCPU ends the process."""
     try:
-        reply: tuple[str, Any] = ("ok", fn(*args))
+        import resource
+
+        used = sum(os.times()[:2])
+        hard = resource.getrlimit(resource.RLIMIT_CPU)[1]
+        resource.setrlimit(resource.RLIMIT_CPU, (int(used) + seconds, hard))
+    except (AttributeError, ValueError, OSError):
+        pass
+
+
+def _watch_parent(parent: int) -> None:
+    """Leave when the parent does. The socket closing ends an idle child; a child in the middle of a call, in code
+    that never reads the socket, is ended here. (`PR_SET_PDEATHSIG` is not used: on Linux it fires when the parent
+    *thread* that started the child exits, and children are started from short-lived threads.)"""
+    while True:
+        time.sleep(1.0)
+        if os.getppid() != parent:
+            os._exit(1)
+
+
+def _reply(nonce: bytes, fn: Any, args: tuple[Any, ...]) -> bytes:
+    """The pickled answer, made once and sent as bytes (not pickled a second time by `send`)."""
+    try:
+        result = fn(*args)
         try:
-            pickle.dumps(reply)
+            return pickle.dumps((nonce, "ok", result))
         except BaseException:  # noqa: BLE001 - a result that cannot cross the pipe; say nothing about it
-            return ("failed", None)
-        return reply
+            return pickle.dumps((nonce, "failed", None))
     except MemoryError:
-        return ("memory", None)
+        return pickle.dumps((nonce, "memory", None))
     except BaseException as exc:  # noqa: BLE001 - everything goes back to the parent as data
         try:
-            pickle.loads(pickle.dumps(exc))
+            payload = pickle.dumps((nonce, "raised", exc))
+            pickle.loads(payload)  # an exception the parent could not rebuild is not sent
         except BaseException:  # noqa: BLE001 - this exception cannot cross the pipe
-            return ("failed", None)
-        return ("raised", exc)
+            return pickle.dumps((nonce, "failed", None))
+        return payload
 
 
 def main(fd: int, memory_bytes: int, modules: list[str] | None = None) -> None:
     conn = Connection(fd)
     _lock_down(memory_bytes)
+    threading.Thread(target=_watch_parent, args=(os.getppid(),), daemon=True).start()
     for name in modules or ():
         try:
             importlib.import_module(name)
@@ -75,17 +105,13 @@ def main(fd: int, memory_bytes: int, modules: list[str] | None = None) -> None:
             return
         if message is None:
             return
-        fn, args = message
-        reply = _reply(fn, args)
+        nonce, cpu_seconds, fn, args = message
+        _cpu_limit(cpu_seconds)
+        reply = _reply(nonce, fn, args)
         try:
-            conn.send(reply)
+            conn.send_bytes(reply)
         except (OSError, ValueError):
             return
-        except BaseException:  # noqa: BLE001 - the answer could not be pickled after all
-            try:
-                conn.send(("failed", None))
-            except BaseException:  # noqa: BLE001
-                return
         del reply, fn, args, message
 
 
