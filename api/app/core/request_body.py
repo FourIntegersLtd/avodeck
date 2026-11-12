@@ -5,10 +5,12 @@ body cap. `read_capped` is the one way a route that takes the file as its body r
 `Content-Length` over the cap is refused before a byte is read, and a stream (no length, or a length that lies) is
 cut off as soon as it passes the cap. The chunk route in `core/routes/uploads.py` does the same for one part.
 
-A route that is called with an `Idempotency-Key` has its body read for the request fingerprint first
-(`core/http.py::_fingerprint`, through `buffer_body` under the global `MAX_REQUEST_BODY_BYTES` ceiling, DP-13);
-`read_capped` then sees that cached body and only checks its length. So for such a request a route's own cap
-protects only against bodies between the route's cap and the ceiling being used, not against their being held.
+A route that is called with an `Idempotency-Key` has a small body read for the request fingerprint first, once the
+session is known (`core/http.py::_fingerprint`, through `buffer_body` under `MAX_FINGERPRINT_BODY_BYTES`, 16 MiB,
+and never past the global `MAX_REQUEST_BODY_BYTES`, DP-13 and F-c); `read_capped` then sees that cached body and
+only checks its length. A declared length over the small ceiling is not read for the fingerprint at all (it is
+compared by length and type), so a route's own cap protects it. Residual: a keyed request with no length (chunked)
+over the small ceiling is refused 413, as its bytes cannot be un-read.
 """
 
 from __future__ import annotations
@@ -38,10 +40,11 @@ async def read_capped(request: Request, limit: int, *, too_large: Callable[[], E
     return bytes(received)
 
 
-async def buffer_body(request: Request) -> bytes:
-    """The whole body, held on the request as Starlette's own `body()` would, but never past the global ceiling
-    (`MAX_REQUEST_BODY_BYTES`): over it is 413 `body_too_large`, by declared length before a byte is read or by
-    the stream. Later `request.body()` and `request.stream()` calls (a route, `read_capped`) get the same bytes."""
-    data = await read_capped(request, document_limits().max_request_body_bytes)
+async def buffer_body(request: Request, limit: int | None = None) -> bytes:
+    """The whole body, held on the request as Starlette's own `body()` would, but never past `limit` (default: the
+    global ceiling `MAX_REQUEST_BODY_BYTES`): over it is 413 `body_too_large`, by declared length before a byte is
+    read or by the stream. Later `request.body()` and `request.stream()` calls (a route, `read_capped`) get the same
+    bytes."""
+    data = await read_capped(request, document_limits().max_request_body_bytes if limit is None else limit)
     request._body = data  # noqa: SLF001 - what `Request.body()` itself stores; `stream()` then replays it
     return data

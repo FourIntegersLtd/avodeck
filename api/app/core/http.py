@@ -47,10 +47,11 @@ from pydantic import BaseModel
 from app.core import audit, rate_limits
 from app.core.auth import session as sessions
 from app.core.auth.identity import Identity
+from app.core.config import document_limits
 from app.core.crypto import cell_secret_box
 from app.core.db import RequestScope
 from app.core.errors import ApiError
-from app.core.request_body import buffer_body
+from app.core.request_body import body_too_large, buffer_body
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 _KEPT_HEADERS = ("content-type", "etag", "location", "cache-control")
@@ -64,13 +65,20 @@ class _Discard(Exception):
 
 
 async def _fingerprint(request: Request) -> str:
+    """What a retried request must repeat to be the same request. A body is read only up to the small fingerprint
+    ceiling (F-c); a declared length above it is not read, and is compared by its length and type (the route's own
+    cap then applies). Over the global ceiling it is refused unread."""
+    limits = document_limits()
+    cap = min(limits.max_fingerprint_body_bytes, limits.max_request_body_bytes)
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > cap:
+        if int(declared) > limits.max_request_body_bytes:
+            raise body_too_large()
+        body = b"unread:" + declared.encode() + b":" + request.headers.get("content-type", "").encode()
+    else:
+        body = await buffer_body(request, cap)
     digest = hashlib.sha256()
-    for part in (
-        request.method.encode(),
-        request.url.path.encode(),
-        request.url.query.encode(),
-        await buffer_body(request),
-    ):
+    for part in (request.method.encode(), request.url.path.encode(), request.url.query.encode(), body):
         digest.update(hashlib.sha256(part).digest())
     return digest.hexdigest()
 
@@ -262,7 +270,6 @@ class SessionRoute(APIRoute):
                 raise sessions.not_signed_in()
             request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
             key = request.headers.get("idempotency-key") if request.method not in SAFE_METHODS else None
-            fingerprint = await _fingerprint(request) if key else ""
             scopes: list[RequestScope] = []  # filled once the session is known
             refusal: ApiError | None = None
             endpoint = f"{request.method} {self.path_format}"
@@ -306,6 +313,7 @@ class SessionRoute(APIRoute):
                         if int(getattr(request.app.state, "api_rate_per_minute", 0)) > 0:
                             await rate_limits.check(conn, endpoint, int(request.app.state.api_rate_per_minute))
                             counted = True
+                        fingerprint = await _fingerprint(request) if key else ""  # only for a known session (F-c)
                         pending = (
                             _Pending(conn, identity.person_id, key, fingerprint, _case_id(request)) if key else None
                         )

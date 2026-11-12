@@ -246,6 +246,7 @@ class DocumentLimits:
     max_convert_bytes: int = 100 * 1024 * 1024
     max_ocr_response_bytes: int = 64 * 1024 * 1024
     max_request_body_bytes: int = 1024 * 1024 * 1024
+    max_fingerprint_body_bytes: int = 16 * 1024 * 1024
 
 
 def document_limits(env: Mapping[str, str] | None = None) -> DocumentLimits:
@@ -263,6 +264,9 @@ def document_limits(env: Mapping[str, str] | None = None) -> DocumentLimits:
         max_convert_bytes=env_int(source, "MAX_CONVERT_BYTES", defaults.max_convert_bytes, minimum=1),
         max_ocr_response_bytes=env_int(source, "MAX_OCR_RESPONSE_BYTES", defaults.max_ocr_response_bytes, minimum=1),
         max_request_body_bytes=env_int(source, "MAX_REQUEST_BODY_BYTES", defaults.max_request_body_bytes, minimum=1),
+        max_fingerprint_body_bytes=env_int(
+            source, "MAX_FINGERPRINT_BODY_BYTES", defaults.max_fingerprint_body_bytes, minimum=1
+        ),
     )
 
 
