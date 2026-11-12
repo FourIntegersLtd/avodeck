@@ -8,16 +8,17 @@ import io
 import logging
 import uuid
 import zipfile
+from pathlib import Path
 from typing import Any
 
 import pikepdf
 import pytest
 
-from app.features.pipeline import convert, repo
-from app.features.pipeline import service as pipeline_service
+from app.features.pipeline import convert, parsing, repo
 from tests.repository.test_pipeline_support import Harness
 from tests.security import test_foundation_file_lifecycle_validation as lifecycle
-from tests.support.file_lifecycle_documents import encrypted_pdf, text_pdf, truncated_pdf, zip_of
+from tests.support import pipeline_parse_stand_ins as stand_in
+from tests.support.file_lifecycle_documents import _save, _typed_page, encrypted_pdf, text_pdf, truncated_pdf, zip_of
 
 pytestmark = pytest.mark.anyio
 
@@ -55,8 +56,10 @@ def test_a_zip_with_the_same_name_twice_unpacks_both_members_inside_the_budget()
 
 
 async def test_every_open_of_a_stored_pdf_for_cutting_runs_without_recovery(
-    h: Harness, monkeypatch: pytest.MonkeyPatch
+    h: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """The count and the cut now run in sandbox children, out of reach of a spy, so the spy watches the functions
+    the children run; the split itself is run end to end as well."""
     opened: list[dict[str, Any]] = []
     real = pikepdf.open
 
@@ -65,11 +68,15 @@ async def test_every_open_of_a_stored_pdf_for_cutting_runs_without_recovery(
         return real(*args, **kwargs)
 
     monkeypatch.setattr(pikepdf, "open", spy)
-    await run(h, text_pdf(3), "plain.pdf")
-    await run(h, zip_of({"in.pdf": text_pdf(1)}), "pack.zip")
+    stored = tmp_path / "plain.pdf"
+    stored.write_bytes(text_pdf(3))
+    assert parsing.count_pages(str(stored), 100) == 3
+    assert len(parsing.cut_pages(str(stored), [0, 2])) == 2
     from_disk = [o for o in opened if o["path"]]
     assert from_disk, "premise: documents were opened from a file"
     assert all(o.get("attempt_recovery") is False for o in from_disk), from_disk
+    await run(h, text_pdf(3), "plain.pdf")
+    await run(h, zip_of({"in.pdf": text_pdf(1)}), "pack.zip")
 
 
 # --- two splits at once never repeat or skip a bundle page number ------------------------------------
@@ -151,21 +158,17 @@ async def test_no_failure_path_writes_page_text_a_file_name_or_file_content_to_t
 async def test_a_retry_after_a_mid_job_crash_creates_no_duplicate_pages_or_words(
     h: Harness, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    real = pipeline_service.rasterise
-    seen = 0
-
-    def breaks_on_the_second_page(*args: Any, **kwargs: Any) -> Any:
-        nonlocal seen
-        seen += 1
-        if seen == 2:
-            raise RuntimeError("synthetic crash")
-        return real(*args, **kwargs)
-
-    monkeypatch.setattr(pipeline_service, "rasterise", breaks_on_the_second_page)
-    _, doc = await lifecycle.upload_bytes(h, text_pdf(3), filename="crash.pdf")
+    """The crash is a drawing call that raises on the second page; it runs in a sandbox child, so the stand-in is
+    a module-level function that raises on a marked page."""
+    real = parsing.pictures
+    marked = pikepdf.new()
+    for words in ("keep one", f"{stand_in.MARK} two", "keep three"):
+        _typed_page(marked, words)
+    monkeypatch.setattr(parsing, "pictures", stand_in.pictures_crash)
+    _, doc = await lifecycle.upload_bytes(h, _save(marked), filename="crash.pdf")
     first = await h.drain(timeout=90)
-    assert "failed" in first.values() or seen >= 2, "premise: the crash was reached"
-    monkeypatch.setattr(pipeline_service, "rasterise", real)
+    assert "failed" in first.values(), "premise: the crash was reached"
+    monkeypatch.setattr(parsing, "pictures", real)
     again = await h.enqueue("process_bundle")
     assert (await h.drain(timeout=90))[again] == "done"
     pages = [p for p in h.pages() if str(p["document_id"]) == doc]

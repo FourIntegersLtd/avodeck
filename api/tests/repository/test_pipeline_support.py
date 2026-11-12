@@ -26,6 +26,7 @@ import httpx
 import pikepdf
 import psycopg
 
+from app.core import sandbox
 from app.core.ai.answers import AnswerBook
 from app.core.ai.bedrock import ModelRequest, ModelResponse
 from app.core.ai.kit import AiKit
@@ -412,6 +413,7 @@ async def harness(
                     names=list(names),
                 )
     finally:
+        await sandbox.stop()  # the parser pool belongs to this test's event loop (DP-09)
         await worker_db.close()
 
 

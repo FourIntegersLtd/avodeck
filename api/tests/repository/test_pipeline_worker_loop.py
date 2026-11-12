@@ -19,13 +19,14 @@ from typing import Any
 import pikepdf
 import psycopg
 import pytest
-from PIL import Image
 
+from app.core import sandbox
 from app.core.config import ConfigError
 from app.core.db import Database
 from app.core.jobs import JobContext
-from app.features.pipeline import service
+from app.features.pipeline import parsing, service
 from app.worker.main import build_worker
+from tests.support import pipeline_parse_stand_ins as stand_in
 from tests.support.db import scope_for
 from tests.support.jobs import isolated_registry, open_worker, run_until_finished
 from tests.support.seed import Seed
@@ -68,6 +69,13 @@ def row(admin: psycopg.Connection, job: uuid.UUID) -> tuple[Any, ...]:
     return found
 
 
+@pytest.fixture(autouse=True)
+async def _parser_pool_per_test() -> AsyncIterator[None]:
+    """The parser pool is bound to the event loop it first ran on; each test gets its own and drops it."""
+    yield
+    await sandbox.stop()
+
+
 async def test_the_heartbeat_keeps_beating_while_a_page_is_drawn(
     api_db: Database,
     worker_db: Database,
@@ -76,11 +84,7 @@ async def test_the_heartbeat_keeps_beating_while_a_page_is_drawn(
     seed: Seed,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def slow_rasterise(page_pdf: bytes, rotation: int = 0) -> Image.Image:
-        time.sleep(2)  # a big scan: PDFium holds its thread, not the loop's
-        return Image.new("RGB", (20, 20), "white")
-
-    monkeypatch.setattr(service, "rasterise", slow_rasterise)
+    monkeypatch.setattr(parsing, "pictures", stand_in.pictures_slow)  # a big scan: two seconds, in a sandbox child
     registry = isolated_registry()
     beats: list[Any] = []
 
@@ -107,20 +111,15 @@ async def test_the_heartbeat_keeps_beating_while_a_page_is_drawn(
     assert beats[1] > beats[0], "the heartbeat stopped while the page was drawn"
 
 
-async def test_pdfium_is_used_by_one_thread_at_a_time(monkeypatch: pytest.MonkeyPatch) -> None:
-    inside: list[int] = []
-    overlap: list[bool] = []
-
-    def watch(page_pdf: bytes, rotation: int = 0) -> Image.Image:
-        inside.append(1)
-        overlap.append(len(inside) > 1)
-        time.sleep(0.05)
-        inside.pop()
-        return Image.new("RGB", (20, 20), "white")
-
-    monkeypatch.setattr(service, "rasterise", watch)
-    await asyncio.gather(*(service._pictures(blank_page(), 0) for _ in range(6)))
-    assert not any(overlap), "PDFium is not thread-safe: two calls ran at once"
+async def test_a_parser_child_draws_one_page_at_a_time() -> None:
+    """PDFium is not thread-safe. It now runs only in sandbox children, and a child takes one call at a time."""
+    try:
+        spans = await asyncio.gather(*(sandbox.run(stand_in.span, 0.05) for _ in range(6)))
+    finally:
+        await sandbox.stop()
+    for pid in {s[0] for s in spans}:
+        mine = sorted((s[1], s[2]) for s in spans if s[0] == pid)
+        assert all(a[1] <= b[0] for a, b in zip(mine, mine[1:], strict=False)), "two calls ran in one child at once"
 
 
 async def test_a_job_put_back_after_a_stall_keeps_its_attempts(

@@ -11,6 +11,7 @@ import dataclasses
 
 import pytest
 
+from app.features.pipeline import parsing
 from app.features.pipeline import service as pipeline_service
 from tests.repository.test_pipeline_support import Harness
 from tests.security import test_foundation_file_lifecycle_validation as lifecycle
@@ -41,7 +42,7 @@ async def unopened(h: Harness) -> list[dict[str, str]]:
 def test_the_count_refuses_a_pdf_over_the_document_cap_before_any_page_is_cut(monkeypatch: pytest.MonkeyPatch) -> None:
     capped(monkeypatch, document=3, bundle=100)
     cut: list[int] = []
-    monkeypatch.setattr(pipeline_service, "cut_page", lambda *a, **k: cut.append(1))
+    monkeypatch.setattr(parsing, "cut_page", lambda *a, **k: cut.append(1))
     assert pipeline_service._checked_pages(blank_pages_pdf(3)) == 3, "control: a PDF at the cap is counted"
     cut.clear()
     with pytest.raises(pipeline_service.TooManyPages):

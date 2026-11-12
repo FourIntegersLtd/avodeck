@@ -92,3 +92,23 @@ def layer_exit(page_pdf: bytes) -> Any:
     if _marked(page_pdf):
         _die()
     return parsing.text_layer(page_pdf)
+
+
+def pictures_slow(page_pdf: bytes, rotation: int) -> Any:
+    """A big scan: the drawing takes two seconds, in the child, so the worker's loop is not held."""
+    time.sleep(2)
+    return parsing.blank_pictures()
+
+
+def pictures_crash(page_pdf: bytes, rotation: int) -> Any:
+    """A page that makes the drawing raise: a bug, not a hang or a death (the job fails and is retried)."""
+    if _marked(page_pdf):
+        raise RuntimeError("synthetic crash")
+    return parsing.pictures(page_pdf, rotation)
+
+
+def span(seconds: float) -> tuple[int, float, float]:
+    """The child's pid and the interval (monotonic clock) in which this call ran."""
+    started = time.monotonic()
+    time.sleep(seconds)
+    return os.getpid(), started, time.monotonic()
