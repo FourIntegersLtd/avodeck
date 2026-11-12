@@ -61,8 +61,19 @@ async def clean_unsplit(conn: AsyncConnection, case_id: uuid.UUID) -> list[Docum
     return [Document(r[0], r[1], r[2]) for r in await cur.fetchall()]
 
 
+async def lock_bundle_numbering(conn: AsyncConnection, case_id: uuid.UUID) -> None:
+    await conn.execute(
+        "select pg_advisory_xact_lock(hashtextextended((select bundle_id::text from app.cases where id = %s), 12))",
+        (case_id,),
+    )
+
+
 async def add_pages(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID, count: int) -> bool:
-    """Number the document's pages after the case's last page, once. False if already split."""
+    """Number the document's pages after the case's last page, once. False if already split.
+
+    Splits of one bundle take turns (a transaction-scoped lock on the bundle), so two workers never read the same
+    last page number, and anything counted against the bundle here is counted by one split at a time."""
+    await lock_bundle_numbering(conn, case_id)
     cur = await conn.execute(
         "select 1 from app.document_scans where document_id = %s and split_at is null for update", (document_id,)
     )

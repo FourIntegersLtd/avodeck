@@ -26,6 +26,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import contextvars
+import functools
 import hashlib
 import io
 import json
@@ -289,7 +290,10 @@ class _Source:
             self.path = Path(name)
             with os.fdopen(handle, "wb") as out:
                 await asyncio.to_thread(out.write, found.pdf)
-        return await asyncio.get_running_loop().run_in_executor(_CUT, pikepdf.open, self.path)
+        # the same reader the count used (no repair), so the pages counted are the pages cut
+        return await asyncio.get_running_loop().run_in_executor(
+            _CUT, functools.partial(pikepdf.open, self.path, attempt_recovery=False)
+        )
 
     async def cut(self, index: int) -> bytes:
         async with self.lock:
