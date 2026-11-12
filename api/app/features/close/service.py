@@ -12,6 +12,7 @@ policy for the next settlement; a case already due for deletion cannot be reopen
 
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from collections.abc import Iterator, Sequence
@@ -279,8 +280,10 @@ async def download_export(
     crypto: CaseCrypto,
     access: CaseAccess,
     job_id: uuid.UUID,
-) -> bytes:
-    """The export ZIP, once: the stored copy is removed as it is handed over, and the download audited."""
+) -> tuple[bytes, str]:
+    """The export ZIP and its SHA-256, once: the stored copy is removed as it is handed over, and the download
+    audited. A copy that does not match the hash recorded when it was built (or has none) is refused (PV-17b)
+    and left where it is."""
     case_id = access.case_id
     path = export_path(case_id, job_id, export_variant(access))
     await repo.lock_download(conn, path)
@@ -289,9 +292,12 @@ async def download_export(
     except StorageError:
         raise ApiError("not_found", "This export has already been downloaded.", 404) from None
     data = await sealed.open_sealed(conn, crypto, case_id, blob, purpose=path)
+    digest = hashlib.sha256(data).hexdigest()
+    if await repo.export_hash(conn, case_id, job_id, export_variant(access)) != digest:
+        raise ApiError("hash_mismatch", "This file does not match the export that was built.", 409)
     await _record(conn, case_id, "case.export_downloaded", f"export:{job_id}")
     await storage.delete([path])
-    return data
+    return data, digest
 
 
 def chunks(data: bytes, size: int = DOWNLOAD_CHUNK) -> Iterator[bytes]:
