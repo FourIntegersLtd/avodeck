@@ -232,10 +232,10 @@ def pipeline_batch_settings(env: Mapping[str, str] | None = None) -> PipelineBat
 
 @dataclass(frozen=True)
 class DocumentLimits:
-    """What one document may cost to process (audit 13). Page caps: `MAX_DOCUMENT_PAGES` per document, `MAX_BUNDLE_PAGES`
-    per bundle (4,000, non-functional requirement C1). Images: `MAX_IMAGE_PIXELS` per frame, `MAX_IMAGE_FRAMES` per file.
-    `MAX_CONVERT_BYTES` is the largest non-PDF file converted in memory. `MAX_OCR_RESPONSE_BYTES` caps one answer
-    read back from the OCR service."""
+    """What one document may cost to process (audit 13). Page caps: `MAX_DOCUMENT_PAGES` per document,
+    `MAX_BUNDLE_PAGES` per bundle (4,000, non-functional requirement C1). Images: `MAX_IMAGE_PIXELS` per frame,
+    `MAX_IMAGE_FRAMES` per file. `MAX_CONVERT_BYTES` is the largest non-PDF file converted in memory.
+    `MAX_OCR_RESPONSE_BYTES` caps one answer read back from the OCR service."""
 
     max_document_pages: int = 4000
     max_bundle_pages: int = 4000
@@ -275,7 +275,8 @@ class SandboxSettings:
 
 
 def sandbox_settings(env: Mapping[str, str] | None = None) -> SandboxSettings:
-    """`SANDBOX_POOL_SIZE` (2), `SANDBOX_TIMEOUT_SECONDS` (120), `SANDBOX_MEMORY_MB` (3072), `SANDBOX_RECYCLE_AFTER` (50)."""
+    """`SANDBOX_POOL_SIZE` (2), `SANDBOX_TIMEOUT_SECONDS` (120), `SANDBOX_MEMORY_MB` (3072),
+    `SANDBOX_RECYCLE_AFTER` (50)."""
     source = os.environ if env is None else env
     d = SandboxSettings()
     return SandboxSettings(

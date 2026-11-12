@@ -43,7 +43,7 @@ async def test_a_declared_length_over_the_cap_is_refused_before_a_byte_is_read()
     wire = Wire(10_000)
     with pytest.raises(ApiError) as caught:
         await read_capped(request(wire, length=10_000), 5000)
-    assert caught.value.status_code == 413
+    assert caught.value.status == 413
     assert wire.sent == 0
 
 
@@ -51,7 +51,7 @@ async def test_a_stream_with_no_length_is_cut_off_at_the_cap() -> None:
     wire = Wire(10_000_000)
     with pytest.raises(ApiError) as caught:
         await read_capped(request(wire), 5000)
-    assert caught.value.status_code == 413
+    assert caught.value.status == 413
     assert wire.sent <= 6000, "stopped within one chunk of the cap"
 
 

@@ -25,8 +25,12 @@ class Wire:
 
     async def __call__(self) -> dict[str, Any]:
         n = min(self.chunk, self.total - self.sent)
+        first = self.sent == 0
         self.sent += n
-        return {"type": "http.request", "body": b"%PDF" + b"x" * (n - 4) if self.sent == n else b"x" * n, "more_body": self.sent < self.total}
+        body = b"x" * n
+        if first and n >= 4:
+            body = b"%PDF" + body[4:]
+        return {"type": "http.request", "body": body, "more_body": self.sent < self.total}
 
 
 def request(wire: Wire, length: int | None) -> Request:
@@ -39,7 +43,7 @@ async def test_the_setup_body_helper_stops_reading_at_its_limit(length: int | No
     wire = Wire(50_000_000)
     with pytest.raises(ApiError) as caught:
         await routes_files._body(request(wire, length), 100_000)
-    assert caught.value.status_code == 413
+    assert caught.value.status == 413
     assert wire.sent <= 100_000 + 8192, "no more than one chunk past the limit was read"
 
 
@@ -47,23 +51,25 @@ async def test_the_setup_body_helper_refuses_a_declared_over_limit_body_unread()
     wire = Wire(50_000_000)
     with pytest.raises(ApiError) as caught:
         await routes_files._body(request(wire, 50_000_000), 100_000)
-    assert caught.value.status_code == 413 and wire.sent == 0
+    assert caught.value.status == 413 and wire.sent == 0
 
 
 async def test_the_setup_body_helper_still_refuses_an_empty_body_and_accepts_a_small_one() -> None:
     with pytest.raises(ApiError) as caught:
         await routes_files._body(request(Wire(0), 0), 1000)
-    assert caught.value.status_code == 422
+    assert caught.value.status == 422
     assert len(await routes_files._body(request(Wire(500), 500), 1000)) == 500
 
 
 @pytest.mark.parametrize("length", [None, 10])
-async def test_the_trial_pdf_body_stops_reading_at_its_limit(length: int | None, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_the_trial_pdf_body_stops_reading_at_its_limit(
+    length: int | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(common, "MAX_PDF_BYTES", 100_000)
     wire = Wire(50_000_000)
     with pytest.raises(ApiError) as caught:
         await common.pdf_body(request(wire, length))
-    assert caught.value.status_code == 422
+    assert caught.value.status == 422
     assert wire.sent <= 100_000 + 8192
 
 

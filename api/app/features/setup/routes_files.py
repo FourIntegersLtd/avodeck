@@ -27,6 +27,7 @@ from app.core.crypto import SecretBox
 from app.core.errors import ApiError, ProcessingPaused
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.packs import MergedPack
+from app.core.request_body import read_capped
 from app.core.storage import CaseFileStorage
 from app.features.setup import ai_tasks, services
 from app.features.setup.common import cell, invalid, library, not_found, registry_keys
@@ -70,11 +71,11 @@ async def _get_sealed(request: Request, path: str, *, purpose: str, subject: str
 
 
 async def _body(request: Request, limit: int) -> bytes:
-    data = await request.body()
+    data = await read_capped(
+        request, limit, too_large=lambda: ApiError("invalid", "The file is too large.", 413, fields=["file"])
+    )
     if not data:
         raise invalid("file", message="The file is empty.")
-    if len(data) > limit:
-        raise ApiError("invalid", "The file is too large.", 413, fields=["file"])
     return data
 
 
