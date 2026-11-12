@@ -600,6 +600,12 @@ async def test_a_set_aside_copy_is_not_waiting_so_the_case_is_ready_and_the_entr
     _analysed(admin, case, original, read=False)
     _analysed(admin, case, waiting, read=False)
     admin.execute("update app.pages set duplicate_of_page_id = %s where id = %s", (original, copy))
+    admin.execute(  # PV-09: only a copy the expert confirmed is set aside
+        "insert into app.page_analysis (page_id, bundle_id, stage, duplicate_status)"
+        " select id, bundle_id, 'extract', 'confirmed' from app.pages where id = %s"
+        " on conflict (page_id) do update set duplicate_status = 'confirmed'",
+        (copy,),
+    )
     queued: list[Any] = []
 
     class Registry:
@@ -625,6 +631,12 @@ async def test_a_set_aside_copy_with_no_extraction_does_not_hold_the_case_back(
     original, copy = seed.page(case, doc, 1), seed.page(case, doc, 2)
     _analysed(admin, case, original, read=True)
     admin.execute("update app.pages set duplicate_of_page_id = %s where id = %s", (original, copy))
+    admin.execute(  # PV-09: only a copy the expert confirmed is set aside
+        "insert into app.page_analysis (page_id, bundle_id, stage, duplicate_status)"
+        " select id, bundle_id, 'extract', 'confirmed' from app.pages where id = %s"
+        " on conflict (page_id) do update set duplicate_status = 'confirmed'",
+        (copy,),
+    )
     queued: list[Any] = []
 
     class Registry:
