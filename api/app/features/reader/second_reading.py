@@ -203,11 +203,6 @@ def _found(words: list[OcrWord], pack: Any, identity: Any) -> Counter[str]:
 async def _read_one(
     conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, asked: tuple[int | None, str | None]
 ) -> list[dict[str, Any]]:
-    storage, crypto, library = services.get_storage(), services.get_crypto(), services.get_packs()
-    kit = services.get_kit()
-    if kit is None:
-        raise ProcessingPaused("model_unavailable")
-    await _unchanged(conn, case_id, page_id, asked)
     cur = await conn.execute(
         "select p.image_path, p.rotation, a.width, a.height, c.jurisdiction, c.case_type, c.specialty"
         " from app.pages p join app.cases c on c.id = %s and c.bundle_id = p.bundle_id"
@@ -215,8 +210,13 @@ async def _read_one(
         (case_id, page_id),
     )
     row = await cur.fetchone()
-    if row is None or row[0] is None:
+    if row is None or row[0] is None:  # a page lost to the parser has no picture: nothing to read, nothing waits
         raise _Refused("unreadable_picture")
+    storage, crypto, library = services.get_storage(), services.get_crypto(), services.get_packs()
+    kit = services.get_kit()
+    if kit is None:
+        raise ProcessingPaused("model_unavailable")
+    await _unchanged(conn, case_id, page_id, asked)
     image_path, rotation, width, height, jurisdiction, case_type, specialty = row
     pack = library.for_case({"jurisdiction": jurisdiction, "case_type": case_type, "specialty": specialty})
     identity = await identity_for(conn, crypto, case_id)

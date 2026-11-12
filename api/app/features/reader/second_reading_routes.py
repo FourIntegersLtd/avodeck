@@ -21,6 +21,7 @@ from app.core.crypto import CaseCrypto
 from app.core.errors import conflict
 from app.core.http import CurrentScope, DbConn
 from app.core.jobs import registry
+from app.core.storage import StorageError
 from app.features.reader import second_reading
 from app.features.reader.router import _page, router
 from app.features.reader.schemas import JobOut
@@ -64,7 +65,10 @@ async def _picture_sha(request: Request, page: dict) -> str | None:  # type: ign
     storage = getattr(request.app.state, "storage", None)
     if storage is None or page["image_path"] is None:
         return None
-    return hashlib.sha256(await storage.get(page["image_path"])).hexdigest()
+    try:
+        return hashlib.sha256(await storage.get(page["image_path"])).hexdigest()
+    except StorageError:  # no picture to hash: the job refuses the page (`unreadable_picture`)
+        return None
 
 
 @router.post("/pages/{page_no}/second-reading", response_model=JobOut, status_code=202)

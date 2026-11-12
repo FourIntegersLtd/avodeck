@@ -28,7 +28,7 @@ from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, release_connection, stale
 from app.core.http import router as make_router
 from app.core.packs import PackLibrary
-from app.core.storage import CaseFileStorage
+from app.core.storage import CaseFileStorage, StorageError
 from app.features.reader import fields as fact_fields
 from app.features.reader import repo, search_cache, timeline_date, today  # noqa: F401 (registers the Today providers)
 from app.features.reader import search as bundle_search
@@ -201,7 +201,11 @@ async def page_image(
     path = r["image_path"]
     key = await crypto.key(conn, case_id)
     await release_connection(request)  # the Storage get below can take a while: no connection meanwhile
-    picture = await crypto.open_with(key, case_id, await storage.get(path), purpose=path)
+    try:
+        sealed = await storage.get(path)
+    except StorageError:  # the picture is not there (a page lost to the parser, or a file moved): not available
+        raise _not_found() from None
+    picture = await crypto.open_with(key, case_id, sealed, purpose=path)
     if size == "small":
         picture = await asyncio.to_thread(_small, picture)  # off the event loop
     return Response(picture, media_type="image/jpeg", headers={"cache-control": "private, no-store"})
@@ -217,6 +221,8 @@ async def mark_read(
     scope: CurrentScope,
 ) -> ReadOut:
     r = await _page(conn, case_id, page_no, scope)
+    if r["unreadable"] and r["image_path"] is None:  # lost to the parser: no picture, so it cannot have been seen
+        raise ApiError("conflict", "This page has no picture to read yet.", 409)
     await repo.record_read(conn, case_id, r["id"], scope.person_id, body.dwell_seconds)
     after = await _page(conn, case_id, page_no, scope)
     return ReadOut(page_no=page_no, read=True, first_read_at=after["first_read_at"])
