@@ -3,8 +3,9 @@
 It has no stored page PDF, picture or thumbnail and its image stays unset, so the page is still "waiting for its
 picture" and a later run cuts it again. It is marked unreadable meanwhile (the summary count and the clearer-copy
 list), its thumbnail answers 404 instead of a blank image, and once a later run can cut it its words are read
-like any other page's. It stays listed unreadable: the page guard clears that flag only with the expert's
-transcription. Nothing printed or asserted on is patient text.
+like any other page's. A page that was never read and now has an image and words is readable again (the page guard,
+migration 0074, allows exactly that clear); one that is recut but yields no words stays unreadable. Nothing
+printed or asserted on is patient text.
 """
 
 from __future__ import annotations
@@ -16,8 +17,9 @@ import pikepdf
 import pytest
 
 from app.core import sandbox
+from app.core.ai.ocr import OcrFailed
 from app.core.config import SandboxSettings
-from app.features.pipeline import parsing
+from app.features.pipeline import parsing, wiring
 from tests.repository.test_pipeline_support import Harness
 from tests.security import test_foundation_file_lifecycle_validation as lifecycle
 from tests.support import pipeline_parse_stand_ins as stand_in
@@ -88,5 +90,33 @@ async def test_a_lost_page_has_no_stand_in_picture_is_listed_and_is_cut_again_by
     assert set((await h.drain()).values()) <= {"done"}
     assert stored(h, middle["id"])["image"] is True, "not cut again"
     again = stored(h, middle["id"])
-    # the database guard (0050) keeps a page unreadable until the expert transcribes it, so it stays listed
-    assert again["unreadable"] is True and again["read"] is True and again["words"] > 0, again
+    # migration 0074: a page never read before, now with an image and words, is readable again
+    assert again["unreadable"] is False and again["read"] is True and again["words"] > 0, again
+    summary = await h.client.get(f"{base}/bundle/summary")
+    assert summary.json()["unreadable"] == 0, "a recut and read page is still counted unreadable"
+
+
+class NothingRead:
+    """An OCR service that fails every page it is given (the page then has no words)."""
+
+    endpoint = "synthetic"
+
+    async def analyse(self, document: bytes, model: str = "layout", *, locale: str | None = None) -> Any:
+        raise OcrFailed("synthetic")
+
+
+async def test_a_lost_page_that_is_cut_again_but_yields_no_words_stays_unreadable(
+    h: Harness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original = parsing.cut_pages
+    monkeypatch.setattr(parsing, "cut_pages", stand_in.cut_exit)
+    await lifecycle.run(h, three_pages(), "three.pdf")
+    _, middle, _ = h.pages()
+    monkeypatch.setattr(parsing, "cut_pages", original)
+    monkeypatch.setattr(parsing, "text_layer", lambda page_pdf: None)  # no text layer: the page goes to OCR
+    monkeypatch.setattr(wiring.current(), "ocr", NothingRead())
+    await h.enqueue("process_bundle")
+    await h.drain()
+    again = stored(h, middle["id"])
+    assert again["image"] is True and again["read"] is True and again["words"] == 0, again
+    assert again["unreadable"] is True, "a page with no words must not be written readable"
