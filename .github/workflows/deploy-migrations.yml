@@ -20,7 +20,7 @@ jobs:
   push:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: supabase/setup-cli@v1
         with: { version: 2.121.0 }  # pinned: "latest" asks the GitHub API and hits its rate limit
 

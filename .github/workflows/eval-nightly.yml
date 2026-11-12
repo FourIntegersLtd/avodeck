@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: eval      # holds Bedrock (London) and Azure (UK South) credentials
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/api-install
       - run: make eval     # fails if precision < 0.95 or manual-reading share rises > 5 points
 
@@ -21,7 +21,7 @@ jobs:
   links-recall:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/api-install
       - uses: actions/cache@v4
         with:
@@ -37,7 +37,7 @@ jobs:
   pipeline-acceptance:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/api-install
       - uses: supabase/setup-cli@v1
         with: { version: latest }
