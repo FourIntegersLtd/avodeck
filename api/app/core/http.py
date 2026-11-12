@@ -50,6 +50,7 @@ from app.core.auth.identity import Identity
 from app.core.crypto import cell_secret_box
 from app.core.db import RequestScope
 from app.core.errors import ApiError
+from app.core.request_body import buffer_body
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 _KEPT_HEADERS = ("content-type", "etag", "location", "cache-control")
@@ -64,7 +65,12 @@ class _Discard(Exception):
 
 async def _fingerprint(request: Request) -> str:
     digest = hashlib.sha256()
-    for part in (request.method.encode(), request.url.path.encode(), request.url.query.encode(), await request.body()):
+    for part in (
+        request.method.encode(),
+        request.url.path.encode(),
+        request.url.query.encode(),
+        await buffer_body(request),
+    ):
         digest.update(hashlib.sha256(part).digest())
     return digest.hexdigest()
 

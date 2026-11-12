@@ -6,7 +6,9 @@ body cap. `read_capped` is the one way a route that takes the file as its body r
 cut off as soon as it passes the cap. The chunk route in `core/routes/uploads.py` does the same for one part.
 
 A route that is called with an `Idempotency-Key` has its body read for the request fingerprint first
-(`core/http.py::_fingerprint`); `read_capped` then sees that cached body and only checks its length.
+(`core/http.py::_fingerprint`, through `buffer_body` under the global `MAX_REQUEST_BODY_BYTES` ceiling, DP-13);
+`read_capped` then sees that cached body and only checks its length. So for such a request a route's own cap
+protects only against bodies between the route's cap and the ceiling being used, not against their being held.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ from collections.abc import Callable
 
 from fastapi import Request
 
+from app.core.config import document_limits
 from app.core.errors import ApiError
 
 
@@ -33,3 +36,12 @@ async def read_capped(request: Request, limit: int, *, too_large: Callable[[], E
         if len(received) > limit:
             raise too_large()
     return bytes(received)
+
+
+async def buffer_body(request: Request) -> bytes:
+    """The whole body, held on the request as Starlette's own `body()` would, but never past the global ceiling
+    (`MAX_REQUEST_BODY_BYTES`): over it is 413 `body_too_large`, by declared length before a byte is read or by
+    the stream. Later `request.body()` and `request.stream()` calls (a route, `read_capped`) get the same bytes."""
+    data = await read_capped(request, document_limits().max_request_body_bytes)
+    request._body = data  # noqa: SLF001 - what `Request.body()` itself stores; `stream()` then replays it
+    return data

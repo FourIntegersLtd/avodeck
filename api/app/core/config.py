@@ -235,7 +235,9 @@ class DocumentLimits:
     """What one document may cost to process (audit 13). Page caps: `MAX_DOCUMENT_PAGES` per document,
     `MAX_BUNDLE_PAGES` per bundle (4,000, non-functional requirement C1). Images: `MAX_IMAGE_PIXELS` per frame,
     `MAX_IMAGE_FRAMES` per file. `MAX_CONVERT_BYTES` is the largest non-PDF file converted in memory.
-    `MAX_OCR_RESPONSE_BYTES` caps one answer read back from the OCR service."""
+    `MAX_OCR_RESPONSE_BYTES` caps one answer read back from the OCR service. `MAX_REQUEST_BODY_BYTES` is the
+    ceiling on any request body read for the Idempotency-Key fingerprint: the largest body a route accepts (the trial
+    PDF, 1 GiB; an upload part is 8 MiB)."""
 
     max_document_pages: int = 4000
     max_bundle_pages: int = 4000
@@ -243,6 +245,7 @@ class DocumentLimits:
     max_image_frames: int = 2000
     max_convert_bytes: int = 100 * 1024 * 1024
     max_ocr_response_bytes: int = 64 * 1024 * 1024
+    max_request_body_bytes: int = 1024 * 1024 * 1024
 
 
 def document_limits(env: Mapping[str, str] | None = None) -> DocumentLimits:
@@ -259,6 +262,7 @@ def document_limits(env: Mapping[str, str] | None = None) -> DocumentLimits:
         max_image_frames=env_int(source, "MAX_IMAGE_FRAMES", defaults.max_image_frames, minimum=1),
         max_convert_bytes=env_int(source, "MAX_CONVERT_BYTES", defaults.max_convert_bytes, minimum=1),
         max_ocr_response_bytes=env_int(source, "MAX_OCR_RESPONSE_BYTES", defaults.max_ocr_response_bytes, minimum=1),
+        max_request_body_bytes=env_int(source, "MAX_REQUEST_BODY_BYTES", defaults.max_request_body_bytes, minimum=1),
     )
 
 

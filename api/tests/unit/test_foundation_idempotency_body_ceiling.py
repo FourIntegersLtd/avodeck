@@ -35,9 +35,7 @@ class Wire:
 
 def request(wire: Wire, *, length: int | None = None, query: bytes = b"a=1") -> Request:
     headers = [(b"content-length", str(length).encode())] if length is not None else []
-    return Request(
-        {"type": "http", "method": "PUT", "path": "/v1/x", "headers": headers, "query_string": query}, wire
-    )
+    return Request({"type": "http", "method": "PUT", "path": "/v1/x", "headers": headers, "query_string": query}, wire)
 
 
 @pytest.fixture(autouse=True)
