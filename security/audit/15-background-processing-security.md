@@ -10,11 +10,11 @@ Assessment date: 12 November 2026. Branch: `docs/audit-15-background-processing`
 - **No job has an overall time limit** (BG-12). A handler that hangs while its worker stays alive is never retried and holds its case's lock until the worker restarts.
 - **Limits on job creation are thin** (BG-07, BG-08, BG-11): the only brake on repeated "process" and "retry" requests is the general request limit of 600 a minute per person for each route, and the queue is first in, first out, so one case's backlog delays everyone else's ordinary work.
 - Smaller items: three database-layer gaps not reachable through the API (BG-03, BG-04, BG-09), the worker role's unscoped rights over queue rows (BG-10), queue rows that are never pruned and have no index for the worker's own lookups (BG-13, BG-14), no dependency scanning (BG-15), and two documentation claims the repository does not support (BG-17).
-- This audit changes no product code. Each of the 13 tested findings has a test that fails today and names the finding; the fix PR removes the marker. BG-10 is recorded by a passing test of current behaviour, and BG-15, BG-16 and BG-17 were found by reading.
+- This audit changed no product code. The fixes are on the same branch (see "Fixed on this branch" under Remediation). Each of the 13 tested findings has a test that fails today and names the finding; the fix PR removes the marker. BG-10 is recorded by a passing test of current behaviour, and BG-15, BG-16 and BG-17 were found by reading.
 
 ## How this was tested
 
-- 121 tests in `api/tests/security/test_foundation_background_jobs_*.py` (worker logging, access, replay, state, abuse), with helpers in `api/tests/support/background_jobs.py`. Result: **104 passed, 17 expected failures** covering 13 findings.
+- 121 tests in `api/tests/security/test_foundation_background_jobs_*.py` (worker logging, access, replay, state, abuse), with helpers in `api/tests/support/background_jobs.py`. Result when written: **104 passed, 17 expected failures** covering 13 findings. After the fixes, with 22 more tests in `test_foundation_background_jobs_fixes.py`: **140 passed, 3 expected failures** (BG-04, BG-07 and the BG-11 ordering test, each left for its owner or a later change).
 - Every test asserts the safe behaviour. A weakness is a strict expected failure carrying its id (`BG-nn`); it turns into an error the moment the weakness is fixed, so the marker cannot be left behind. Every "refused" test has a control where the legitimate action on the same path succeeds. Each expected-failure test holds one assertion about the product; its control is a separate passing test, and set-up problems or timeouts raise a different error, so a broken fixture cannot pass as a confirmed weakness.
 - Jobs are synthetic kinds on an isolated registry and queue, on seeded cases, run by a real worker against a local Postgres (port 58422) as the real `app_api` and `app_worker` roles. A canary string stands in for patient text. No cloud service, production system or real record was contacted.
 - Tests that audits 11, 12 and 14 already hold were not repeated; they are cited where relied on.
@@ -170,23 +170,23 @@ What does limit cost today: the general request limit (600 a minute per person f
 
 | Id | Severity | Finding | Evidence | Verified | Fix | Owner |
 |---|---|---|---|---|---|---|
-| BG-01 | Medium | Worker and schedule processes do not install log scrubbing | `app/worker/main.py:156-157`, `app/worker/schedules.py`; only `app/main.py:198` calls it | T | Call `logs.configure()` at the start of both `main()` | foundation |
-| BG-02 | Medium | Worker and schedule processes do not start error reporting: no dead-letter or schedule-failure alert | same; only `app/main.py:128` | T | Call `logs.init_sentry()` in both | foundation |
-| BG-05 | Medium | A duplicate queue row runs an unfinished job twice | `app/core/jobs.py:545-626` | T | Claim the job with a status condition; skip when already `running` and not a stall requeue | foundation |
-| BG-06 | Medium | A stray queue row restarts a job paused to wait for a person | same | T | Refuse a paused job whose reason is not self-resumable | foundation |
-| BG-12 | Medium | No overall time limit on a job | `app/core/jobs.py:372-434` | T (no limit exists); hang not timed | Per-kind time limit around the handler | foundation |
-| BG-08 | Low–medium | Repeated "process" requests each queue a job | `app/features/pipeline/router.py:675` | T | Return the live job when one is queued or running | pipeline |
-| BG-11 | Low–medium | No fairness between cases or people within a queue | queue order | T | Cap queued jobs per case, or order fairly | foundation |
-| BG-13 | Medium (operational) | No index for lookups by job id in queue rows | `0138_pipeline_orphan_sweep_skips_parked.sql:12-65` | T | Expression index on `args->>'job_id'` | foundation |
-| BG-03 | Low | API role can insert a job row directly, skipping the per-kind check; the orphan sweep queues it | `0003_foundation_case_access.sql:196-201` | T | Remove the insert right and the `jobs_add` rule | foundation |
+| BG-01 | Medium | Worker and schedule processes do not install log scrubbing | `app/worker/main.py:156-157`, `app/worker/schedules.py`; only `app/main.py:198` calls it | T | Call `logs.configure()` at the start of both `main()` | foundation (Fixed: `start_observability` in `app/worker/main.py`) |
+| BG-02 | Medium | Worker and schedule processes do not start error reporting: no dead-letter or schedule-failure alert | same; only `app/main.py:128` | T | Call `logs.init_sentry()` in both | foundation (Fixed: same) |
+| BG-05 | Medium | A duplicate queue row runs an unfinished job twice | `app/core/jobs.py:545-626` | T | Claim the job with a status condition; skip when already `running` and not a stall requeue | foundation (Fixed: conditional claim in `app/core/jobs.py`) |
+| BG-06 | Medium | A stray queue row restarts a job paused to wait for a person | same | T | Refuse a paused job whose reason is not self-resumable | foundation (Fixed: same) |
+| BG-12 | Medium | No overall time limit on a job | `app/core/jobs.py:372-434` | T (no limit exists); hang not timed | Per-kind time limit around the handler | foundation (Fixed: per-kind time limit, `timed_out`) |
+| BG-08 | Low–medium | Repeated "process" requests each queue a job | `app/features/pipeline/router.py:675` | T | Return the live job when one is queued or running | pipeline (Bounded by the BG-11 cap; dedupe still open) |
+| BG-11 | Low–medium | No fairness between cases or people within a queue | queue order | T | Cap queued jobs per case, or order fairly | foundation (Partly fixed: per-case cap (migration 0070); fairness xfail stays) |
+| BG-13 | Medium (operational) | No index for lookups by job id in queue rows | `0138_pipeline_orphan_sweep_skips_parked.sql:12-65` | T | Expression index on `args->>'job_id'` | foundation (Fixed: migration 0069) |
+| BG-03 | Low | API role can insert a job row directly, skipping the per-kind check; the orphan sweep queues it | `0003_foundation_case_access.sql:196-201` | T | Remove the insert right and the `jobs_add` rule | foundation (Fixed: migration 0068) |
 | BG-04 | Low | `requeue_failed_job` checks the upload action for every kind | `0120_pipeline_retry_failed_job.sql:10-39` | T | Check the action registered for the job's kind | pipeline |
 | BG-07 | Low | Person-driven retry has no lifetime cap | same | T | Count retries per job; cap them | pipeline |
-| BG-09 | Low | Enqueue function trusts the caller's queue and priority | `0015_foundation_job_kind_actions.sql:31-59` | T | Take both from the kind's registration | foundation |
-| BG-10 | Low | Worker role has unscoped rights over all queue rows | `0007_foundation_files_jobs.sql:606-610` | T | Narrow to what the worker's functions need, or accept and record | foundation |
-| BG-14 | Low | Finished queue rows and events are never pruned | `app/core/jobs.py:416-434,465-495` | T | Daily prune of finished rows older than a set age | foundation (with close for deleted cases) |
-| BG-15 | Low | No dependency vulnerability scanning | `.github/workflows/` | R | `pip-audit` and `npm audit` in CI, plus Dependabot | foundation |
+| BG-09 | Low | Enqueue function trusts the caller's queue and priority | `0015_foundation_job_kind_actions.sql:31-59` | T | Take both from the kind's registration | foundation (Fixed: migration 0070 (9006 flags)) |
+| BG-10 | Low | Worker role has unscoped rights over all queue rows | `0007_foundation_files_jobs.sql:606-610` | T | Narrow to what the worker's functions need, or accept and record | foundation (Accepted: no change) |
+| BG-14 | Low | Finished queue rows and events are never pruned | `app/core/jobs.py:416-434,465-495` | T | Daily prune of finished rows older than a set age | foundation (with close for deleted cases) (Fixed: migrations 0071, 9007) |
+| BG-15 | Low | No dependency vulnerability scanning | `.github/workflows/` | R | `pip-audit` and `npm audit` in CI, plus Dependabot | foundation (Fixed: `.github/dependabot.yml`, report-only audit steps) |
 | BG-16 | Low | After-commit tasks are lost on an API restart | routes listed in section 4 | R | Move the served-report event and emails to jobs or an outbox | report, organisations |
-| BG-17 | Info | Threat model claims worker egress limits (T3) and queue limits (T15) that the repository does not show | `docs/security/threat-model.md:22,34` | R | Build them or correct the document | foundation |
+| BG-17 | Info | Threat model claims worker egress limits (T3) and queue limits (T15) that the repository does not show | `docs/security/threat-model.md:22,34` | R | Build them or correct the document | foundation (Fixed: threat model T3, T15 corrected) |
 
 ## Policy items, with the default taken
 
@@ -219,6 +219,22 @@ Nothing was changed; these describe today's behaviour for a decision.
 6. **BG-03, BG-04, BG-09, BG-10:** tighten the database layer.
 7. **BG-15:** dependency scanning in CI.
 8. **BG-16, BG-17, BG-07:** durable after-commit work; correct or build the threat-model claims; retry cap.
+
+### Fixed on this branch
+
+- **BG-01, BG-02:** `start_observability` in `app/worker/main.py`, called by the worker and the schedule process; tests in `test_foundation_background_jobs_worker_logging.py` (markers removed).
+- **BG-05, BG-06:** the worker claims a job only when it is `queued`, `running` with `requeued_stall`, or `paused` with `service_busy`, `model_unavailable`, `resuming` or `busy_processing`; any other queue row is skipped. Support's resume now sets `resuming` (migration 9008) so it is still a legitimate resume. Failure mode F105.
+- **BG-12:** per-kind time limit (bulk 2 h, interactive 15 min; `JOB_TIME_LIMIT_*_SECONDS`), ordinary failure path, then `failed` with `timed_out`, case lock released. Failure mode F103; `state-machines.md`.
+- **BG-03:** migration 0068 drops the `jobs_add` policy and revokes insert on `app.jobs` from `app_api`; jobs come only from `app.enqueue_job`.
+- **BG-09:** migration 0070 pins priority to 0 or 10, and queue and priority by the kind's `interactive` flag (backfilled in 9006). A slice that adds a job kind must add its `app.job_kind_actions` row with `interactive` (and `max_active` if above 5); a test fails if a registered kind has none.
+- **BG-11 (cap only):** migration 0070 caps queued-or-running jobs per case and kind at 5 (SQLSTATE `AVCAP`, 429 `too_many_jobs`, `Retry-After: 30`), exempt for the worker inside its own job. Failure mode F104. The ordering test (`test_one_cases_backlog_does_not_hold_up_another_cases_ordinary_job`) cannot pass with a cap alone and is left as an expected failure. Smallest ordering change to propose: lower a new job's priority by its case's queued depth inside `enqueue_job` (a larger change is a per-case round-robin fetch).
+- **BG-08:** the cap bounds the flood (at most 5 queued "process" jobs per case). The strict marker was removed because it would now pass; the test needs Auth and runs in CI. A dedupe (return the existing job) is still for the pipeline owner.
+- **BG-13:** migration 0069, index on `args ->> 'job_id'`.
+- **BG-14:** migration 0071 `app.prune_queue_rows` (finished rows and events older than 30 days, `QUEUE_RETENTION_DAYS`, and any finished row of a deleted case; `app_worker` only), called by the worker's daily housekeeping; migration 9007 makes `purge_case` remove the case's queue rows. **This closes audit 12 D1f**, apart from the delete job's own row, which the daily prune removes. Failure mode F106.
+- **BG-10: accepted.** Procrastinate's functions run as the caller and need insert and update on its tables, so narrowing the worker's rights breaks on upgrades and a compromised worker could still change rows. The documenting test is unchanged. The prune is a security definer function, so delete could be revoked later.
+- **BG-15:** `.github/dependabot.yml` (pip `api/`, npm `web/`, actions), a `dependency-audit` job in `ci-api.yml` and a `pnpm audit` step in `ci-web.yml`, both report-only. First runs (12 November): `pip-audit` found 26 advisories in certifi, cryptography, filelock and setuptools; fixed by `poetry update` to certifi 2026.10.23, cryptography 50.0.2, filelock 4.2.10, setuptools 84.2.1 (crypto, auth-token, TOTP and guard tests green). `pnpm audit --audit-level=high`: 1 high and 3 critical, all development tools only (vitest below 3.2.6, tinypool below 2.1.2, vite below 6.4.4 via vitest and the React plugin); the production dependencies show 2 moderate. Not bumped: vitest 3 and vite 6 are major versions; Dependabot will open them.
+- **BG-17:** `docs/security/threat-model.md` T3 and T15 now describe the queue cap, time limit, priority pinning and prune. Worker egress restriction is **not configured in this repository** and must be set in Railway by hand; it remains open.
+- **Left open:** BG-04, BG-07 (other owners), BG-16, and the BG-11 ordering test.
 
 ## Reviewer pass
 

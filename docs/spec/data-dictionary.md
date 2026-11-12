@@ -1142,6 +1142,8 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | Field | In plain words |
 |---|---|
 | kind / action | A kind of background job and the case action a person needs to start it |
+| interactive | Whether the kind is something a person waits for (on screen) or bulk work; it decides the queue and priority the job gets, so a caller cannot choose a faster lane |
+| max_active | How many queued or running jobs of this kind one case may have at once; empty means the standard 5 |
 
 ### job_steps
 | Field | In plain words |
