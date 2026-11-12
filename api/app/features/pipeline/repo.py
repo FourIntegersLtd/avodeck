@@ -1559,7 +1559,9 @@ async def retry_limited(conn: AsyncConnection, job_id: uuid.UUID) -> bool:
 async def live_bundle_job(conn: AsyncConnection, case_id: uuid.UUID, resumable: Sequence[str]) -> uuid.UUID | None:
     """The case's `process_bundle` job that is still going to run (BG-08): queued, running with a recent heartbeat,
     or paused to resume by itself (`resumable` codes, `resuming`, or waiting for a page-batch run to end). A job
-    paused for a person (cancelled, cost guard), finished or failed is not live. Takes the case's request lock, so
+    paused for a person (cancelled, cost guard), finished or failed is not live. A running job whose page-batch run
+    is open has planned its pages already: a request made now (an append, or a start after a Stop that the sweep has
+    not mirrored yet) gets a run of its own (ADR 0038), so it is not returned. Takes the case's request lock, so
     two requests at once see each other's job."""
     await conn.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (f"process_bundle:{case_id}",))
     cur = await conn.execute(
@@ -1567,7 +1569,9 @@ async def live_bundle_job(conn: AsyncConnection, case_id: uuid.UUID, resumable: 
         " status = 'queued'"
         f" or (status = 'running' and updated_at > now() - interval '{LIVE_MINUTES} minutes')"
         " or (status = 'paused' and error_code = any(%s))"
-        ") order by (status = 'running') desc, created_at, id limit 1",
+        ") and not (status = 'running' and exists (select 1 from app.pipeline_runs r where r.job_id = app.jobs.id"
+        " and r.state not in ('done', 'closed')))"
+        " order by (status = 'running') desc, created_at, id limit 1",
         (case_id, [*resumable, "resuming", "busy_processing"]),
     )
     row = await cur.fetchone()
