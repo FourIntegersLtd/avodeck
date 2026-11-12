@@ -19,8 +19,8 @@ import os
 import shutil
 import tempfile
 import uuid
-from collections.abc import AsyncIterator
-from contextlib import aclosing, asynccontextmanager
+from collections.abc import AsyncIterator, Iterator
+from contextlib import aclosing, asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from typing import BinaryIO
 
@@ -117,6 +117,81 @@ def _scratch_dir() -> str:
     if AVODECK_SCRATCH_DIR:  # ours to lock down; never chmod the shared system temp directory
         os.chmod(directory, 0o700)
     return directory
+
+
+_PLAIN_PREFIX = "plain-"
+
+
+@contextmanager
+def scratch_file(data: bytes | None = None, *, suffix: str = "") -> Iterator[str]:
+    """A named plaintext file in the scratch directory, for a tool that needs a real path (the PDF splitter).
+
+    Created `O_CREAT|O_EXCL`, mode `0600`, in the `0700` scratch directory; `data` is written to it; the path is
+    yielded and the file is deleted when the block ends, however it ends. Blocking: call it in a thread. If the
+    process dies first, `sweep_scratch` removes the file at the next worker start. The name carries the process id
+    and a random part and never anything about the document.
+    """
+    directory = _scratch_dir()
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0)
+    while True:
+        path = os.path.join(directory, f"{_PLAIN_PREFIX}{os.getpid()}-{uuid.uuid4().hex}{suffix}")
+        try:
+            fd = os.open(path, flags, 0o600)
+        except FileExistsError:  # pragma: no cover - a uuid collision
+            continue
+        break
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            if data:
+                handle.write(data)
+        yield path
+    finally:
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+
+
+def _process_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:  # alive, but not ours
+        return True
+    return True
+
+
+def sweep_scratch() -> int:
+    """Delete plaintext files an earlier run left behind (a crash or kill between create and delete); the count.
+
+    Call once at worker start. Only `plain-<pid>-…` files are touched, and only when that process id is no longer
+    running or is this process (nothing of ours is open yet at start), so a second worker sharing the directory
+    keeps its files. Never reports a path.
+    """
+    directory = AVODECK_SCRATCH_DIR or tempfile.gettempdir()
+    try:
+        names = os.listdir(directory)
+    except FileNotFoundError:
+        return 0
+    removed = 0
+    for name in names:
+        if not name.startswith(_PLAIN_PREFIX):
+            continue
+        pid_text = name[len(_PLAIN_PREFIX) :].split("-", 1)[0]
+        if not pid_text.isdigit():
+            continue
+        pid = int(pid_text)
+        if pid != os.getpid() and _process_alive(pid):
+            continue
+        try:
+            os.unlink(os.path.join(directory, name))
+        except OSError:
+            continue
+        removed += 1
+    if removed:
+        _log.warning("swept leftover scratch files", extra={"count": removed})
+    return removed
 
 
 def _free_bytes(directory: str) -> int:

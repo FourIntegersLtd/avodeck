@@ -22,7 +22,8 @@ import app.core.housekeeping  # noqa: F401 - registers the foundation's daily sc
 import app.core.notifications  # noqa: F401 - the daily messages schedule
 import app.core.uploads  # noqa: F401 - the finalize_upload job
 import app.features.pipeline  # noqa: F401 - slice A's job kinds and its DocumentUploaded subscriber
-from app.core import logs, metrics
+from app.core import logs, metrics, sandbox
+from app.core.case_files import sweep_scratch
 from app.core.config import (
     ConfigError,
     database_settings,
@@ -157,6 +158,8 @@ async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_P
     source = os.environ if env is None else env
     scanner_from_env(source)  # no scanner configured ends the process now, not at the first scan job
     check_cell_key(source)  # no cell key ends it now, not at the first deferred mail
+    sweep_scratch()  # plaintext a crashed run left in the scratch directory (DP-06)
+    await sandbox.start()  # parser child processes start on first use (DP-09)
     concurrency = env_int(source, "WORKER_CONCURRENCY", 4, minimum=1)
     check_pipeline_window(source, concurrency=concurrency)
     await open_database_with_retry(worker.database)
@@ -180,6 +183,7 @@ async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_P
                 for task in sampling:
                     task.cancel()
     finally:
+        await sandbox.stop()
         if key_listener is not None:
             await key_listener.stop()
         await worker.database.close()

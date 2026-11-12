@@ -1,4 +1,4 @@
-"""Plaintext on disk (audit 13, DP-06): named scratch files for tools that need a path, and the sweep at worker start."""
+"""Plaintext on disk (audit 13, DP-06): named scratch files for tools that need a path, and the start sweep."""
 
 from __future__ import annotations
 
