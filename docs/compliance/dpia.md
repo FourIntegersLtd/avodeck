@@ -120,6 +120,7 @@ The alternative — manual review without AI assistance — is the current pract
 | AWS S3 | eu-west-2 London | Yes (encrypted) | Case file storage |
 | AWS KMS | eu-west-2 London | Keys only | Envelope key management |
 | AWS Bedrock (Claude) | eu-west-2 London | De-identified text only | AI fact extraction (no training, no retention) |
+| Anthropic API (direct) | United States | De-identified synthetic text only: **temporary, dummy data only, never for live cases** (ADR 0036; off unless `AI_PRIMARY_PROVIDER=anthropic`) | Development and demonstration AI fact extraction; reverted to Bedrock before any live bundle |
 | Azure Document Intelligence | UK South | Yes (page images) | OCR (data logging disabled) |
 | Azure Speech | UK South | Audio only (transient) | Dictation relay |
 | Railway | Amsterdam | Transit only, no data at rest | API and worker compute |
