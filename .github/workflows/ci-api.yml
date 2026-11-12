@@ -138,20 +138,21 @@ jobs:
         if: github.event_name == 'pull_request'
         run: poetry -P api run python scripts/check_red_green.py origin/${{ github.base_ref }}
 
-  # Known-vulnerability report on the installed (locked) Python packages (audit 15, BG-15). Report only: a new advisory
-  # on an unrelated day must not turn main red. The summary lists the packages; Dependabot opens the fixes.
+  # Known-vulnerability check on the installed (locked) Python packages (audit 13, DP-10; was report-only, BG-15). An
+  # advisory that is not in `.github/pip-audit-ignore.txt` (id, reason, date added) fails the build; Dependabot opens
+  # the fixes, and an entry comes out of the list when its fix is installed.
   dependency-audit:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/api-install
       - name: pip-audit the installed environment
-        continue-on-error: true  # advisories are reported in the summary and never turn the check red
         run: |
           # `poetry export` is a plugin that CI does not install, so audit what the lock installed.
           poetry -C api run pip freeze --exclude-editable > "$RUNNER_TEMP/req.txt"
-          pipx run pip-audit -r "$RUNNER_TEMP/req.txt" --no-deps --disable-pip 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          ignores=()
+          while read -r id _; do ignores+=(--ignore-vuln "$id"); done < <(grep -Ev '^[[:space:]]*(#|$)' .github/pip-audit-ignore.txt)
+          pipx run pip-audit -r "$RUNNER_TEMP/req.txt" --no-deps --disable-pip "${ignores[@]}" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           exit "${PIPESTATUS[0]}"
 
   # The shards together ran every collected test exactly once, and the combined coverage meets the floor (85, as `make -C api test`).
