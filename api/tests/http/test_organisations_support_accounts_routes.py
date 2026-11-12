@@ -464,6 +464,28 @@ async def test_if_the_database_work_fails_the_login_is_undone(
     assert made["email"] == email
 
 
+async def test_if_the_email_cannot_be_written_the_login_is_undone(
+    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection,
+    monkeypatch: pytest.MonkeyPatch, worker_dsn: str,
+) -> None:  # fmt: skip
+    """BG-16: writing the mail can fail inside the request (key service down, too many pending rows). The request
+    then rolls back, so the login made for it must go too, or support's retry gets 409."""
+
+    async def refused(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("the email could not be written")
+
+    email = new_email()
+    with monkeypatch.context() as patched:
+        patched.setattr(deferred, "defer_mail", refused)
+        with pytest.raises(RuntimeError):
+            await (await client_for(staff)).post(URL, json={"full_name": "Dr X", "email": email}, headers=key())
+    assert admin.execute("select count(*) from app.people where email = %s", (email,)).fetchone() == (0,)
+    await drain(worker_dsn, app.state.mailer)
+    assert app.state.mailer.outbox == []
+    made = await create(client_for, staff, email=email)  # the login was deleted, so the email is free again
+    assert made["email"] == email
+
+
 async def test_the_email_is_sealed_in_the_request_and_delivered_by_the_worker_not_the_request(
     client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection, worker_dsn: str
 ) -> None:
