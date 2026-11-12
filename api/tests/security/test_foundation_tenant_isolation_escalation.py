@@ -437,13 +437,15 @@ def _mails_to_outside() -> int:
 
 async def _spot_check(iso_send, admin, worker_dsn: str, w: IsolationWorld, who: str, **kw: Any):  # type: ignore[no-untyped-def]
     """Start a spot check as this attacker-case person: (response, new spot_checks rows, new mails to the outside)."""
+    from app.features.report.services import current
+
+    # The code mail is deferred work (BG-16): it reaches the mailer when the worker sweep runs. Deliver what earlier
+    # tests left waiting before counting, so only this request's mail is new.
+    await drain(worker_dsn, current().mailer)
     rows, mails = _checks(admin, w.attacker.case), _mails_to_outside()
     response = await iso_send(
         w.attacker.people[who], "POST", f"/v1/cases/{w.attacker.case}/spot-checks", json=OUTSIDE, **kw
     )
-    # The code mail is deferred work (BG-16): it reaches the mailer when the worker sweep runs.
-    from app.features.report.services import current
-
     await drain(worker_dsn, current().mailer)
     return response, _checks(admin, w.attacker.case) - rows, _mails_to_outside() - mails
 
