@@ -415,6 +415,8 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
         async with ctx.transaction() as conn:
             await repo.set_image(conn, page.id, image_path)
             if lost:  # exactly what a page OCR could not read gets: no words, listed as a page we couldn't read
+                # TODO(read_failure): once `page_analysis.read_failure` merges, record the sandbox code here
+                # (`error.code`, e.g. timed_out) so the expert can tell a lost page from an OCR failure.
                 await repo.store_words(
                     conn, page.id, [], source="ocr", confidence=0.0, handwriting=False, unreadable=True, size=(1.0, 1.0)
                 )
@@ -715,6 +717,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
             except sandbox.SandboxError as exc:  # DP-09: this page alone is marked unreadable, as an OCR failure is
                 if run is not None:
                     run.page_failed(numbers.get(page_id), exc, "failed")
+                # TODO(read_failure): set the failure code from `exc.code` here once that column merges.
                 found, layer_lost = OcrPage(number=1, width=1.0, height=1.0, words=()), True
             source = "embedded"
             if layer_lost:
