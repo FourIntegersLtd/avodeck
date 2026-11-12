@@ -67,8 +67,11 @@ def enqueue(conn: psycopg.Connection, case: uuid.UUID, kind: str, queue: str = "
 # --- BG-12: the time limit ------------------------------------------------------------------------------------------
 
 
-def test_the_time_limits_default_to_two_hours_bulk_and_fifteen_minutes_interactive_and_take_the_environment() -> None:
-    assert job_time_limits({}) == JobTimeLimits(bulk=7200, interactive=900)
+def test_the_time_limits_default_to_a_hung_job_backstop_six_hours_bulk_one_hour_interactive_and_take_the_environment() -> (
+    None
+):
+    """A limit catches a hung job, not a slow one: a 4,000-page export, trial pack or deletion may run for hours."""
+    assert job_time_limits({}) == JobTimeLimits(bulk=6 * 3600, interactive=3600)
     chosen = job_time_limits({"JOB_TIME_LIMIT_BULK_SECONDS": "60", "JOB_TIME_LIMIT_INTERACTIVE_SECONDS": "30"})
     assert chosen == JobTimeLimits(bulk=60, interactive=30)
 
@@ -121,6 +124,76 @@ async def test_a_handler_that_hangs_is_stopped_retried_then_failed_as_timed_out_
     assert row == ("failed", 2, "timed_out")
     assert attempts == [1, 2], "a timeout is retried like any other failure"
     assert later == [queued_behind], "the case lock was released, so the next job on the case ran"
+
+
+async def test_a_timed_out_run_keeps_its_finished_steps_and_the_job_ends_failed_once_when_the_attempts_are_used(
+    worker_db: Database, worker_dsn: str, admin: psycopg.Connection, api_db: Database, seed: Seed
+) -> None:
+    """A retry after a timeout carries on after the steps that finished; it does not start again from scratch."""
+    expert, case = owned_case(seed)
+    registry = isolated_registry()
+    ran: list[tuple[int, str]] = []
+    hang_on_attempt = {1, 2}
+
+    @registry.kind("zz_long", changes_case=True)
+    async def long_job(ctx: JobContext) -> None:
+        async def first(conn: Any) -> None:
+            ran.append((ctx.attempt, "first"))
+
+        async def second(conn: Any) -> None:
+            ran.append((ctx.attempt, "second"))
+
+        await ctx.step("first", first)
+        if ctx.attempt in hang_on_attempt:
+            await asyncio.sleep(60)
+        await ctx.step("second", second)
+
+    async with api_db.request(scope_for(expert)) as conn:
+        job = await registry.enqueue(conn, case, "zz_long")
+    async with open_worker(
+        registry, worker_db, worker_dsn, max_attempts=3, time_limits=JobTimeLimits(bulk=0.4, interactive=0.4)
+    ) as worker:
+        await run_until_finished(worker, admin, [job], timeout=30)
+        await asyncio.sleep(0.5)  # a finished job is not run again
+    assert ran == [(1, "first"), (3, "second")], "the first step ran once; the third attempt only did what was left"
+    assert admin.execute("select status, attempts, error_code from app.jobs where id = %s", (job,)).fetchone() == (
+        "done",
+        3,
+        None,
+    )
+
+
+async def test_a_job_that_times_out_on_every_attempt_ends_failed_timed_out_once_and_is_not_run_again(
+    worker_db: Database, worker_dsn: str, admin: psycopg.Connection, api_db: Database, seed: Seed
+) -> None:
+    expert, case = owned_case(seed)
+    registry = isolated_registry()
+    runs: list[int] = []
+
+    @registry.kind("zz_always_slow", changes_case=True)
+    async def slow(ctx: JobContext) -> None:
+        runs.append(ctx.attempt)
+        await ctx.step("first", _nothing)
+        await asyncio.sleep(60)
+
+    async with api_db.request(scope_for(expert)) as conn:
+        job = await registry.enqueue(conn, case, "zz_always_slow")
+    async with open_worker(
+        registry, worker_db, worker_dsn, max_attempts=3, time_limits=JobTimeLimits(bulk=0.3, interactive=0.3)
+    ) as worker:
+        await run_until_finished(worker, admin, [job], timeout=30)
+        await asyncio.sleep(0.6)
+    assert runs == [1, 2, 3]
+    assert admin.execute("select status, attempts, error_code from app.jobs where id = %s", (job,)).fetchone() == (
+        "failed",
+        3,
+        "timed_out",
+    )
+    assert admin.execute("select count(*) from app.job_steps where job_id = %s", (job,)).fetchone() == (1,)
+
+
+async def _nothing(conn: Any) -> None:
+    return None
 
 
 async def test_a_kind_with_its_own_limit_is_judged_by_it_not_by_the_workers(
