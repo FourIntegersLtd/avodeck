@@ -212,6 +212,9 @@ Fixes changed behaviour that a few existing tests had pinned. In each case only 
 
 - The tenant-isolation catalogue (`test_foundation_tenant_isolation_db_layer.py`) lists tables with no tenant key in `EXPECTED_UNKEYED`. `chain_checks` and `case_purge_marks` were added (both are written only by definer functions and no app role can read them). This is a change to an existing test's list, not only a seed, so it needs a person's approval.
 - The transcript download seed and the isolation world now record the hash row and a history row the real jobs write.
+- Tests that checked a fact with a bare status update now write the check-log row first, as the verify route does (PV-02): the verify-duty guard (`test_reader_verification_duties.py`, edited with approval), the reassignment-check, fact-state-machine and fact-table contract tests. The late-check reassignment test accepts a refusal by error or by zero rows changed.
+- The spot-check seed removes the parties through the purge marker row, not the old setting (PV-20).
+- `test_a_cited_fact_moved_to_a_clearer_copy_...` moves the second fact to the live page too, because facts on a set-aside page are no longer citable (PV-14).
 
 ## Reviewer pass
 

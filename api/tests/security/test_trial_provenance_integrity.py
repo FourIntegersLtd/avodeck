@@ -24,7 +24,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import psycopg
@@ -60,6 +60,15 @@ from tests.http.test_trial_pack import built
 from tests.support.db import ClientFor
 
 pytestmark = pytest.mark.anyio
+
+
+@pytest.fixture(autouse=True)
+def own_trial_services(storage: CaseFileStorage, reads: Reads) -> Iterator[None]:
+    """Slice I's services with this module's encryption, whatever an earlier test of the run left configured (the
+    `app` fixture only configures them when none are, so a leftover set with another key broke the first test)."""
+    configure(TrialServices(crypto=CRYPTO, storage=storage, reads=reads, changes=RecordedChanges()))
+    yield
+    configure(None)
 
 
 async def swap(storage: CaseFileStorage, aconn: psycopg.AsyncConnection, w: World, path: str) -> None:

@@ -236,6 +236,15 @@ def _as(api_dsn: str, person: uuid.UUID) -> psycopg.Connection:
     return conn
 
 
+def _log_check(conn: psycopg.Connection, person: uuid.UUID, fact: uuid.UUID) -> None:
+    """PV-02: a check writes its check-log row in the same transaction, as the real route does."""
+    conn.execute(
+        "insert into app.fact_verifications (case_id, fact_id, person_id, action, old_value, new_value)"
+        " select f.case_id, f.id, %s, 'correct', f.value, f.value from app.facts f where f.id = %s",
+        (person, fact),
+    )
+
+
 def _in_thread(fn: Any) -> tuple[threading.Thread, list[BaseException]]:
     errors: list[BaseException] = []
 
@@ -256,6 +265,7 @@ async def test_a_check_in_flight_holds_the_reassignment_until_it_is_done(
     """The outgoing expert's check commits first; the reassignment then resets it too."""
     check_conn = _as(api_dsn, desk.dr_k)
     try:
+        _log_check(check_conn, desk.dr_k, desk.suggested)
         check_conn.execute("update app.facts set status = 'verified' where id = %s", (desk.suggested,))
 
         def move() -> None:
@@ -282,9 +292,14 @@ async def test_a_check_after_the_reassignment_began_is_refused(
     try:
         move_conn.execute("update app.cases set named_expert_id = %s where id = %s", (desk.dr_m, desk.case))
 
+        changed: list[int] = []
+
         def late_check() -> None:
             with _as(api_dsn, desk.dr_k) as conn:
-                conn.execute("update app.facts set status = 'verified' where id = %s", (desk.suggested,))
+                _log_check(conn, desk.dr_k, desk.suggested)
+                changed.append(
+                    conn.execute("update app.facts set status = 'verified' where id = %s", (desk.suggested,)).rowcount
+                )
                 conn.commit()
 
         thread, errors = _in_thread(late_check)
@@ -293,7 +308,8 @@ async def test_a_check_after_the_reassignment_began_is_refused(
         move_conn.commit()
         thread.join(15)
         assert not thread.is_alive()
-        assert len(errors) == 1 and isinstance(errors[0], psycopg.Error)
+        # refused with an error, or the row is no longer theirs to change (0 rows); either way the fact is unchanged
+        assert (len(errors) == 1 and isinstance(errors[0], psycopg.Error)) or (errors == [] and changed == [0])
     finally:
         move_conn.close()
     assert fact_row(admin, desk.suggested)["status"] == "suggested"

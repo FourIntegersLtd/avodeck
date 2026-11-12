@@ -421,12 +421,11 @@ async def seed_spot_check_rows(env: Env, t: Tenant) -> None:
     from app.features.report.assemble import VALUE_PURPOSE
 
     bundle = "(select bundle_id from app.cases where id = %s)"
-    env.admin.execute("select set_config('app.purging_case_id', %s, false)", (str(t.case),))
-    try:
+    with env.admin.transaction():  # the purge marker (0075) counts only in the transaction that wrote it
+        env.admin.execute("insert into app.case_purge_marks (purged_case, xid) values (%s, txid_current())", (t.case,))
         env.admin.execute("delete from app.case_parties where case_id = %s", (t.case,))
         env.admin.execute("delete from app.case_subject_identity where case_id = %s", (t.case,))
-    finally:
-        env.admin.execute("select set_config('app.purging_case_id', '', false)")
+        env.admin.execute("delete from app.case_purge_marks where purged_case = %s", (t.case,))
     sealed = await env.crypto.encrypt(env.aconn, t.case, b"zz value", purpose=VALUE_PURPOSE)
     env.admin.execute("update app.citations set value_snapshot = %s where case_id = %s", (sealed, t.case))
     env.admin.execute(f"update app.pages set image_path = null where bundle_id = {bundle}", (t.case,))

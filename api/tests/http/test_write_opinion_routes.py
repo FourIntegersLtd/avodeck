@@ -247,12 +247,14 @@ async def test_a_cited_fact_moved_to_a_clearer_copy_still_saves_and_shows_change
     reads.rows.add((world.case, clearer, 3, world.expert))
     admin.execute("update app.pages set superseded_by_page_id = %s where id = %s", (clearer, world.read_page))
     admin.execute("update app.facts set page_id = %s where id = %s", (clearer, world.verified))
+    # audit 16 (PV-14): a fact on a page that was set aside is no longer citable, so the second fact moves too
+    admin.execute("update app.facts set page_id = %s where id = %s", (clearer, world.result))
 
     again = await save(client, world, '"1"', opinion(world, "My view, still [[cite:1]]."))
     assert again.status_code == 200, again.text
     assert (again.json()["changed_citations"], again.json()["stale"]) == ([1], True)
 
-    added = [cite(world.verified, world.read_page, PLAN), cite(world.result, world.read_page, "ferritin 9")]
+    added = [cite(world.verified, world.read_page, PLAN), cite(world.result, clearer, "ferritin 9")]
     wrong = await save(client, world, '"2"', opinion(world, "[[cite:1]] and [[cite:2]].", refs=added))
     assert wrong.status_code == 200, "a new citation of another fact is checked on its own"
     renamed = [cite(world.verified, world.read_page, "review 3/52")]
