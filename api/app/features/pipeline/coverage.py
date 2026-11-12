@@ -40,6 +40,26 @@ def reason_for(
     return "low_coverage" if share < MIN_COVERAGE else None
 
 
+# A reason that records a page's state without asking a person to look: the page is listed, not flagged.
+LIGHT_REASONS = frozenset({"few_words"})
+
+
+def few_words_reason(
+    *,
+    ordered: Sequence[tuple[str, str]],
+    struck: set[str],
+    kept: Sequence[Mapping[str, Any]],
+    entries: Sequence[Any] | None,
+) -> str | None:
+    """`few_words`: a page with some words but fewer than `MIN_WORDS` (the line below which `reason_for` never
+    speaks, since a cover note or a stamp is short by nature) and nothing extracted. It is a lighter code than
+    `no_facts`: it does not mark the page as needing a person."""
+    count = len(_countable(ordered, struck))
+    if 0 < count < MIN_WORDS and not kept and not entries:
+        return "few_words"
+    return None
+
+
 def entry_coverage(*, ordered: Sequence[tuple[str, str]], struck: set[str], entries: Sequence[Any]) -> float:
     """The share of the page's countable words that lie inside an entry (1.0 when it has none to cover)."""
     countable = _countable(ordered, struck)
