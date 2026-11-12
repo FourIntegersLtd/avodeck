@@ -165,10 +165,11 @@ def job_max_stall_requeues(env: Mapping[str, str] | None = None) -> int:
     return env_int(source, "JOB_MAX_STALL_REQUEUES", DEFAULT_JOB_MAX_STALL_REQUEUES, minimum=0)
 
 
-# BG-12: the longest one run of a job may take. A bulk job is bundle processing (hours at most); an interactive one is
-# a person waiting. A kind may set its own at registration (`registry.kind(..., time_limit_seconds=...)`).
-DEFAULT_JOB_TIME_LIMIT_BULK_SECONDS = 2 * 60 * 60
-DEFAULT_JOB_TIME_LIMIT_INTERACTIVE_SECONDS = 15 * 60
+# BG-12: the longest one run of a job may take. It is a backstop for a HUNG job, not a deadline for a slow one: an
+# export, a trial pack, a deletion or a bundle of 4,000 pages can legitimately run for hours, and a run that is stopped
+# is tried again. A kind may set its own at registration (`registry.kind(..., time_limit_seconds=...)`).
+DEFAULT_JOB_TIME_LIMIT_BULK_SECONDS = 6 * 60 * 60
+DEFAULT_JOB_TIME_LIMIT_INTERACTIVE_SECONDS = 60 * 60
 # BG-14: finished queue rows (and their events) older than this many days are deleted.
 DEFAULT_QUEUE_RETENTION_DAYS = 30
 
@@ -183,7 +184,7 @@ class JobTimeLimits:
 
 
 def job_time_limits(env: Mapping[str, str] | None = None) -> JobTimeLimits:
-    """`JOB_TIME_LIMIT_BULK_SECONDS` (default 7200) and `JOB_TIME_LIMIT_INTERACTIVE_SECONDS` (default 900)."""
+    """`JOB_TIME_LIMIT_BULK_SECONDS` (default 21600, 6 hours) and `JOB_TIME_LIMIT_INTERACTIVE_SECONDS` (default 3600)."""
     source = os.environ if env is None else env
     return JobTimeLimits(
         bulk=env_float(source, "JOB_TIME_LIMIT_BULK_SECONDS", DEFAULT_JOB_TIME_LIMIT_BULK_SECONDS, minimum=1),
