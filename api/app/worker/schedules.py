@@ -16,7 +16,7 @@ from datetime import UTC, date, datetime
 
 from app.core.features import DEFAULT_PACKAGE, WORKER_HOOK, start_features
 from app.core.jobs import JobWorker
-from app.worker.main import build_worker
+from app.worker.main import build_worker, start_observability
 
 logger = logging.getLogger("app.worker.schedules")
 
@@ -50,6 +50,7 @@ async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_P
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
+    start_observability()
     sys.exit(asyncio.run(run()))
 
 

@@ -121,22 +121,8 @@ def _run_entrypoint(which: str, monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.parametrize(
     "entrypoint",
     [
-        pytest.param(
-            "worker",
-            marks=pytest.mark.xfail(
-                strict=True,
-                raises=AssertionError,
-                reason="BG-01: app/worker/main.py never calls logs.configure(), so the worker process logs unscrubbed",
-            ),
-        ),
-        pytest.param(
-            "cron",
-            marks=pytest.mark.xfail(
-                strict=True,
-                raises=AssertionError,
-                reason="BG-01: app/worker/schedules.py never calls logs.configure() (it only runs logging.basicConfig)",
-            ),
-        ),
+        "worker",
+        "cron",
     ],
 )
 def test_a_the_worker_processes_install_the_scrubbing_log_factory(
@@ -154,22 +140,8 @@ def test_a_the_worker_processes_install_the_scrubbing_log_factory(
 @pytest.mark.parametrize(
     "entrypoint",
     [
-        pytest.param(
-            "worker",
-            marks=pytest.mark.xfail(
-                strict=True,
-                raises=AssertionError,
-                reason="BG-02: app/worker/main.py never calls logs.init_sentry(), so _dead_letter() sends nothing",
-            ),
-        ),
-        pytest.param(
-            "cron",
-            marks=pytest.mark.xfail(
-                strict=True,
-                raises=AssertionError,
-                reason="BG-02: app/worker/schedules.py never calls logs.init_sentry(): a failed schedule raises no alert",  # noqa: E501
-            ),
-        ),
+        "worker",
+        "cron",
     ],
 )
 def test_a_the_worker_processes_start_error_reporting_when_a_dsn_is_set(

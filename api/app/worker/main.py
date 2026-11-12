@@ -21,7 +21,7 @@ import app.core.housekeeping  # noqa: F401 - registers the foundation's daily sc
 import app.core.notifications  # noqa: F401 - the daily messages schedule
 import app.core.uploads  # noqa: F401 - the finalize_upload job
 import app.features.pipeline  # noqa: F401 - slice A's job kinds and its DocumentUploaded subscriber
-from app.core import metrics
+from app.core import logs, metrics
 from app.core.config import ConfigError, database_settings, env_int, job_max_stall_requeues, pipeline_batch_settings
 from app.core.db import Database
 from app.core.email import Mailer
@@ -29,9 +29,22 @@ from app.core.email_live import mailer_from_env
 from app.core.features import DEFAULT_PACKAGE, WORKER_HOOK, load_features, start_features
 from app.core.jobs import BULK_QUEUE, DEFAULT_SHUTDOWN_GRACE_SECONDS, INTERACTIVE_QUEUE, JobWorker, registry
 from app.core.notify import CaseNotifier
+from app.core.packs import default_library
 from app.core.scan import scanner_from_env
 
 logger = logging.getLogger("app.worker")
+
+
+def start_observability(env: Mapping[str, str] | None = None) -> None:
+    """Switch on log scrubbing and error reporting in a worker process, as the API does at start-up (rule 6, BG-01,
+    BG-02): the same scrubbing record factory with the packs' identifier finders, and Sentry when `SENTRY_DSN` is
+    set (environment `SENTRY_ENVIRONMENT`, else the cell's region). Shared with `app.worker.schedules`."""
+    source = os.environ if env is None else env
+    logs.configure(default_library().identifier_finders())
+    dsn = source.get("SENTRY_DSN", "").strip()
+    if dsn:
+        environment = source.get("SENTRY_ENVIRONMENT", "").strip() or source.get("REGION", "").strip() or "worker"
+        logs.init_sentry(dsn, environment=environment)
 
 
 def worker_queues(source: Mapping[str, str]) -> list[str] | None:
@@ -154,6 +167,7 @@ async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_P
 
 
 def main() -> None:
+    start_observability()
     asyncio.run(run())
 
 
