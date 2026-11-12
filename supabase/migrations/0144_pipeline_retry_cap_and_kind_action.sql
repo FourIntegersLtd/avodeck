@@ -8,6 +8,8 @@
 --   `app.pipeline_job_retries` (one row per job, gone with the job) and the 6th is refused: the function answers
 --   False, as for any job that cannot be put back, and `app.pipeline_retry_limited(job)` says why, so the route
 --   answers 409 `retry_limit`. Support's requeue (`app.support_job_action`) does not use this table and is not capped.
+-- * BG-09, second path. The function took the queue and priority from its caller and passed them on. It now holds
+--   them to the kind's `interactive` flag with the same rule and error as `app.enqueue_job` (22023).
 -- * The table holds a job id and a number. The API and worker roles have no access to it: only these functions.
 
 set role app_migrator;
@@ -44,12 +46,25 @@ declare
   v_kind text;
   v_action text;
   v_used integer;
+  v_interactive boolean;
 begin
   -- Check the person first, without a lock: a refused person must not wait on a row another request holds.
   select j.case_id, j.kind into v_case, v_kind from app.jobs j where j.id = p_job;
   v_action := app.pipeline_retry_action(v_kind);
   if v_case is null or v_action is null or not coalesce(app.can_access_case(v_case, v_action), false) then
     return false;
+  end if;
+  -- Queue and priority are held to the kind exactly as `app.enqueue_job` holds them (0070, BG-09): a caller cannot
+  -- put a retry at priority 1,000,000 or on the other kind's queue.
+  select a.interactive into v_interactive from app.job_kind_actions a where a.kind = v_kind;
+  if p_priority is null or p_priority not in (0, 10) then
+    raise exception using errcode = '22023', message = 'a job has priority 0 or 10';
+  end if;
+  if v_interactive is not null
+     and (p_priority <> case when v_interactive then 10 else 0 end
+          or (v_interactive and p_queue like '%bulk')
+          or (not v_interactive and p_queue like '%interactive')) then
+    raise exception using errcode = '22023', message = 'that kind does not run with that priority and queue';
   end if;
   perform 1 from app.jobs j where j.id = p_job and j.status = 'failed' for update;
   if not found then
