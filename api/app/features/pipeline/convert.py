@@ -12,6 +12,7 @@ from __future__ import annotations
 import io
 import re
 import textwrap
+import warnings
 import zipfile
 from dataclasses import dataclass, field
 from email import policy
@@ -20,7 +21,7 @@ from email.parser import BytesParser
 from html.parser import HTMLParser
 
 import pikepdf
-from PIL import Image, ImageSequence
+from PIL import Image
 
 from app.core.pdf import is_pdf
 
@@ -49,6 +50,9 @@ class Limits:
     max_bytes: int = 500 * 1024 * 1024  # what a zip may unpack to
     max_members: int = 2000
     max_depth: int = 3  # zips and emails inside each other
+    max_image_pixels: int = 100_000_000  # one frame, width x height
+    max_image_frames: int = 2000  # pages of one multi-frame picture (a TIFF)
+    max_image_total_pixels: int = 1_000_000_000  # every frame of one picture together
 
 
 @dataclass(frozen=True)
@@ -132,7 +136,7 @@ def unpack(data: bytes, filename: str, limits: Limits | None = None) -> Unpacked
         if media == EMAIL:
             lines, members = _email(data)
             return Unpacked(media, pdf=_typed(lines), members=members)
-        return Unpacked(media, pdf=_image_pages(data))
+        return Unpacked(media, pdf=_image_pages(data, limits))
     except Exception:  # noqa: BLE001 - a file we cannot turn into pages is kept as an exhibit
         return Unpacked(media, exhibit=True)
 
@@ -259,13 +263,31 @@ def _typed(lines: list[str]) -> bytes:
     return _save(pdf)
 
 
-def _image_pages(data: bytes) -> bytes:
-    """One image-only page per image frame, for OCR to read."""
-    with Image.open(io.BytesIO(data)) as image:
-        frames = [frame.convert("RGB") for frame in ImageSequence.Iterator(image)]
-    out = io.BytesIO()
-    first, *rest = frames
-    first.save(out, "PDF", save_all=True, append_images=rest, resolution=IMAGE_DPI)
-    with pikepdf.open(io.BytesIO(out.getvalue())) as pdf:
-        pdf.docinfo = pdf.make_indirect(pikepdf.Dictionary())
-        return _save(pdf)
+def _image_pages(data: bytes, limits: Limits) -> bytes:
+    """One image-only page per image frame, for OCR to read.
+
+    The declared sizes are checked first (the frame count, each frame's pixels, all frames together) and a file over
+    any limit raises, so nothing is decoded; a Pillow decompression-bomb warning is an error here too. The frames are
+    then decoded one at a time into a one-page PDF each, so only one decoded frame is in memory at once."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", Image.DecompressionBombWarning)
+        with Image.open(io.BytesIO(data)) as image:
+            count = getattr(image, "n_frames", 1)
+            if count > limits.max_image_frames:
+                raise ValueError("too many frames")
+            total = 0
+            for n in range(count):
+                image.seek(n)
+                pixels = image.size[0] * image.size[1]
+                total += pixels
+                if pixels > limits.max_image_pixels or total > limits.max_image_total_pixels:
+                    raise ValueError("too many pixels")
+            merged = pikepdf.new()
+            for n in range(count):
+                image.seek(n)
+                single = io.BytesIO()
+                image.convert("RGB").save(single, "PDF", resolution=IMAGE_DPI)
+                with pikepdf.open(single) as one:
+                    merged.pages.extend(one.pages)
+    merged.docinfo = merged.make_indirect(pikepdf.Dictionary())
+    return _save(merged)
