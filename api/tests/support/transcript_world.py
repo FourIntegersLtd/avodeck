@@ -55,6 +55,7 @@ async def add_page(
     *,
     unreadable: bool = False,
     duplicate_of: uuid.UUID | None = None,
+    duplicate_status: str = "confirmed",  # PV-09: a copy is set aside only once confirmed; "suggested" is still read
     superseded_by: uuid.UUID | None = None,
     quarantined: bool = False,
     analysed: bool = True,
@@ -70,9 +71,9 @@ async def add_page(
     if analysed:
         await aconn.execute(
             "insert into app.page_analysis (page_id, bundle_id, extracted_at, entries_extracted_at, needs_human,"
-            " entries_failed_at) values (%s, (select bundle_id from app.cases where id = %s), now(),"
-            " case when %s then null else now() end, %s, case when %s then now() end)",
-            (page, case, failed, failed, failed),
+            " entries_failed_at, duplicate_status) values (%s, (select bundle_id from app.cases where id = %s), now(),"
+            " case when %s then null else now() end, %s, case when %s then now() end, %s)",
+            (page, case, failed, failed, failed, duplicate_status if duplicate_of else None),
         )
     built = Built(page)
     n = 0

@@ -124,6 +124,11 @@ async def test_a_copy_shows_no_suggestions_they_show_on_the_original(
     admin.execute(
         "update app.pages set duplicate_of_page_id = %s where id = %s", (loaded[118].page_id, loaded[1].page_id)
     )
+    admin.execute(  # PV-09: a page is set aside as a copy only when the copy is confirmed
+        "insert into app.page_analysis (page_id, bundle_id, duplicate_status) select id, bundle_id, 'confirmed'"
+        " from app.pages where id = %s on conflict (page_id) do update set duplicate_status = 'confirmed'",
+        (loaded[1].page_id,),
+    )
     client = await client_for(world["expert"])
     await mark_read(client, world, 1)
     assert (await client.get(f"{base(world)}/pages/1/facts")).json()["facts"] == []

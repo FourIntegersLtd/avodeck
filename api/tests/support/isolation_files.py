@@ -291,6 +291,11 @@ async def seed_transcript_file(env: Env, t: Tenant) -> Obj:
     token = token_for(t, "transcript")
     data = zip_of(token)
     await put_sealed(env, t.case, transcript_path(t.case, job, "docx"), data)
+    # PV-12/PV-16: the transcript job records the file's hash once it is stored, and a download with no hash row
+    # is refused for jobs made after the hash was introduced.
+    env.admin.execute(
+        "insert into app.transcript_files (job_id, fmt, sha256) values (%s, 'docx', %s)", (job, sha(data))
+    )
     return Obj(
         f"/transcript/download/{job}",
         data,
