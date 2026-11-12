@@ -124,3 +124,13 @@ def halves_exit(page_pdf: bytes, axis: str, at: float, first: str) -> bytes:
     if _marked(page_pdf):
         _die()
     return parsing.halves(page_pdf, axis, at, first)
+
+
+def picture_hash_hang(thumbnail: bytes) -> int:
+    _hang()
+    return parsing.picture_hash(thumbnail)
+
+
+def picture_hash_exit(thumbnail: bytes) -> int:
+    _die()
+    return parsing.picture_hash(thumbnail)
