@@ -11,8 +11,9 @@
 --     is its own choice and is left alone.
 --   * A worker inside its own job is exempt (`app.job_case_id` is that case): a bundle's page-batch children and the
 --     steps that queue the next step are the same case by design, and lowering them would only let other cases'
---     later work overtake a bundle already under way (ADR 0038 relies on them flowing). A person's request, and the
---     heal sweep, are not exempt.
+--     later work overtake a bundle already under way (ADR 0038 relies on them flowing). A person's request is not exempt.
+--   * A job that already had a queue row is not new backlog: the heal sweep's hand-back of a paused child, a parent's
+--     wake and a retry put the same work back, and are left as they were given.
 --   * It is a trigger, not a change inside `enqueue_job`, because the queue rows are also made by the retry function,
 --     the orphan sweep and the stall requeue; one place covers them all.
 --
@@ -35,6 +36,11 @@ declare
 begin
   if new.priority not in (0, 10) or v_case is null
      or v_case = coalesce(app.current_job_case_id()::text, '') then
+    return new;
+  end if;
+  if new.args ->> 'job_id' is not null and exists (
+    select 1 from procrastinate.procrastinate_jobs j where j.args ->> 'job_id' = new.args ->> 'job_id'
+  ) then
     return new;
   end if;
   select count(*) into v_depth from (
