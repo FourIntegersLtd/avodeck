@@ -44,7 +44,7 @@
     "axe-core": "^4.10.2",
     "eslint": "^9.14.0",
     "eslint-plugin-react": "^7.37.2",
-    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "fake-indexeddb": "6.2.5",
     "globals": "^15.12.0",
     "jsdom": "^25.0.1",
