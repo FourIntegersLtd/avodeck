@@ -18,7 +18,7 @@ from PIL import Image
 from app.core.ai.ocr import OcrPage
 from app.core.config import document_limits
 from app.core.pdf import cut_page
-from app.features.pipeline import convert, render
+from app.features.pipeline import convert, render, split
 from app.features.pipeline.render import Pictures
 from app.features.pipeline.words import usable_text_layer
 
@@ -55,6 +55,11 @@ def cut_pages(path: str, indexes: list[int]) -> list[bytes]:
     """Pages `indexes` (0-based) of the PDF at `path`, each as its own PDF, with the reader that counted them."""
     with pikepdf.open(path, attempt_recovery=False) as pdf:
         return [cut_page(pdf, index) for index in indexes]
+
+
+def halves(page_pdf: bytes, axis: str, at: float, first: str) -> bytes:
+    """The two-page cut of one stored page (the expert's split request), made in a sandbox child."""
+    return split.halves(page_pdf, axis, at, first)
 
 
 def unpack(data: bytes, filename: str, limits: convert.Limits) -> convert.Unpacked:

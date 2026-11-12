@@ -51,7 +51,7 @@ from urllib.parse import quote
 
 from fastapi import Depends, Request, Response
 
-from app.core import audit
+from app.core import audit, sandbox
 from app.core.ai import pii
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.config import cost_guard
@@ -62,7 +62,7 @@ from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, router, stale
 from app.core.jobs import BATCH_PRIORITY, INTERACTIVE_PRIORITY, RESUMABLE_PAUSES
 from app.core.storage import CaseFileStorage
-from app.features.pipeline import missing, paths, repo, split, wiring
+from app.features.pipeline import missing, parsing, paths, repo, wiring
 from app.features.pipeline.schemas import (
     Appended,
     AppendRecords,
@@ -854,12 +854,13 @@ async def split_page(
     services = wiring.current()
     crypto = _crypto(request)
     path = paths.page_pdf_path(case_id, page_id)
-    cut = split.halves(
-        await crypto.decrypt(conn, case_id, await services.storage.get(path), purpose=path),
-        body.axis,
-        body.at,
-        body.first,
-    )
+    page_pdf = await crypto.decrypt(conn, case_id, await services.storage.get(path), purpose=path)
+    try:
+        # Runs in the API process, so the cut is a sandbox call: a hang or a dead parser fails this request only,
+        # before anything is stored or queued (the sandbox starts itself on first use).
+        cut = await sandbox.run(parsing.halves, page_pdf, body.axis, body.at, body.first)
+    except sandbox.SandboxError as error:
+        raise ApiError("invalid", "This page could not be cut in two.", 422) from error
     document_id = uuid.uuid4()
     prefix = paths.part_prefix(case_id, document_id)
     object_path = f"{prefix}/file"
