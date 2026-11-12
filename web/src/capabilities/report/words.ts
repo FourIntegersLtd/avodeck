@@ -111,7 +111,7 @@ const WORDS = {
   "check.explain.citations_resolve": "A fact in your report no longer points to a page you have checked.",
   "check.explain.facts_unchanged_since_cited": "You changed a fact after citing it. Cite it again so the report matches.",
   "check.explain.quotes_verbatim": "A quotation does not match its page word for word.",
-  "check.explain.all_pages_read": "You need to read every page of the records before you sign.",
+  "check.explain.all_pages_read": "Every page still in the records must be read and readable (or typed in by you), and the records fully processed, before you sign.",
   "check.explain.findings_decided": "Decide each thing we pointed out in the records: keep it or set it aside.",
   "check.explain.dates_cited": "A date in your writing has no page cited beside it.",
   "check.explain.no_provisional_opinions": "An opinion is still marked as provisional.",
