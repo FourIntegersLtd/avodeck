@@ -83,3 +83,8 @@ def open_descriptors() -> list[int]:
 
 def slow_module_loaded() -> bool:
     return "tests.support.slow_import" in sys.modules
+
+
+def raise_always(*_args: object) -> None:
+    """A stand-in for a parser call that fails whatever it is given (a bug, not a hang or a death)."""
+    raise RuntimeError("synthetic failure")
