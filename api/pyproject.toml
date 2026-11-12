@@ -3,23 +3,23 @@ name = "avodeck-api"
 version = "0.1.0"
 description = "Avodeck API (FastAPI) and background worker, one package"
 requires-python = ">=3.12,<3.13"
-dependencies = ["fastapi (>=0.143.3,<0.144.0)", "uvicorn[standard] (>=0.54.0,<0.55.0)", "psycopg[binary] (>=3.2,<4.0)", "psycopg-pool (>=3.2,<4.0)", "httpx (>=0.28.1,<0.29.0)", "pyjwt[crypto] (>=2.10,<3.0)", "pyyaml (>=6.0,<7.0)", "jsonschema-rs (>=0.58,<0.59)", "tzdata (>=2025.2)", "presidio-analyzer (>=2.2.364,<3.0.0)", "cryptography (>=44)", "sentry-sdk[fastapi] (>=2.72.0,<3.0.0)", "procrastinate (>=3.5,<4.0)", "pikepdf (>=10.17.0,<11.0.0)", "pypdfium2 (>=5.14.0,<6.0.0)", "pillow (>=13.0.0,<14.0.0)", "imagehash (>=4.3.2,<5.0.0)", "datasketch (>=2.0.0,<3.0.0)", "rapidfuzz (>=3.14.6,<4.0.0)", "dateparser (>=1.4.3,<2.0.0)", "python-docx (>=1.2.0,<2.0.0)", "langdetect (==1.0.9)", "reportlab (>=5.0.1,<6.0.0)", "boto3 (>=1.40,<2.0)", "onnxruntime (==1.20.1)", "tokenizers (==0.21.0)", "anthropic (>=2.4.0,<3.0.0)"]
+dependencies = ["fastapi (>=0.143.5,<0.144.0)", "uvicorn[standard] (>=0.54.0,<0.55.0)", "psycopg[binary] (>=3.3.9,<4.0)", "psycopg-pool (>=3.2,<4.0)", "httpx (>=0.28.1,<0.29.0)", "pyjwt[crypto] (>=2.10,<3.0)", "pyyaml (>=6.0,<7.0)", "jsonschema-rs (>=0.58,<0.59)", "tzdata (>=2026.6)", "presidio-analyzer (>=2.2.366,<3.0.0)", "cryptography (>=44)", "sentry-sdk[fastapi] (>=2.75.0,<3.0.0)", "procrastinate (>=3.5,<4.0)", "pikepdf (>=10.18.0,<11.0.0)", "pypdfium2 (>=5.15.2,<6.0.0)", "pillow (>=13.0.0,<14.0.0)", "imagehash (>=4.3.2,<5.0.0)", "datasketch (>=2.0.0,<3.0.0)", "rapidfuzz (>=3.14.6,<4.0.0)", "dateparser (>=1.5.0,<2.0.0)", "python-docx (>=1.2.0,<2.0.0)", "langdetect (==1.0.9)", "reportlab (>=5.0.1,<6.0.0)", "boto3 (>=1.44.1,<2.0)", "onnxruntime (==1.20.1)", "tokenizers (==0.21.0)", "anthropic (>=2.8.0,<3.0.0)"]
 
 [tool.poetry]
 packages = [{ include = "app" }]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^9.1.1"
+pytest = "^9.2.0"
 pytest-cov = "^7.1.0"
-ruff = "^0.17.1"
-mypy = "^2.4.0"
+ruff = "^0.17.4"
+mypy = "^2.4.1"
 schemathesis = "^4.31.1"
 types-pyyaml = "^6.0.12.20260906"
 moto = {version = "^5", extras = ["s3", "server"]}
 
 
 [tool.poetry.group.evals.dependencies]
-reportlab = "^5.0.1"
+reportlab = "^5.1.0"
 pypdf = "^6.21.0"
 scipy = "^1.18.1"
 
