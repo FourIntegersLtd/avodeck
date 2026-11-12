@@ -1,7 +1,7 @@
 """The page guard lets a lost page become readable once it has been cut again and read (audit 13, DP-09 review P1).
 
 A page no parser child could cut or draw is marked `unreadable` with no image and no text. A later run cuts it
-(an image) and reads it (words). Migration 0074 lets the flag clear then, and only then: the page was never read
+(an image) and reads it (words). Migration 0076 lets the flag clear then, and only then: the page was never read
 before (`text_source` was unset), now has an image, words and a text source. Any other clear still needs the
 expert's transcription (0050). Ids and counts only (rule 6).
 """

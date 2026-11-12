@@ -53,6 +53,14 @@ def count_pages(source: str | bytes, max_pages: int) -> int:
     return checked_pages(source, max_pages)
 
 
+def declared_pages(path: str) -> int | None:
+    """The page count the PDF itself states in its page tree (PV-11), or None when it states none. A file cut off
+    after a page was lost still says how many pages it started with; `count_pages` counts the ones that are there."""
+    with pikepdf.open(path, attempt_recovery=False) as pdf:
+        stated = pdf.Root.Pages.get("/Count")
+        return int(stated) if stated is not None else None
+
+
 def cut_pages(path: str, indexes: list[int]) -> list[bytes]:
     """Pages `indexes` (0-based) of the PDF at `path`, each as its own PDF, with the reader that counted them."""
     with pikepdf.open(path, attempt_recovery=False) as pdf:

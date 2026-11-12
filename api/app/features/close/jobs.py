@@ -23,6 +23,7 @@ from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from app.core import audit
 from app.core.case_files import StoredDocument, StoredFileMissing
 from app.core.contracts.instructing_parties import logged_requests
 from app.core.contracts.invoices import case_invoice_rows
@@ -270,8 +271,14 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+# How a report file is marked in the manifest when its version is not an in-force served or signed one.
+MARKINGS = {"draft": "draft", "withdrawn": "withdrawn"}
+REPORT_FORMATS = ("pdf", "docx")
+
+
 def _finish_zip(archive: zipfile.ZipFile, names: list[str], hashes: list[dict[str, str]], case_id: uuid.UUID,
-                variant: str, left_out: dict[str, str] | None = None) -> None:  # fmt: skip
+                variant: str, left_out: dict[str, str] | None = None,
+                provenance: dict[str, Any] | None = None) -> None:  # fmt: skip
     table = io.StringIO()
     writer = csv.DictWriter(table, fieldnames=["file", "recorded_sha256", "computed_sha256", "matches"])
     writer.writeheader()
@@ -283,6 +290,7 @@ def _finish_zip(archive: zipfile.ZipFile, names: list[str], hashes: list[dict[st
         "files": sorted(names),
         "not_yet_available": [{"path": path, "reason": reason} for path, reason in NOT_YET_AVAILABLE],
         "left_out": [{"document_id": d, "reason": r} for d, r in (left_out or {}).items()],
+        **(provenance or {}),
     }
     for path, _ in NOT_YET_AVAILABLE:
         archive.writestr(path, "not_yet_available\n")
@@ -315,6 +323,18 @@ _EXTENSIONS = {
 }
 
 
+def _document_path(doc: dict[str, Any]) -> str:
+    return f"bundle/{doc['id']}{_EXTENSIONS.get(doc['media_type'] or '', '')}"
+
+
+def _recorded_hash(snapshots: dict[str, str], kind: str, version_sha: str | None, data: bytes) -> str | None:
+    """The hash recorded for one report file. Signing freezes one per format (`report_snapshots`); the version's
+    own `sha256` is a combined hash for a main report, so it stands for a file only where it is that file's hash."""
+    if kind in snapshots:
+        return snapshots[kind]
+    return version_sha if version_sha == _sha(data) else None
+
+
 async def add_document(
     doc: dict[str, Any],
     conn: AsyncConnection,
@@ -331,7 +351,7 @@ async def add_document(
     document = await StoredDocument.for_prefix(storage, crypto, case_id, doc["storage_path"])
     if not document.paths:
         raise StoredFileMissing(doc["storage_path"])
-    name = f"bundle/{doc['id']}{_EXTENSIONS.get(doc['media_type'] or '', '')}"
+    name = _document_path(doc)
     digest = hashlib.sha256()
     with contextlib.ExitStack() as entries:
         writers = []
@@ -388,15 +408,24 @@ async def export_case(ctx: JobContext) -> None:
         kinds = await _chosen_kinds(conn, ctx, storage, crypto)
         reports = await _all(
             conn,
-            "select version_no, pdf_path, docx_path, sha256 from app.report_versions where case_id = %s"
-            " and (pdf_path is not null or docx_path is not null) order by version_no",
+            "select id, version_no, type, status, pdf_path, docx_path, sha256 from app.report_versions"
+            " where case_id = %s and (pdf_path is not null or docx_path is not null) order by version_no, id",
             (ctx.case_id,),
         )
+        snapshots: dict[Any, dict[str, str]] = {}
+        for s in await _all(
+            conn,
+            "select report_version_id, kind, sha256 from app.report_snapshots where case_id = %s and kind = any(%s)",
+            (ctx.case_id, list(REPORT_FORMATS)),
+        ):
+            snapshots.setdefault(s["report_version_id"], {})[s["kind"]] = s["sha256"]
+        case_row = await _one(conn, "select pack_versions from app.cases where id = %s", (ctx.case_id,))
+        job_row = await _one(conn, "select code_version from app.jobs where id = %s", (ctx.job_id,))
         # Only a document the scan recorded clean goes into the copy (as the download route serves only those).
         # Documents left out are named in the manifest by id, with the reason, so the expert can see why.
         documents = await _all(
             conn,
-            "select d.id, d.storage_path, d.sha256, coalesce(s.clean, false) as clean, s.media_type,"
+            "select d.id, d.storage_path, d.sha256, d.pages, coalesce(s.clean, false) as clean, s.media_type,"
             " (s.clean is null) as scan_pending"
             " from app.documents d left join app.document_scans s on s.document_id = d.id"
             " where d.bundle_id = (select bundle_id from app.cases where id = %s) and d.storage_path is not null"
@@ -443,26 +472,56 @@ async def export_case(ctx: JobContext) -> None:
                     [[i.number_text, i.status, i.sent_at.isoformat(), f"{i.total:.2f}", f"{i.tax:.2f}", i.currency,
                       f"{i.paid_amount:.2f}", f"{i.credited:.2f}"] for i in await case_invoice_rows(conn, ctx.case_id)],
                 ))  # fmt: skip
+            report_entries: list[dict[str, Any]] = []
+            document_entries: list[dict[str, Any]] = []
             if "reports" in kinds:  # the report versions, and for the named expert the records they rest on
                 for r in reports:
-                    for path, ext, recorded in ((r["pdf_path"], "pdf", r["sha256"]), (r["docx_path"], "docx", None)):
+                    entry: dict[str, Any] = {
+                        "version_no": r["version_no"],
+                        "type": r["type"],
+                        "status": r["status"],
+                        "marking": MARKINGS.get(r["status"]),  # a draft or withdrawn version is never a served one
+                        "version_sha256": r["sha256"],  # the version's own (for a main report, combined) hash
+                        "files": [],
+                    }
+                    for ext in REPORT_FORMATS:
+                        path = r[f"{ext}_path"]
                         if path is not None:
-                            add(
-                                f"report-versions/v{r['version_no']}.{ext}",
-                                recorded,
-                                await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path),
-                            )
+                            data = await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path)
+                            recorded = _recorded_hash(snapshots.get(r["id"], {}), ext, r["sha256"], data)
+                            name = f"report-versions/v{r['version_no']}.{ext}"
+                            add(name, recorded, data)
+                            entry["files"].append({"path": name, "format": ext, "recorded_sha256": recorded})
+                    report_entries.append(entry)
                 for d in documents if "full" in variants else []:
                     if d["clean"]:  # one stored part at a time is in memory, whatever the file's size
                         await add_document(d, conn, ctx.case_id, storage, crypto, archives, names, hashes)
+                        document_entries.append(
+                            {"path": _document_path(d), "document_id": str(d["id"]), "sha256": d["sha256"],
+                             "pages": d["pages"]}
+                        )  # fmt: skip
+            provenance = {
+                "pack_versions": (case_row or {}).get("pack_versions") or {},
+                "code_version": (job_row or {}).get("code_version"),
+                "reports": report_entries,
+                "documents": document_entries,
+            }
             for variant in variants:
-                _finish_zip(archives[variant], names[variant], hashes[variant], ctx.case_id, variant, left_out)
+                _finish_zip(
+                    archives[variant], names[variant], hashes[variant], ctx.case_id, variant, left_out, provenance
+                )
+                files[variant].seek(0)
+                digest = _file_sha(files[variant])  # recorded below, once the copy is stored (PV-17b)
                 files[variant].seek(0)
                 target = export_path(ctx.case_id, ctx.job_id, variant)
                 with tempfile.TemporaryFile() as sealed_file:  # sealed frame by frame, then stored
                     await sealed.seal_file(conn, crypto, ctx.case_id, files[variant], sealed_file, purpose=target)
                     sealed_file.seek(0)
                     await storage.put_file(target, sealed_file)  # in parts: never the whole archive in memory
+                await audit.record(
+                    conn, action="case.export_built", target=f"export:{ctx.job_id}:{variant}:{digest}",
+                    case_id=ctx.case_id,
+                )  # fmt: skip
 
 
 async def _chosen_kinds(
@@ -477,6 +536,13 @@ async def _chosen_kinds(
     chosen = json.loads(await crypto.decrypt(conn, ctx.case_id, blob, purpose=path))
     await storage.delete([path])
     return frozenset(k for k in chosen if k in EXPORT_KINDS)
+
+
+def _file_sha(source: Any) -> str:
+    digest = hashlib.sha256()
+    while piece := source.read(ZIP_SLICE):
+        digest.update(piece)
+    return digest.hexdigest()
 
 
 def _csv(header: list[str], rows: list[list[Any]]) -> bytes:

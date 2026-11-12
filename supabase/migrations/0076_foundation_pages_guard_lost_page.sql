@@ -1,4 +1,4 @@
--- 0074 foundation: a lost page that has been cut again and read may become readable (audit 13, DP-09 review P1).
+-- 0076 foundation: a lost page that has been cut again and read may become readable (audit 13, DP-09 review P1).
 --
 -- A page no parser child could cut or draw is marked `unreadable` while its image and text are still unset; a
 -- later run cuts it and reads it. 0050 refuses to clear `unreadable` without the expert's transcription, so such
@@ -6,6 +6,8 @@
 -- page had never been read (`text_source` was unset), the update records a read (`text_source` set), the page has
 -- an image, and it has words. Any other clear (a page that was read and found unreadable, no image, no words, no
 -- read recorded) still needs the transcription. The words are looked up as the caller, so RLS applies.
+-- The rest of the function is 0074's (a page does not move between documents; the application role does not write
+-- what a page was read from).
 
 set role app_migrator;
 
@@ -20,6 +22,9 @@ begin
   if new.bundle_id is distinct from old.bundle_id then
     perform app.refuse('a page cannot move between bundles');
   end if;
+  if new.document_id is distinct from old.document_id then
+    perform app.refuse('a page cannot move between documents');
+  end if;
   if old.superseded_by_page_id is not null and new.superseded_by_page_id is distinct from old.superseded_by_page_id then
     perform app.refuse('a superseded page stays superseded');
   end if;
@@ -31,6 +36,14 @@ begin
        and exists (select 1 from app.ocr_words w where w.page_id = new.id)
      ) then
     perform app.refuse('an unreadable page becomes readable only with the expert''s transcription');
+  end if;
+  if session_user = 'app_api' then
+    if (new.image_path is not null and new.image_path is distinct from old.image_path)
+       or (new.text_source is not null and new.text_source is distinct from old.text_source)
+       or new.ocr_confidence is distinct from old.ocr_confidence
+       or new.handwriting is distinct from old.handwriting then
+      perform app.refuse('what a page was read from is written by the worker only');
+    end if;
   end if;
   return new;
 end

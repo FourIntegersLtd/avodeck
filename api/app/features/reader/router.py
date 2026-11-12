@@ -15,6 +15,7 @@ from typing import Annotated, Any, Literal
 from fastapi import Depends, Query, Request, Response
 from PIL import Image
 
+from app.core import audit
 from app.core.ai import provenance
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.contracts import served
@@ -32,6 +33,7 @@ from app.core.storage import CaseFileStorage, StorageError
 from app.features.reader import fields as fact_fields
 from app.features.reader import repo, search_cache, timeline_date, today  # noqa: F401 (registers the Today providers)
 from app.features.reader import search as bundle_search
+from app.features.reader.repo import DATE_BASIS_EXPERT
 from app.features.reader.schemas import (
     Box,
     FactList,
@@ -165,6 +167,7 @@ async def turn_page(
     were and nothing is read again: the screen turns the picture and what is drawn on it together."""
     r = await _page(conn, case_id, page_no, scope)
     await repo.set_turn(conn, r["id"], body.degrees, scope.person_id)
+    await audit.record(conn, action="page.turned", target=f"page:{r['id']}", case_id=case_id)
     return _detail(await _page(conn, case_id, page_no, scope))
 
 
@@ -243,7 +246,7 @@ async def page_facts(
     scope: CurrentScope,
 ) -> FactList:
     r = await _page(conn, case_id, page_no, scope)
-    if r["duplicate_of_page_id"] is not None:  # a copy's facts show on the original
+    if r["is_confirmed_copy"]:  # a confirmed copy's facts show on the original; a suggested copy shows its own
         return FactList(facts=[])
     rows = await repo.page_facts(conn, case_id, r["id"])
     return FactList(
@@ -290,6 +293,7 @@ async def save_transcription(
     """The expert's own typing of the page: it counts as reading it, and the page is read again from it."""
     r = await _page(conn, case_id, page_no, scope)
     await repo.save_transcription(conn, _crypto(request), case_id, r["id"], body.text, body.relevance)
+    await audit.record(conn, action="page.transcription_saved", target=f"page:{r['id']}", case_id=case_id)
     await repo.record_read(conn, case_id, r["id"], scope.person_id, 0)
     try:
         job_id = await extract_page_text(conn, case_id, r["id"])
@@ -306,7 +310,8 @@ async def change_page(
     changes = body.model_dump(exclude_unset=True)
     if changes.get("needs_clearer_copy", False) is None:
         raise ApiError("invalid", "Say whether a clearer copy is needed.", 422)
-    await repo.change_page(conn, r["id"], changes)
+    if await repo.change_page(conn, r["id"], changes):
+        await audit.record(conn, action="page.changed", target=f"page:{r['id']}", case_id=case_id)
     return _detail(await _page(conn, case_id, page_no, scope))
 
 
@@ -321,6 +326,7 @@ async def rotate_page(
     """Turns the page and reads it again; its number stays (slice A re-maps or flags its checked facts)."""
     if await repo.rotate(conn, case_id, page_id, body.degrees) is None:
         raise _not_found()
+    await audit.record(conn, action="page.rotated", target=f"page:{page_id}", case_id=case_id)
     try:
         job_id = await process_pages(conn, case_id, [page_id])
     except EntryPointMissing:
@@ -503,10 +509,9 @@ async def verify_fact(
         if resolved is not None:
             event_date = resolved
             date_basis = basis
-    elif before["event_date"] is None and event_date is not None and "event_date" in body.model_fields_set:
-        from app.core.contracts.fact_dates import DATE_BASIS_PRINTED
-
-        date_basis = DATE_BASIS_PRINTED
+    elif event_date is not None and event_date != before["event_date"] and "event_date" in body.model_fields_set:
+        # A date the expert types, or changes, is theirs: never labelled as read from the page (PV-03).
+        date_basis = DATE_BASIS_EXPERT
     correction_id, touched = None, []
     if new_reading is not None:
         # The words whose reading changes: the new run and every reading it replaces. Rule 8: none may be
@@ -608,7 +613,8 @@ async def flag_point(
         raise _fact_not_found()
     if found["status"] not in _CHECKED:
         raise ApiError("conflict", "Check this suggestion first.", 409)
-    await repo.set_flag(conn, case_id, fact_id, POINTS, scope.person_id, on=True)
+    if await repo.set_flag(conn, case_id, fact_id, POINTS, scope.person_id, on=True):
+        await audit.record(conn, action="fact.flag_added", target=f"fact:{fact_id}", case_id=case_id)
     return FlagOut(fact_id=fact_id, flagged=True)
 
 
@@ -618,7 +624,8 @@ async def unflag_point(
 ) -> FlagOut:
     if await repo.fact(conn, case_id, fact_id) is None:
         raise _fact_not_found()
-    await repo.set_flag(conn, case_id, fact_id, POINTS, scope.person_id, on=False)
+    if await repo.set_flag(conn, case_id, fact_id, POINTS, scope.person_id, on=False):
+        await audit.record(conn, action="fact.flag_removed", target=f"fact:{fact_id}", case_id=case_id)
     return FlagOut(fact_id=fact_id, flagged=False)
 
 

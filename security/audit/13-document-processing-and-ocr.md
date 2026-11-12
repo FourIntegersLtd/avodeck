@@ -122,7 +122,7 @@ None of these depends on the browser. Still absent: a storage or page quota for 
 | File or page altered in storage | Hash re-checked before use | Marked `altered` (audit 16) | T (audit 16) |
 | Several records merged into one file | Not detected: a document is an uploaded file | No | R, by design |
 
-Found by the review and fixed on this branch: the reader's `POST /pages/{n}/read` now refuses (409) a page the parser lost and that has no picture, and the page image and second-reading routes answer "not available" for it; migration 0074 lets such a page become readable once it is cut again and read (and nothing else clears `unreadable`); the start-up sweep removes stale `unpack-*` scratch directories. Still open: a lost page and a genuinely blank scan share one signal until audit 16's `read_failure` is merged.
+Found by the review and fixed on this branch: the reader's `POST /pages/{n}/read` now refuses (409) a page the parser lost and that has no picture, and the page image and second-reading routes answer "not available" for it; migration 0076 lets such a page become readable once it is cut again and read (and nothing else clears `unreadable`); the start-up sweep removes stale `unpack-*` scratch directories. Audit 16 has since merged into this branch: its `page_analysis.read_failure` allows only `ocr_failed` and `altered`, so a lost page is still told apart from a blank scan by `text_source` being null and its image being unset; a `read_failure` value of its own for a lost page (migration, and the reader, report and final-check slices' handling) is left open.
 
 ## 8. Findings register
 
@@ -162,14 +162,14 @@ Found by the review and fixed on this branch: the reader's `POST /pages/{n}/read
 
 All thirteen findings are fixed on this branch. Remaining, in order:
 
-1. Rebase on audit 16 once it is merged (both touch `azure_ocr.py` and `pipeline/service.py`; migration 0147 already lists audit 16's `altered` reason; audit 16's migration 0146 must also list `too_many_pages` in its allowed values and its down file, or it removes the value if 0147 runs first), then set `read_failure` for a page lost to a parser failure.
+1. Audit 16 (#320) and audit 15 (#306) are merged into this branch (a merge, not a rebase). Migration 0147 lists audit 16's `altered` reason and `too_many_pages`, so it is correct on top of 0146; the foundation guard migration is 0076 because audit 16 took 0074 (its `pages_guard` is kept inside 0076). Failure-mode rows of this audit are F123-F131 (audit 16 took F110-F122). A new `read_failure` value for a lost page is the one follow-up that remains.
 2. Time a real 1,000-page bundle with the sandbox on before any live case.
 3. Triage the web dependency advisories and make that audit blocking.
 4. Set a container memory limit for the worker services.
 
 ### Fixed on this branch
 
-- DP-01 to DP-13 as in the register. New failure-mode rows F120–F128, each naming its test; `too_many_pages` added to the state machines and data dictionary; new interface wording `bundle.unopened_too_many_pages`.
+- DP-01 to DP-13 as in the register. New failure-mode rows F123–F131, each naming its test; `too_many_pages` added to the state machines and data dictionary; new interface wording `bundle.unopened_too_many_pages`.
 - Three expected-failure markers from audit 12 (member names, 4,001 pages, image frames) are removed: those weaknesses are closed by DP-03, DP-04 and DP-02.
 - Sandbox speed. The first version roughly doubled a 100-page synthetic split (about 8.5 s to 15–18 s) because each new child took about 2 s to start. Children are now started and warmed in the background before they are needed (`1121c184`). Measured on a loaded machine (load 8–10): before the sandbox 8.1–8.9 s; with it and warm children 7.0–8.3 s; with cold children 13.5–15.9 s.
 - DP-13 residual: a keyed request over 16 MiB sent without a declared length is refused 413, because the bytes cannot be un-read; at most 16 MiB is held per signed-in request.

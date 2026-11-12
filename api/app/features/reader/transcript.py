@@ -31,6 +31,7 @@ from app.core.contracts.record_entries import RecordEntry, entries_for_case, ent
 from app.core.crypto import CaseCrypto
 from app.core.packs import MergedPack, PackLibrary
 from app.features.reader import repo
+from app.features.reader.set_aside import CONFIRMED_COPY
 
 # How long an entry must be on the reader's screen, in all, for it to count as seen.
 SEEN_MS = 1500
@@ -129,9 +130,9 @@ Pages = dict[uuid.UUID, tuple[int, str | None]]
 async def _pages_to_read(conn: AsyncConnection, case_id: uuid.UUID) -> Pages:
     """Page id -> (number, source type) of the pages to read: not a copy, not replaced, not set aside."""
     cur = await conn.execute(
-        "select id, bundle_page_no, source_type from app.pages"
-        " where bundle_id = (select bundle_id from app.cases where id = %s) and not quarantined"
-        " and duplicate_of_page_id is null and superseded_by_page_id is null",
+        "select p.id, p.bundle_page_no, p.source_type from app.pages p"
+        " where p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined"
+        f" and not {CONFIRMED_COPY} and p.superseded_by_page_id is null",
         (case_id,),
     )
     return {row[0]: (int(row[1]), row[2]) for row in await cur.fetchall()}
@@ -425,7 +426,7 @@ async def record_seen(
     picture_opened: bool = False,
 ) -> list[int]:
     """Stores one view and returns the page numbers the server now counts as read (at most one)."""
-    live = "not p.quarantined and p.duplicate_of_page_id is null and p.superseded_by_page_id is null"
+    live = f"not p.quarantined and not {CONFIRMED_COPY} and p.superseded_by_page_id is null"
     if entry_id is not None:
         cur = await conn.execute(
             "select e.page_id, p.bundle_page_no, p.unreadable from app.record_entries e"

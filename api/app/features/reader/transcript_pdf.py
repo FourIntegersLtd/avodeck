@@ -51,7 +51,7 @@ from app.features.reader.transcript_document import (
 )
 from app.features.reader.transcript_docx import entry_heading
 from app.features.reader.transcript_layout import Layout
-from app.features.reader.transcript_words import month_name, show_date, word
+from app.features.reader.transcript_words import month_name, set_aside_lines, show_date, word
 
 PICTURE_EDGE = 1400
 PICTURE_QUALITY = 60
@@ -349,6 +349,16 @@ def _coverage_table(layout: Layout, language: str, width: float) -> Table:
     return table
 
 
+def _set_aside_lines(layout: Layout, language: str) -> list[Flowable]:
+    cov = layout.coverage
+    if not cov.set_aside_pages:
+        return []
+    return [
+        Paragraph(escape(word(language, "set_aside_pages")), _LEAD),
+        *(Paragraph(escape(line), _LEAD) for line in set_aside_lines(language, cov.set_aside_pages)),
+    ]
+
+
 def _tiles(layout: Layout, language: str, width: float) -> Table:
     """Two big numbers: the pages with entries and the pages the computer could not read."""
     cov = layout.coverage
@@ -465,6 +475,7 @@ def build_pdf(
         Paragraph(escape(word(language, "how_to_use")), _LEAD),
         _Heading(escape(word(language, "coverage")), _H2, rule=True),
         _coverage_table(layout, language, width),
+        *_set_aside_lines(layout, language),
         *_words_line(layout, language),
         _Heading(escape(word(language, "holds")), _H2, rule=True),
         _summary_table(rows, language, width),

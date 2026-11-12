@@ -23,7 +23,7 @@ from docx.text.run import Run
 from app.features.reader.transcript import TranscriptEntry
 from app.features.reader.transcript_document import appendix_letters, by_year, ensure_complete, numbered, summary
 from app.features.reader.transcript_layout import Layout
-from app.features.reader.transcript_words import label_text, month_name, show_date, word
+from app.features.reader.transcript_words import label_text, month_name, set_aside_lines, show_date, word
 
 _FOREST = RGBColor(0x0F, 0x3D, 0x2C)
 _SLATE = RGBColor(0x4F, 0x59, 0x53)
@@ -268,6 +268,10 @@ def _about(doc: DocumentType, layout: Layout, *, date_order: str, language: str)
         header=False,
         right={1},
     )
+    if cov.set_aside_pages:
+        _heading(doc, word(language, "set_aside_pages"), 3)
+        for line in set_aside_lines(language, cov.set_aside_pages):
+            doc.add_paragraph(line)
     if cov.words_printed:
         doc.add_paragraph(word(language, "words_printed", count=cov.words_printed))
     _heading(doc, word(language, "holds"), 2)

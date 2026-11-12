@@ -122,6 +122,8 @@ class TaskOut(BaseModel):
 class MethodologyOut(BaseModel):
     pages_read: int
     pages_total: int
+    pages_set_aside: int
+    incomplete: list[str]
     tasks: list[TaskOut]
 
 
@@ -337,6 +339,8 @@ async def methodology_appendix(case_id: uuid.UUID, access: View, conn: DbConn, r
     return MethodologyOut(
         pages_read=found.pages_read,
         pages_total=found.pages_total,
+        pages_set_aside=found.pages_set_aside,
+        incomplete=found.incomplete.codes(),
         tasks=[
             TaskOut(
                 task_id=t.task_id,

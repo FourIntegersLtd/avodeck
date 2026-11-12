@@ -148,6 +148,12 @@ async def test_set_aside_copies_are_not_counted_in_the_pages_waiting_for_the_pip
         " bundle_id = (select bundle_id from app.cases where id = %s)",
         (world["case"], world["case"]),
     )
+    admin.execute(  # PV-09: a page is set aside as a copy only when the copy is confirmed
+        "insert into app.page_analysis (page_id, bundle_id, duplicate_status) select id, bundle_id, 'confirmed'"
+        " from app.pages where bundle_page_no = 2 and bundle_id = (select bundle_id from app.cases where id = %s)"
+        " on conflict (page_id) do update set duplicate_status = 'confirmed'",
+        (world["case"],),
+    )
     body = (await (await client_for(world["expert"])).get(f"{base(world)}/transcript/entries")).json()
     assert body["waiting_for"] == "entries", "the copy is not a page waiting for the pipeline"
     assert (body["extracted_pages"], body["total_pages"]) == (1, 1), "the banner counts pages that are read"

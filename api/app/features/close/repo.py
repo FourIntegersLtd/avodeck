@@ -108,3 +108,10 @@ async def export_job(conn: AsyncConnection, case_id: uuid.UUID, job_id: uuid.UUI
 
 async def lock_download(conn: AsyncConnection, key: str) -> None:
     await conn.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (key,))
+
+
+async def export_hash(conn: AsyncConnection, case_id: uuid.UUID, job_id: uuid.UUID, variant: str) -> str | None:
+    """The SHA-256 recorded when the export archive was built (migration 0807), if one was."""
+    cur = await conn.execute("select app.close_export_hash(%s, %s, %s)", (case_id, job_id, variant))
+    row = await cur.fetchone()
+    return None if row is None else row[0]

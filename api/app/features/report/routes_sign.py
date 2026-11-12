@@ -28,7 +28,7 @@ from app.core.contracts import profile
 from app.core.contracts.citations import citation_problems
 from app.core.errors import ApiError
 from app.core.http import DbConn
-from app.features.report.checks import declaration_version, named_expert
+from app.features.report.checks import declaration_version, named_expert, standing_problems
 from app.features.report.common import Crypto, Pack, Reads, Sign, Storage, View, not_found
 from app.features.report.jobs import file_path, latest_draft
 from app.features.report.router import router
@@ -135,7 +135,7 @@ async def sign_report(
     if row is None:
         raise conflict("not_built", "Build the report first.")
     await _final_check_gate(conn, case_id, version_id)
-    if await citation_problems(conn, case_id, reads):
+    if await citation_problems(conn, case_id, reads) or await standing_problems(conn, case_id, crypto, reads):
         raise conflict("citation_problems", "A cited fact has changed since the final check.")
     cur = await conn.execute(
         "select acknowledged_declaration_version from app.report_settings where case_id = %s", (case_id,)

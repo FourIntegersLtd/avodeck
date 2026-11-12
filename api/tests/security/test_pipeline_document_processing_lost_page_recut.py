@@ -4,7 +4,7 @@ It has no stored page PDF, picture or thumbnail and its image stays unset, so th
 picture" and a later run cuts it again. It is marked unreadable meanwhile (the summary count and the clearer-copy
 list), its thumbnail answers 404 instead of a blank image, and once a later run can cut it its words are read
 like any other page's. A page that was never read and now has an image and words is readable again (the page guard,
-migration 0074, allows exactly that clear); one that is recut but yields no words stays unreadable. Nothing
+migration 0076, allows exactly that clear); one that is recut but yields no words stays unreadable. Nothing
 printed or asserted on is patient text.
 """
 
@@ -90,7 +90,7 @@ async def test_a_lost_page_has_no_stand_in_picture_is_listed_and_is_cut_again_by
     assert set((await h.drain()).values()) <= {"done"}
     assert stored(h, middle["id"])["image"] is True, "not cut again"
     again = stored(h, middle["id"])
-    # migration 0074: a page never read before, now with an image and words, is readable again
+    # migration 0076: a page never read before, now with an image and words, is readable again
     assert again["unreadable"] is False and again["read"] is True and again["words"] > 0, again
     summary = await h.client.get(f"{base}/bundle/summary")
     assert summary.json()["unreadable"] == 0, "a recut and read page is still counted unreadable"

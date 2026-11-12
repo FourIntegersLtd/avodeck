@@ -119,6 +119,9 @@ CATALOGUE = _LazyCatalogue()
 MIGRATION_TABLES = _migration_tables()
 
 PERSON_COLUMNS = ("person_id", "expert_id", "invited_by", "accepted_by", "recorded_by")
+# Tables whose only person key is a column that other tables use for something else. `deferred_work` (0073) is reached
+# only by definer functions (the app roles hold no grant), so every command the cases run is refused or sees no row.
+PERSON_KEYED_BY_TABLE = {"deferred_work": "requested_by"}
 # `id` is the tenant key of these tables themselves.
 ID_KEYED = {"cases": "case", "organisations": "org", "bundles": "bundle", "people": "people"}
 
@@ -167,6 +170,11 @@ def _seed_person_and_org_rows(
         " values (%s, %s, %s, 'zz.seed', 'zz:x')",
         (expert, org, case),
     )
+    admin.execute(
+        "insert into app.deferred_work (id, kind, name, sealed, requested_by, expires_at)"
+        " values (%s, 'mail', 'zz_mail', 'av1:zz', %s, now() + interval '1 day')",
+        (uuid.uuid4(), expert),
+    )  # person-keyed by `requested_by` (PERSON_KEYED_BY_TABLE); the app roles hold no grant on it
     admin.execute("insert into app.experts (person_id) values (%s) on conflict do nothing", (expert,))
     admin.execute(
         "insert into app.signatures (expert_id, method, storage_path, sha256) values (%s, 'drawn', 'zz/sig', %s)",
@@ -455,6 +463,8 @@ def victim_filter(info: TableInfo, v: Tenant) -> tuple[sql.Composable, dict[str,
     add("organisation_id", "= %(org)s::uuid")
     for column in PERSON_COLUMNS:
         add(column, "= any(%(people)s::uuid[])")
+    if info.name in PERSON_KEYED_BY_TABLE:
+        add(PERSON_KEYED_BY_TABLE[info.name], "= any(%(people)s::uuid[])")
     add("owner_id", "= any(%(owners)s::uuid[])")
     add("scope_id", "= any(%(scopes)s::uuid[])")
     add("page_id", "= any(%(pages)s::uuid[])")
@@ -471,8 +481,15 @@ def _probe_tenant() -> Tenant:
     return Tenant(u, u, u, u, u, u, u, u, [], [], [], [])
 
 
-# Tables with no tenant key: reference data, queues and counters that hold nothing of a tenant.
-EXPECTED_UNKEYED = {"job_kind_actions", "scheduled_runs", "spot_check_address_tries"}
+# Tables with no tenant key: reference data, queues and counters that hold nothing of a tenant, and the purge marker
+# (PV-20: a case id for the length of the purge's own transaction, closed to the app roles).
+EXPECTED_UNKEYED = {
+    "case_purge_marks",
+    "chain_checks",
+    "job_kind_actions",
+    "scheduled_runs",
+    "spot_check_address_tries",
+}
 KEYED_TABLES = sorted(set(MIGRATION_TABLES) - EXPECTED_UNKEYED)
 UNKEYED_TABLES = sorted(EXPECTED_UNKEYED)
 

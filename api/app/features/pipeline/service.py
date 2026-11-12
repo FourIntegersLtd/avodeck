@@ -27,6 +27,7 @@ import asyncio
 import contextlib
 import contextvars
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -51,8 +52,8 @@ from app.core.ai.answers import page_subject, reference_subject
 from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput, OutputTruncated, TooLargeForFallback
-from app.core.ai.ocr import OcrFailed, OcrPage, OcrResult
-from app.core.config import document_limits, sandbox_settings
+from app.core.ai.ocr import OcrFailed, OcrPage, OcrResult, record_call
+from app.core.config import ConfigError, document_limits, sandbox_settings
 from app.core.contracts.fact_dates import case_anchor, latest_printed_date
 from app.core.contracts.fact_flags import flag_for_recheck
 from app.core.contracts.fact_verifications import log_remaps
@@ -162,14 +163,27 @@ async def _scratch(data: bytes | None = None) -> AsyncIterator[Path]:
         scratch.__exit__(None, None, None)
 
 
+class Altered(Exception):
+    """The stored bytes are not the bytes that were uploaded (PV-07): the whole-file SHA-256 or the part count
+    differs from what the upload recorded. Carries no content."""
+
+
 @contextlib.asynccontextmanager
-async def _download(ctx: JobContext, services: PipelineServices, prefix: str) -> AsyncIterator[Path]:
+async def _download(ctx: JobContext, services: PipelineServices, doc: repo.Document) -> AsyncIterator[Path]:
     """A stored document's bytes in a scratch file, written as the parts are read (one part in memory at a time).
-    The file is deleted when the block ends, however it ends."""
+    The bytes are checked against the SHA-256 and the part count the upload recorded before they are used
+    (`Altered`, PV-07). The file is deleted when the block ends, however it ends."""
     async with _scratch() as path:
+        digest, parts = hashlib.sha256(), 0
         with path.open("wb") as out:
-            async for chunk in _chunks_free(ctx, services, prefix):  # S3 with no connection held
+            async for chunk in _chunks_free(ctx, services, doc.storage_path):  # S3 with no connection held
+                parts += 1
+                digest.update(chunk)
                 await asyncio.to_thread(out.write, chunk)
+        if (doc.sha256 is not None and not hmac.compare_digest(digest.hexdigest(), doc.sha256)) or (
+            doc.parts is not None and parts != doc.parts
+        ):
+            raise Altered
         yield path
 
 
@@ -234,9 +248,12 @@ async def _unpack(
     media = await asyncio.to_thread(convert.sniff_path, path)
     if media == convert.PDF:
         await repo.set_media_type(conn, doc.id, convert.PDF)
-        return await parser_calls.run(
+        count = await parser_calls.run(
             parsing.count_pages, str(path), LIMITS.max_document_pages, timeout=_count_timeout(path.stat().st_size)
         )
+        # the page count the file itself states (PV-11), read in a child like every other call on a stranger's file
+        await repo.set_pages_declared(conn, doc.id, await parser_calls.run(parsing.declared_pages, str(path)))
+        return count
     size = path.stat().st_size
     digest = await asyncio.to_thread(_file_sha256, path)
     if media != convert.ZIP and size > LIMITS.max_convert_bytes:
@@ -330,10 +347,11 @@ class _Source:
         if self.path is not None:
             return self.path
         async with self.ctx.transaction() as conn:
-            prefix, filename = await repo.document_file(conn, self.document_id)
+            doc = await repo.document_to_read(conn, self.document_id)
+        filename = doc.filename
         files = contextlib.AsyncExitStack()
         try:
-            path = await files.enter_async_context(_download(self.ctx, self.services, prefix))
+            path = await files.enter_async_context(_download(self.ctx, self.services, doc))
             if convert.sniff(await asyncio.to_thread(_head, path)) != convert.PDF:  # a Word file, an email, a picture
                 async with _unpacked(path, filename) as found:
                     assert found.pdf_path is not None
@@ -419,44 +437,47 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
         if not documents:
             break
         for doc in documents:
-            async with _download(ctx, services, doc.storage_path) as path:
+            try:
+                async with _download(ctx, services, doc) as path:
+                    async with ctx.transaction() as conn:
+                        try:
+                            count = await _unpack(conn, services, ctx.case_id, doc, path)
+                        except (pikepdf.PasswordError, pikepdf.PdfError) as error:  # F2: this file stops
+                            log.warning("document could not be opened: %s", type(error).__name__)  # class only, no text
+                            reason = "locked" if isinstance(error, pikepdf.PasswordError) else "damaged"
+                            await repo.mark_unopened(conn, ctx.case_id, doc.id, reason)
+                            continue
+                        except sandbox.SandboxError as error:  # DP-09: a child hung or died
+                            if not parser_calls.is_input_fault(error):
+                                raise  # no child could run it: not the file's doing, so the job is retried
+                            log.warning("document could not be opened: sandbox %s", error.code)  # a code only
+                            await repo.mark_unopened(conn, ctx.case_id, doc.id, "damaged")
+                            continue
+                        except TooManyPages:  # DP-04: over the per-document cap
+                            await repo.mark_unopened(conn, ctx.case_id, doc.id, "too_many_pages")
+                            continue
+                        await repo.lock_bundle_numbering(conn, ctx.case_id)  # the bundle's total is read under the lock
+                        if await repo.last_page_no(conn, ctx.case_id) + count > LIMITS.max_bundle_pages:
+                            await repo.mark_unopened(conn, ctx.case_id, doc.id, "too_many_pages")  # DP-04: bundle cap
+                            continue
+                        await repo.add_pages(conn, ctx.case_id, doc.id, count)
+                        await repo.link_replacements(conn, ctx.case_id)
+                        await repo.link_splits(conn, ctx.case_id)
+            except Altered:
+                log.warning("document bytes differ from the upload; the document is not opened")  # no ids, no text
                 async with ctx.transaction() as conn:
-                    try:
-                        count = await _unpack(conn, services, ctx.case_id, doc, path)
-                    except (pikepdf.PasswordError, pikepdf.PdfError) as error:  # F2: this file stops, the rest go on
-                        log.warning("document could not be opened: %s", type(error).__name__)  # class only, no text
-                        reason = "locked" if isinstance(error, pikepdf.PasswordError) else "damaged"
-                        await repo.mark_unopened(conn, ctx.case_id, doc.id, reason)
-                        continue
-                    except sandbox.SandboxError as error:  # DP-09: a parser child hung or died: damaged, the rest go on
-                        if not parser_calls.is_input_fault(error):
-                            raise  # no child could run it: not the file's doing, so the job is retried
-                        log.warning("document could not be opened: sandbox %s", error.code)  # a code only
-                        await repo.mark_unopened(conn, ctx.case_id, doc.id, "damaged")
-                        continue
-                    except TooManyPages:  # DP-04: over the per-document cap
-                        await repo.mark_unopened(conn, ctx.case_id, doc.id, "too_many_pages")
-                        continue
-                    await repo.lock_bundle_numbering(conn, ctx.case_id)  # the bundle's total is read under the lock
-                    if await repo.last_page_no(conn, ctx.case_id) + count > LIMITS.max_bundle_pages:
-                        await repo.mark_unopened(conn, ctx.case_id, doc.id, "too_many_pages")  # DP-04: bundle cap
-                        continue
-                    await repo.add_pages(conn, ctx.case_id, doc.id, count)
-                    await repo.link_replacements(conn, ctx.case_id)
-                    await repo.link_splits(conn, ctx.case_id)
+                    await repo.mark_unopened(conn, ctx.case_id, doc.id, "altered")
     async with ctx.transaction() as conn:
         waiting = await repo.pages_without_image(conn, ctx.case_id)
     sources: dict[uuid.UUID, _Source] = {}
     for page in waiting:
-        sources.setdefault(page.document_id, _Source(ctx, services, page.document_id)).wanted.append(
-            page.bundle_page_no - page.first_page_no
-        )
+        sources.setdefault(page.document_id, _Source(ctx, services, page.document_id)).wanted.append(page.source_index)
     finished = 0
 
     async def make(page: repo.PageRow) -> None:
         nonlocal finished
         source = sources[page.document_id]
-        index = page.bundle_page_no - page.first_page_no
+        index = page.source_index
         try:
             page_pdf = await source.cut(index)
             pictures = await _pictures(page_pdf, page.rotation)
@@ -466,8 +487,10 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
             # DP-09: a parser child hung or died on this page. No stand-in is stored as the page: its image stays
             # unset so a later run cuts it again, and it is listed meanwhile as a page we could not read.
             log.warning("page could not be cut or pictured: %s", error.code)  # a code only
-            # TODO(read_failure): once `page_analysis.read_failure` merges, record `error.code` (e.g. timed_out)
-            # so the expert can tell a lost page from an OCR failure.
+            # TODO(read_failure): `page_analysis.read_failure` (audit 16) allows only `ocr_failed` and `altered`;
+            # recording `ocr_failed` here would merge a lost page with a failed OCR call, so a value of its own
+            # (and the reader, report and final-check slices' handling of it) is needed first. Until then a lost
+            # page is told apart by `text_source` being null with an unset image.
             async with ctx.transaction() as conn:
                 await repo.mark_lost(conn, page.id)
             await source.finished_one(index)
@@ -481,12 +504,13 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
             services,
             [(page_path, page_pdf), (thumbnail_path, pictures.thumbnail), (image_path, pictures.image)],
         )
+        page_hash = hashlib.sha256(page_pdf).hexdigest()  # kept with the page, checked when it is read again
         del page_pdf, pictures
         for path, blob in sealed:  # S3 with no connection held
             await services.storage.put(path, blob)
         del sealed
         async with ctx.transaction() as conn:
-            await repo.set_image(conn, page.id, image_path)
+            await repo.set_image(conn, page.id, image_path, page_hash)
         await source.finished_one(index)
         finished += 1
         if finished % 25 == 0:
@@ -746,6 +770,15 @@ def _the_page(result: OcrResult) -> OcrPage:
     return result.pages[0]
 
 
+def _region(services: PipelineServices) -> str:
+    """The cell's region from the cell config the model kit holds. A residency record never carries a guess: with
+    no region the same configuration error the kit raises is raised here."""
+    region = str(getattr(getattr(services.kit, "settings", None), "region", "") or "").strip()
+    if not region:
+        raise ConfigError("REGION not set")
+    return region
+
+
 async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchScope | None = None) -> None:
     """Reads the words of every page without them. A page-batch child passes its `scope`: only its page range is
     read, every page write goes through the write guard, and the case-wide language pass is left to the parent."""
@@ -774,30 +807,52 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
             async with ctx.transaction() as conn:
                 page_pdf = await services.crypto.decrypt(conn, ctx.case_id, blob, purpose=path)
         straightened = False
+        failure: str | None = None
+        altered = (
+            page_pdf is not None
+            and state.content_sha256 is not None
+            and not hmac.compare_digest(hashlib.sha256(page_pdf).hexdigest(), state.content_sha256)
+        )
         if page_pdf is None:
             page, source = typed((typing or b"").decode()), "expert"
         else:
-            found: OcrPage | None
-            try:
-                found = await sandbox.run(parsing.text_layer, page_pdf)
-            except sandbox.SandboxError as exc:  # DP-09 review P4: no usable text layer, so the page goes to OCR
-                if not parser_calls.is_input_fault(exc):
-                    raise  # no child could run it: the job is retried
-                log.warning("text layer could not be checked: %s", exc.code)  # a code only
-                found = None
+            found: OcrPage | None = None
+            if not altered:  # PV-07: nothing is read from a page file that is not the one that was cut
+                try:
+                    found = await sandbox.run(parsing.text_layer, page_pdf)
+                except sandbox.SandboxError as exc:  # DP-09 review P4: no usable text layer, so the page goes to OCR
+                    if not parser_calls.is_input_fault(exc):
+                        raise  # no child could run it: the job is retried
+                    log.warning("text layer could not be checked: %s", exc.code)  # a code only
             source = "embedded"
-            if found is None:
+            if altered:  # PV-07: the page file is not the one that was cut; nothing is read from it
+                log.warning("page file differs from when it was cut; it is not read")  # no ids, no text
+                failure = "altered"
+                found = OcrPage(number=1, width=1.0, height=1.0, words=())
+                source = "ocr"
+            elif found is None:
                 if services.ocr is None:
                     raise ProcessingPaused("model_unavailable")
                 try:
                     # One account-wide slot per page sent: the submits a second and the pages in flight are
                     # shared by every bundle (no connection is held while waiting for it).
                     async with _ocr_slot(ctx, services):
-                        found = _the_page(await services.ocr.analyse(page_pdf, "layout", locale=locale))
+                        answer = await services.ocr.analyse(page_pdf, "layout", locale=locale)
+                    async with ctx.transaction() as conn:  # PV-18: model, API version, region and job; no text
+                        await record_call(
+                            conn,
+                            case_id=ctx.case_id,
+                            task="page_read",
+                            result=answer,
+                            region=_region(services),
+                            job_id=ctx.job_id,
+                        )
+                    found = _the_page(answer)
                 except OcrFailed as exc:  # F4: this page alone is marked unreadable; the rest carry on
                     if run is not None:
                         run.page_failed(numbers.get(page_id), exc, "failed")
                     found = OcrPage(number=1, width=1.0, height=1.0, words=())
+                    failure = "ocr_failed"  # PV-10: not the same as a page that was read and has no words
                 except ServiceBusy as exc:  # F5: back-off spent; the job waits and is retried later
                     if run is not None:
                         run.page_failed(numbers.get(page_id), exc, "paused")
@@ -854,6 +909,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
                 handwriting=reading.handwriting or state.handwriting,
                 unreadable=reading.unreadable or (state.unreadable and source != "expert" and not recovered),
                 size=None if source == "expert" else (page.width, page.height),
+                read_failure=failure,
             )
             await repo.set_language(conn, page_id, language.detect(" ".join(w.text for w in page.words), spoken))
             if before:
@@ -948,6 +1004,7 @@ class _LoadedPage:
     struck: set[str]
     text: str
     subject: str
+    read_failure: str | None = None  # why the page has no words: `ocr_failed`, or `altered` (PV-07, PV-10)
 
 
 _ASK_THE_BUNDLE: Any = object()  # `_load_page`'s default: ask the bundle for its latest printed date
@@ -969,6 +1026,7 @@ async def _load_page(
     async with ctx.transaction() as conn:
         stored = await repo.words_of(conn, page_id)
         size = await repo.page_size(conn, page_id)
+        failure = await repo.read_failure(conn, page_id)
         latest = await latest_printed_date(conn, ctx.case_id) if anchor is _ASK_THE_BUNDLE else anchor
         texts = {
             w.word_id: (
@@ -999,7 +1057,7 @@ async def _load_page(
     if header:
         cap = pii.strip(header, pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
         text = extract.with_header(text, cap.text)
-    return _LoadedPage(stored, size, latest, texts, ordered, struck, text, page_subject(ordered))
+    return _LoadedPage(stored, size, latest, texts, ordered, struck, text, page_subject(ordered), failure)
 
 
 def _page_anchor(found: Sequence[dates.Printed], latest: date | None) -> date:
@@ -1178,13 +1236,17 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
             output = dict(raw_output) if raw_output is not None else None
             kept: list[Any] = []
             reason: str | None = None
+            refusal_codes: list[str] = []
             if not stored:  # a page OCR could not read (F4) has nothing to ask the model about
-                reason = "no_words"
+                reason = loaded_page.read_failure or "no_words"  # an OCR failure is not a page read as empty (PV-10)
             elif output is None:
                 reason = "invalid_output" if asked else "no_words"
             else:
                 result = extract.sort_facts(output, texts, struck)
-                kept, reason = result.kept, ("not_in_words" if result.refused else None)
+                kept, refusal_codes = result.kept, result.codes
+                reason = (
+                    "not_in_words" if result.refused else None
+                )  # the published label; the codes are in refusal_codes
             found = dates.find([(w, t) for w, t in ordered if w not in struck], pack)
             polygons = {w.word_id: w.polygon for w in stored}
             width, height = size_ or (
@@ -1199,7 +1261,9 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
             if stored and output is None:
                 entries = None  # no usable answer: not "no entries"; the page is left for a person
             if reason is None and stored and output is not None:
-                reason = coverage.reason_for(ordered=ordered, struck=struck, kept=kept, entries=entries)
+                reason = coverage.reason_for(ordered=ordered, struck=struck, kept=kept, entries=entries) or (
+                    coverage.few_words_reason(ordered=ordered, struck=struck, kept=kept, entries=entries)
+                )
             thin_entries = (
                 reason is None
                 and entries is not None
@@ -1265,7 +1329,7 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
                     source_type=output.get("source_type") if output else None,
                     facts=facts,
                     sealed=sealed,
-                    needs_human=reason is not None,
+                    needs_human=reason is not None and reason not in coverage.LIGHT_REASONS,
                     reason=reason,
                     task=task.task_id,
                     model_id=model_id,
@@ -1274,6 +1338,7 @@ async def _extract(ctx: JobContext, services: PipelineServices, scope: BatchScop
                     availability_evidence=evidence,
                     entries=entries,
                     entries_rejected=entries_rejected,
+                    refusal_codes=refusal_codes,
                 )
             done += 1
         usage.log(ctx.job_id, ctx.case_id)

@@ -10,6 +10,7 @@ import io
 import os
 import stat
 import tempfile
+import uuid
 from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -19,6 +20,7 @@ import pytest
 from docx import Document
 
 from app.core import case_files
+from app.features.pipeline import repo as pipeline_repo
 from app.features.pipeline import service as pipeline_service
 from tests.repository.test_pipeline_support import Harness
 from tests.security import test_foundation_file_lifecycle_validation as lifecycle
@@ -116,7 +118,7 @@ async def test_the_scratch_file_is_removed_when_the_download_is_cancelled(
 
     monkeypatch.setattr(pipeline_service, "_chunks_free", parts)
     with pytest.raises(asyncio.CancelledError):
-        async with pipeline_service._download(None, None, "prefix"):  # type: ignore[arg-type]
+        async with pipeline_service._download(None, None, pipeline_repo.Document(uuid.uuid4(), "prefix")):  # type: ignore[arg-type]
             pytest.fail("the download did not run")
     assert_private(scratch)
     assert left_behind(scratch) == []

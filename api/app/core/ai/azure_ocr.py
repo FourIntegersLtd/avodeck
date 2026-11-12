@@ -299,4 +299,4 @@ def _parse(model: str, analysed: Any) -> OcrResult:
                 ),
             )
         )
-    return OcrResult(model=model, pages=tuple(sorted(pages, key=lambda p: p.number)))
+    return OcrResult(model=model, api_version=API_VERSION, pages=tuple(sorted(pages, key=lambda p: p.number)))

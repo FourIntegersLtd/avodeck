@@ -5,7 +5,8 @@
   `POST .../court-bundles/{id}/supersede`, which also marks trial packs built on it stale.
 - `GET /cases/{c}/concordance` (`case.view_content`): every page the expert read with its trial number,
   matched, to confirm or missing, and the served paragraphs citing it.
-- `PATCH /cases/{c}/concordance/{id}` (`fact.verify`, If-Match): the expert's own match (or none).
+- `PATCH /cases/{c}/concordance/{id}` (`fact.verify`, If-Match): the expert's own match (or none). A trial page
+  belongs to one page (409 `trial_page_taken`); what was there stays in `concordance_history` and the audit log.
 - `GET /cases/{c}/concordance/export?format=csv|pdf` (step-up: it leaves Avodeck).
 - `POST /cases/{c}/concordance/tell-instructing-party` (`request.draft`): page numbers only, for a letter.
 """
@@ -18,10 +19,13 @@ from datetime import date, datetime
 from typing import Any, Literal
 
 from fastapi import Depends, Query, Request, Response
+from psycopg.errors import UniqueViolation
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core import audit
 from app.core.auth.step_up import require_step_up
 from app.core.contracts.served import latest_served
+from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
 from app.features.trial import repo
@@ -113,6 +117,10 @@ class MissingPages(BaseModel):
     missing: list[MissingPage]
     received_on: date | None
     bundle_version: int | None
+
+
+def _taken() -> ApiError:
+    return conflict("trial_page_taken", "Another page already has that trial page number.")
 
 
 def _bundle(row: dict[str, Any]) -> BundleOut:
@@ -328,13 +336,23 @@ async def confirm_page(
         raise stale()
     if body.trial_page_no is not None and body.trial_page_no > (row["page_count"] or 0):
         raise invalid("trial_page_no")
-    updated = await repo.one(
-        conn,
-        "update app.concordance set trial_page_no = %s, method = 'expert', confirmed = true,"
-        " confirmed_by = app.current_person_id(), confirmed_at = now() where id = %s returning *",
-        (body.trial_page_no, row_id),
-    )
+    if body.trial_page_no is not None and await repo.trial_page_holder(
+        conn, row["court_bundle_id"], body.trial_page_no, row_id
+    ):
+        raise _taken()
+    # what was there (the machine's match, or the expert's earlier choice) stays in the history (PV-16d)
+    await repo.keep_concordance_history(conn, row, body.trial_page_no)
+    try:
+        updated = await repo.one(
+            conn,
+            "update app.concordance set trial_page_no = %s, method = 'expert', confirmed = true,"
+            " confirmed_by = app.current_person_id(), confirmed_at = now() where id = %s returning *",
+            (body.trial_page_no, row_id),
+        )
+    except UniqueViolation:  # another request took the number between the check and the update
+        raise _taken() from None
     assert updated is not None
+    await audit.record(conn, action="trial.concordance_changed", target=str(row_id), case_id=case_id)
     updated["status"] = repo.status_of(updated)
     cited = repo.paragraphs_by_page(await latest_served(conn, crypto, case_id))
     response.headers["ETag"] = etag(updated["version"])
@@ -362,10 +380,18 @@ async def export_concordance(
         out.write("page_no,trial_page_no,status,score\n")
         for r in rows:
             out.write(f"{r.page_no},{'' if r.trial_page_no is None else r.trial_page_no},{r.status},{r.score:.3f}\n")
+        body = out.getvalue().encode()
+        # PV-16e: the file names the court bundle it maps to and carries its own hash, the body is unchanged
         return Response(
-            content=out.getvalue(),
+            content=body,
             media_type="text/csv",
-            headers={**NO_STORE, "Content-Disposition": 'attachment; filename="trial-page-numbers.csv"'},
+            headers={
+                **NO_STORE,
+                "Content-Disposition": 'attachment; filename="trial-page-numbers.csv"',
+                "X-Court-Bundle-Id": str(bundle["id"]),
+                "X-Court-Bundle-SHA256": bundle["sha256"],
+                "X-Content-SHA256": sha256(body),
+            },
         )
     term = pack.term("court_bundle")
     lang = pack.language

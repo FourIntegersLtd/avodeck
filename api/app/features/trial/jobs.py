@@ -12,11 +12,15 @@ Stored files are sealed under the case key (`storage.py`); hashes are over the p
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import uuid
 
 from psycopg import AsyncConnection
 
+from app.core.ai import ocr as ocr_calls
+from app.core.ai.ocr import OcrClient, OcrModel, OcrResult
+from app.core.config import ConfigError
 from app.core.contracts.case_identity import identity_for
 from app.core.contracts.document_words import apply_corrections, current_corrections, word_purpose
 from app.core.contracts.served import latest_served
@@ -31,6 +35,37 @@ from app.features.trial.pdfs import render_counted
 from app.features.trial.reseal import reseal_plain_files
 from app.features.trial.services import TrialServices, current
 from app.features.trial.storage import get_sealed, put_sealed
+
+
+class RecordedOcr:
+    """The services' OCR client, writing one `ai_calls` row per call: the model, the service's API version, the region
+    and the job (PV-18). Metadata only, never the words (rule 6)."""
+
+    def __init__(self, inner: OcrClient, conn: AsyncConnection, ctx: JobContext, region: str, task: str) -> None:
+        self.inner, self.conn, self.ctx, self.region, self.task = inner, conn, ctx, region, task
+        self.endpoint = inner.endpoint
+
+    async def analyse(self, document: bytes, model: OcrModel = "layout", *, locale: str | None = None) -> OcrResult:
+        result = await self.inner.analyse(document, model, locale=locale)
+        await ocr_calls.record_call(
+            self.conn,
+            case_id=self.ctx.case_id,
+            task=self.task,
+            result=result,
+            region=self.region,
+            job_id=self.ctx.job_id,
+        )
+        return result
+
+
+def recording(services: TrialServices, conn: AsyncConnection, ctx: JobContext, task: str) -> TrialServices:
+    """These services with an OCR client that records its calls for this job (as is, when there is no OCR). The
+    region is the cell's: with none configured the call is refused, never recorded under a made-up one."""
+    if services.ocr is None:
+        return services
+    if not services.region:
+        raise ConfigError("the cell's region is not configured: an OCR call cannot be recorded without it")
+    return dataclasses.replace(services, ocr=RecordedOcr(services.ocr, conn, ctx, services.region, task))
 
 
 async def page_texts(services: TrialServices, pdf: bytes) -> list[list[str]]:
@@ -55,7 +90,7 @@ async def read_agenda(ctx: JobContext) -> None:
         crypto, kit = services.case_crypto(), services.model()
         pack = await pack_for(conn, services.packs, ctx.case_id)
         pdf = await get_sealed(services, conn, ctx.case_id, version["storage_path"])
-        flat = [w for page in await page_texts(services, pdf) for w in page]
+        flat = [w for page in await page_texts(recording(services, conn, ctx, "agenda"), pdf) for w in page]
         # one line per word: a word with a line break in it cannot add a forged line (a fake id) to the request
         words = {f"w{n}": " ".join(text.split()) for n, text in enumerate(flat, start=1)}
         request = "\n".join(f"{ref}\t{text}" for ref, text in words.items())
@@ -131,11 +166,19 @@ async def match_trial_bundle(ctx: JobContext) -> None:
         if bundle is None or bundle["status"] == "superseded":
             return
         pdf = await get_sealed(services, conn, ctx.case_id, bundle["storage_path"])
-        theirs = [" ".join(words) for words in await page_texts(services, pdf)]
+        theirs = [" ".join(words) for words in await page_texts(recording(services, conn, ctx, "trial_bundle"), pdf)]
         ours = await our_pages(services, conn, ctx.case_id)
         by_key = {p.key: p for p in ours}
-        for match in match_pages(ours, theirs):
+        matches = match_pages(ours, theirs)
+        # one trial page per page: when two pages are given the same one, the better match keeps it and the other
+        # page keeps its row as missing, for the expert to place (never dropped, never a second claim)
+        winner: dict[int, object] = {}
+        for match in sorted(matches, key=lambda m: (not m.confirmed, -m.score)):
+            if match.trial_page_no is not None:
+                winner.setdefault(match.trial_page_no, match.key)
+        for match in matches:
             page = by_key[match.key]
+            taken = match.trial_page_no is not None and winner[match.trial_page_no] != match.key
             await conn.execute(
                 "insert into app.concordance (case_id, court_bundle_id, page_id, page_no, trial_page_no, score,"
                 " method, confirmed) values (%s, %s, %s, %s, %s, %s, %s, %s)"
@@ -145,10 +188,10 @@ async def match_trial_bundle(ctx: JobContext) -> None:
                     bundle["id"],
                     match.key,
                     page.page_no,
-                    match.trial_page_no,
-                    match.score,
-                    match.method,
-                    match.confirmed,
+                    None if taken else match.trial_page_no,
+                    0 if taken else match.score,
+                    "none" if taken else match.method,
+                    False if taken else match.confirmed,
                 ),
             )
         await conn.execute(

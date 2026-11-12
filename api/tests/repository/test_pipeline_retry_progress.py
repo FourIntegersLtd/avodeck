@@ -128,10 +128,24 @@ async def test_copies_set_aside_and_word_less_pages_are_not_counted(
     held = page(seed, admin, case, doc, 3, read=None, failed="1 hour", run=run)
     blank = page(seed, admin, case, doc, 4, read=None, failed="1 hour", run=run)
     admin.execute("update app.pages set duplicate_of_page_id = %s where id = %s", (first, copy))
+    admin.execute("update app.page_analysis set duplicate_status = 'confirmed' where page_id = %s", (copy,))  # PV-09
     admin.execute("update app.pages set quarantined = true where id = %s", (held,))
     admin.execute("update app.pages set text_source = null where id = %s", (blank,))
     got = await progress(api_db, expert, case)
     assert (got.total, got.done, got.failed) == (1, 0, 0)
+
+
+async def test_PV09_a_suggested_copy_is_counted_in_the_run(
+    api_db: Database, admin: psycopg.Connection, seed: Seed
+) -> None:
+    expert, case, doc = case_of(seed)
+    run = job(admin, case)
+    first = page(seed, admin, case, doc, 1, read=None, failed="1 hour", run=run)
+    copy = page(seed, admin, case, doc, 2, read=None, failed="1 hour", run=run)
+    admin.execute("update app.pages set duplicate_of_page_id = %s where id = %s", (first, copy))
+    admin.execute("update app.page_analysis set duplicate_status = 'suggested' where page_id = %s", (copy,))
+    got = await progress(api_db, expert, case)
+    assert (got.total, got.done, got.failed) == (2, 0, 0), "a copy only suggested is still read, so it is counted"
 
 
 async def test_no_retry_ever_run_means_no_progress(api_db: Database, admin: psycopg.Connection, seed: Seed) -> None:

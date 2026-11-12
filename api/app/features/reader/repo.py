@@ -28,6 +28,7 @@ from app.core.contracts.fact_flags import POINTS, RECHECK
 from app.core.contracts.pipeline import transcription_purpose
 from app.core.crypto import CaseCrypto
 from app.features.reader.search_cache import CaseWords, PageWords
+from app.features.reader.set_aside import CONFIRMED_COPY
 
 
 async def record_read(
@@ -119,7 +120,8 @@ async def list_pages(
 async def page(conn: AsyncConnection, case_id: uuid.UUID, page_no: int, person_id: uuid.UUID) -> dict[str, Any] | None:
     """One page the person may see (not set aside), with its details; None when there is none."""
     cur = await conn.execute(
-        f"""select {_PAGE_COLUMNS} {_DETAIL_COLUMNS}, p.image_path, p.duplicate_of_page_id
+        f"""select {_PAGE_COLUMNS} {_DETAIL_COLUMNS}, p.image_path, p.duplicate_of_page_id,
+                   {CONFIRMED_COPY} as is_confirmed_copy
             from app.pages p join app.cases c on c.id = %(case)s
             where p.bundle_id = c.bundle_id and p.bundle_page_no = %(page_no)s and not p.quarantined""",  # noqa: S608
         {"case": case_id, "page_no": page_no, "person": person_id},
@@ -235,10 +237,14 @@ def _row(cur: Any, row: tuple[Any, ...]) -> dict[str, Any]:
     return {d.name: v for d, v in zip(cur.description, row, strict=True)}
 
 
+# How a date the expert typed is labelled (not a date read from the page). Foundation: add the same constant
+# beside DATE_BASIS_PRINTED in core/contracts/fact_dates.py and import it from there.
+DATE_BASIS_EXPERT = "expert_entered"
+
 # Checking facts (S09) ------------------------------------------------------------------------------
 
 # `flagged` is the Points against flag only; `needs_recheck` is "Please check" after a page is read again.
-_FACT_COLUMNS = """f.id, f.kind, f.fields, f.value, f.word_ids, f.bbox, f.event_date, f.status, f.version,
+_FACT_COLUMNS = """f.id, f.kind, f.fields, f.value, f.word_ids, f.bbox, f.event_date, f.date_basis, f.status, f.version,
     exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %(points)s) as flagged,
     exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %(recheck)s) as needs_recheck,
     exists (select 1 from app.word_corrections c where c.page_id = f.page_id and c.superseded_at is null
@@ -399,7 +405,10 @@ async def change_fact(
     date_basis: str | None = None,
 ) -> dict[str, Any] | None:
     """Apply a check if the fact is still at `version` (the database bumps it); None when it moved on."""
+    # A date the check leaves alone keeps how it was read; a date taken away takes its basis with it (PV-03).
     basis_sql = ", date_basis = %(date_basis)s" if date_basis is not None else ""
+    if date_basis is None and event_date is None:
+        basis_sql = ", date_basis = null"
     cur = await conn.execute(
         f"""update app.facts f set status = %(status)s, value = %(value)s, word_ids = %(word_ids)s,
                 page_id = %(page)s, bbox = %(bbox)s, fields = %(fields)s, event_date = %(event_date)s{basis_sql}
@@ -486,8 +495,9 @@ async def log_check(
     expert's reading of misread words it relied on, if any. Returns the time it was logged."""
     cur = await conn.execute(
         """insert into app.fact_verifications (case_id, fact_id, person_id, action, old_value, new_value,
-               old_fields, new_fields, old_word_ids, new_word_ids, old_page_id, new_page_id, reason, correction_id)
-           values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) returning at""",
+               old_fields, new_fields, old_word_ids, new_word_ids, old_page_id, new_page_id, reason, correction_id,
+               old_event_date, new_event_date, old_date_basis, new_date_basis)
+           values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) returning at""",
         (
             case_id,
             before["id"],
@@ -503,6 +513,10 @@ async def log_check(
             new_page_id,
             reason,
             correction_id,
+            before.get("event_date"),
+            after.get("event_date"),
+            before.get("date_basis"),
+            after.get("date_basis"),
         ),
     )
     row = await cur.fetchone()
@@ -512,15 +526,20 @@ async def log_check(
 
 async def set_flag(
     conn: AsyncConnection, case_id: uuid.UUID, fact_id: uuid.UUID, flagged_for: str, person_id: uuid.UUID, on: bool
-) -> None:
+) -> bool:
+    """Puts the flag on or takes it off; whether anything changed. A flag taken off is kept in
+    `fact_flag_history` by the database (0228)."""
     if on:
-        await conn.execute(
+        cur = await conn.execute(
             "insert into app.fact_flags (case_id, fact_id, flagged_for, person_id) values (%s, %s, %s, %s)"
             " on conflict (fact_id, flagged_for) do nothing",
             (case_id, fact_id, flagged_for, person_id),
         )
     else:
-        await conn.execute("delete from app.fact_flags where fact_id = %s and flagged_for = %s", (fact_id, flagged_for))
+        cur = await conn.execute(
+            "delete from app.fact_flags where fact_id = %s and flagged_for = %s", (fact_id, flagged_for)
+        )
+    return cur.rowcount > 0
 
 
 async def page_id_by_no(conn: AsyncConnection, case_id: uuid.UUID, page_no: int) -> uuid.UUID | None:
@@ -536,13 +555,13 @@ async def page_id_by_no(conn: AsyncConnection, case_id: uuid.UUID, page_no: int)
 async def unreadable_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[dict[str, Any]]:
     """The pages the computer couldn't read (not set aside), in page order, with what the expert has done."""
     cur = await conn.execute(
-        """select p.bundle_page_no as page_no, p.id as page_id, p.source_type, p.handwriting, p.relevance,
+        f"""select p.bundle_page_no as page_no, p.id as page_id, p.source_type, p.handwriting, p.relevance,
                   p.transcribed_by_expert_text is not null as has_transcription, p.needs_clearer_copy,
-                  p.duplicate_of_page_id is not null as is_copy,
+                  {CONFIRMED_COPY} as is_copy,
                   exists (select 1 from app.page_replacements r where r.page_id = p.id) as has_clearer_copy
            from app.pages p
            where p.bundle_id = (select bundle_id from app.cases where id = %s) and p.unreadable and not p.quarantined
-           order by p.bundle_page_no""",
+           order by p.bundle_page_no""",  # noqa: S608
         (case_id,),
     )
     return [_row(cur, r) for r in await cur.fetchall()]
@@ -556,18 +575,41 @@ async def save_transcription(
     text: str,
     relevance: str | None,
 ) -> None:
-    """Stores the expert's typing sealed with the case key (never plain, like every OCR word)."""
+    """Stores the expert's typing sealed with the case key (never plain, like every OCR word). The page holds
+    the latest typing; every typing is also kept, with who and when (PV-12)."""
     sealed = await crypto.encrypt(conn, case_id, text.encode(), purpose=transcription_purpose(page_id))
     await conn.execute(
-        "update app.pages set transcribed_by_expert_text = %s, relevance = coalesce(%s, relevance) where id = %s",
-        (sealed, relevance, page_id),
+        "insert into app.page_transcriptions (page_id, person_id, text) values (%s, app.current_person_id(), %s)",
+        (page_id, sealed),
     )
+    if relevance is not None:
+        await change_page(conn, page_id, {"relevance": relevance})
+    await conn.execute("update app.pages set transcribed_by_expert_text = %s where id = %s", (sealed, page_id))
 
 
-async def change_page(conn: AsyncConnection, page_id: uuid.UUID, changes: dict[str, Any]) -> None:
-    """Sets the given `relevance` and `needs_clearer_copy` (only those keys)."""
-    sets = ", ".join(f"{k} = %({k})s" for k in changes if k in ("relevance", "needs_clearer_copy"))
-    await conn.execute(f"update app.pages set {sets} where id = %(id)s", {**changes, "id": page_id})  # noqa: S608
+def _text(value: Any) -> str | None:
+    return None if value is None else str(value).lower()
+
+
+async def change_page(conn: AsyncConnection, page_id: uuid.UUID, changes: dict[str, Any]) -> bool:
+    """Sets the given `relevance` and `needs_clearer_copy` (only those keys), keeping each earlier value with
+    who changed it and when (PV-12). Returns whether anything changed."""
+    keys = [k for k in changes if k in ("relevance", "needs_clearer_copy")]
+    cur = await conn.execute("select relevance, needs_clearer_copy from app.pages where id = %s", (page_id,))
+    old = await cur.fetchone()
+    assert old is not None
+    before = {"relevance": old[0], "needs_clearer_copy": old[1]}
+    changed = [k for k in keys if before[k] != changes[k]]
+    for k in changed:
+        await conn.execute(
+            "insert into app.page_changes (page_id, person_id, field, old_value, new_value)"
+            " values (%s, app.current_person_id(), %s, %s, %s)",
+            (page_id, k, _text(before[k]), _text(changes[k])),
+        )
+    if keys:
+        sets = ", ".join(f"{k} = %({k})s" for k in keys)
+        await conn.execute(f"update app.pages set {sets} where id = %(id)s", {**changes, "id": page_id})  # noqa: S608
+    return bool(changed)
 
 
 async def rotate(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, degrees: int) -> int | None:
@@ -595,13 +637,13 @@ async def set_turn(conn: AsyncConnection, page_id: uuid.UUID, degrees: int, pers
 async def pages_to_type(conn: AsyncConnection, case_ids: list[uuid.UUID]) -> list[tuple[uuid.UUID, int]]:
     """(case, unreadable pages not yet typed out or sent for a clearer copy) where there are any."""
     cur = await conn.execute(
-        """select c.id, count(*)::int from app.pages p
+        f"""select c.id, count(*)::int from app.pages p
            join app.cases c on c.bundle_id = p.bundle_id
            where c.id = any(%s) and p.unreadable and not p.quarantined
              and p.transcribed_by_expert_text is null and not p.needs_clearer_copy
-             and p.relevance is distinct from 'nothing' and p.duplicate_of_page_id is null
+             and p.relevance is distinct from 'nothing' and not {CONFIRMED_COPY}
              and not exists (select 1 from app.page_replacements r where r.page_id = p.id)
-           group by c.id""",
+           group by c.id""",  # noqa: S608
         (case_ids,),
     )
     return [(r[0], r[1]) for r in await cur.fetchall()]
@@ -740,7 +782,7 @@ async def my_notes(
 
 _TO_READ = (
     "p.bundle_id = (select bundle_id from app.cases where id = %s) and not p.quarantined"
-    " and p.duplicate_of_page_id is null and p.superseded_by_page_id is null"
+    f" and not {CONFIRMED_COPY} and p.superseded_by_page_id is null"
 )  # the same pages `transcript._pages_to_read` counts
 
 
@@ -763,3 +805,18 @@ async def page_counts(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[int, i
     row = await cur.fetchone()
     assert row is not None
     return int(row[0]), int(row[1])
+
+
+async def pages_set_aside(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[int, str]]:
+    """(bundle page number, reason key) of each page `_TO_READ` leaves out. Held back wins over replaced, and
+    replaced over copy, so each page is listed once."""
+    cur = await conn.execute(
+        "select p.bundle_page_no,"
+        " case when p.quarantined then 'reason_held'"
+        "      when p.superseded_by_page_id is not null then 'reason_replaced'"
+        "      else 'reason_copy' end"
+        f" from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %s) and not ({_TO_READ})"  # noqa: S608
+        " order by p.bundle_page_no",
+        (case_id, case_id),
+    )
+    return [(int(r[0]), str(r[1])) for r in await cur.fetchall()]

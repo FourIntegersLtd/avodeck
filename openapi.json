@@ -9699,8 +9699,19 @@
       },
       "MethodologyOut": {
         "properties": {
+          "incomplete": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Incomplete",
+            "type": "array"
+          },
           "pages_read": {
             "title": "Pages Read",
+            "type": "integer"
+          },
+          "pages_set_aside": {
+            "title": "Pages Set Aside",
             "type": "integer"
           },
           "pages_total": {
@@ -9718,6 +9729,8 @@
         "required": [
           "pages_read",
           "pages_total",
+          "pages_set_aside",
+          "incomplete",
           "tasks"
         ],
         "title": "MethodologyOut",
@@ -9876,6 +9889,14 @@
               "$ref": "#/components/schemas/MissingItem"
             },
             "title": "Missing Items",
+            "type": "array"
+          },
+          "page_shortfalls": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PageShortfall"
+            },
+            "title": "Page Shortfalls",
             "type": "array"
           },
           "still_missing": {
@@ -13015,6 +13036,36 @@
           "new_page_no"
         ],
         "title": "PageReplacement",
+        "type": "object"
+      },
+      "PageShortfall": {
+        "description": "A file whose own page count is higher than the pages that were numbered from it (PV-11).",
+        "properties": {
+          "declared": {
+            "title": "Declared",
+            "type": "integer"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "found": {
+            "title": "Found",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_id",
+          "filename",
+          "declared",
+          "found"
+        ],
+        "title": "PageShortfall",
         "type": "object"
       },
       "PageSummary": {

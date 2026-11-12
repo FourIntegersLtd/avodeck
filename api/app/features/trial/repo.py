@@ -111,6 +111,45 @@ def status_of(row: dict[str, Any]) -> str:
     return "matched" if row["confirmed"] else "to_confirm"
 
 
+async def trial_page_holder(
+    conn: AsyncConnection, bundle_id: uuid.UUID, trial_page_no: int, except_id: uuid.UUID
+) -> bool:
+    """Another page of this court bundle already has this trial page number."""
+    row = await one(
+        conn,
+        "select 1 from app.concordance where court_bundle_id = %s and trial_page_no = %s and id <> %s",
+        (bundle_id, trial_page_no, except_id),
+    )
+    return row is not None
+
+
+async def keep_concordance_history(conn: AsyncConnection, row: dict[str, Any], new_trial_page_no: int | None) -> None:
+    """Append what a concordance row held before the expert changed it (append-only; PV-16d)."""
+    await conn.execute(
+        "insert into app.concordance_history (concordance_id, court_bundle_id, page_id, page_no,"
+        " previous_trial_page_no, previous_method, previous_score, previous_confirmed, previous_confirmed_at,"
+        " new_trial_page_no) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        (
+            row["id"],
+            row["court_bundle_id"],
+            row["page_id"],
+            row["page_no"],
+            row["trial_page_no"],
+            row["method"],
+            row["score"],
+            row["confirmed"],
+            row["confirmed_at"],
+            new_trial_page_no,
+        ),
+    )
+
+
+async def report_hash(conn: AsyncConnection, version_id: uuid.UUID) -> str | None:
+    """The SHA-256 of a served report version (set when it was locked)."""
+    row = await one(conn, "select sha256 from app.report_versions where id = %s", (version_id,))
+    return row["sha256"] if row else None
+
+
 async def concordance(conn: AsyncConnection, bundle_id: uuid.UUID) -> list[dict[str, Any]]:
     rows = await many(
         conn,

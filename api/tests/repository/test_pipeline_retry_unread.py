@@ -87,6 +87,7 @@ async def test_every_page_whose_answer_failed_is_retryable_whatever_its_label_bu
     _words(admin, good, failed, labelled, held, copy, never)  # the blank page has no words
     admin.execute("update app.pages set quarantined = true where id = %s", (held,))
     admin.execute("update app.pages set duplicate_of_page_id = %s where id = %s", (good, copy))
+    admin.execute("update app.page_analysis set duplicate_status = 'confirmed' where page_id = %s", (copy,))  # PV-09
     async with api_db.request(scope_for(expert)) as conn:
         assert await record_entries.retryable_unread_pages(conn, case) == 2
 

@@ -28,6 +28,12 @@ def case_with_fact(seed: Seed) -> dict[str, uuid.UUID]:
 def verify_as(api_dsn: str, person: uuid.UUID, fact: uuid.UUID) -> int:
     with psycopg.connect(api_dsn) as conn, conn.transaction():
         conn.execute("select set_config('app.person_id', %s, true)", (str(person),))
+        # PV-02: checking a fact writes its check-log row in the same transaction, as the real route does
+        conn.execute(
+            "insert into app.fact_verifications (case_id, fact_id, person_id, action, old_value, new_value)"
+            " select f.case_id, f.id, %s, 'correct', f.value, f.value from app.facts f where f.id = %s",
+            (person, fact),
+        )
         return conn.execute("update app.facts set status = 'verified' where id = %s", (fact,)).rowcount
 
 

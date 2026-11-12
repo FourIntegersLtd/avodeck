@@ -27,6 +27,7 @@ from app.core.contracts.record_entries import (
 )
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
+from app.core.hashing import sha256_hex
 from app.core.http import CurrentScope, DbConn
 from app.core.iterkit import iter_chunks
 from app.core.jobs import registry
@@ -229,5 +230,6 @@ async def transcript_download(
         headers={
             "Cache-Control": "private, no-store",
             "Content-Disposition": f'attachment; filename="transcript-{job_id}.{fmt}"',
+            "X-Content-SHA256": sha256_hex(data),
         },
     )

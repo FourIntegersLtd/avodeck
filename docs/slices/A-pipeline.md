@@ -75,7 +75,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 - [x] Wrong-patient pages (planted in the synthetic bundle) are suggested for quarantine, never auto-hidden; once confirmed they keep their numbers, show a placeholder, leave AI, search, exports and citations, and their facts are rejected (S5, F25)
 - [x] A locked (password-protected) or damaged PDF stops that document only: no pages, `documents.unreadable_reason` (migration 0116), listed on S08 and asked for in the S08b draft; the rest of the bundle carries on (F2)
-- [x] A document over the page cap (`MAX_DOCUMENT_PAGES`), or one that would take the bundle past `MAX_BUNDLE_PAGES`, stops that document only: no pages, `unreadable_reason = 'too_many_pages'` (migration 0147), listed with the files we could not open (F124). PDF, picture and Word parsing, the count and the cut run in sandbox children, so a file that hangs or kills its parser marks that document damaged, or that page unreadable, and the job carries on (F122, F126); the split's decrypted copies live only in the private scratch directory (F125)
+- [x] A document over the page cap (`MAX_DOCUMENT_PAGES`), or one that would take the bundle past `MAX_BUNDLE_PAGES`, stops that document only: no pages, `unreadable_reason = 'too_many_pages'` (migration 0147), listed with the files we could not open (F127). PDF, picture and Word parsing, the count and the cut run in sandbox children, so a file that hangs or kills its parser marks that document damaged, or that page unreadable, and the job carries on (F125, F129); the split's decrypted copies live only in the private scratch directory (F128)
 - [x] Quarantined images and text are deleted after the note is sent or 14 days; undo works only before that
 - [x] A clearer copy gets the next number; the old page is superseded and still readable; no fact moves automatically (S6)
 - [x] Images, emails (with attachments), Word and zip files become pages; audio, video and DICOM become exhibits without page numbers (F36)
@@ -93,6 +93,13 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - Specialty `pack.yaml` `record_gaps` (seven thresholds): `pack.record_gap_rules()`, read by `gaps.Rules.from_pack`. `gaps.find(pages, rules)` has no constants of its own.
 - Jurisdiction `quarantine_purge_days` (the delay before a set-aside page's image and text are deleted) is in `CasePack`, so S30 shows the real number of days.
 - `Document` in the bundle summary is a typed OpenAPI schema; the web uses the generated type.
+
+## Provenance integrity (audit 16, PV-04 to PV-11)
+- The file's whole-file SHA-256 and part count are re-checked when the pipeline first reads it (`service._download`); a mismatch marks the document `unreadable_reason` = `altered`. Each page's own file is fingerprinted (`pages.content_sha256`) and checked at read-back (`page_analysis.read_failure` = `altered`).
+- `pages.source_page_index` (immutable) is where a page is cut from; `bundles.page_high_water` stops a page number being given twice.
+- Only a confirmed duplicate is set aside (`repo.NOT_SET_ASIDE`); a suggested copy is read and extracted. A page a later page replaced (`superseded_by_page_id`) is always set aside too, in the same constant and in `pipeline_report_progress`'s sort count, as in `core/contracts/set_aside.py`. Every log row the pipeline writes for a checked fact (quarantine, its undo, a date repair) carries the fact's value, details, words, page, date and basis on both sides; the OCR call record takes its region from the cell config and raises the config error when it is missing.
+- Setting a page aside and undoing a quarantine log a `fact_verifications` row; a system withdrawal is marked by `facts.withdrawn_reason`.
+- `page_analysis.refusal_codes`, `read_failure` and the `few_words` code (under 40 words, no facts, no person needed) tell failures from empty pages. `documents.pages_declared` against the pages found shows in `GET .../missing-items` as `page_shortfalls`. A "page x of y" sequence check stays deferred (`docs/decisions/deferred.md`).
 
 ## Out of scope
 Showing facts to the expert (B), verifying facts (B), Gmail/Outlook sending (Phase 2), the timeline (D).
