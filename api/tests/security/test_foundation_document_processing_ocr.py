@@ -13,6 +13,7 @@ list is fine and gives an `OcrResult` with no pages.
 from __future__ import annotations
 
 import copy
+import json
 import logging
 from collections.abc import AsyncIterator, Callable
 from typing import Any
@@ -44,6 +45,11 @@ def mutate(change: Callable[[dict[str, Any]], None]) -> dict[str, Any]:
     result = di_result([copy.deepcopy(one_page())])
     change(result["analyzeResult"])
     return result
+
+
+def raw(result: dict[str, Any]) -> httpx.Response:
+    """The answer as text on the wire, so `NaN` and `Infinity` (which Python's `json` writes and reads) can be sent."""
+    return httpx.Response(200, content=json.dumps(result).encode(), headers={"Content-Type": "application/json"})
 
 
 def first_word(analysed: dict[str, Any]) -> dict[str, Any]:
@@ -85,7 +91,7 @@ async def test_a_malformed_response_is_ocr_failed_with_a_fixed_code_and_no_conte
     name: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.DEBUG)
-    di = AzureDi(polls=[succeeded(mutate(MALFORMED[name]))])
+    di = AzureDi(polls=[raw(mutate(MALFORMED[name]))])
     with pytest.raises(OcrFailed) as caught:
         await ocr(di).analyse(PAGE)
     error = caught.value
