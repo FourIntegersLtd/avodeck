@@ -19,6 +19,7 @@ import os
 import shutil
 import stat
 import tempfile
+import time
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from contextlib import aclosing, asynccontextmanager, contextmanager
@@ -175,19 +176,43 @@ def _process_alive(pid: int) -> bool:
     return True
 
 
-def sweep_scratch() -> int:
-    """Delete plaintext files an earlier run left behind (a crash or kill between create and delete); the count.
+STALE_UNPACK_SECONDS = 2 * 60 * 60  # an `unpack-*` directory untouched this long is a crash's leftover
 
-    Call once at worker start. Only `plain-<pid>-…` files are touched, and only when that process id is no longer
-    running or is this process (nothing of ours is open yet at start), so a second worker sharing the directory
-    keeps its files. Never reports a path.
+
+def _sweep_unpack(directory: str) -> int:
+    """Remove `unpack-*` directories (the pipeline's unpacked email and zip members) not touched for
+    `STALE_UNPACK_SECONDS`. Their names carry no process id, so only age tells a crash's leftover from another live
+    worker's current one. A link is never followed or removed here; the count of directories removed."""
+    removed = 0
+    cutoff = time.time() - STALE_UNPACK_SECONDS
+    for name in os.listdir(directory):
+        path = os.path.join(directory, name)
+        if not name.startswith("unpack-"):
+            continue
+        try:
+            info = os.lstat(path)
+        except OSError:
+            continue
+        if not stat.S_ISDIR(info.st_mode) or info.st_mtime > cutoff:
+            continue
+        shutil.rmtree(path, ignore_errors=True)
+        removed += 0 if os.path.lexists(path) else 1
+    return removed
+
+
+def sweep_scratch() -> int:
+    """Delete plaintext left behind by an earlier run (a crash or kill between create and delete); the count.
+
+    Call once at worker start. `plain-<pid>-…` files are removed only when that process id is no longer running or
+    is this process (nothing of ours is open yet at start), so a second worker sharing the directory keeps its
+    files. `unpack-*` directories are removed when stale (see `_sweep_unpack`). Never reports a path.
     """
     directory = _scratch_path()
     try:
         names = os.listdir(directory)
     except FileNotFoundError:
         return 0
-    removed = 0
+    removed = _sweep_unpack(directory)
     for name in names:
         if not name.startswith(_PLAIN_PREFIX):
             continue
