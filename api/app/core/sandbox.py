@@ -10,7 +10,13 @@ and the worker carries on.
 
     pages = await run(count_pages, pdf_bytes)            # count_pages is a top-level function, bytes in, int out
     try: ...
-    except SandboxError as exc: exc.code                 # timed_out, out_of_memory, crashed, failed, stopped
+    except SandboxError as exc: exc.code                 # see below
+
+Codes. The input's fault, so a caller may mark the file or page: `timed_out`, `out_of_memory`, `crashed` (the child
+died while it had the call) and `failed` (its result or an exception could not cross the pipe, or the arguments could
+not be pickled). Not the input's fault, so a caller should retry the job and not mark the file: `unavailable` (a child
+could not be started, did not become ready, or was already gone when the call was sent) and `stopped` (the pool was
+stopped while the call waited or ran).
 
 `fn` must be an importable top-level function; its arguments and result must be picklable. An exception `fn`
 raises comes back as its own type when it can be pickled (so `pikepdf.PasswordError` still arrives as such); one
@@ -54,8 +60,8 @@ _STOP_GRACE_SECONDS = 2.0
 
 
 class SandboxError(Exception):
-    """A sandboxed call did not complete. `code` is `timed_out`, `out_of_memory`, `crashed`, `failed` or
-    `stopped`; there is no other text."""
+    """A sandboxed call did not complete. `code` is `timed_out`, `out_of_memory`, `crashed`, `failed` (this input's
+    doing) or `unavailable`, `stopped` (not its doing); there is no other text."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -134,17 +140,17 @@ def _start_child(
     except OSError:
         mine.close()
         theirs.close()
-        raise SandboxError("crashed") from None
+        raise SandboxError("unavailable") from None
     theirs.close()
     child = _Child(process, Connection(mine.detach()))
     _live.add(process)
     seen(process)
     try:
         if not child.conn.poll(STARTUP_SECONDS) or child.conn.recv() != "ready":
-            raise SandboxError("crashed")
+            raise SandboxError("unavailable")
     except (EOFError, OSError):
         child.kill()
-        raise SandboxError("crashed") from None
+        raise SandboxError("unavailable") from None
     except SandboxError:
         child.kill()
         raise
@@ -185,12 +191,12 @@ class _Warm:
             self.done.set()
 
     def take(self, timeout: float | None = None) -> _Child:
-        """The ready child (waiting for it if need be); `SandboxError("crashed")` if it could not start."""
+        """The ready child (waiting for it if need be); `SandboxError("unavailable")` if it could not start."""
         self.done.wait(timeout)
         with self._lock:
             child, self._child = self._child, None
         if child is None:
-            raise self.error or SandboxError("crashed")
+            raise self.error or SandboxError("unavailable")
         return child
 
     def cancel(self) -> None:
@@ -260,7 +266,7 @@ class _Slot:
                 if self.warm is warm:
                     self.warm = None
                 closed = self.closed
-            raise SandboxError("stopped" if closed else "crashed") from None
+            raise SandboxError("stopped" if closed else "unavailable") from None
         with self.lock:
             if self.warm is warm:
                 self.warm = None
@@ -312,9 +318,9 @@ def _call(
     conn = child.conn
     try:
         conn.send((fn, args))
-    except (OSError, ValueError):
+    except (OSError, ValueError):  # the child was gone before it had the call: not this input's doing
         slot.discard(child)
-        raise SandboxError("crashed") from None
+        raise SandboxError("unavailable") from None
     except BaseException:  # noqa: BLE001 - arguments that cannot be pickled; their text stays out of the error
         slot.discard(child)
         raise SandboxError("failed") from None
