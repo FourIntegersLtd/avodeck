@@ -102,7 +102,7 @@ async def test_a_page_that_cannot_be_cut_or_pictured_is_unreadable_and_the_next_
     for page in (first, last):
         assert page["unreadable"] is False and words_of(h, page["id"]) > 0, "control: the other pages are read"
         assert page["image_path"] is not None
-    assert middle["image_path"] is not None, "the page is not retried on every run"
+    assert middle["image_path"] is None, "the page has no stand-in picture, so a later run cuts it again"
 
 
 @pytest.mark.parametrize("mode", MODES)

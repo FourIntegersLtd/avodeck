@@ -2,8 +2,9 @@
 
 It has no stored page PDF, picture or thumbnail and its image stays unset, so the page is still "waiting for its
 picture" and a later run cuts it again. It is marked unreadable meanwhile (the summary count and the clearer-copy
-list), its picture and thumbnail answer 404 instead of a blank image, and once a later run can cut it, it reads like
-any other page and is no longer unreadable. Nothing printed or asserted on is patient text.
+list), its thumbnail answers 404 instead of a blank image, and once a later run can cut it its words are read
+like any other page's. It stays listed unreadable: the page guard clears that flag only with the expert's
+transcription. Nothing printed or asserted on is patient text.
 """
 
 from __future__ import annotations
@@ -87,6 +88,5 @@ async def test_a_lost_page_has_no_stand_in_picture_is_listed_and_is_cut_again_by
     assert set((await h.drain()).values()) <= {"done"}
     assert stored(h, middle["id"])["image"] is True, "not cut again"
     again = stored(h, middle["id"])
-    assert again["unreadable"] is False and again["read"] is True and again["words"] > 0, again
-    summary = await h.client.get(f"{base}/bundle/summary")
-    assert summary.json()["unreadable"] == 0
+    # the database guard (0050) keeps a page unreadable until the expert transcribes it, so it stays listed
+    assert again["unreadable"] is True and again["read"] is True and again["words"] > 0, again
