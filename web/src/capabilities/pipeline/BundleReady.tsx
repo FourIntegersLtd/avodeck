@@ -14,10 +14,10 @@ import { can, casePath, documentsOf, requestLabel, sourceWord } from "./data";
 import { formatDate, formatNumber, languageName, pageList } from "./format";
 import { AlertIcon, CopyIcon, MicIcon, OtherPersonIcon, PageIcon, SearchIcon } from "./icons";
 import { SourceStack } from "./SourceStack";
-import { w, wn } from "./words";
+import { w, wn, type WordKey } from "./words";
 
 const UNKNOWN_COLOUR = "#8A948E";
-const UNOPENED_WORDS: Record<string, string> = {
+const UNOPENED_WORDS: Record<string, WordKey> = {
   locked: "bundle.unopened_locked",
   infected: "bundle.unopened_infected",
   too_many_pages: "bundle.unopened_too_many_pages",
