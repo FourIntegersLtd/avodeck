@@ -240,6 +240,9 @@ unchecked → matches / wrong_page / wrong_value / not_on_page / contradicted (w
 ## Session (`sessions`)
 `aal1` (password only) → `aal2` (authenticator code entered) → revoked. Since ADR 0025 a session lives at `aal1` until the first risky action: every ordinary route works, and step-up routes, the support console and support grants answer 403 `mfa_required` (`mfa_enrolled` false: set up the authenticator; true: enter a code). Enrolling and verifying from `aal1` move it to `aal2` with `mfa_verified_at` now; `aal2` with the code more than 10 minutes old answers step-up routes 403 `step_up_required`. A recovery code signs in at `aal1` with the authenticator removed. Revoked is final: signed out, signed out everywhere, idle (30 minutes), too old (12 hours) or password reset. Entering a code again keeps `aal2` and restarts the 10-minute step-up window; the cookie changes each time.
 
+## Deferred work (`deferred_work.status`)
+Pending → done (delivered), failed (the 8th failed try) or expired (past `expires_at`, never sent). Every move is made by a database function and drops the sealed contents; done, failed and expired are final and the row is deleted a week later. A failed try keeps it pending with the next try after 30 seconds doubling to an hour.
+
 ## Email change (`email_changes`)
 Waiting → one address confirmed → completed (both confirmed). Waiting or half-confirmed → cancelled (a newer request) or expired (after a day). Completed, cancelled and expired are final.
 

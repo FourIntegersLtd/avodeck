@@ -1158,6 +1158,17 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | step | A step that finished (a short code), so a retry skips it |
 | created_at | When it finished |
 
+### deferred_work
+| Field | In plain words |
+|---|---|
+| kind / name | An email (named by its template) or a call a feature registered (named by the feature) |
+| sealed | The contents (for an email: the address, any one-time code or link), scrambled under the cell key and tied to this row; gone as soon as the row ends |
+| requested_by | The person whose request made it |
+| status | Waiting, done, failed after 8 tries, or expired (not worth sending any more) |
+| attempts / run_after / last_error | How many tries, when the next one is due, and the kind of error (its type only, never its message) |
+| expires_at | When it stops being worth sending (a one-time code: its own lifetime; never more than 7 days) |
+| created_at / finished_at | When it was written and when it ended; an ended row is deleted a week later |
+
 ### ai_request_slots
 | Field | In plain words |
 |---|---|
