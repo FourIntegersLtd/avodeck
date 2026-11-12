@@ -1,4 +1,4 @@
-"""The API stops the sandbox pool when it shuts down, so no parser child is left behind (audit 13 reviewer round, F-h)."""
+"""The API stops the sandbox pool when it shuts down, so no parser child is left behind (audit 13, F-h)."""
 
 from __future__ import annotations
 
