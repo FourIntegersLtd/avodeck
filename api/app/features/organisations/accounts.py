@@ -97,17 +97,17 @@ async def create(
         account_id = await _db(repo.support_create_account(conn, person_id, body.email, body.full_name, region))
         found = next(a for a in await repo.support_accounts(conn) if a["id"] == account_id)
         await audit.record(conn, action="support.account_created", target=f"person:{person_id}")
+        if recovery is not None:  # can fail in the request (key service, pending cap): the login goes too
+            await deferred.defer_mail(
+                conn,
+                account_created_mail(found["email"], link=_link(origin, recovery)),
+                valid_for=timedelta(hours=int(ACCOUNT_LINK_HOURS)),
+            )  # the link only, never the password (ADR 0024); sealed at rest
     except BaseException:
         # Best effort. A failure of the commit itself (after this returns) cannot undo the login; support
         # then sees 409 for the email and the login is removed by hand (docs/ops/support-staff.md).
         await auth.admin_delete_user(person_id)
         raise
-    if recovery is not None:
-        await deferred.defer_mail(
-            conn,
-            account_created_mail(found["email"], link=_link(origin, recovery)),
-            valid_for=timedelta(hours=int(ACCOUNT_LINK_HOURS)),
-        )  # the link only, never the password (ADR 0024); sealed at rest
     return SupportAccountWithPassword(**found, temporary_password=password)
 
 
