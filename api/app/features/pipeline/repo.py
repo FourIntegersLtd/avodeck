@@ -180,18 +180,24 @@ class ReadingState:
     unreadable: bool
     handwriting: bool
     straightened: bool = False
+    first_reading: bool = False  # never read before and has its picture: a lost page cut again (migration 0074)
 
 
 async def reading_state(conn: AsyncConnection, page_id: uuid.UUID) -> ReadingState:
     cur = await conn.execute(
-        "select rotation, transcribed_by_expert_text, unreadable, handwriting, straightened from app.pages"
-        " where id = %s",
+        "select rotation, transcribed_by_expert_text, unreadable, handwriting, straightened,"
+        " text_source is null and image_path is not null from app.pages where id = %s",
         (page_id,),
     )
     row = await cur.fetchone()
     assert row is not None
     return ReadingState(
-        int(row[0]), None if row[1] is None else bytes(row[1]), bool(row[2]), bool(row[3]), bool(row[4])
+        int(row[0]),
+        None if row[1] is None else bytes(row[1]),
+        bool(row[2]),
+        bool(row[3]),
+        bool(row[4]),
+        bool(row[5]),
     )
 
 

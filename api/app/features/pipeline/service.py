@@ -843,6 +843,8 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
                 )
             if straightened and page_pdf is not None:
                 await repo.set_straightened(conn, page_id, turn)
+            # a lost page (never read) that is cut again and now has words is readable; any other flag is kept
+            recovered = state.first_reading and bool(rows)
             await repo.store_words(
                 conn,
                 page_id,
@@ -850,7 +852,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
                 source=source,
                 confidence=reading.confidence,
                 handwriting=reading.handwriting or state.handwriting,
-                unreadable=reading.unreadable or (state.unreadable and source != "expert"),
+                unreadable=reading.unreadable or (state.unreadable and source != "expert" and not recovered),
                 size=None if source == "expert" else (page.width, page.height),
             )
             await repo.set_language(conn, page_id, language.detect(" ".join(w.text for w in page.words), spoken))
