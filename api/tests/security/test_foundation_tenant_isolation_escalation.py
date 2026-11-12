@@ -20,7 +20,6 @@ Each test that changes anything uses a fresh world (`fresh`) so tests cannot aff
 from __future__ import annotations
 
 import hashlib
-import os
 import secrets
 import uuid
 from collections.abc import AsyncIterator
@@ -436,7 +435,7 @@ def _mails_to_outside() -> int:
     return sum(1 for m in current().mailer.outbox if m.to == OUTSIDE["reviewer_email"])
 
 
-async def _spot_check(iso_send, admin, w: IsolationWorld, who: str, **kw: Any):  # type: ignore[no-untyped-def]
+async def _spot_check(iso_send, admin, worker_dsn: str, w: IsolationWorld, who: str, **kw: Any):  # type: ignore[no-untyped-def]
     """Start a spot check as this attacker-case person: (response, new spot_checks rows, new mails to the outside)."""
     rows, mails = _checks(admin, w.attacker.case), _mails_to_outside()
     response = await iso_send(
@@ -445,7 +444,7 @@ async def _spot_check(iso_send, admin, w: IsolationWorld, who: str, **kw: Any): 
     # The code mail is deferred work (BG-16): it reaches the mailer when the worker sweep runs.
     from app.features.report.services import current
 
-    await drain(os.environ["TEST_DATABASE_URL_DIRECT"], current().mailer)
+    await drain(worker_dsn, current().mailer)
     return response, _checks(admin, w.attacker.case) - rows, _mails_to_outside() - mails
 
 
@@ -455,15 +454,15 @@ async def sealed(fresh, admin, aconn) -> IsolationWorld:  # type: ignore[no-unty
     return fresh  # type: ignore[no-any-return]
 
 
-async def test_l5_the_named_expert_starts_a_spot_check(sealed, iso_send, admin):  # type: ignore[no-untyped-def]
+async def test_l5_the_named_expert_starts_a_spot_check(sealed, iso_send, admin, worker_dsn):  # type: ignore[no-untyped-def]
     """Control: with a fresh aal2 login the named expert gets 201, one spot_checks row and one mail to the address."""
-    response, rows, mails = await _spot_check(iso_send, admin, sealed, "expert")
+    response, rows, mails = await _spot_check(iso_send, admin, worker_dsn, sealed, "expert")
     assert response.status_code == 201, f"{response.status_code} {_error(response)}"
     assert (rows, mails) == (1, 1)
 
 
-async def test_l5_a_viewer_cannot_start_a_spot_check(sealed, iso_send, admin):  # type: ignore[no-untyped-def]
-    response, rows, mails = await _spot_check(iso_send, admin, sealed, "viewer")
+async def test_l5_a_viewer_cannot_start_a_spot_check(sealed, iso_send, admin, worker_dsn):  # type: ignore[no-untyped-def]
+    response, rows, mails = await _spot_check(iso_send, admin, worker_dsn, sealed, "viewer")
     assert response.status_code == 403, f"{response.status_code}"
     assert (rows, mails) == (0, 0)
 
@@ -476,8 +475,8 @@ async def test_l5_a_viewer_cannot_start_a_spot_check(sealed, iso_send, admin):  
     " which carries a code for cropped pages of the case: api/app/features/report/routes_spot_checks.py:69-73,"
     " api/app/core/auth/permissions.py (_HELPERS)",
 )
-async def test_l5_an_assistant_cannot_send_facts_to_an_outside_address(sealed, iso_send, admin):  # type: ignore[no-untyped-def]
-    response, rows, mails = await _spot_check(iso_send, admin, sealed, "assistant")
+async def test_l5_an_assistant_cannot_send_facts_to_an_outside_address(sealed, iso_send, admin, worker_dsn):  # type: ignore[no-untyped-def]
+    response, rows, mails = await _spot_check(iso_send, admin, worker_dsn, sealed, "assistant")
     assert response.status_code == 403, f"{response.status_code} {_error(response)}"
     assert (rows, mails) == (0, 0)
 
@@ -490,8 +489,8 @@ async def test_l5_an_assistant_cannot_send_facts_to_an_outside_address(sealed, i
     " step_up=False) although it sends case facts to an outside address: api/app/features/report/routes_spot_checks.py:69,"  # noqa: E501
     " api/app/core/auth/permissions.py",
 )
-async def test_l5_sending_facts_outside_needs_mfa(sealed, iso_send, admin):  # type: ignore[no-untyped-def]
-    response, rows, mails = await _spot_check(iso_send, admin, sealed, "expert", aal="aal1")
+async def test_l5_sending_facts_outside_needs_mfa(sealed, iso_send, admin, worker_dsn):  # type: ignore[no-untyped-def]
+    response, rows, mails = await _spot_check(iso_send, admin, worker_dsn, sealed, "expert", aal="aal1")
     assert response.status_code == 403 and _error(response) in ("step_up_required", "mfa_required"), (
         f"{response.status_code} {_error(response)}"
     )
@@ -504,8 +503,10 @@ async def test_l5_sending_facts_outside_needs_mfa(sealed, iso_send, admin):  # t
     " 201 with a mail to the outside address, no step_up_required (rule 10 asks 10 minutes for sending): "
     "api/app/features/report/routes_spot_checks.py:69, api/app/core/auth/permissions.py",
 )
-async def test_l5_sending_facts_outside_needs_mfa_from_the_last_ten_minutes(sealed, iso_send, admin):  # type: ignore[no-untyped-def]
-    response, rows, mails = await _spot_check(iso_send, admin, sealed, "expert", mfa_age=timedelta(minutes=30))
+async def test_l5_sending_facts_outside_needs_mfa_from_the_last_ten_minutes(sealed, iso_send, admin, worker_dsn):  # type: ignore[no-untyped-def]
+    response, rows, mails = await _spot_check(
+        iso_send, admin, worker_dsn, sealed, "expert", mfa_age=timedelta(minutes=30)
+    )
     assert response.status_code == 403 and _error(response) == "step_up_required", (
         f"{response.status_code} {_error(response)}"
     )
