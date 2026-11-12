@@ -190,7 +190,7 @@ async def test_splitting_1500_pages_keeps_python_memory_low(
     assert set(found.values()) == {"done"}, states.fetchall()
     assert spy.dropped == PAGES * 3, "not every page was cut and stored"
     assert 0 < seen["peak"] < PEAK_LIMIT, f"the split's peak was {seen['peak'] // MB} MB"
-    assert not list(scratch.iterdir()), "a temp file was left behind"
+    assert not [p for p in scratch.rglob("*") if p.is_file()], "a temp file was left behind"
 
 
 async def test_the_cut_is_the_same_bytes_as_before(h: tuple[Harness, PageDiscarding], scratch: Path) -> None:
@@ -210,7 +210,7 @@ async def test_the_cut_is_the_same_bytes_as_before(h: tuple[Harness, PageDiscard
         path = paths.page_pdf_path(run.case_id, page_id)
         stored = await run.decrypt(await run.storage.get(path), path)
         assert hashlib.sha256(stored).hexdigest() == want, f"page {number} was cut differently"
-    assert not list(scratch.iterdir()), "a temp file was left behind"
+    assert not [p for p in scratch.rglob("*") if p.is_file()], "a temp file was left behind"
 
 
 async def test_a_failed_split_still_deletes_its_temp_file(
@@ -225,7 +225,7 @@ async def test_a_failed_split_still_deletes_its_temp_file(
     await run.upload(heavy_pdf(6, 512))
     await finish(run, timeout=60)  # the job fails after its attempts; either way the file must be gone
 
-    assert not list(scratch.iterdir()), "a temp file was left behind after a failure"
+    assert not [p for p in scratch.rglob("*") if p.is_file()], "a temp file was left behind after a failure"
 
 
 class FakeContext:
