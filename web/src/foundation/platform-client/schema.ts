@@ -2429,7 +2429,8 @@ export interface paths {
         put?: never;
         /**
          * Start Processing
-         * @description Processes whatever is not done yet: finished pages are never read again.
+         * @description Processes whatever is not done yet: finished pages are never read again. A bundle job already queued,
+         *     running or paused to resume is returned instead of queueing another (BG-08).
          */
         post: operations["start_processing_v1_cases__case_id__process_post"];
         delete?: never;
@@ -4980,7 +4981,7 @@ export interface paths {
         /**
          * Create Account
          * @description A new person's account with a temporary password, shown once (ADR 0024), and no team; when mail is set
-         *     up, also a set-password email sent after commit (409 `conflict` if the email already has an account, 422
+         *     up, also a set-password email the worker sends after commit (409 `conflict` if the email already has an account, 422
          *     `invalid_email` if Auth will not take it; at most 20 an hour per staff member counting refused attempts,
          *     429 `too_many_attempts`).
          */
