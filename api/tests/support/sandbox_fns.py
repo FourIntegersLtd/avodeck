@@ -79,3 +79,7 @@ def environment() -> dict[str, str]:
 
 def open_descriptors() -> list[int]:
     return sorted(int(name) for name in os.listdir("/dev/fd") if name.isdigit())
+
+
+def slow_module_loaded() -> bool:
+    return "tests.support.slow_import" in sys.modules
