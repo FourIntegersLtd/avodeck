@@ -87,3 +87,29 @@ def test_a_kind_the_route_does_not_retry_is_refused_even_for_a_person_who_may_ru
     with api_as(api_dsn, expert) as api:
         assert _retry(api, admin, export) is False
     assert admin.execute("select status from app.jobs where id = %s", (export,)).fetchone() == ("failed",)
+
+
+def _queue_rows(admin: psycopg.Connection, job: uuid.UUID) -> list[tuple[str, int]]:
+    return admin.execute(
+        "select queue_name, priority from procrastinate.procrastinate_jobs where args->>'job_id' = %s", (str(job),)
+    ).fetchall()
+
+
+def test_a_retry_cannot_choose_its_own_priority_or_the_other_kinds_queue(
+    api_dsn: str, admin: psycopg.Connection, seed: Seed
+) -> None:
+    """BG-09 on the second path: the retry function holds a job to 0 or 10 and to its kind's queue, like enqueue_job."""
+    expert = seed.person()
+    case = seed.case(seed.org(kind="personal", members={expert: "owner"}), expert)
+    job = seed.job(case, requested_by=expert)  # process_bundle: not interactive, priority 0, bulk queue
+    _fail(admin, job)
+    with api_as(api_dsn, expert) as api:
+        for queue, priority in (("zz_q", 1000000), ("zz_q", -5), ("zz_interactive", 0), ("zz_bulk", 10)):
+            try:
+                api.execute("select app.requeue_failed_job(%s, %s, %s, false)", (job, queue, priority))
+            except psycopg.errors.InvalidParameterValue:
+                pass
+            assert _queue_rows(admin, job) == [], f"a retry at {queue}/{priority} reached the queue"
+            assert admin.execute("select status from app.jobs where id = %s", (job,)).fetchone() == ("failed",)
+        assert api.execute("select app.requeue_failed_job(%s, 'zz_bulk', 0, false)", (job,)).fetchone() == (True,)
+    assert _queue_rows(admin, job) == [("zz_bulk", 0)]
