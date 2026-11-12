@@ -387,7 +387,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | pages | How many pages it has |
 | received_on / obtained_how | When it arrived and from whom/how |
 | bundle_version | Which delivery of records it came in (v1, v2…) |
-| unreadable_reason | Why we couldn't open it: password-protected (`locked`) or `damaged`. Empty for every file that opened. A file with a reason has no pages; the instructing party is asked for a readable copy |
+| unreadable_reason | Why we couldn't open it: password-protected (`locked`), `damaged`, or too long (`too_many_pages`: more pages than one document or the whole bundle may hold). Empty for every file that opened. A file with a reason has no pages; the instructing party is asked for a readable copy |
 | split_of_page_id | If these pages were made by cutting a two-page scan in two, the page that was cut |
 
 ### document_scans

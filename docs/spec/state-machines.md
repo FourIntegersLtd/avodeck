@@ -45,6 +45,7 @@ archived ──reopen──▶ active (if not past delete_after)
 | `split_of_page_id` | null → the page a half was cut from (set once, when the halves are numbered); never back | A |
 | `rotation` | any → any (expert); re-runs OCR, keeps verified facts (boxes re-mapped or flagged) | B |
 | `unreadable` | false → true (worker); true → false only when an expert transcription is saved | A, B |
+| `documents.unreadable_reason` | null → `locked`, `damaged` or `too_many_pages` (worker at split, set once with no pages; a short key, never text from the file); never back. `too_many_pages` (migration 0147) is a document over `MAX_DOCUMENT_PAGES` or one that would take the bundle past `MAX_BUNDLE_PAGES` | A |
 | `duplicate_of_page_id` | null → page (worker suggestion or expert); page → null (expert undo) | A, B |
 | `relevance` | null → yes/background; any → any by the expert | B |
 | `needs_clearer_copy` | false → true → false (expert, `PATCH …/pages/{n}`); true puts the page on the instructing-party request draft (08b) | B |
