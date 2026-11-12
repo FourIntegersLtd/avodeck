@@ -44,7 +44,8 @@ archived ──reopen──▶ active (if not past delete_after)
 | `superseded_by_page_id` | null → page (a clearer copy was uploaded); never back | A |
 | `split_of_page_id` | null → the page a half was cut from (set once, when the halves are numbered); never back | A |
 | `rotation` | any → any (expert); re-runs OCR, keeps verified facts (boxes re-mapped or flagged) | B |
-| `unreadable` | false → true (worker); true → false only when an expert transcription is saved | A, B |
+| `unreadable` | false → true (worker); true → false when an expert transcription is saved, or (migration 0076) for a page lost to a failed cut or picture that a later run has cut (image set) and read for the first time (text source set, words stored); a page that was already read and found unreadable needs the transcription | A, B |
+| `documents.unreadable_reason` | null → `locked`, `damaged`, `altered` (PV-07) or `too_many_pages` (worker at split, set once with no pages; a short key, never text from the file); never back. `too_many_pages` (migration 0147) is a document over `MAX_DOCUMENT_PAGES` or one that would take the bundle past `MAX_BUNDLE_PAGES` | A |
 | `duplicate_of_page_id` | null → page (worker suggestion or expert); page → null (expert undo). Only a page whose `page_analysis.duplicate_status` is `confirmed` is set aside; a `suggested` copy is still read, extracted and counted as a gap page | A, B |
 | `source_page_index` | Set once at numbering, never changes (database trigger `pages_source_index_guard`) | A |
 | `bundles.page_high_water` | Rises only (database trigger `bundles_high_water_guard`); new pages are numbered after it | A |

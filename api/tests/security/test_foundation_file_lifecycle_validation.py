@@ -22,10 +22,11 @@ from PIL import Image
 from app.core.db import Database
 from app.core.packs import default_library
 from app.core.storage import CaseFileStorage
-from app.features.pipeline import convert, render
+from app.features.pipeline import convert, parsing, render
 from app.features.pipeline import service as pipeline_service
 from app.features.pipeline.paths import page_pdf_path
 from tests.repository.test_pipeline_support import Harness, empty_answer, harness
+from tests.support import sandbox_fns
 from tests.support.ai import ScriptedBedrock
 from tests.support.file_lifecycle_documents import (
     ACTIVE_MARKERS,
@@ -268,12 +269,6 @@ async def test_v3_member_names_never_reach_a_storage_path_and_every_member_is_nu
         assert path.startswith(f"cases/{h.case_id}/") and ".." not in path and "evil" not in path, path
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-12 V3c low: a zip member name with a control character is stored as the document's filename; the "
-    "direct upload route rejects the same name (422 filename_invalid): app/features/pipeline/repo.py:276-283 "
-    "(filename[:255] only), app/core/routes/uploads.py:53,174",
-)
 async def test_v3_a_member_name_follows_the_same_filename_rule_as_an_upload(h: Harness) -> None:
     body = {"kind": "records", "filename": "bad\nname.pdf", "size": 10, "sha256": sha(b"0" * 10), "append": False}
     refused = await h.client.post(f"/v1/cases/{h.case_id}/uploads", json=body)
@@ -385,22 +380,12 @@ async def test_v4_a_stored_page_carries_no_script_launch_or_outward_link(h: Harn
     assert found == [], f"stored page still carries {found}"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-12 V4b low: a PDF of 4,001 pages is counted and numbered; there is no page limit anywhere in the "
-    "split (NFR C1 states 4,000 pages as the largest single upload): app/features/pipeline/service.py:173-180",
-)
 def test_v4_a_pdf_over_the_stated_page_limit_is_refused() -> None:
     assert pipeline_service._checked_pages(blank_pages_pdf(10)) == 10, "control: a small PDF is counted"
     with pytest.raises(Exception):  # noqa: B017, PT011 - any refusal will do
         pipeline_service._checked_pages(blank_pages_pdf(4001))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AUDIT-12 V4b2 low: a TIFF of 4,001 one-pixel frames is turned into a 4,001-page PDF; no frame or page cap: "
-    "app/features/pipeline/convert.py:262-271",
-)
 def test_v4_an_image_over_the_stated_page_limit_is_refused() -> None:
     few = convert.unpack(tiff_frames(3), "a.tiff", SMALL)
     assert few.pdf is not None and not few.exhibit, "control: a small multi-frame image is paged"
@@ -528,18 +513,12 @@ async def test_v4_a_split_that_succeeds_leaves_no_temp_file_behind(h: Harness) -
 async def test_v4_a_split_that_fails_part_way_leaves_no_temp_file_behind(
     h: Harness, monkeypatch: pytest.MonkeyPatch, failing: str
 ) -> None:
-    hits: list[str] = []
-
-    def breaks(*_: Any, **__: Any) -> Any:
-        hits.append(failing)
-        raise RuntimeError("synthetic failure")
-
-    # "count": after the download, while the document is counted; "cut": while a page is cut and pictured
-    monkeypatch.setattr(pipeline_service, "_checked_pages" if failing == "count" else "rasterise", breaks)
+    # The count and the cut run in sandbox children (DP-09), so the failure is a stand-in the child imports by name
+    # ("count": after the download, while the document is counted; "cut": while a page is cut)
+    monkeypatch.setattr(parsing, "count_pages" if failing == "count" else "cut_pages", sandbox_fns.raise_always)
     before = _split_temp_names()
     _, doc = await upload_bytes(h, text_pdf(2), filename="failing.pdf")
     finished = await h.drain(timeout=60)
-    assert hits, "premise: the failure was really reached"
-    assert "failed" in finished.values(), finished
+    assert "failed" in finished.values(), finished  # premise: the failure was really reached
     assert state(h, doc)["page_rows"] in (0, 2)
     assert _split_temp_names() - before == set()

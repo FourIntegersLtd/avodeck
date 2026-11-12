@@ -17,10 +17,12 @@ import io
 import logging
 import os
 import shutil
+import stat
 import tempfile
+import time
 import uuid
-from collections.abc import AsyncIterator
-from contextlib import aclosing, asynccontextmanager
+from collections.abc import AsyncIterator, Iterator
+from contextlib import aclosing, asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from typing import BinaryIO
 
@@ -110,13 +112,124 @@ class SpoolTooLarge(Exception):
     """The content is larger than the cap (`MAX_FILE_SIZE` unless the caller sets one)."""
 
 
+def _scratch_path() -> str:
+    """Where scratch files go: `AVODECK_SCRATCH_DIR`, else `<system temp>/avodeck-scratch-<uid>` (never the shared
+    temp directory itself, F-i)."""
+    if AVODECK_SCRATCH_DIR:
+        return AVODECK_SCRATCH_DIR
+    return os.path.join(tempfile.gettempdir(), f"avodeck-scratch-{os.getuid()}")
+
+
 def _scratch_dir() -> str:
-    """The private scratch directory (`AVODECK_SCRATCH_DIR`, else the system temp), created `0700` if missing."""
-    directory = AVODECK_SCRATCH_DIR or tempfile.gettempdir()
+    """The private scratch directory, created `0700` if missing. A default directory that is a link or is owned by
+    another account is refused (`OSError`); our own is tightened to `0700`."""
+    directory = _scratch_path()
     os.makedirs(directory, mode=0o700, exist_ok=True)
-    if AVODECK_SCRATCH_DIR:  # ours to lock down; never chmod the shared system temp directory
-        os.chmod(directory, 0o700)
+    if not AVODECK_SCRATCH_DIR:
+        info = os.lstat(directory)
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+            raise OSError("the scratch directory is not ours")
+    os.chmod(directory, 0o700)
     return directory
+
+
+_PLAIN_PREFIX = "plain-"
+
+
+@contextmanager
+def scratch_file(data: bytes | None = None, *, suffix: str = "") -> Iterator[str]:
+    """A named plaintext file in the scratch directory, for a tool that needs a real path (the PDF splitter).
+
+    Created `O_CREAT|O_EXCL`, mode `0600`, in the `0700` scratch directory; `data` is written to it; the path is
+    yielded and the file is deleted when the block ends, however it ends. Blocking: call it in a thread. If the
+    process dies first, `sweep_scratch` removes the file at the next worker start. The name carries the process id
+    and a random part and never anything about the document.
+    """
+    directory = _scratch_dir()
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0)
+    while True:
+        path = os.path.join(directory, f"{_PLAIN_PREFIX}{os.getpid()}-{uuid.uuid4().hex}{suffix}")
+        try:
+            fd = os.open(path, flags, 0o600)
+        except FileExistsError:  # pragma: no cover - a uuid collision
+            continue
+        break
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            if data:
+                handle.write(data)
+        yield path
+    finally:
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+
+
+def _process_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:  # alive, but not ours
+        return True
+    return True
+
+
+STALE_UNPACK_SECONDS = 2 * 60 * 60  # an `unpack-*` directory untouched this long is a crash's leftover
+
+
+def _sweep_unpack(directory: str) -> int:
+    """Remove `unpack-*` directories (the pipeline's unpacked email and zip members) not touched for
+    `STALE_UNPACK_SECONDS`. Their names carry no process id, so only age tells a crash's leftover from another live
+    worker's current one. A link is never followed or removed here; the count of directories removed."""
+    removed = 0
+    cutoff = time.time() - STALE_UNPACK_SECONDS
+    for name in os.listdir(directory):
+        path = os.path.join(directory, name)
+        if not name.startswith("unpack-"):
+            continue
+        try:
+            info = os.lstat(path)
+        except OSError:
+            continue
+        if not stat.S_ISDIR(info.st_mode) or info.st_mtime > cutoff:
+            continue
+        shutil.rmtree(path, ignore_errors=True)
+        removed += 0 if os.path.lexists(path) else 1
+    return removed
+
+
+def sweep_scratch() -> int:
+    """Delete plaintext left behind by an earlier run (a crash or kill between create and delete); the count.
+
+    Call once at worker start. `plain-<pid>-…` files are removed only when that process id is no longer running or
+    is this process (nothing of ours is open yet at start), so a second worker sharing the directory keeps its
+    files. `unpack-*` directories are removed when stale (see `_sweep_unpack`). Never reports a path.
+    """
+    directory = _scratch_path()
+    try:
+        names = os.listdir(directory)
+    except FileNotFoundError:
+        return 0
+    removed = _sweep_unpack(directory)
+    for name in names:
+        if not name.startswith(_PLAIN_PREFIX):
+            continue
+        pid_text = name[len(_PLAIN_PREFIX) :].split("-", 1)[0]
+        if not pid_text.isdigit():
+            continue
+        pid = int(pid_text)
+        if pid != os.getpid() and _process_alive(pid):
+            continue
+        try:
+            os.unlink(os.path.join(directory, name))
+        except OSError:
+            continue
+        removed += 1
+    if removed:
+        _log.warning("swept leftover scratch files", extra={"count": removed})
+    return removed
 
 
 def _free_bytes(directory: str) -> int:

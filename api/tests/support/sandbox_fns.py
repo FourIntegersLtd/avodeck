@@ -1,0 +1,119 @@
+"""Top-level functions the parser-sandbox tests run in a child process (they must be importable there).
+
+Synthetic only: the canary strings stand for patient text and must never come back in an error or a log.
+"""
+
+from __future__ import annotations
+
+import io
+import logging
+import os
+import sys
+import time
+from typing import Any
+
+
+def add(a: int, b: int) -> int:
+    return a + b
+
+
+def echo(data: bytes) -> bytes:
+    return data
+
+
+def pid() -> int:
+    return os.getpid()
+
+
+def sleep_for(seconds: float) -> int:
+    time.sleep(seconds)
+    return os.getpid()
+
+
+def allocate(size: int) -> int:
+    block = bytearray(size)
+    for i in range(0, size, 4096):
+        block[i] = 1
+    return len(block)
+
+
+def hard_exit(code: int = 7) -> None:
+    os._exit(code)
+
+
+def raise_value(message: str) -> None:
+    raise ValueError(message)
+
+
+class Unpicklable(Exception):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.handle = lambda: message  # a lambda cannot be pickled, so this exception cannot cross the pipe
+
+
+def raise_unpicklable(message: str) -> None:
+    raise Unpicklable(message)
+
+
+def unpicklable_result(message: str) -> object:
+    return lambda: message
+
+
+def chatter_then_fail(canary: str) -> None:
+    print(canary)
+    print(canary, file=sys.stderr)
+    logging.getLogger().error("canary %s", canary)
+    logging.getLogger("app").error("canary %s", canary)
+    raise Unpicklable(canary)
+
+
+def open_encrypted_pdf(pdf: bytes) -> int:
+    import pikepdf
+
+    with pikepdf.open(io.BytesIO(pdf)) as opened:
+        return len(opened.pages)
+
+
+def environment() -> dict[str, str]:
+    return dict(os.environ)
+
+
+def open_descriptors() -> list[int]:
+    return sorted(int(name) for name in os.listdir("/dev/fd") if name.isdigit())
+
+
+def slow_module_loaded() -> bool:
+    return "tests.support.slow_import" in sys.modules
+
+
+def raise_always(*_args: object) -> None:
+    """A stand-in for a parser call that fails whatever it is given (a bug, not a hang or a death)."""
+    raise RuntimeError("synthetic failure")
+
+
+class _Counted:
+    """Counts, per process, how many times it has been pickled; the value it carries is the count at that time."""
+
+    pickled = 0
+
+    def __reduce__(self) -> tuple[Any, tuple[int]]:
+        _Counted.pickled += 1
+        return (int, (_Counted.pickled,))
+
+
+def pickled_times() -> object:
+    """A result that tells the parent how many times the child pickled it (once is enough)."""
+    return _Counted()
+
+
+def file_size(path: str) -> int:
+    with open(path, "rb") as handle:
+        return len(handle.read())
+
+
+def cpu_limit() -> tuple[int, float]:
+    """The child's soft CPU limit and the CPU seconds it has used so far."""
+    import resource
+
+    used = sum(os.times()[:2])
+    return resource.getrlimit(resource.RLIMIT_CPU)[0], used

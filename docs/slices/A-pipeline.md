@@ -75,6 +75,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 - [x] Wrong-patient pages (planted in the synthetic bundle) are suggested for quarantine, never auto-hidden; once confirmed they keep their numbers, show a placeholder, leave AI, search, exports and citations, and their facts are rejected (S5, F25)
 - [x] A locked (password-protected) or damaged PDF stops that document only: no pages, `documents.unreadable_reason` (migration 0116), listed on S08 and asked for in the S08b draft; the rest of the bundle carries on (F2)
+- [x] A document over the page cap (`MAX_DOCUMENT_PAGES`), or one that would take the bundle past `MAX_BUNDLE_PAGES`, stops that document only: no pages, `unreadable_reason = 'too_many_pages'` (migration 0147), listed with the files we could not open (F127). PDF, picture and Word parsing, the count and the cut run in sandbox children, so a file that hangs or kills its parser marks that document damaged, or that page unreadable, and the job carries on (F125, F129); the split's decrypted copies live only in the private scratch directory (F128)
 - [x] Quarantined images and text are deleted after the note is sent or 14 days; undo works only before that
 - [x] A clearer copy gets the next number; the old page is superseded and still readable; no fact moves automatically (S6)
 - [x] Images, emails (with attachments), Word and zip files become pages; audio, video and DICOM become exhibits without page numbers (F36)

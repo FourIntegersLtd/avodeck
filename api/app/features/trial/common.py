@@ -16,6 +16,7 @@ from app.core.errors import ApiError
 from app.core.hashing import sha256_hex
 from app.core.http import DbConn
 from app.core.packs import MergedPack, PackLibrary
+from app.core.request_body import read_capped
 from app.core.storage import CaseFileStorage, case_prefix
 
 View = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
@@ -119,8 +120,8 @@ Pack = Annotated[MergedPack, Depends(case_pack)]
 
 async def pdf_body(request: Request) -> bytes:
     """The raw PDF a route was sent (422 when it is not one)."""
-    data = await request.body()
-    if not data.startswith(b"%PDF") or len(data) > MAX_PDF_BYTES:
+    data = await read_capped(request, MAX_PDF_BYTES, too_large=lambda: invalid("file"))
+    if not data.startswith(b"%PDF"):
         raise invalid("file")
     return data
 

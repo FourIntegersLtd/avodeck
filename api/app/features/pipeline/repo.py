@@ -72,8 +72,31 @@ async def clean_unsplit(conn: AsyncConnection, case_id: uuid.UUID) -> list[Docum
     return [Document(r[0], r[1], r[2], r[3], r[4]) for r in await cur.fetchall()]
 
 
+async def lock_bundle_numbering(conn: AsyncConnection, case_id: uuid.UUID) -> None:
+    await conn.execute(
+        "select pg_advisory_xact_lock(hashtextextended((select bundle_id::text from app.cases where id = %s), 12))",
+        (case_id,),
+    )
+
+
+async def last_page_no(conn: AsyncConnection, case_id: uuid.UUID) -> int:
+    """The bundle's highest page number so far (its page total: numbers are never reused). Read under
+    `lock_bundle_numbering` when the answer decides something."""
+    cur = await conn.execute(
+        "select coalesce(max(bundle_page_no), 0) from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (case_id,),
+    )
+    row = await cur.fetchone()
+    return int(row[0]) if row else 0
+
+
 async def add_pages(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID, count: int) -> bool:
-    """Number the document's pages after the case's last page, once. False if already split."""
+    """Number the document's pages after the case's last page, once. False if already split.
+
+    Splits of one bundle take turns (a transaction-scoped lock on the bundle), so two workers never read the same
+    last page number, and anything counted against the bundle here is counted by one split at a time."""
+    await lock_bundle_numbering(conn, case_id)
     cur = await conn.execute(
         "select 1 from app.document_scans where document_id = %s and split_at is null for update", (document_id,)
     )
@@ -102,9 +125,15 @@ async def add_pages(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid
 
 
 async def mark_unopened(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID, reason: str) -> None:
-    """F2: the file could not be opened (`locked` or `damaged`). It gets no pages and is not tried again."""
+    """F2: the file could not be opened (`locked` or `damaged`, or `too_many_pages` over a page cap, DP-04). It gets
+    no pages and is not tried again."""
     await conn.execute("update app.documents set unreadable_reason = %s where id = %s", (reason, document_id))
     await add_pages(conn, case_id, document_id, 0)
+
+
+async def mark_damaged(conn: AsyncConnection, document_id: uuid.UUID) -> None:
+    """A document whose cuts keep timing out: listed as damaged and left alone (its pages already made stay)."""
+    await conn.execute("update app.documents set unreadable_reason = 'damaged' where id = %s", (document_id,))
 
 
 async def unopened_documents(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, str]]:
@@ -132,7 +161,9 @@ async def pages_without_image(conn: AsyncConnection, case_id: uuid.UUID) -> list
         "select p.id, p.document_id, p.bundle_page_no,"
         " p.source_page_index, p.rotation"
         " from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %s)"
-        " and p.image_path is null order by p.bundle_page_no",
+        " and p.image_path is null"
+        " and not exists (select 1 from app.documents d where d.id = p.document_id and d.unreadable_reason is not null)"
+        " order by p.bundle_page_no",
         (case_id,),
     )
     return [PageRow(r[0], r[1], r[2], r[3], r[4]) for r in await cur.fetchall()]
@@ -166,19 +197,25 @@ class ReadingState:
     handwriting: bool
     straightened: bool = False
     content_sha256: str | None = None  # the page file's SHA-256 when it was written (PV-07)
+    first_reading: bool = False  # never read before and has its picture: a lost page cut again (migration 0076)
 
 
 async def reading_state(conn: AsyncConnection, page_id: uuid.UUID) -> ReadingState:
     cur = await conn.execute(
-        "select rotation, transcribed_by_expert_text, unreadable, handwriting, straightened, content_sha256"
-        " from app.pages"
-        " where id = %s",
+        "select rotation, transcribed_by_expert_text, unreadable, handwriting, straightened, content_sha256,"
+        " text_source is null and image_path is not null from app.pages where id = %s",
         (page_id,),
     )
     row = await cur.fetchone()
     assert row is not None
     return ReadingState(
-        int(row[0]), None if row[1] is None else bytes(row[1]), bool(row[2]), bool(row[3]), bool(row[4]), row[5]
+        int(row[0]),
+        None if row[1] is None else bytes(row[1]),
+        bool(row[2]),
+        bool(row[3]),
+        bool(row[4]),
+        row[5],
+        bool(row[6]),
     )
 
 
@@ -316,6 +353,13 @@ async def unpacked_so_far(conn: AsyncConnection, root_id: uuid.UUID, document_id
     return (int(row[0]), int(row[1])) if row else (0, 0)
 
 
+def stored_name(name: str) -> str:
+    """A file's name as kept on its document: no control characters (a NUL cannot be stored at all), at most 255
+    characters, never empty. The name is only ever a label; it is not used as a path or a storage key."""
+    clean = "".join(c for c in name if ord(c) >= 32 and ord(c) != 127).strip()[:255]
+    return clean or "file"
+
+
 async def add_part(
     conn: AsyncConnection,
     case_id: uuid.UUID,
@@ -340,7 +384,7 @@ async def add_part(
         " bundle_version, uploaded_by)"
         " select %s, bundle_id, kind, %s, %s, %s, received_on, obtained_how, bundle_version, uploaded_by"
         " from app.documents where id = %s",
-        (document_id, filename[:255], storage_path, sha256, parent_id),
+        (document_id, stored_name(filename), storage_path, sha256, parent_id),
     )
     await conn.execute(
         "insert into app.document_scans (document_id, bundle_id, clean)"
@@ -410,6 +454,11 @@ async def set_image(
         "update app.pages set image_path = %s, content_sha256 = coalesce(%s, content_sha256) where id = %s",
         (image_path, content_sha256, page_id),
     )
+
+
+async def mark_lost(conn: AsyncConnection, page_id: uuid.UUID) -> None:
+    """A page no parser child could cut or draw: listed as unreadable, image still unset so a later run cuts it."""
+    await conn.execute("update app.pages set unreadable = true where id = %s", (page_id,))
 
 
 _IN_RANGE = (

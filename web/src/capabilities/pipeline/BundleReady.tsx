@@ -14,9 +14,14 @@ import { can, casePath, documentsOf, requestLabel, sourceWord } from "./data";
 import { formatDate, formatNumber, languageName, pageList } from "./format";
 import { AlertIcon, CopyIcon, MicIcon, OtherPersonIcon, PageIcon, SearchIcon } from "./icons";
 import { SourceStack } from "./SourceStack";
-import { w, wn } from "./words";
+import { w, wn, type WordKey } from "./words";
 
 const UNKNOWN_COLOUR = "#8A948E";
+const UNOPENED_WORDS: Record<string, WordKey> = {
+  locked: "bundle.unopened_locked",
+  infected: "bundle.unopened_infected",
+  too_many_pages: "bundle.unopened_too_many_pages",
+}; // anything else a file could not be opened for reads as damaged
 const RETRY_JOB = "retry_unread_pages"; // its counts come live from the case stream
 
 /** The progress of a "Try these pages again" run, as the server counted it: pages dealt with of pages tried. */
@@ -95,7 +100,7 @@ export function BundleReady() {
     >
       <ul className="pl-missing">
         {unopened.map((d) => (
-          <li key={d.id}>{w(d.unreadable_reason === "locked" ? "bundle.unopened_locked" : d.unreadable_reason === "infected" ? "bundle.unopened_infected" : "bundle.unopened_damaged", { name: d.filename })}</li>
+          <li key={d.id}>{w(UNOPENED_WORDS[d.unreadable_reason ?? ""] ?? "bundle.unopened_damaged", { name: d.filename })}</li>
         ))}
       </ul>
       <p>{w("bundle.unopened_note")}</p>

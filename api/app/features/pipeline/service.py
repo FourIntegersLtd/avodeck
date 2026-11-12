@@ -28,10 +28,10 @@ import contextlib
 import contextvars
 import hashlib
 import hmac
-import io
 import json
 import logging
 import os
+import shutil
 import tempfile
 import time
 import uuid
@@ -46,14 +46,14 @@ from typing import Any
 import pikepdf
 from psycopg import AsyncConnection
 
-from app.core import audit, notifications
+from app.core import audit, case_files, notifications, sandbox
 from app.core.ai import embed, pii, provenance
 from app.core.ai.answers import page_subject, reference_subject
 from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput, OutputTruncated, TooLargeForFallback
-from app.core.ai.ocr import OcrFailed, OcrPage, record_call
-from app.core.config import ConfigError
+from app.core.ai.ocr import OcrFailed, OcrPage, OcrResult, record_call
+from app.core.config import ConfigError, document_limits, sandbox_settings
 from app.core.contracts.fact_dates import case_anchor, latest_printed_date
 from app.core.contracts.fact_flags import flag_for_recheck
 from app.core.contracts.fact_verifications import log_remaps
@@ -62,7 +62,6 @@ from app.core.contracts.record_entries import RETRY_UNREAD
 from app.core.db import job_checkouts
 from app.core.errors import ProcessingPaused
 from app.core.jobs import RESUMABLE_PAUSES, JobContext, JobParked, checkout_cap
-from app.core.pdf import cut_page
 from app.core.scan import ScanUnavailable
 from app.core.storage import StorageError
 from app.features.pipeline import batches as page_batches
@@ -76,6 +75,8 @@ from app.features.pipeline import (
     gaps,
     language,
     missing,
+    parser_calls,
+    parsing,
     paths,
     quarantine,
     repo,
@@ -83,11 +84,11 @@ from app.features.pipeline import (
 )
 from app.features.pipeline.asking import answer_group
 from app.features.pipeline.batches import BatchRunClosed, BatchScope
-from app.features.pipeline.render import Pictures, encode, rasterise
+from app.features.pipeline.render import Pictures
 from app.features.pipeline.straighten import quarter_turn
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.wiring import registry as job_registry
-from app.features.pipeline.words import assess, sanitised, turned, typed, usable_text_layer
+from app.features.pipeline.words import assess, sanitised, turned, typed
 
 SCAN_DOCUMENT = "scan_document"
 REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page again
@@ -107,12 +108,8 @@ CPU_CONCURRENCY = min(  # the cores this process may use (not the host's), at mo
     8, len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 2)
 )
 _CPU = ThreadPoolExecutor(max_workers=CPU_CONCURRENCY, thread_name_prefix="pipeline-cpu")  # JPEG and hash work
-# PDFium is not thread-safe, so every call into it goes through this one thread: the event loop stays free
-# (the worker's heartbeat, progress and other pages keep moving) and two calls never overlap.
-_PDFIUM = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pdfium")
-_CUT = ThreadPoolExecutor(max_workers=1, thread_name_prefix="qpdf")  # one thread holds an open document and cuts it
 _SPLITS = asyncio.Semaphore(1)  # one split at a time in this process
-LIMITS = convert.Limits()
+LIMITS = convert.limits_from(document_limits())  # page caps, image caps and the convert cap come from settings
 PART_OBJECT = "file"  # the one sealed object under a part's prefix
 log = logging.getLogger(__name__)
 
@@ -153,20 +150,32 @@ async def scan_document(ctx: JobContext) -> None:
     await ctx.progress(100, step="scan")
 
 
+@contextlib.asynccontextmanager
+async def _scratch(data: bytes | None = None) -> AsyncIterator[Path]:
+    """A plaintext file in the private scratch directory (`0600` in a `0700` directory, DP-06), deleted when the
+    block ends however it ends. Creating and deleting it are single system calls; the writing is done by the caller
+    in a thread."""
+    scratch = case_files.scratch_file(data)
+    path = Path(scratch.__enter__())
+    try:
+        yield path
+    finally:  # synchronous on purpose: it must run even while the task is being cancelled
+        scratch.__exit__(None, None, None)
+
+
 class Altered(Exception):
     """The stored bytes are not the bytes that were uploaded (PV-07): the whole-file SHA-256 or the part count
     differs from what the upload recorded. Carries no content."""
 
 
-async def _download(ctx: JobContext, services: PipelineServices, doc: repo.Document) -> Path:
-    """A stored document's bytes in a temp file, written as the parts are read (one part in memory at a time).
+@contextlib.asynccontextmanager
+async def _download(ctx: JobContext, services: PipelineServices, doc: repo.Document) -> AsyncIterator[Path]:
+    """A stored document's bytes in a scratch file, written as the parts are read (one part in memory at a time).
     The bytes are checked against the SHA-256 and the part count the upload recorded before they are used
-    (`Altered`, PV-07). The caller deletes the file; if the download itself fails, it is deleted here."""
-    handle, name = tempfile.mkstemp(prefix="avodeck-split-")
-    path = Path(name)
-    digest, parts = hashlib.sha256(), 0
-    try:
-        with os.fdopen(handle, "wb") as out:
+    (`Altered`, PV-07). The file is deleted when the block ends, however it ends."""
+    async with _scratch() as path:
+        digest, parts = hashlib.sha256(), 0
+        with path.open("wb") as out:
             async for chunk in _chunks_free(ctx, services, doc.storage_path):  # S3 with no connection held
                 parts += 1
                 digest.update(chunk)
@@ -175,10 +184,7 @@ async def _download(ctx: JobContext, services: PipelineServices, doc: repo.Docum
             doc.parts is not None and parts != doc.parts
         ):
             raise Altered
-    except BaseException:
-        path.unlink(missing_ok=True)
-        raise
-    return path
+        yield path
 
 
 def _head(path: Path) -> bytes:
@@ -186,37 +192,51 @@ def _head(path: Path) -> bytes:
         return handle.read(2048)  # all `convert.sniff` needs to tell a PDF apart
 
 
-def _declared_pages(source: Path | bytes) -> int | None:
-    """The page count the PDF itself states in its page tree (PV-11), or None when it states none. A file cut off
-    after a page was lost still says how many pages it started with; `_checked_pages` counts the ones that are there."""
-    with pikepdf.open(io.BytesIO(source) if isinstance(source, bytes) else source, attempt_recovery=False) as pdf:
-        stated = pdf.Root.Pages.get("/Count")
-        return int(stated) if stated is not None else None
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while block := handle.read(1024 * 1024):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+TooManyPages = parsing.TooManyPages
+
+
+def _count_timeout(size: int) -> float | None:
+    """The page count's timeout for a file of this size: the pool's own (`None`) for a small one, more for a big one."""
+    base = sandbox_settings().timeout_seconds
+    scaled = parser_calls.count_timeout(size, base)
+    return scaled if scaled > base else None
 
 
 def _checked_pages(source: Path | bytes) -> int:
-    """The page count of a PDF, after cutting every page once and dropping it, so a damaged page stops the
-    document here (F2), as it always did, not part-way through the pictures.
-
-    The reader is told not to repair (`attempt_recovery=False`): a cut-off file, or one whose cross-reference
-    table is wrong, raises `PdfError` instead of being silently rebuilt with pages lost (V4d). A PDF with no
-    pages raises too (V4e), so either way the file is listed as damaged and the expert is told."""
-    with pikepdf.open(io.BytesIO(source) if isinstance(source, bytes) else source, attempt_recovery=False) as pdf:
-        count = len(pdf.pages)
-        if count == 0:
-            raise pikepdf.PdfError("no pages")
-        for index in range(count):
-            cut_page(pdf, index)
-        return count
+    """The in-process form of `parsing.count_pages` with the cell's per-document cap (the split itself runs the
+    count in a sandbox child, `_unpack`)."""
+    return parsing.checked_pages(source, LIMITS.max_document_pages)
 
 
-async def _within_upload_budget(conn: AsyncConnection, document_id: uuid.UUID, members: list[convert.Member]) -> bool:
+async def _within_upload_budget(
+    conn: AsyncConnection, document_id: uuid.UUID, members: list[parsing.FileMember]
+) -> bool:
     """Whether opening this file keeps everything unpacked from its ORIGINAL upload (zips in zips, emails with
     attachments, at any depth) inside the one set of limits. The original is locked first, so sibling splits
     cannot each spend the same budget."""
     root = await repo.lock_upload_root(conn, document_id)
     files, size = await repo.unpacked_so_far(conn, root, document_id)
-    return files + len(members) <= LIMITS.max_members and size + sum(len(m.data) for m in members) <= LIMITS.max_bytes
+    return files + len(members) <= LIMITS.max_members and size + sum(m.size for m in members) <= LIMITS.max_bytes
+
+
+@contextlib.asynccontextmanager
+async def _unpacked(path: Path, filename: str) -> AsyncIterator[parsing.UnpackedFiles]:
+    """`parsing.unpack_file` of a scratch file: the child reads it by path and leaves the converted PDF and the
+    members as files in a private directory beside it, which is removed when the block ends, however it ends."""
+    async with _scratch() as probe:  # the private scratch directory is the probe file's parent
+        out = Path(tempfile.mkdtemp(prefix="unpack-", dir=probe.parent))
+        try:
+            yield await parser_calls.run(parsing.unpack_file, str(path), filename, LIMITS, str(out))
+        finally:
+            shutil.rmtree(out, ignore_errors=True)
 
 
 async def _unpack(
@@ -224,18 +244,40 @@ async def _unpack(
 ) -> int:
     """Counts one document's pages; the files inside an email or a zip become documents of their
     own (cut on the next round) and files that cannot be paged become exhibits (F36). A PDF is opened from
-    its file and never held as one `bytes`."""
-    if convert.sniff(await asyncio.to_thread(_head, path)) == convert.PDF:
+    its file and never held as one `bytes`; nothing else is sent to or read back from the child whole."""
+    media = await asyncio.to_thread(convert.sniff_path, path)
+    if media == convert.PDF:
         await repo.set_media_type(conn, doc.id, convert.PDF)
-        count = await asyncio.to_thread(_checked_pages, path)
-        await repo.set_pages_declared(conn, doc.id, await asyncio.to_thread(_declared_pages, path))
+        count = await parser_calls.run(
+            parsing.count_pages, str(path), LIMITS.max_document_pages, timeout=_count_timeout(path.stat().st_size)
+        )
+        # the page count the file itself states (PV-11), read in a child like every other call on a stranger's file
+        await repo.set_pages_declared(conn, doc.id, await parser_calls.run(parsing.declared_pages, str(path)))
         return count
-    data = await asyncio.to_thread(path.read_bytes)
-    found = await asyncio.to_thread(convert.unpack, data, doc.filename, LIMITS)
+    size = path.stat().st_size
+    digest = await asyncio.to_thread(_file_sha256, path)
+    if media != convert.ZIP and size > LIMITS.max_convert_bytes:
+        # Too big to read whole and convert: kept as it is, like any file we cannot turn into pages.
+        return await _record_unpacked(
+            conn, services, case_id, doc, parsing.UnpackedFiles(media, exhibit=True), size, digest
+        )
+    async with _unpacked(path, doc.filename) as found:
+        return await _record_unpacked(conn, services, case_id, doc, found, size, digest)
+
+
+async def _record_unpacked(
+    conn: AsyncConnection,
+    services: PipelineServices,
+    case_id: uuid.UUID,
+    doc: repo.Document,
+    found: parsing.UnpackedFiles,
+    size: int,
+    digest: str,
+) -> int:
     if found.members and await repo.part_depth(conn, doc.id) >= LIMITS.max_depth:
-        found = convert.Unpacked(found.media_type, exhibit=True)
+        found = parsing.UnpackedFiles(found.media_type, exhibit=True)
     if found.members and not await _within_upload_budget(conn, doc.id, found.members):
-        found = convert.Unpacked(found.media_type, exhibit=True)  # kept whole, like a file over the per-file limits
+        found = parsing.UnpackedFiles(found.media_type, exhibit=True)  # kept whole, like a file over the limits
     for n, member in enumerate(found.members, start=1):
         child = uuid.uuid4()
         prefix = paths.part_prefix(case_id, child)
@@ -246,79 +288,141 @@ async def _unpack(
             n,
             document_id=child,
             filename=member.filename,
-            media_type=convert.sniff(member.data, member.filename),
-            sha256=hashlib.sha256(member.data).hexdigest(),
+            media_type=member.media_type,
+            sha256=member.sha256,
             storage_path=prefix,
-            size=len(member.data),
+            size=member.size,
         )
-        if made:
-            await _put_sealed(conn, services, case_id, f"{prefix}/{PART_OBJECT}", member.data)
+        if made:  # one member in memory at a time
+            data = await asyncio.to_thread(Path(member.path).read_bytes)
+            await _put_sealed(conn, services, case_id, f"{prefix}/{PART_OBJECT}", data)
+            del data
     if found.exhibit:
         await repo.add_exhibit(
             conn,
             case_id,
             doc.id,
             media_type=found.media_type,
-            size=len(data),
-            sha256=hashlib.sha256(data).hexdigest(),
+            size=size,
+            sha256=digest,
             storage_path=doc.storage_path,
         )
     await repo.set_media_type(conn, doc.id, found.media_type)
-    if found.pdf is None:
+    if found.pdf_path is None:
         return 0
-    return await asyncio.to_thread(_checked_pages, found.pdf)  # made by Avodeck's own conversion: nothing is declared
+    return await parser_calls.run(
+        parsing.count_pages,
+        found.pdf_path,
+        LIMITS.max_document_pages,
+        timeout=_count_timeout(Path(found.pdf_path).stat().st_size),
+    )
+
+
+MAX_TIMED_OUT_CUTS = 3  # cuts of one document that may time out before it is marked damaged and left alone
+WINDOW = 16  # pages cut in one sandbox call: one child opens the document once for all of them
 
 
 class _Source:
-    """One document's pages, cut one at a time from a temp file; nothing but the page being cut is in memory.
+    """One document's pages, cut a few at a time by a sandbox child from a scratch file; nothing but the pages
+    being cut is in memory.
 
-    The document is fetched from S3 the first time a page is wanted and the file is deleted as soon as the
-    last of its waiting pages is done (or by `close`, on any failure). Every pikepdf call runs on one thread.
+    The document is fetched from S3 the first time a page is wanted (a Word file, email or picture is converted
+    first) and the file is deleted as soon as the last of its waiting pages is done (or by `close`, on any
+    failure). A window of the next waiting pages is cut together; if that call fails, each page is cut alone, so
+    only a page that fails by itself is lost (`SandboxError`, a code and nothing else).
     """
 
-    def __init__(self, ctx: JobContext, services: PipelineServices, document_id: uuid.UUID, waiting: int) -> None:
+    def __init__(self, ctx: JobContext, services: PipelineServices, document_id: uuid.UUID) -> None:
         self.ctx, self.services, self.document_id = ctx, services, document_id
-        self.waiting = waiting
+        self.wanted: list[int] = []  # 0-based pages still to cut, ascending
         self.lock = asyncio.Lock()
+        self.files: contextlib.AsyncExitStack | None = None  # holds the scratch file while the document is open
         self.path: Path | None = None
-        self.pdf: pikepdf.Pdf | None = None
+        self.cut_pages: dict[int, bytes] = {}
+        self.failed: dict[int, str] = {}  # page -> the code its cut failed with
+        self.timeouts = 0  # cuts of this document that timed out
+        self.abandoned = False  # too many timed out: nothing more is cut from this document
 
-    async def _open(self) -> pikepdf.Pdf:
+    async def _file(self) -> Path:
+        if self.path is not None:
+            return self.path
         async with self.ctx.transaction() as conn:
             doc = await repo.document_to_read(conn, self.document_id)
         filename = doc.filename
-        self.path = await _download(self.ctx, self.services, doc)
-        if convert.sniff(await asyncio.to_thread(_head, self.path)) != convert.PDF:  # a Word file, an email, a picture
-            data = await asyncio.to_thread(self.path.read_bytes)
-            found = await asyncio.to_thread(convert.unpack, data, filename, LIMITS)
-            del data
-            assert found.pdf is not None
-            self.path.unlink(missing_ok=True)
-            handle, name = tempfile.mkstemp(prefix="avodeck-split-")
-            self.path = Path(name)
-            with os.fdopen(handle, "wb") as out:
-                await asyncio.to_thread(out.write, found.pdf)
-        return await asyncio.get_running_loop().run_in_executor(_CUT, pikepdf.open, self.path)
+        files = contextlib.AsyncExitStack()
+        try:
+            path = await files.enter_async_context(_download(self.ctx, self.services, doc))
+            if convert.sniff(await asyncio.to_thread(_head, path)) != convert.PDF:  # a Word file, an email, a picture
+                async with _unpacked(path, filename) as found:
+                    assert found.pdf_path is not None
+                    await files.aclose()  # the original goes; the converted PDF takes its place
+                    files = contextlib.AsyncExitStack()
+                    path = await files.enter_async_context(_scratch())
+                    await asyncio.to_thread(shutil.copyfile, found.pdf_path, path)
+        except BaseException:
+            await files.aclose()
+            raise
+        self.files, self.path = files, path
+        return path
+
+    async def _fetch(self, index: int) -> None:
+        path = await self._file()
+        window = [i for i in self.wanted if i >= index][:WINDOW] or [index]
+        if self.abandoned:
+            self.failed.update(dict.fromkeys(window, "timed_out"))
+            return
+        try:
+            blobs = await sandbox.run(parsing.cut_pages, str(path), window)
+            self.cut_pages.update(zip(window, blobs, strict=True))
+            return
+        except sandbox.SandboxError as error:
+            if not parser_calls.is_input_fault(error):
+                raise  # no child could run it: the job is retried, no page is lost
+            await self._spent(error)
+        for i in window:  # one of them is the trouble: cut each alone (this is the second try for a page)
+            if self.abandoned:
+                self.failed[i] = "timed_out"
+                continue
+            try:
+                self.cut_pages[i] = (await sandbox.run(parsing.cut_pages, str(path), [i]))[0]
+            except sandbox.SandboxError as error:
+                if not parser_calls.is_input_fault(error):
+                    raise
+                self.failed[i] = error.code
+                await self._spent(error)
+
+    async def _spent(self, error: sandbox.SandboxError) -> None:
+        """DP-09 review P5: a cut that timed out is counted against the document. A few of them and the document
+        is marked damaged and no more of it is cut, so a hostile file costs a bounded time (never one timeout per
+        page). The pages not yet cut are listed as lost by the caller."""
+        if error.code != "timed_out":
+            return
+        self.timeouts += 1
+        if self.timeouts >= MAX_TIMED_OUT_CUTS and not self.abandoned:
+            self.abandoned = True
+            log.warning("document cut stopped after %d timed-out cuts", self.timeouts)  # a count only
+            async with self.ctx.transaction() as conn:
+                await repo.mark_damaged(conn, self.document_id)
 
     async def cut(self, index: int) -> bytes:
         async with self.lock:
-            if self.pdf is None:
-                self.pdf = await self._open()
-        return await asyncio.get_running_loop().run_in_executor(_CUT, cut_page, self.pdf, index)
+            if index not in self.cut_pages and index not in self.failed:
+                await self._fetch(index)
+            if index in self.failed:
+                raise sandbox.SandboxError(self.failed.pop(index))
+            return self.cut_pages.pop(index)
 
-    async def finished_one(self) -> None:
-        self.waiting -= 1
-        if self.waiting <= 0:
+    async def finished_one(self, index: int) -> None:
+        self.wanted.remove(index)
+        if not self.wanted:
             await self.close()
 
     async def close(self) -> None:
         async with self.lock:
-            pdf, self.pdf = self.pdf, None
-            if pdf is not None:
-                await asyncio.get_running_loop().run_in_executor(_CUT, pdf.close)
-            if self.path is not None:
-                self.path.unlink(missing_ok=True)
-                self.path = None
+            files, self.files, self.path = self.files, None, None
+            self.cut_pages.clear()
+            if files is not None:
+                await files.aclose()
 
 
 async def _split(ctx: JobContext, services: PipelineServices) -> None:
@@ -334,38 +438,64 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
             break
         for doc in documents:
             try:
-                path = await _download(ctx, services, doc)
+                async with _download(ctx, services, doc) as path:
+                    async with ctx.transaction() as conn:
+                        try:
+                            count = await _unpack(conn, services, ctx.case_id, doc, path)
+                        except (pikepdf.PasswordError, pikepdf.PdfError) as error:  # F2: this file stops
+                            log.warning("document could not be opened: %s", type(error).__name__)  # class only, no text
+                            reason = "locked" if isinstance(error, pikepdf.PasswordError) else "damaged"
+                            await repo.mark_unopened(conn, ctx.case_id, doc.id, reason)
+                            continue
+                        except sandbox.SandboxError as error:  # DP-09: a child hung or died
+                            if not parser_calls.is_input_fault(error):
+                                raise  # no child could run it: not the file's doing, so the job is retried
+                            log.warning("document could not be opened: sandbox %s", error.code)  # a code only
+                            await repo.mark_unopened(conn, ctx.case_id, doc.id, "damaged")
+                            continue
+                        except TooManyPages:  # DP-04: over the per-document cap
+                            await repo.mark_unopened(conn, ctx.case_id, doc.id, "too_many_pages")
+                            continue
+                        await repo.lock_bundle_numbering(conn, ctx.case_id)  # the bundle's total is read under the lock
+                        if await repo.last_page_no(conn, ctx.case_id) + count > LIMITS.max_bundle_pages:
+                            await repo.mark_unopened(conn, ctx.case_id, doc.id, "too_many_pages")  # DP-04: bundle cap
+                            continue
+                        await repo.add_pages(conn, ctx.case_id, doc.id, count)
+                        await repo.link_replacements(conn, ctx.case_id)
+                        await repo.link_splits(conn, ctx.case_id)
             except Altered:
                 log.warning("document bytes differ from the upload; the document is not opened")  # no ids, no text
                 async with ctx.transaction() as conn:
                     await repo.mark_unopened(conn, ctx.case_id, doc.id, "altered")
-                continue
-            try:
-                async with ctx.transaction() as conn:
-                    try:
-                        count = await _unpack(conn, services, ctx.case_id, doc, path)
-                    except (pikepdf.PasswordError, pikepdf.PdfError) as error:  # F2: this file stops, the rest go on
-                        log.warning("document could not be opened: %s", type(error).__name__)  # class only, no text
-                        reason = "locked" if isinstance(error, pikepdf.PasswordError) else "damaged"
-                        await repo.mark_unopened(conn, ctx.case_id, doc.id, reason)
-                        continue
-                    await repo.add_pages(conn, ctx.case_id, doc.id, count)
-                    await repo.link_replacements(conn, ctx.case_id)
-                    await repo.link_splits(conn, ctx.case_id)
-            finally:
-                path.unlink(missing_ok=True)
     async with ctx.transaction() as conn:
         waiting = await repo.pages_without_image(conn, ctx.case_id)
     sources: dict[uuid.UUID, _Source] = {}
     for page in waiting:
-        sources.setdefault(page.document_id, _Source(ctx, services, page.document_id, 0)).waiting += 1
+        sources.setdefault(page.document_id, _Source(ctx, services, page.document_id)).wanted.append(page.source_index)
     finished = 0
 
     async def make(page: repo.PageRow) -> None:
         nonlocal finished
         source = sources[page.document_id]
-        page_pdf = await source.cut(page.source_index)
-        pictures = await _pictures(page_pdf, page.rotation)
+        index = page.source_index
+        try:
+            page_pdf = await source.cut(index)
+            pictures = await _pictures(page_pdf, page.rotation)
+        except sandbox.SandboxError as error:
+            if not parser_calls.is_input_fault(error):
+                raise  # no child could run it: the job is retried, the page is not listed as lost
+            # DP-09: a parser child hung or died on this page. No stand-in is stored as the page: its image stays
+            # unset so a later run cuts it again, and it is listed meanwhile as a page we could not read.
+            log.warning("page could not be cut or pictured: %s", error.code)  # a code only
+            # TODO(read_failure): `page_analysis.read_failure` (audit 16) allows only `ocr_failed` and `altered`;
+            # recording `ocr_failed` here would merge a lost page with a failed OCR call, so a value of its own
+            # (and the reader, report and final-check slices' handling of it) is needed first. Until then a lost
+            # page is told apart by `text_source` being null with an unset image.
+            async with ctx.transaction() as conn:
+                await repo.mark_lost(conn, page.id)
+            await source.finished_one(index)
+            finished += 1
+            return
         image_path = paths.page_image_path(ctx.case_id, page.id)
         thumbnail_path = paths.thumbnail_path(ctx.case_id, page.id)
         page_path = paths.page_pdf_path(ctx.case_id, page.id)
@@ -381,7 +511,7 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
         del sealed
         async with ctx.transaction() as conn:
             await repo.set_image(conn, page.id, image_path, page_hash)
-        await source.finished_one()
+        await source.finished_one(index)
         finished += 1
         if finished % 25 == 0:
             await ctx.progress(min(30, 30 * finished // len(waiting)), step="split")
@@ -394,11 +524,9 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
 
 
 async def _pictures(page_pdf: bytes, rotation: int) -> Pictures:
-    """The page picture and thumbnail. PDFium is not thread-safe, so the page is drawn on its one thread
-    (never the event loop's); the JPEG encoding, which is most of the work, runs in a CPU thread."""
-    loop = asyncio.get_running_loop()
-    image = await loop.run_in_executor(_PDFIUM, rasterise, page_pdf, rotation)
-    return await loop.run_in_executor(_CPU, encode, image)
+    """The page picture and thumbnail, drawn and JPEG-encoded in a sandbox child (`SandboxError` if it hangs or
+    dies)."""
+    return await parser_calls.run(parsing.pictures, page_pdf, rotation)
 
 
 async def _seal_all(
@@ -634,6 +762,14 @@ async def _settle(
         await flag_for_recheck(conn, case_id, lost)
 
 
+def _the_page(result: OcrResult) -> OcrPage:
+    """The one page of an answer for a one-page document. Anything else (no page, more, or a page not numbered 1)
+    is not an answer for this page: it is treated as a failed read, so no words from a wrong page are stored (DP-01)."""
+    if len(result.pages) != 1 or result.pages[0].number != 1:
+        raise OcrFailed("malformed_response")
+    return result.pages[0]
+
+
 def _region(services: PipelineServices) -> str:
     """The cell's region from the cell config the model kit holds. A residency record never carries a guess: with
     no region the same configuration error the kit raises is raised here."""
@@ -680,11 +816,14 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
         if page_pdf is None:
             page, source = typed((typing or b"").decode()), "expert"
         else:
-            found: OcrPage | None = (
-                None
-                if altered
-                else await asyncio.get_running_loop().run_in_executor(_PDFIUM, usable_text_layer, page_pdf)
-            )
+            found: OcrPage | None = None
+            if not altered:  # PV-07: nothing is read from a page file that is not the one that was cut
+                try:
+                    found = await sandbox.run(parsing.text_layer, page_pdf)
+                except sandbox.SandboxError as exc:  # DP-09 review P4: no usable text layer, so the page goes to OCR
+                    if not parser_calls.is_input_fault(exc):
+                        raise  # no child could run it: the job is retried
+                    log.warning("text layer could not be checked: %s", exc.code)  # a code only
             source = "embedded"
             if altered:  # PV-07: the page file is not the one that was cut; nothing is read from it
                 log.warning("page file differs from when it was cut; it is not read")  # no ids, no text
@@ -699,7 +838,6 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
                     # shared by every bundle (no connection is held while waiting for it).
                     async with _ocr_slot(ctx, services):
                         answer = await services.ocr.analyse(page_pdf, "layout", locale=locale)
-                    found = answer.pages[0]
                     async with ctx.transaction() as conn:  # PV-18: model, API version, region and job; no text
                         await record_call(
                             conn,
@@ -709,6 +847,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
                             region=_region(services),
                             job_id=ctx.job_id,
                         )
+                    found = _the_page(answer)
                 except OcrFailed as exc:  # F4: this page alone is marked unreadable; the rest carry on
                     if run is not None:
                         run.page_failed(numbers.get(page_id), exc, "failed")
@@ -719,6 +858,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
                         run.page_failed(numbers.get(page_id), exc, "paused")
                     raise ProcessingPaused("service_busy") from None
                 source = "ocr"
+            assert found is not None  # a text layer, an OCR answer, or the empty page of a failed read
             turn = state.rotation
             if source == "ocr" and not before and not state.rotation and not state.straightened:
                 turn = quarter_turn(found.angle)  # first reading of a scan: store it the right way up
@@ -758,6 +898,8 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
                 )
             if straightened and page_pdf is not None:
                 await repo.set_straightened(conn, page_id, turn)
+            # a lost page (never read) that is cut again and now has words is readable; any other flag is kept
+            recovered = state.first_reading and bool(rows)
             await repo.store_words(
                 conn,
                 page_id,
@@ -765,7 +907,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
                 source=source,
                 confidence=reading.confidence,
                 handwriting=reading.handwriting or state.handwriting,
-                unreadable=reading.unreadable or (state.unreadable and source != "expert"),
+                unreadable=reading.unreadable or (state.unreadable and source != "expert" and not recovered),
                 size=None if source == "expert" else (page.width, page.height),
                 read_failure=failure,
             )
@@ -1275,7 +1417,13 @@ async def _duplicates(ctx: JobContext, services: PipelineServices) -> None:
         async with ctx.transaction() as conn:
             words = await _compared_words(conn, services, ctx.case_id, page_id)
             thumbnail = await services.crypto.decrypt(conn, ctx.case_id, blob, purpose=path)
-        picture = await asyncio.get_running_loop().run_in_executor(_CPU, duplicates.picture_hash, thumbnail)
+        try:
+            picture = await sandbox.run(parsing.picture_hash, thumbnail)
+        except sandbox.SandboxError as error:  # DP-09: no hash, so never compared as a copy; tried again next run
+            if not parser_calls.is_input_fault(error):
+                raise
+            log.warning("picture could not be hashed: %s", error.code)  # a code only
+            return
         typed = sum(1 for w in words if not w.handwritten)
         async with ctx.transaction() as conn:
             await repo.store_hashes(conn, page_id, picture, duplicates.word_hash(words), typed)

@@ -32,12 +32,14 @@ import re
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import imagehash
-from datasketch import MinHash, MinHashLSH
 from PIL import Image
 from rapidfuzz import fuzz
+
+if TYPE_CHECKING:  # datasketch pulls in scipy (0.6 s): imported where it is used, so a sandbox child does not pay
+    from datasketch import MinHash
 
 from app.core.packs import MergedPack
 from app.features.pipeline import dates
@@ -90,6 +92,8 @@ def picture_hash(thumbnail: bytes) -> int:
 
 def word_hash(page: Sequence[Word]) -> list[int]:
     words = [w.text for w in page]
+    from datasketch import MinHash
+
     sketch = MinHash(num_perm=NUM_PERM, scheme=SCHEME)
     for shingle in {" ".join(words[i : i + 3]) for i in range(max(1, len(words) - 2))}:
         sketch.update(shingle.encode())
@@ -110,11 +114,15 @@ class Signature:
 
 
 def _sketch(values: Sequence[int]) -> MinHash:
+    from datasketch import MinHash
+
     return MinHash(num_perm=NUM_PERM, scheme=SCHEME, hashvalues=values)
 
 
 def likely_pairs(signatures: Sequence[Signature], new: set[object]) -> list[tuple[Signature, Signature]]:
     """Pairs (earlier, later) with at least one new page whose word and picture hashes are close."""
+    from datasketch import MinHashLSH
+
     usable = [s for s in signatures if s.word_count >= MIN_WORDS]
     index = MinHashLSH(threshold=LIKELY, num_perm=NUM_PERM)
     sketches = {}

@@ -7,14 +7,17 @@ page's unit (inches for PDF), confidence, and handwriting from the result's `sty
 service does not report crossed-out text, so `struck` stays False.
 
 Busy (429, 5xx) or unreachable: growing waits honouring `Retry-After`, then `ServiceBusy`. Refused
-(other 4xx) or a failed analysis: `OcrFailed` with a status or error code only. Logs carry counts,
-durations, status codes and request IDs, never words (rule 6).
+(other 4xx) or a failed analysis: `OcrFailed` with a status or error code only. A body that is not the documented
+shape is `OcrFailed("malformed_response")`; one over `MAX_OCR_RESPONSE_BYTES` (read as a stream, after unpacking)
+is `OcrFailed("response_too_large")`. Redirects are never followed. Logs carry counts, durations, status codes and
+request IDs, never words (rule 6).
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import re
 import time
 from collections.abc import Awaitable, Callable
@@ -27,7 +30,7 @@ from app.core import metrics
 from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import EndpointNotAllowed, check_endpoint
 from app.core.ai.ocr import OcrFailed, OcrModel, OcrPage, OcrResult, OcrWord, word_id
-from app.core.config import AiSettings
+from app.core.config import AiSettings, document_limits
 from app.core.http_retry import MAX_RETRY_AFTER, backoff, parse_retry_after
 
 logger = logging.getLogger("app.ai.ocr")
@@ -58,6 +61,7 @@ class AzureOcr:
         poll_interval: float = 1.0,
         max_wait: float = 300.0,
         timeout: httpx.Timeout | None = None,
+        max_response_bytes: int | None = None,
     ) -> None:
         if not key:
             raise ValueError("an OCR key is needed")
@@ -71,6 +75,7 @@ class AzureOcr:
         self._poll_interval = poll_interval
         self._max_wait = max_wait
         self._timeout = timeout or httpx.Timeout(60.0, connect=10.0)
+        self._max_bytes = max_response_bytes or document_limits().max_ocr_response_bytes
 
     def __repr__(self) -> str:
         return f"AzureOcr(endpoint={self.endpoint!r})"
@@ -96,7 +101,7 @@ class AzureOcr:
                 raise OcrFailed(f"http_{submitted.status_code}")
             self._check_location(location)
             data, polls = await self._poll(http, location, _retry_after(submitted))
-        result = _result(model, data.get("analyzeResult") or {})
+        result = _result(model, data.get("analyzeResult"))
         logger.info(
             "ocr %s done: %d pages, %d words in %d ms after %d polls (request %s)",
             model,
@@ -126,7 +131,7 @@ class AzureOcr:
             polls += 1
             if response.status_code != 200:
                 raise OcrFailed(f"http_{response.status_code}")
-            data = response.json()
+            data = _json_object(response)
             status = data.get("status")
             if status == "succeeded":
                 return data, polls
@@ -136,12 +141,36 @@ class AzureOcr:
                 raise OcrFailed(code if _CODE.match(code) else status)
             wait = _retry_after(response)
 
+    async def _request(self, http: httpx.AsyncClient, method: str, url: str, **kwargs: Any) -> httpx.Response:
+        """One request whose answer is read as a stream and stopped at the cap (after unpacking, so a compressed
+        bomb counts at its real size). Redirects are not followed (the client's default), so the key goes only to the
+        cell's endpoint. The answer comes back whole, as an ordinary `httpx.Response`."""
+        request = http.build_request(method, url, **kwargs)
+        response = await http.send(request, stream=True)
+        try:
+            declared = response.headers.get("Content-Length", "")
+            if declared.isdigit() and int(declared) > self._max_bytes:
+                raise OcrFailed("response_too_large")
+            body = bytearray()
+            async for chunk in response.aiter_bytes():
+                body += chunk
+                if len(body) > self._max_bytes:
+                    raise OcrFailed("response_too_large")
+        finally:
+            await response.aclose()
+        kept = [
+            (k, v)
+            for k, v in response.headers.multi_items()
+            if k.lower() not in ("content-encoding", "content-length", "transfer-encoding")
+        ]
+        return httpx.Response(response.status_code, headers=kept, content=bytes(body), request=request)
+
     async def _send(self, http: httpx.AsyncClient, method: str, url: str, **kwargs: Any) -> httpx.Response:
         headers = {"Ocp-Apim-Subscription-Key": self._key, **kwargs.pop("headers", {})}
         for attempt in range(self._retries + 1):
             retry_after: float | None = None
             try:
-                response = await http.request(method, url, headers=headers, **kwargs)
+                response = await self._request(http, method, url, headers=headers, **kwargs)
             except httpx.TransportError as exc:
                 status: str = type(exc).__name__
             else:
@@ -162,39 +191,112 @@ class AzureOcr:
         raise AssertionError("unreachable")  # pragma: no cover
 
 
-def _result(model: str, analysed: dict[str, Any]) -> OcrResult:
-    handwritten = [
-        (int(span["offset"]), int(span["offset"]) + int(span["length"]))
-        for style in analysed.get("styles") or ()
-        if style.get("isHandwritten")
-        for span in style.get("spans") or ()
-    ]
+_MALFORMED = "malformed_response"
 
-    def is_handwritten(word: dict[str, Any]) -> bool:
-        offset = int((word.get("span") or {}).get("offset", -1))
-        return any(start <= offset < end for start, end in handwritten)
 
-    pages = sorted(analysed.get("pages") or (), key=lambda p: int(p["pageNumber"]))
-    return OcrResult(
-        model=model,
-        api_version=API_VERSION,
-        pages=tuple(
+class _Malformed(Exception):
+    """Internal: the answer is not the documented shape. Never leaves this module; carries nothing."""
+
+
+def _json_object(response: httpx.Response) -> dict[str, Any]:
+    try:
+        data = response.json()
+    except ValueError:
+        raise OcrFailed(_MALFORMED) from None
+    if not isinstance(data, dict):
+        raise OcrFailed(_MALFORMED)
+    return data
+
+
+def _number(value: Any, *, low: float | None = None, high: float | None = None) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise _Malformed
+    if (low is not None and value < low) or (high is not None and value > high):
+        raise _Malformed
+    return float(value)
+
+
+def _whole(value: Any, *, low: int = 0) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < low:
+        raise _Malformed
+    return value
+
+
+def _objects(value: Any) -> list[dict[str, Any]]:
+    """`value` as a list of objects; absent (None) is an empty list, anything else is malformed."""
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise _Malformed
+    return value
+
+
+def _spans(value: Any) -> list[tuple[int, int]]:
+    return [(_whole(s.get("offset")), _whole(s.get("offset")) + _whole(s.get("length"))) for s in _objects(value)]
+
+
+def _word(page_number: int, n: int, word: dict[str, Any], handwritten: list[tuple[int, int]]) -> OcrWord:
+    text = word.get("content")
+    polygon = word.get("polygon")
+    if not isinstance(text, str) or not isinstance(polygon, list) or len(polygon) != 8:
+        raise _Malformed
+    span = word.get("span")
+    if span is None:
+        offset = -1
+    elif isinstance(span, dict):
+        offset = _whole(span.get("offset"))
+        _whole(span.get("length"))
+    else:
+        raise _Malformed
+    return OcrWord(
+        id=word_id(page_number, n),
+        text=text,
+        polygon=tuple(_number(v) for v in polygon),
+        confidence=_number(word.get("confidence"), low=0.0, high=1.0),
+        handwritten=any(start <= offset < end for start, end in handwritten),
+    )
+
+
+def _result(model: str, analysed: Any) -> OcrResult:
+    """The service's `analyzeResult` as an `OcrResult`, or `OcrFailed("malformed_response")` (DP-01).
+
+    The rule: any page or word that lacks the documented shape makes the whole response malformed. A page needs a
+    whole `pageNumber` of 1 or more, used once; a word needs text, a polygon of exactly 8 finite numbers and a
+    confidence from 0 to 1 (the `app.ocr_words` constraints). Page size and angle are optional numbers; `words`,
+    `pages` and `styles` may be absent or empty. Nothing from the answer is put in the error or chained to it.
+    """
+    try:
+        return _parse(model, analysed)
+    except (_Malformed, TypeError, ValueError, KeyError, AttributeError, OverflowError):
+        raise OcrFailed(_MALFORMED) from None
+
+
+def _parse(model: str, analysed: Any) -> OcrResult:
+    if not isinstance(analysed, dict):
+        raise _Malformed
+    handwritten: list[tuple[int, int]] = []
+    styles = analysed.get("styles")
+    for style in _objects(styles):
+        if style.get("isHandwritten"):
+            handwritten += _spans(style.get("spans"))
+        else:
+            _spans(style.get("spans"))
+    seen: set[int] = set()
+    pages: list[OcrPage] = []
+    for page in _objects(analysed.get("pages")):
+        number = _whole(page.get("pageNumber"), low=1)
+        if number in seen:
+            raise _Malformed
+        seen.add(number)
+        pages.append(
             OcrPage(
-                number=int(page["pageNumber"]),
-                width=float(page.get("width") or 0.0),
-                height=float(page.get("height") or 0.0),
-                angle=float(page.get("angle") or 0.0),
+                number=number,
+                width=_number(page.get("width") or 0.0, low=0.0),
+                height=_number(page.get("height") or 0.0, low=0.0),
+                angle=_number(page.get("angle") or 0.0),
                 words=tuple(
-                    OcrWord(
-                        id=word_id(int(page["pageNumber"]), n),
-                        text=str(word["content"]),
-                        polygon=tuple(float(v) for v in word.get("polygon") or ()),
-                        confidence=float(word.get("confidence") or 0.0),
-                        handwritten=is_handwritten(word),
-                    )
-                    for n, word in enumerate(page.get("words") or (), start=1)
+                    _word(number, n, word, handwritten) for n, word in enumerate(_objects(page.get("words")), start=1)
                 ),
             )
-            for page in pages
-        ),
-    )
+        )
+    return OcrResult(model=model, api_version=API_VERSION, pages=tuple(sorted(pages, key=lambda p: p.number)))

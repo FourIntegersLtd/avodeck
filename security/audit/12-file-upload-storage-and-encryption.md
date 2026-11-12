@@ -68,12 +68,12 @@ Leftover lifetime: an abandoned open upload keeps its sealed parts for up to abo
 | Locked PDF | Marked "locked", no pages | Enforced |
 | Garbage PDF | Marked "damaged" | Enforced; a cut-off PDF is not (V4d) |
 | Zero-page PDF | Accepted with no pages and no reason | Weakness V4e |
-| Page count | None | Weakness V4b |
+| Page count | A cap per document and per bundle; the document is listed as not opened (`too_many_pages`) | Fixed by audit 13, DP-04 (was weakness V4b) |
 | Page size at render | None | Weakness V4c |
 | Active content | Document-level actions and embedded files are dropped when a page is cut; page-level script and link actions remain | Info V4a |
 | Zip | At most 2,000 members, 500 MB unpacked, depth 3, no locked members | Enforced per archive, not per upload (V3a) |
 | Zip sizes | A forged small size in the zip header is caught | Enforced |
-| Zip member names | Never used as a path or storage key | Sound; control characters kept in the stored name (V3c) |
+| Zip member names | Never used as a path or storage key | Sound; control characters are removed from the stored name (V3c: fixed by audit 13, DP-03) |
 | Polyglots | PDF+zip, PDF+HTML, PNG+zip: stored byte for byte, served as opaque data | Sound |
 | Image bombs | The image library's pixel limit is left on | Enforced |
 
@@ -199,12 +199,12 @@ Not removed by deletion, by code reading:
 | | Archive member scanned on its own | Fail V2g (low) |
 | Archives | Member count, size, forged size, locked, depth, traversal names | Pass |
 | | Total across nested archives | Fail V3a (medium) |
-| | Member name with a control character | Fail V3c (low) |
+| | Member name with a control character | Fail V3c (low); fixed by audit 13, DP-03 |
 | Documents | Intact, locked, garbage, wrong-type, polyglots | Pass |
 | | Image pixel bomb | Pass |
 | | Cut-off PDF | Fail V4d, V4d2 (medium) |
 | | Zero-page PDF | Fail V4e (medium) |
-| | Over 4,000 pages, PDF and TIFF | Fail V4b, V4b2 (low) |
+| | Over 4,000 pages, PDF and TIFF | Fail V4b, V4b2 (low); fixed by audit 13, DP-04 |
 | | Huge page at render | Fail V4c (medium) |
 | | Script and links in stored page PDF | Fail V4a (info) |
 | Storage | Key pattern, SSE, sealed bytes, no links in responses | Pass |
@@ -261,8 +261,8 @@ Setup: storage refuses to delete one object and deletes the rest. Outcome: the d
 | V2e, V2e2 | A flagged or unscanned instruction letter is still sent to OCR and the AI | `setup/jobs.py:72-95` |
 | V2d | The export does not filter on the scan verdict. Unreachable until D6c is fixed | `close/jobs.py:343-398` |
 | V2g | A file unpacked from a zip or email is recorded clean without its own scan. Safety rests on the scanner having looked inside the parent, which ClamAV does | `pipeline/repo.py:285-289` |
-| V3c | A zip member's name keeps control characters that the upload route refuses | `pipeline/repo.py:276-283` |
-| V4b, V4b2 | No page limit: a 4,001-page PDF or TIFF is accepted | `pipeline/service.py:173-180`, `convert.py:262-271` |
+| V3c | A zip member's name keeps control characters that the upload route refuses | `pipeline/repo.py:276-283`. Fixed by audit 13, DP-03 |
+| V4b, V4b2 | No page limit: a 4,001-page PDF or TIFF is accepted | `pipeline/service.py:173-180`, `convert.py:262-271`. Fixed by audit 13, DP-04 |
 | V5b | File names with direction-override characters are accepted, so a name can display reversed | `core/routes/uploads.py:53` |
 | V6 | A kind that is not in the case's packs is accepted | `core/routes/uploads.py:61` |
 | U5 | No cap on the total size a case's open uploads may claim | `core/routes/uploads.py:176-186` |

@@ -389,7 +389,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | pages_declared | The page count the PDF itself states. When it is higher than `pages`, the file may have lost pages and the bundle summary says so (`page_shortfalls`). Empty for files we converted ourselves |
 | received_on / obtained_how | When it arrived and from whom/how |
 | bundle_version | Which delivery of records it came in (v1, v2…) |
-| unreadable_reason | Why we couldn't open it: password-protected (`locked`), `damaged`, or `altered` (the stored file no longer matches the fingerprint or the number of parts that were uploaded, so it was not read). Empty for every file that opened. A file with a reason has no pages; the instructing party is asked for a readable copy |
+| unreadable_reason | Why we couldn't open it: password-protected (`locked`), `damaged`, `altered` (the stored file no longer matches the fingerprint or the number of parts that were uploaded, so it was not read), or too long (`too_many_pages`: more pages than one document or the whole bundle may hold). Empty for every file that opened. A file with a reason has no pages; the instructing party is asked for a readable copy |
 | split_of_page_id | If these pages were made by cutting a two-page scan in two, the page that was cut |
 
 ### document_scans
@@ -435,7 +435,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | superseded_by_page_id | If a clearer copy arrived, which page replaces it |
 | split_of_page_id | If this page is one half of a two-page scan, the page it was cut from (that page keeps its number and facts) |
 | quarantined | Marked as another person's record: hidden, and when, why and by whom |
-| unreadable | The computer couldn't read it; it's in "Pages we couldn't read" |
+| unreadable | The computer couldn't read it; it's in "Pages we couldn't read". Clears when you type the page out yourself, or when a page the computer first failed to cut is cut again and read |
 | needs_clearer_copy | The expert asked for a clearer copy; the page goes on the next request to the instructing party |
 | relevance | The expert's judgement: relevant, background, or nothing relevant on the page |
 | language | The page's language, if not the pack's |

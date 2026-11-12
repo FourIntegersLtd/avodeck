@@ -136,6 +136,16 @@ describe.each([
       expect(screen.queryByRole("heading", { name: "Your bundle is ready" })).toBeNull();
     });
 
+    test("a file with too many pages is listed with its own plain reason", async () => {
+      const [first] = documents() as unknown as Array<Schemas["BundleSummary"]["documents"][number]>;
+      const long = [
+        { ...first!, pages: 0, first_page_no: null, last_page_no: null, unreadable_reason: "too_many_pages" },
+      ] as unknown as Schemas["BundleSummary"]["documents"];
+      mock(pack, { summary: idle(long) });
+      renderAt(PATH);
+      expect(await screen.findByText(`${first!.filename} is too long for us to open. Please ask for it in smaller parts.`)).toBeVisible();
+    });
+
     test("one file we couldn't open and another still being prepared: still preparing, with the preparing link and the unopened card", async () => {
       const [first, second] = documents() as unknown as Array<Schemas["BundleSummary"]["documents"][number]>;
       const mixed = [

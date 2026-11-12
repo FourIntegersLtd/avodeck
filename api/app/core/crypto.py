@@ -7,7 +7,9 @@ provider cannot be reached and the cached key has expired, processing pauses: no
 another key or region (fail closed, F24). Destroying a case's key (case deletion) makes everything
 encrypted under it unreadable. That holds for what is stored under the key, not for copies made
 before deletion: backups and Storage objects are unreadable only once the wrapped key is gone from
-them too, and the upload job holds plaintext in memory (never on disk) while it checks a file.
+them too. Plaintext is on disk only in the private scratch directory (`case_files`, mode 0700): a large upload
+is spooled there in an unlinked 0600 file, and the PDF split step writes a named 0600 file for the tool that needs
+a path. Each is deleted after use, and the worker sweeps any a crash left behind when it starts.
 
 `SecretBox` seals short server-side secrets (Supabase Auth tokens on a device session) the same
 way, bound to their purpose and subject.
