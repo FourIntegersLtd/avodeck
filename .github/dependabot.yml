@@ -1,0 +1,25 @@
+# Weekly dependency updates (audit 15, BG-15). Patch and minor bumps are grouped so one pull request
+# carries them and the normal CI gate runs on it; major bumps arrive one by one for a person to read.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /api
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      api-minor-and-patch:
+        update-types: [minor, patch]
+    labels: [dependencies]
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      web-minor-and-patch:
+        update-types: [minor, patch]
+    labels: [dependencies]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 3
+    labels: [dependencies]

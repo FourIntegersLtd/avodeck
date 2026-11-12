@@ -658,6 +658,12 @@ A joint expert is one with two or more current instructing parties; no separate 
 | cancel_requested_at / cancel_requested_by | Who asked to stop reading the bundle, and when (it stops at the next page) |
 | reprocess_opted_at / reprocess_opted_by | Who chose to have the pages read again with a newer model, and when (verified facts never change) |
 
+### pipeline_job_retries
+| Field | In plain words |
+|---|---|
+| job_id | The failed processing job a person has put back with "Try again" |
+| retries | How many times, in the job's whole life (at most 5; after that only Avodeck support can put it back) |
+
 ## Understand
 
 ### fact_question_links
@@ -1142,6 +1148,8 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | Field | In plain words |
 |---|---|
 | kind / action | A kind of background job and the case action a person needs to start it |
+| interactive | Whether the kind is something a person waits for (on screen) or bulk work; it decides the queue and priority the job gets, so a caller cannot choose a faster lane |
+| max_active | How many queued or running jobs of this kind one case may have at once; empty means the standard 5 |
 
 ### job_steps
 | Field | In plain words |
@@ -1149,6 +1157,17 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | job_id / case_id | Which job, on which case |
 | step | A step that finished (a short code), so a retry skips it |
 | created_at | When it finished |
+
+### deferred_work
+| Field | In plain words |
+|---|---|
+| kind / name | An email (named by its template) or a call a feature registered (named by the feature) |
+| sealed | The contents (for an email: the address, any one-time code or link), scrambled under the cell key and tied to this row; gone as soon as the row ends |
+| requested_by | The person whose request made it |
+| status | Waiting, done, failed after 8 tries, or expired (not worth sending any more) |
+| attempts / run_after / last_error | How many tries, when the next one is due, and the kind of error (its type only, never its message) |
+| expires_at | When it stops being worth sending (a one-time code: its own lifetime; never more than 7 days) |
+| created_at / finished_at | When it was written and when it ended; an ended row is deleted a week later |
 
 ### ai_request_slots
 | Field | In plain words |

@@ -16,16 +16,14 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import BackgroundTasks
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core import audit
+from app.core import audit, deferred
 from app.core.email import spot_check_code_mail
 from app.core.errors import ApiError
 from app.core.http import DbConn
 from app.features.report.common import Build, Crypto, Pack, Storage
 from app.features.report.router import router
-from app.features.report.services import current
 from app.features.report.spot_checks import LIFETIME, code_hash, new_code, prepare, sample, token_hash
 
 
@@ -75,7 +73,6 @@ async def start_spot_check(
     crypto: Crypto,
     storage: Storage,
     pack: Pack,
-    after_commit: BackgroundTasks,
 ) -> SpotCheckStarted:
     cur = await conn.execute(
         "select c.report_version_id from app.citations c join app.report_versions v on v.id = c.report_version_id"
@@ -100,7 +97,7 @@ async def start_spot_check(
     check_id: uuid.UUID = created[0]
     await prepare(conn, crypto, storage, pack, case_id, check_id, version_id, picked, token)
     await audit.record(conn, action="spot_check.created", target=f"spot_check:{check_id}", case_id=case_id)
-    after_commit.add_task(current().mailer.send, spot_check_code_mail(body.reviewer_email, code=code))
+    await deferred.defer_mail(conn, spot_check_code_mail(body.reviewer_email, code=code), valid_for=LIFETIME)
     return SpotCheckStarted(id=check_id, token=token, expires_at=created[1], fact_count=len(picked))
 
 

@@ -39,6 +39,7 @@ from app.features.report.spot_checks import MAX_FACTS, open_check, respond, samp
 from tests.fixtures.report.world import CRYPTO, Reads, World, app_for, build, make_ready
 from tests.support.auth import APP_ORIGIN
 from tests.support.db import ClientFor
+from tests.support.deferred import drain
 from tests.support.files import local_storage
 from tests.support.packs import BOTH, Combo
 from tests.support.seed import Seed
@@ -54,6 +55,20 @@ WORDS = {
     "w3": ("Qqname", (300, 600, 420, 630)),
     "w4": ("Header", (100, 50, 200, 80)),
 }
+
+
+@pytest.fixture(autouse=True)
+def _no_leftover_deferred_work(admin: psycopg.Connection) -> None:
+    """A delivery takes every due row, so each test starts with none (BG-16)."""
+    admin.execute("delete from app.deferred_work")
+
+
+_WORKER: dict[str, str] = {}
+
+
+@pytest.fixture(autouse=True)
+def _worker_dsn_for_started(worker_dsn: str) -> None:
+    _WORKER["dsn"] = worker_dsn
 
 
 @pytest.fixture(params=BOTH, ids=["launch", "fixture"])
@@ -173,6 +188,7 @@ async def built(
 async def started(client_for: ClientFor, w: World) -> tuple[str, str]:
     resp = await (await client_for(w.expert)).post(w.url("spot-checks"), json={"reviewer_email": COLLEAGUE})
     assert resp.status_code == 201, resp.text
+    await drain(_WORKER["dsn"], current().mailer)
     code = current().mailer.outbox[-1].params["code"]
     return str(resp.json()["token"]), code
 
@@ -199,7 +215,7 @@ async def test_a_spot_check_needs_a_built_report_and_report_build(client_for: Cl
 
 
 async def test_starting_a_spot_check_keeps_only_hashes_and_emails_the_code(
-    client_for: ClientFor, admin: psycopg.Connection, built: World
+    client_for: ClientFor, admin: psycopg.Connection, built: World, worker_dsn: str
 ) -> None:
     resp = await (await client_for(built.expert)).post(built.url("spot-checks"), json={"reviewer_email": COLLEAGUE})
     assert resp.status_code == 201, resp.text
@@ -214,6 +230,7 @@ async def test_starting_a_spot_check_keeps_only_hashes_and_emails_the_code(
     assert row[0] == hashlib.sha256(token.encode()).hexdigest()
     assert set(row[2]) == {built.plan, built.result}, "only cited facts are sampled"
     assert abs(row[3] - (datetime.now(UTC) + timedelta(days=7))) < timedelta(minutes=2)
+    await drain(worker_dsn, current().mailer)
     mail = current().mailer.outbox[-1]
     assert mail.to == COLLEAGUE and mail.template == "spot_check.code"
     assert list(mail.params) == ["code"] and mail.params["code"].isdigit() and len(mail.params["code"]) == 6
@@ -303,7 +320,11 @@ async def test_answers_are_kept_once_and_the_expert_sees_them(
 
 
 async def test_a_spot_check_that_does_not_commit_mails_nobody(
-    client_for: ClientFor, admin: psycopg.Connection, built: World, monkeypatch: pytest.MonkeyPatch
+    client_for: ClientFor,
+    admin: psycopg.Connection,
+    built: World,
+    worker_dsn: str,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def fail(*args: Any, **kwargs: Any) -> None:
         raise RuntimeError("the transaction does not commit")
@@ -315,8 +336,21 @@ async def test_a_spot_check_that_does_not_commit_mails_nobody(
             built.url("spot-checks"), json={"reviewer_email": COLLEAGUE}, headers={"Idempotency-Key": "zz-spot-once"}
         )
         assert resp.status_code >= 500
+    await drain(worker_dsn, current().mailer)
     assert current().mailer.outbox == []
     assert admin.execute("select count(*) from app.spot_checks where case_id = %s", (built.case,)).fetchone() == (0,)
+
+
+async def test_a_code_past_its_lifetime_is_not_delivered(
+    client_for: ClientFor, admin: psycopg.Connection, built: World, worker_dsn: str
+) -> None:
+    resp = await (await client_for(built.expert)).post(built.url("spot-checks"), json={"reviewer_email": COLLEAGUE})
+    assert resp.status_code == 201, resp.text
+    row = admin.execute("select expires_at from app.deferred_work where name = 'spot_check.code'").fetchone()
+    assert row is not None and abs(row[0] - (datetime.now(UTC) + timedelta(days=7))) < timedelta(minutes=2)
+    admin.execute("update app.deferred_work set expires_at = now() - interval '1 second'")
+    await drain(worker_dsn, current().mailer)
+    assert current().mailer.outbox == []
 
 
 # The colleague's public routes (foundation request): signed out, the token and code hashes are the gate --------

@@ -29,7 +29,7 @@ const finished = (status: string | undefined) => status === "done" || status ===
 // A short, readable form of an id to read out on the phone: its first eight characters in two groups.
 const shortRef = (id: string) => id.replace(/-/g, "").slice(0, 8).toUpperCase().replace(/(.{4})(.{4})/, "$1 $2");
 
-const OWN = { processing_paused: "pipeline.preparing.err.paused", conflict: "pipeline.preparing.err.conflict" };
+const OWN = { processing_paused: "pipeline.preparing.err.paused", conflict: "pipeline.preparing.err.conflict", retry_limit: "pipeline.preparing.err.retry_limit" };
 
 export function Preparing() {
   const { item, pack } = useCaseFrame();

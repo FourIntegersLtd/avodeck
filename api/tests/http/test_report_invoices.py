@@ -29,6 +29,7 @@ from app.core.storage import CaseFileStorage
 from app.features.report.services import ReportServices, configure, current
 from tests.fixtures.report.world import CRYPTO, Reads, World, app_for, build
 from tests.support.db import ClientFor
+from tests.support.deferred import drain
 from tests.support.files import local_storage
 from tests.support.packs import BOTH, Combo
 from tests.support.seed import Seed
@@ -36,6 +37,12 @@ from tests.support.seed import Seed
 pytestmark = pytest.mark.anyio
 
 RECIPIENT = "zz-office@example.test"
+
+
+@pytest.fixture(autouse=True)
+def _no_leftover_deferred_work(admin: psycopg.Connection) -> None:
+    """A delivery takes every due row, so each test starts with none (BG-16)."""
+    admin.execute("delete from app.deferred_work")
 
 
 @pytest.fixture(params=BOTH, ids=["launch", "fixture"])
@@ -246,7 +253,7 @@ async def test_sending_needs_step_up_and_the_named_expert(
 
 
 async def test_sending_numbers_the_invoice_seals_its_pdf_and_mails_no_clinical_content(
-    client_for: ClientFor, admin: psycopg.Connection, world: World
+    client_for: ClientFor, admin: psycopg.Connection, world: World, worker_dsn: str
 ) -> None:
     inv = await drafted(client_for, admin, world)
     client = await client_for(world.expert)
@@ -257,6 +264,7 @@ async def test_sending_numbers_the_invoice_seals_its_pdf_and_mails_no_clinical_c
     again = await client.post(world.url(f"invoices/{inv['id']}/send"), json={})
     assert again.status_code == 409
 
+    await drain(worker_dsn, current().mailer)
     outbox = current().mailer.outbox
     assert len(outbox) == 1
     mail = outbox[0]
@@ -303,7 +311,7 @@ async def test_agency_and_personal_invoice_numbers_run_separately_without_gaps(
 
 
 async def test_sending_without_a_recipient_is_refused(
-    client_for: ClientFor, admin: psycopg.Connection, world: World
+    client_for: ClientFor, admin: psycopg.Connection, world: World, worker_dsn: str
 ) -> None:
     org_profile(admin, world.org)
     add_time(admin, world.case, world.expert, 3600, first_step(world.combo))
@@ -312,6 +320,7 @@ async def test_sending_without_a_recipient_is_refused(
     inv = (await client.post(world.url("invoices"), json={"expenses": "0"})).json()
     resp = await client.post(world.url(f"invoices/{inv['id']}/send"), json={})
     assert resp.status_code == 422
+    await drain(worker_dsn, current().mailer)
     assert current().mailer.outbox == []
     row = admin.execute("select status, number from app.invoices where id = %s", (inv["id"],)).fetchone()
     assert row == ("draft", None)
@@ -408,6 +417,7 @@ async def test_two_sends_at_once_number_once_and_mail_once(
     admin: psycopg.Connection,
     storage: CaseFileStorage,
     world: World,
+    worker_dsn: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     inv = await drafted(client_for, admin, world)
@@ -423,6 +433,7 @@ async def test_two_sends_at_once_number_once_and_mail_once(
     answers = await asyncio.gather(first.post(url, json={}), second.post(url, json={}))
     assert sorted(a.status_code for a in answers) == [200, 409], [a.text for a in answers]
     assert next(a for a in answers if a.status_code == 409).json()["error"]["code"] == "already_sent"
+    await drain(worker_dsn, current().mailer)
     assert len(current().mailer.outbox) == 1
     sent = admin.execute(
         "select count(*) from app.audit_log where case_id = %s and action = 'invoice.sent'", (world.case,)
@@ -431,7 +442,11 @@ async def test_two_sends_at_once_number_once_and_mail_once(
 
 
 async def test_a_send_that_does_not_commit_mails_nobody(
-    client_for: ClientFor, admin: psycopg.Connection, world: World, monkeypatch: pytest.MonkeyPatch
+    client_for: ClientFor,
+    admin: psycopg.Connection,
+    world: World,
+    worker_dsn: str,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     inv = await drafted(client_for, admin, world)
 
@@ -445,6 +460,7 @@ async def test_a_send_that_does_not_commit_mails_nobody(
             world.url(f"invoices/{inv['id']}/send"), json={}, headers={"Idempotency-Key": "zz-send-once"}
         )
         assert resp.status_code >= 500
+    await drain(worker_dsn, current().mailer)
     assert current().mailer.outbox == []
     row = admin.execute("select status, number from app.invoices where id = %s", (inv["id"],)).fetchone()
     assert row == ("draft", None)

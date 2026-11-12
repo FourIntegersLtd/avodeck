@@ -138,6 +138,22 @@ jobs:
         if: github.event_name == 'pull_request'
         run: poetry -P api run python scripts/check_red_green.py origin/${{ github.base_ref }}
 
+  # Known-vulnerability report on the installed (locked) Python packages (audit 15, BG-15). Report only: a new advisory
+  # on an unrelated day must not turn main red. The summary lists the packages; Dependabot opens the fixes.
+  dependency-audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/api-install
+      - name: pip-audit the installed environment
+        continue-on-error: true  # advisories are reported in the summary and never turn the check red
+        run: |
+          # `poetry export` is a plugin that CI does not install, so audit what the lock installed.
+          poetry -C api run pip freeze --exclude-editable > "$RUNNER_TEMP/req.txt"
+          pipx run pip-audit -r "$RUNNER_TEMP/req.txt" --no-deps --disable-pip 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "${PIPESTATUS[0]}"
+
   # The shards together ran every collected test exactly once, and the combined coverage meets the floor (85, as `make -C api test`).
   api-verify:
     needs: [api-shard, api-once]

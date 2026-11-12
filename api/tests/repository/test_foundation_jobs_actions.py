@@ -20,6 +20,8 @@ from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
 
+INTERACTIVE_KINDS = {"export_case", "build_report"}  # the real kinds these tests name that are interactive
+
 
 @pytest.fixture
 def team(seed: Seed) -> dict[str, uuid.UUID]:
@@ -36,7 +38,7 @@ def registry_with(*kinds: str) -> JobRegistry:
         async def never(ctx: JobContext) -> None:  # pragma: no cover - never runs
             raise AssertionError
 
-        registry.kind(kind)(never)
+        registry.kind(kind, interactive=kind in INTERACTIVE_KINDS)(never)  # the priority the database pins (BG-09)
     return registry
 
 

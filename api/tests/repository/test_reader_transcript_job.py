@@ -20,13 +20,16 @@ import pypdf
 import pytest
 from fastapi import FastAPI
 
+from app.core import deferred
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
+from app.core.email import OutboxMailer
 from app.core.jobs import JobContext
 from app.core.storage import CaseFileStorage, StorageError, case_prefix
 from app.features.reader import repo, transcript, transcript_jobs, transcript_pdf
 from app.features.reader.transcript_words import word
 from tests.support.db import scope_for
+from tests.support.deferred import drain
 from tests.support.files import build_app, local_storage
 from tests.support.identity import SENTENCE, record_identity
 from tests.support.packs import LAUNCH
@@ -568,3 +571,115 @@ async def test_a_file_that_leaves_out_words_the_computer_read_is_never_built(
     job = uuid.UUID(resp.json()["job_id"])
     with pytest.raises(ValueError):
         await run_job(worker_db, job, world["case"], "docx")
+
+
+async def _stored(storage: CaseFileStorage, case: Any, job: uuid.UUID, fmt: str) -> bool:
+    try:
+        await storage.get(transcript_jobs.transcript_path(case, job, fmt))
+    except StorageError:
+        return False
+    return True
+
+
+async def _built_and_taken(
+    api_db: Database,
+    client: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    crypto: CaseCrypto,
+    world: dict[str, Any],
+    fmt: str,
+) -> uuid.UUID:
+    doc = await add_document(aconn, world["case"])
+    await read(api_db, world, await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("note",))]))
+    return await build(client, worker_db, admin, world, fmt)
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+async def test_the_stored_copy_goes_when_the_worker_delivers_not_when_the_request_ends(
+    api_db: Database,
+    client_for: Any,
+    worker_db: Database,
+    worker_dsn: str,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    crypto: CaseCrypto,
+    storage: CaseFileStorage,
+    world: dict[str, Any],
+    fmt: str,
+) -> None:
+    """BG-16: removing the copy is durable work, so an API restart after the commit cannot leave it behind."""
+    admin.execute("delete from app.deferred_work")
+    client = await client_for(world["expert"])
+    job = await _built_and_taken(api_db, client, worker_db, admin, aconn, crypto, world, fmt)
+    assert (await client.get(f"/v1/cases/{world['case']}/transcript/download/{job}")).status_code == 200
+    assert await _stored(storage, world["case"], job, fmt)  # the request only wrote the work down
+    assert await drain(worker_dsn, OutboxMailer()) == 1
+    assert not await _stored(storage, world["case"], job, fmt)
+
+
+async def test_a_download_that_rolls_back_removes_nothing(
+    api_db: Database,
+    client_for: Any,
+    worker_db: Database,
+    worker_dsn: str,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    crypto: CaseCrypto,
+    storage: CaseFileStorage,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.features.reader import transcript_routes
+
+    admin.execute("delete from app.deferred_work")
+    client = await client_for(world["expert"])
+    job = await _built_and_taken(api_db, client, worker_db, admin, aconn, crypto, world, "docx")
+
+    def broken(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("the request fails after the file was taken")
+
+    monkeypatch.setattr(transcript_routes, "iter_chunks", broken)
+    try:
+        await client.get(f"/v1/cases/{world['case']}/transcript/download/{job}")
+    except RuntimeError:
+        pass  # the test transport re-raises the server error
+    row = admin.execute("select count(*) from app.deferred_work where name = 'reader.transcript_remove'").fetchone()
+    assert row is not None and row[0] == 0  # the work was written in the request's transaction, which rolled back
+    assert await drain(worker_dsn, OutboxMailer()) == 0
+    assert await _stored(storage, world["case"], job, "docx")
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+async def test_removing_the_copy_twice_is_harmless(
+    worker_db: Database, seed: Seed, storage: CaseFileStorage, world: dict[str, Any], fmt: str
+) -> None:
+    job = seed.job(world["case"], kind="export_transcript")
+    path = transcript_jobs.transcript_path(world["case"], job, fmt)
+    await storage.put(path, b"sealed")
+    args = {"case_id": str(world["case"]), "job_id": str(job), "fmt": fmt}
+    handler = deferred.calls["reader.transcript_remove"]
+    async with worker_db.anonymous() as conn:
+        await handler(conn, args)
+        assert not await _stored(storage, world["case"], job, fmt)
+        await handler(conn, args)  # already gone: success, not an error
+
+
+async def test_a_storage_fault_while_removing_is_left_for_the_next_delivery(
+    worker_db: Database,
+    seed: Seed,
+    storage: CaseFileStorage,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    job = seed.job(world["case"], kind="export_transcript")
+
+    async def broken(paths: Any) -> None:
+        raise StorageError("storage answered 500")
+
+    monkeypatch.setattr(storage, "delete", broken)
+    args = {"case_id": str(world["case"]), "job_id": str(job), "fmt": "docx"}
+    async with worker_db.anonymous() as conn:
+        with pytest.raises(StorageError):
+            await deferred.calls["reader.transcript_remove"](conn, args)

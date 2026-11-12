@@ -17,21 +17,50 @@ from typing import Protocol
 
 from psycopg_pool import PoolTimeout
 
+import app.core.deferred  # noqa: F401 - the delivery sweep for after-commit work
 import app.core.housekeeping  # noqa: F401 - registers the foundation's daily schedules
 import app.core.notifications  # noqa: F401 - the daily messages schedule
 import app.core.uploads  # noqa: F401 - the finalize_upload job
 import app.features.pipeline  # noqa: F401 - slice A's job kinds and its DocumentUploaded subscriber
-from app.core import metrics
-from app.core.config import ConfigError, database_settings, env_int, job_max_stall_requeues, pipeline_batch_settings
+from app.core import logs, metrics
+from app.core.config import (
+    ConfigError,
+    database_settings,
+    env_int,
+    job_max_stall_requeues,
+    job_time_limits,
+    pipeline_batch_settings,
+    queue_retention_days,
+)
+from app.core.crypto import key_provider_from_env
 from app.core.db import Database
 from app.core.email import Mailer
 from app.core.email_live import mailer_from_env
 from app.core.features import DEFAULT_PACKAGE, WORKER_HOOK, load_features, start_features
 from app.core.jobs import BULK_QUEUE, DEFAULT_SHUTDOWN_GRACE_SECONDS, INTERACTIVE_QUEUE, JobWorker, registry
 from app.core.notify import CaseNotifier
+from app.core.packs import default_library
 from app.core.scan import scanner_from_env
 
 logger = logging.getLogger("app.worker")
+
+
+def start_observability(env: Mapping[str, str] | None = None) -> None:
+    """Switch on log scrubbing and error reporting in a worker process, as the API does at start-up (rule 6, BG-01,
+    BG-02): the same scrubbing record factory with the packs' identifier finders, and Sentry when `SENTRY_DSN` is
+    set (environment `SENTRY_ENVIRONMENT`, else the cell's region). Shared with `app.worker.schedules`."""
+    source = os.environ if env is None else env
+    logs.configure(default_library().identifier_finders())
+    dsn = source.get("SENTRY_DSN", "").strip()
+    if dsn:
+        environment = source.get("SENTRY_ENVIRONMENT", "").strip() or source.get("REGION", "").strip() or "worker"
+        logs.init_sentry(dsn, environment=environment)
+
+
+def check_cell_key(source: Mapping[str, str]) -> None:
+    """Deferred work (BG-16) is sealed under the cell key, so the worker needs it as the API does. Missing or wrong
+    settings end the process at start-up with the setting's name (never its value)."""
+    key_provider_from_env(source)
 
 
 def worker_queues(source: Mapping[str, str]) -> list[str] | None:
@@ -80,6 +109,8 @@ def build_worker(
         dsn=settings.url_direct,
         mailer=mailer if mailer is not None else mailer_from_env(env),
         max_stall_requeues=job_max_stall_requeues(source),
+        time_limits=job_time_limits(source),
+        queue_retention_days=queue_retention_days(source),
         shutdown_grace_seconds=env_int(
             source, "WORKER_SHUTDOWN_GRACE_SECONDS", DEFAULT_SHUTDOWN_GRACE_SECONDS, minimum=1
         ),
@@ -125,6 +156,7 @@ async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_P
     worker = build_worker(env, features=features)
     source = os.environ if env is None else env
     scanner_from_env(source)  # no scanner configured ends the process now, not at the first scan job
+    check_cell_key(source)  # no cell key ends it now, not at the first deferred mail
     concurrency = env_int(source, "WORKER_CONCURRENCY", 4, minimum=1)
     check_pipeline_window(source, concurrency=concurrency)
     await open_database_with_retry(worker.database)
@@ -154,6 +186,7 @@ async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_P
 
 
 def main() -> None:
+    start_observability()
     asyncio.run(run())
 
 

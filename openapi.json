@@ -33052,7 +33052,7 @@
         ]
       },
       "post": {
-        "description": "Processes whatever is not done yet: finished pages are never read again.",
+        "description": "Processes whatever is not done yet: finished pages are never read again. A bundle job already queued,\nrunning or paused to resume is returned instead of queueing another (BG-08).",
         "operationId": "start_processing_v1_cases__case_id__process_post",
         "parameters": [
           {
@@ -42859,7 +42859,7 @@
         ]
       },
       "post": {
-        "description": "A new person's account with a temporary password, shown once (ADR 0024), and no team; when mail is set\nup, also a set-password email sent after commit (409 `conflict` if the email already has an account, 422\n`invalid_email` if Auth will not take it; at most 20 an hour per staff member counting refused attempts,\n429 `too_many_attempts`).",
+        "description": "A new person's account with a temporary password, shown once (ADR 0024), and no team; when mail is set\nup, also a set-password email the worker sends after commit (409 `conflict` if the email already has an account, 422\n`invalid_email` if Auth will not take it; at most 20 an hour per staff member counting refused attempts,\n429 `too_many_attempts`).",
         "operationId": "create_account_v1_support_accounts_post",
         "parameters": [
           {

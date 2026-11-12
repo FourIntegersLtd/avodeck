@@ -28,7 +28,10 @@ def enqueue(dsn: str, people: dict[str, uuid.UUID], who: str, kind: str) -> None
     with psycopg.connect(dsn) as conn, conn.transaction():
         conn.execute("select set_config('app.person_id', %s, true)", (str(people[who]),))
         conn.execute("select set_config('app.org_ids', %s, true)", (str(people["org"]),))
-        conn.execute("select app.enqueue_job(%s, %s, 'default', 1, false, null)", (people["case"], kind))
+        row = conn.execute("select interactive from app.job_kind_actions where kind = %s", (kind,)).fetchone()
+        assert row is not None and row[0] is not None  # every kind says which queue and priority it runs with
+        queue, priority = ("interactive", 10) if row[0] else ("bulk", 0)
+        conn.execute("select app.enqueue_job(%s, %s, %s, %s, false, null)", (people["case"], kind, queue, priority))
         raise _Rollback
 
 

@@ -31,8 +31,10 @@ import docx
 import psycopg
 import pytest
 from fastapi import FastAPI
+from psycopg import AsyncConnection
 
 import app.core.http as core_http
+from app.core import audit
 from app.core.ai.bedrock import ModelRequest, ModelResponse
 from app.core.ai.kit import AiKit
 from app.core.contracts import events
@@ -407,10 +409,10 @@ async def test_serving_records_the_date_and_route_serves_the_case_and_emits_repo
     version = await signed(client_for, ready)
     heard: list[events.ReportServed] = []
 
-    def listen(event: events.ReportServed) -> None:
+    async def listen(conn: AsyncConnection, event: events.ReportServed) -> None:
         heard.append(event)
 
-    events.events.subscribe(events.ReportServed)(listen)
+    events.events.subscribe_in_transaction(events.ReportServed)(listen)
     try:
         client = await client_for(ready.expert)
         resp = await client.post(ready.url(f"report/versions/{version}/serve"), json=served_body())
@@ -577,20 +579,47 @@ async def test_downloading_a_signed_version_needs_step_up(
     assert downloads == (0,)
 
 
-async def test_a_serve_that_does_not_commit_emits_nothing(
+async def test_a_serve_whose_subscriber_fails_is_rolled_back(
+    client_for: ClientFor, admin: psycopg.Connection, ready: World
+) -> None:
+    version = await signed(client_for, ready)
+
+    async def refuse(conn: AsyncConnection, event: events.ReportServed) -> None:
+        raise RuntimeError("the subscriber failed")
+
+    events.events.subscribe_in_transaction(events.ReportServed)(refuse)
+    try:
+        client = await client_for(ready.expert)
+        with contextlib.suppress(RuntimeError):
+            resp = await client.post(ready.url(f"report/versions/{version}/serve"), json=served_body())
+            assert resp.status_code >= 500
+    finally:
+        events.events.unsubscribe(events.ReportServed, refuse)
+    assert admin.execute("select status from app.report_versions where id = %s", (version,)).fetchone() == ("locked",)
+    assert admin.execute(
+        "select count(*) from app.report_servings where report_version_id = %s", (version,)
+    ).fetchone() == (0,)
+    case = admin.execute("select status from app.cases where id = %s", (ready.case,)).fetchone()
+    assert case is not None and case[0] != "served"
+    audit_rows = admin.execute(
+        "select count(*) from app.audit_log where case_id = %s and action = 'report.served'", (ready.case,)
+    ).fetchone()
+    assert audit_rows == (0,)
+
+
+async def test_a_serve_that_does_not_commit_takes_the_subscribers_writes_with_it(
     client_for: ClientFor, admin: psycopg.Connection, ready: World, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     version = await signed(client_for, ready)
-    heard: list[events.ReportServed] = []
 
-    def listen(event: events.ReportServed) -> None:
-        heard.append(event)
+    async def listen(conn: AsyncConnection, event: events.ReportServed) -> None:
+        await audit.record(conn, action="zz.served_heard", target=f"report_version:{event.report_version_id}")
 
     async def fail(*args: Any, **kwargs: Any) -> None:
         raise RuntimeError("the transaction does not commit")
 
     monkeypatch.setattr(core_http, "_remember", fail)
-    events.events.subscribe(events.ReportServed)(listen)
+    events.events.subscribe_in_transaction(events.ReportServed)(listen)
     try:
         client = await client_for(ready.expert)
         with contextlib.suppress(RuntimeError):
@@ -602,6 +631,7 @@ async def test_a_serve_that_does_not_commit_emits_nothing(
             assert resp.status_code >= 500
     finally:
         events.events.unsubscribe(events.ReportServed, listen)
-    assert heard == []
+    heard = admin.execute("select count(*) from app.audit_log where action = 'zz.served_heard'").fetchone()
+    assert heard == (0,)
     status = admin.execute("select status from app.report_versions where id = %s", (version,)).fetchone()
     assert status == ("locked",)

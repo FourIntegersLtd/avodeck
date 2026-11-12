@@ -60,7 +60,7 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, router, stale
-from app.core.jobs import BATCH_PRIORITY, INTERACTIVE_PRIORITY
+from app.core.jobs import BATCH_PRIORITY, INTERACTIVE_PRIORITY, RESUMABLE_PAUSES
 from app.core.storage import CaseFileStorage
 from app.features.pipeline import missing, paths, repo, split, wiring
 from app.features.pipeline.schemas import (
@@ -675,7 +675,11 @@ async def start_processing(
     access: Annotated[CaseAccess, Depends(require_case_access("case.upload"))],
     conn: DbConn,
 ) -> JobQueued:
-    """Processes whatever is not done yet: finished pages are never read again."""
+    """Processes whatever is not done yet: finished pages are never read again. A bundle job already queued,
+    running or paused to resume is returned instead of queueing another (BG-08)."""
+    live = await repo.live_bundle_job(conn, case_id, sorted(RESUMABLE_PAUSES))
+    if live is not None:
+        return JobQueued(job_id=live)
     return JobQueued(job_id=await wiring.registry().enqueue(conn, case_id, PROCESS_BUNDLE))
 
 
@@ -706,6 +710,7 @@ async def retry_processing(
     requeued = 0
     live = await repo.has_live_bundle_job(conn, case_id)
     blocked = False
+    limited = False
     for job_id, name in await repo.failed_job_ids(conn, case_id, kinds):
         kind = registry.kinds[name]
         if live and kind.changes_case:
@@ -714,6 +719,12 @@ async def retry_processing(
         priority = INTERACTIVE_PRIORITY if kind.interactive else BATCH_PRIORITY
         if await repo.requeue_failed(conn, job_id, registry.queue_for(name), priority, kind.changes_case):
             requeued += 1
+        elif await repo.retry_limited(conn, job_id):
+            limited = True  # put back 5 times already: support has to requeue it (BG-07)
+    if limited and not requeued and not blocked:
+        raise ApiError(
+            "retry_limit", "This has been tried several times and keeps failing. Please contact support.", 409
+        )
     if requeued:
         await audit.record(conn, action="bundle.processing_retried", target=f"case:{case_id}", case_id=case_id)
     return ProcessingRetried(requeued=requeued, blocked=True if blocked else None)

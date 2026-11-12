@@ -277,7 +277,7 @@ class ResendMailer:
             payload["reply_to"] = mail.reply_to
         # One key for every attempt of this send: if the first attempt reached Resend but its answer was lost
         # (a timeout), the retry returns the first result instead of sending a second email.
-        headers = {"Authorization": f"Bearer {self._key}", "Idempotency-Key": uuid.uuid4().hex}
+        headers = {"Authorization": f"Bearer {self._key}", "Idempotency-Key": mail.idempotency_key or uuid.uuid4().hex}
         retry_after: float | None = None
         status = 0
         async with httpx.AsyncClient(timeout=self.timeout, transport=self._transport) as client:

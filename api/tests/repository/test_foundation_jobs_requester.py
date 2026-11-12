@@ -57,14 +57,17 @@ def test_nobody_sets_the_requester_by_hand(
     expert, other = seed.person(), seed.person()
     org = seed.org(kind="personal", members={expert: "owner"})
     case = seed.case(org, expert)
-    with psycopg.connect(api_dsn) as conn, conn.transaction():
-        conn.execute("select set_config('app.person_id', %s, true)", (str(expert),))
-        row = conn.execute(
-            "insert into app.jobs (case_id, kind, requested_by) values (%s, 'process_bundle', %s) returning id",
-            (case, other),
-        ).fetchone()
+    with psycopg.connect(api_dsn) as conn:
+        conn.execute("select set_config('app.person_id', %s, false)", (str(expert),))
+        with pytest.raises(psycopg.errors.InsufficientPrivilege), conn.transaction():  # no hand-made job rows (BG-03)
+            conn.execute(
+                "insert into app.jobs (case_id, kind, requested_by) values (%s, 'process_bundle', %s)", (case, other)
+            )
+        row = conn.execute("select app.enqueue_job(%s, 'process_bundle', 'zz_q', 0, false, 'x')", (case,)).fetchone()
+        conn.commit()
     assert row is not None
     job = row[0]
+    assert admin.execute("select requested_by from app.jobs where id = %s", (job,)).fetchone() == (expert,)
     with psycopg.connect(worker_dsn) as conn, conn.transaction():
         conn.execute("select set_config('app.job_case_id', %s, true)", (str(case),))
         conn.execute("update app.jobs set requested_by = %s where id = %s", (other, job))
