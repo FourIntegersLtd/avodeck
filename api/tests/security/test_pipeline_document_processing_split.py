@@ -75,7 +75,9 @@ def email_with_attachment_named(name: str) -> bytes:
     return message.as_bytes()
 
 
-@pytest.mark.parametrize("name", ["a\x00b.pdf", "\x00", "line\nbreak.pdf", "x" * 400 + ".pdf"], ids=lambda n: repr(n[:8]))
+@pytest.mark.parametrize(
+    "name", ["a\x00b.pdf", "\x00", "line\nbreak.pdf", "x" * 400 + ".pdf"], ids=lambda n: repr(n[:8])
+)
 async def test_a_name_inside_an_email_or_zip_that_postgres_or_the_column_cannot_hold_does_not_stop_the_job(
     h: Harness, name: str
 ) -> None:
