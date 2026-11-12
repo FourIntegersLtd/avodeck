@@ -20,6 +20,7 @@ Each test that changes anything uses a fresh world (`fresh`) so tests cannot aff
 from __future__ import annotations
 
 import hashlib
+import os
 import secrets
 import uuid
 from collections.abc import AsyncIterator
@@ -35,6 +36,7 @@ from app.core.contracts.case_names import PARTY_NAME_PURPOSE
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.features.organisations.service import token_hash
 from app.features.report.assemble import VALUE_PURPOSE
+from tests.support.deferred import drain
 from tests.support.isolation_http import (  # noqa: F401  (fixtures)
     fill_path,
     iso_seed,
@@ -440,6 +442,10 @@ async def _spot_check(iso_send, admin, w: IsolationWorld, who: str, **kw: Any): 
     response = await iso_send(
         w.attacker.people[who], "POST", f"/v1/cases/{w.attacker.case}/spot-checks", json=OUTSIDE, **kw
     )
+    # The code mail is deferred work (BG-16): it reaches the mailer when the worker sweep runs.
+    from app.features.report.services import current
+
+    await drain(os.environ["TEST_DATABASE_URL_DIRECT"], current().mailer)
     return response, _checks(admin, w.attacker.case) - rows, _mails_to_outside() - mails
 
 

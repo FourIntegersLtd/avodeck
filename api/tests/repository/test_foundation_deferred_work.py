@@ -305,7 +305,7 @@ async def test_a_mail_is_sent_while_only_its_own_row_is_held(
         free_while_sending.append(row[0])
 
     mailer = SlowMailer(during=look)
-    assert await deferred.deliver_all(worker_db, mailer) == 4  # type: ignore[arg-type]
+    assert await deferred.deliver_all(worker_db, mailer) == 4
     assert free_while_sending == [3, 2, 1, 0][: len(free_while_sending)] and free_while_sending[0] == 3
 
 
@@ -313,8 +313,8 @@ async def test_two_sweeps_at_once_never_send_a_row_twice(api_db: Database, worke
     ids = await _defer_many(api_db, seed.person(), 8)
     mailer = SlowMailer(delay=0.05)
     sent = await asyncio.gather(
-        deferred.deliver_all(worker_db, mailer),  # type: ignore[arg-type]
-        deferred.deliver_all(worker_db, mailer),  # type: ignore[arg-type]
+        deferred.deliver_all(worker_db, mailer),
+        deferred.deliver_all(worker_db, mailer),
     )
     assert sum(sent) == 8
     assert sorted(k for k in mailer.keys if k) == sorted(str(i) for i in ids) and len(mailer.keys) == 8
@@ -325,10 +325,10 @@ async def test_a_round_stops_at_its_time_budget_and_leaves_the_rest_for_the_next
 ) -> None:
     await _defer_many(api_db, seed.person(), 6)
     mailer = SlowMailer(delay=0.2)
-    sent = await deferred.deliver_all(worker_db, mailer, budget_seconds=0.3)  # type: ignore[arg-type]
+    sent = await deferred.deliver_all(worker_db, mailer, budget_seconds=0.3)
     assert 1 <= sent <= 3
     assert admin.execute("select count(*) from app.deferred_work where status = 'pending'").fetchone() == (6 - sent,)
-    assert await deferred.deliver_all(worker_db, mailer) == 6 - sent  # type: ignore[arg-type]
+    assert await deferred.deliver_all(worker_db, mailer) == 6 - sent
 
 
 async def test_a_mail_that_never_answers_is_cut_off_noted_and_the_others_still_go(
@@ -336,7 +336,7 @@ async def test_a_mail_that_never_answers_is_cut_off_noted_and_the_others_still_g
 ) -> None:
     ids = await _defer_many(api_db, seed.person(), 3)
     mailer = SlowMailer(hang_for="r0.zz@example.org")
-    sent = await deferred.deliver_all(worker_db, mailer, row_limit_seconds=0.2)  # type: ignore[arg-type]
+    sent = await deferred.deliver_all(worker_db, mailer, row_limit_seconds=0.2)
     assert sent == 2
     row = _row(admin, ids[0])
     assert row["status"] == "pending" and row["attempts"] == 1 and row["last_error"] == "TimeoutError"

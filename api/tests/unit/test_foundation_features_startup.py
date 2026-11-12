@@ -8,6 +8,7 @@ Slice D uses this to bring the shared guideline versions table up to date with t
 
 from __future__ import annotations
 
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -133,6 +134,8 @@ async def test_the_worker_runs_each_features_worker_hook_after_opening_its_datab
 
     fake = FakeWorker()
     monkeypatch.setattr(worker_main, "build_worker", lambda env, features=package: fake)
-    await worker_main.run({}, features=package)
+    # the worker checks the cell key at start-up (BG-16), so the mapping carries the key settings
+    key = {"KEY_PROVIDER": "local", "LOCAL_MASTER_KEY": os.environ["LOCAL_MASTER_KEY"]}
+    await worker_main.run(key, features=package)
     assert module(package, "hooks").CALLS == [("worker", fake)]
     assert events == ["open", "run:1", "close"]
