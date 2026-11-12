@@ -57,7 +57,7 @@ jobs:
         env:
           COVERAGE_FILE: cov-${{ matrix.shard }}.dat
         run: poetry run pytest -q --cov=app --junitxml="../out/junit-${{ matrix.shard }}.xml" $(cat "$RUNNER_TEMP/files.txt")
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: shard-${{ matrix.shard }}
@@ -112,7 +112,7 @@ jobs:
       - run: make -C api guards
       - name: Every test id, unsharded (the split check compares the shards to this)
         run: (cd api && poetry run pytest --collect-only -q | grep '::' | sort) > collected-all.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: collected-all, path: collected-all.txt }
       - name: OpenAPI fuzzing (Schemathesis) against the API on the local Supabase
         if: hashFiles('openapi.json') != ''
@@ -180,7 +180,7 @@ jobs:
       - name: Durations for api/.test_durations.json (commit it to rebalance)
         if: always()
         run: python3 scripts/shard_api_tests.py --durations dl/shard-*/out/junit-*.xml > durations.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: { name: test-durations, path: durations.json }
 
