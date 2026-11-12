@@ -323,7 +323,7 @@ class Harness:
                     await task
 
     def resuming(self, ids: Sequence[uuid.UUID]) -> bool:
-        """A job the worker paused only because it was stopping: it is not finished, it carries on when a worker runs."""
+        """A job the worker paused only because it was stopping: not finished, it carries on when a worker runs."""
         row = self.admin.execute(
             "select count(*) from app.jobs where id = any(%s) and status = 'paused' and error_code = 'resuming'",
             (list(ids),),
