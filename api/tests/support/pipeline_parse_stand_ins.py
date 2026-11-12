@@ -112,3 +112,15 @@ def span(seconds: float) -> tuple[int, float, float]:
     started = time.monotonic()
     time.sleep(seconds)
     return os.getpid(), started, time.monotonic()
+
+
+def halves_hang(page_pdf: bytes, axis: str, at: float, first: str) -> bytes:
+    if _marked(page_pdf):
+        _hang()
+    return parsing.halves(page_pdf, axis, at, first)
+
+
+def halves_exit(page_pdf: bytes, axis: str, at: float, first: str) -> bytes:
+    if _marked(page_pdf):
+        _die()
+    return parsing.halves(page_pdf, axis, at, first)
