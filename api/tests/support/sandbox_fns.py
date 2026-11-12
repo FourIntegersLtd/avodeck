@@ -10,6 +10,7 @@ import logging
 import os
 import sys
 import time
+from typing import Any
 
 
 def add(a: int, b: int) -> int:
@@ -88,3 +89,31 @@ def slow_module_loaded() -> bool:
 def raise_always(*_args: object) -> None:
     """A stand-in for a parser call that fails whatever it is given (a bug, not a hang or a death)."""
     raise RuntimeError("synthetic failure")
+
+
+class _Counted:
+    """Counts, per process, how many times it has been pickled; the value it carries is the count at that time."""
+
+    pickled = 0
+
+    def __reduce__(self) -> tuple[Any, tuple[int]]:
+        _Counted.pickled += 1
+        return (int, (_Counted.pickled,))
+
+
+def pickled_times() -> object:
+    """A result that tells the parent how many times the child pickled it (once is enough)."""
+    return _Counted()
+
+
+def file_size(path: str) -> int:
+    with open(path, "rb") as handle:
+        return len(handle.read())
+
+
+def cpu_limit() -> tuple[int, float]:
+    """The child's soft CPU limit and the CPU seconds it has used so far."""
+    import resource
+
+    used = sum(os.times()[:2])
+    return resource.getrlimit(resource.RLIMIT_CPU)[0], used
