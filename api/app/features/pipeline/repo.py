@@ -115,6 +115,11 @@ async def mark_unopened(conn: AsyncConnection, case_id: uuid.UUID, document_id: 
     await add_pages(conn, case_id, document_id, 0)
 
 
+async def mark_damaged(conn: AsyncConnection, document_id: uuid.UUID) -> None:
+    """A document whose cuts keep timing out: listed as damaged and left alone (its pages already made stay)."""
+    await conn.execute("update app.documents set unreadable_reason = 'damaged' where id = %s", (document_id,))
+
+
 async def unopened_documents(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, str]]:
     """Files that could not be opened, as (id, filename), oldest first."""
     cur = await conn.execute(
@@ -140,7 +145,9 @@ async def pages_without_image(conn: AsyncConnection, case_id: uuid.UUID) -> list
         "select p.id, p.document_id, p.bundle_page_no,"
         " (select min(q.bundle_page_no) from app.pages q where q.document_id = p.document_id), p.rotation"
         " from app.pages p where p.bundle_id = (select bundle_id from app.cases where id = %s)"
-        " and p.image_path is null order by p.bundle_page_no",
+        " and p.image_path is null"
+        " and not exists (select 1 from app.documents d where d.id = p.document_id and d.unreadable_reason is not null)"
+        " order by p.bundle_page_no",
         (case_id,),
     )
     return [PageRow(r[0], r[1], r[2], r[3], r[4]) for r in await cur.fetchall()]

@@ -301,6 +301,7 @@ async def _record_unpacked(
     )
 
 
+MAX_TIMED_OUT_CUTS = 3  # cuts of one document that may time out before it is marked damaged and left alone
 WINDOW = 16  # pages cut in one sandbox call: one child opens the document once for all of them
 
 
@@ -322,6 +323,8 @@ class _Source:
         self.path: Path | None = None
         self.cut_pages: dict[int, bytes] = {}
         self.failed: dict[int, str] = {}  # page -> the code its cut failed with
+        self.timeouts = 0  # cuts of this document that timed out
+        self.abandoned = False  # too many timed out: nothing more is cut from this document
 
     async def _file(self) -> Path:
         if self.path is not None:
@@ -347,6 +350,9 @@ class _Source:
     async def _fetch(self, index: int) -> None:
         path = await self._file()
         window = [i for i in self.wanted if i >= index][:WINDOW] or [index]
+        if self.abandoned:
+            self.failed.update(dict.fromkeys(window, "timed_out"))
+            return
         try:
             blobs = await sandbox.run(parsing.cut_pages, str(path), window)
             self.cut_pages.update(zip(window, blobs, strict=True))
@@ -354,13 +360,31 @@ class _Source:
         except sandbox.SandboxError as error:
             if not parser_calls.is_input_fault(error):
                 raise  # no child could run it: the job is retried, no page is lost
-        for i in window:  # one of them is the trouble: cut each alone (a timed-out or crashed cut gets a second try)
+            await self._spent(error)
+        for i in window:  # one of them is the trouble: cut each alone (this is the second try for a page)
+            if self.abandoned:
+                self.failed[i] = "timed_out"
+                continue
             try:
-                self.cut_pages[i] = (await parser_calls.run(parsing.cut_pages, str(path), [i]))[0]
+                self.cut_pages[i] = (await sandbox.run(parsing.cut_pages, str(path), [i]))[0]
             except sandbox.SandboxError as error:
                 if not parser_calls.is_input_fault(error):
                     raise
                 self.failed[i] = error.code
+                await self._spent(error)
+
+    async def _spent(self, error: sandbox.SandboxError) -> None:
+        """DP-09 review P5: a cut that timed out is counted against the document. A few of them and the document
+        is marked damaged and no more of it is cut, so a hostile file costs a bounded time (never one timeout per
+        page). The pages not yet cut are listed as lost by the caller."""
+        if error.code != "timed_out":
+            return
+        self.timeouts += 1
+        if self.timeouts >= MAX_TIMED_OUT_CUTS and not self.abandoned:
+            self.abandoned = True
+            log.warning("document cut stopped after %d timed-out cuts", self.timeouts)  # a count only
+            async with self.ctx.transaction() as conn:
+                await repo.mark_damaged(conn, self.document_id)
 
     async def cut(self, index: int) -> bytes:
         async with self.lock:
@@ -756,18 +780,13 @@ async def _read_words(ctx: JobContext, services: PipelineServices, scope: BatchS
             found: OcrPage | None
             try:
                 found = await sandbox.run(parsing.text_layer, page_pdf)
-                layer_lost = False
-            except sandbox.SandboxError as exc:  # DP-09: this page alone is marked unreadable, as an OCR failure is
+            except sandbox.SandboxError as exc:  # DP-09 review P4: no usable text layer, so the page goes to OCR
                 if not parser_calls.is_input_fault(exc):
                     raise  # no child could run it: the job is retried
-                if run is not None:
-                    run.page_failed(numbers.get(page_id), exc, "failed")
-                # TODO(read_failure): set the failure code from `exc.code` here once that column merges.
-                found, layer_lost = OcrPage(number=1, width=1.0, height=1.0, words=()), True
+                log.warning("text layer could not be checked: %s", exc.code)  # a code only
+                found = None
             source = "embedded"
-            if layer_lost:
-                source = "ocr"
-            elif found is None:
+            if found is None:
                 if services.ocr is None:
                     raise ProcessingPaused("model_unavailable")
                 try:
