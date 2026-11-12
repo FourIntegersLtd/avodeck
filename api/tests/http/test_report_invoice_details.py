@@ -33,6 +33,7 @@ from app.features.report.words import word
 from tests.fixtures.report.world import CRYPTO, Reads, World, app_for, build
 from tests.http.test_report_invoices import add_recipient, add_time, drafted, first_step, org_profile
 from tests.support.db import ClientFor
+from tests.support.deferred import drain
 from tests.support.files import local_storage
 from tests.support.packs import BOTH, Combo
 from tests.support.seed import Seed
@@ -53,6 +54,12 @@ BANK = {
     "iban": "GB82WEST12345698765432",
     "bic": "NWBKGB2L",
 }
+
+
+@pytest.fixture(autouse=True)
+def _no_leftover_deferred_work(admin: psycopg.Connection) -> None:
+    """A delivery takes every due row, so each test starts with none (BG-16)."""
+    admin.execute("delete from app.deferred_work")
 
 
 @pytest.fixture(params=BOTH, ids=["launch", "fixture"])
@@ -278,7 +285,7 @@ async def test_how_to_pay_prints_the_bank_details_of_the_draft_and_only_when_fil
 
 
 async def test_the_invoice_email_never_carries_bank_details(
-    client_for: ClientFor, admin: psycopg.Connection, world: World
+    client_for: ClientFor, admin: psycopg.Connection, world: World, worker_dsn: str
 ) -> None:
     org_profile(
         admin,
@@ -295,6 +302,7 @@ async def test_the_invoice_email_never_carries_bank_details(
     inv = (await expert.post(world.url("invoices"), json={"expenses": "0"})).json()
     resp = await expert.post(world.url(f"invoices/{inv['id']}/send"), json={})
     assert resp.status_code == 200, resp.text
+    await drain(worker_dsn, current().mailer)
     [mail] = current().mailer.outbox
     assert mail.template == "invoice.sent"
     everything = f"{mail.to} {mail.template} {mail.params}"
