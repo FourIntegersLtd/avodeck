@@ -53,9 +53,9 @@ def test_the_limits_exist_with_defaults() -> None:
 def test_a_word_file_whose_main_part_inflates_past_the_cap_is_kept_as_an_exhibit() -> None:
     big = with_part(docx_bytes("x"), "word/document.xml", paragraphs_xml(b"a" * 100, 20_000))  # ~2 MB, tiny packed
     assert len(big) < 50_000, "premise: small on the wire"
-    refused = convert.unpack(big, "a.docx", convert.Limits(max_part_bytes=100_000))
+    refused = convert.unpack(big, "a.docx", convert.Limits(max_part_bytes=600_000))
     assert refused.exhibit and refused.pdf is None
-    control = convert.unpack(docx_bytes("one line"), "b.docx", convert.Limits(max_part_bytes=100_000))
+    control = convert.unpack(docx_bytes("one line"), "b.docx", convert.Limits(max_part_bytes=600_000))
     assert control.pdf is not None and not control.exhibit
 
 
@@ -63,7 +63,7 @@ def test_a_word_file_that_claims_a_small_part_but_holds_a_large_one_is_not_expan
     """The central directory says the part is small; the bytes are not. The read is bounded by what is really there."""
     big = with_part(docx_bytes("x"), "word/document.xml", paragraphs_xml(b"a" * 100, 20_000))
     liar = understated(big, "word/document.xml", 200)
-    found = convert.unpack(liar, "a.docx", convert.Limits(max_part_bytes=100_000))
+    found = convert.unpack(liar, "a.docx", convert.Limits(max_part_bytes=600_000))
     assert found.exhibit and found.pdf is None
 
 
@@ -134,7 +134,10 @@ def test_a_deeply_nested_email_is_bounded_not_a_crash() -> None:
     depth = 3000
     parts = []
     for i in range(depth):
-        parts.append(f"Content-Type: multipart/mixed; boundary=b{i}\n\n--b{i}\nContent-Type: multipart/mixed; boundary=b{i + 1}\n")
+        parts.append(
+            f"Content-Type: multipart/mixed; boundary=b{i}\n\n--b{i}\n"
+            f"Content-Type: multipart/mixed; boundary=b{i + 1}\n"
+        )
     raw = ("From: a@example.test\nSubject: s\nMIME-Version: 1.0\n" + "\n".join(parts) + "\ntext").encode()
     found = convert.unpack(raw, "deep.eml", convert.Limits())  # must return, not raise or hang
     assert found.exhibit or found.pdf is not None
