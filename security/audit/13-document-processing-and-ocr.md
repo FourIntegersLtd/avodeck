@@ -122,7 +122,7 @@ None of these depends on the browser. Still absent: a storage or page quota for 
 | File or page altered in storage | Hash re-checked before use | Marked `altered` (audit 16) | T (audit 16) |
 | Several records merged into one file | Not detected: a document is an uploaded file | No | R, by design |
 
-Open points, found by the review. (1) The reader's `POST /pages/{n}/read` (`reader/router.py:210`) has no guard for an unreadable page with no image, and `reader/second_reading.py:155` reads a page PDF a lost page does not have: a reader-owner change. (2) The page guard in migration 0050 stops `unreadable` being cleared, so a lost page that is cut again stays unreadable; a foundation migration must let it clear for lost pages. (3) A lost page and a genuinely blank scan still share one signal until audit 16's `read_failure` is merged. (4) `unpack-*` scratch directories are not swept after a crash.
+Found by the review and fixed on this branch: the reader's `POST /pages/{n}/read` now refuses (409) a page the parser lost and that has no picture, and the page image and second-reading routes answer "not available" for it; migration 0074 lets such a page become readable once it is cut again and read (and nothing else clears `unreadable`); the start-up sweep removes stale `unpack-*` scratch directories. Still open: a lost page and a genuinely blank scan share one signal until audit 16's `read_failure` is merged.
 
 ## 8. Findings register
 
