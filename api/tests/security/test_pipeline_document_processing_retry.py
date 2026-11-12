@@ -18,7 +18,7 @@ from app.core import sandbox
 from app.features.pipeline import parser_calls, parsing
 from tests.repository.test_pipeline_support import Harness
 from tests.security import test_foundation_file_lifecycle_validation as lifecycle
-from tests.support.file_lifecycle_documents import _save, _typed_page
+from tests.support.file_lifecycle_documents import _save, _typed_page, upload_bytes
 
 pytestmark = pytest.mark.anyio
 
@@ -68,7 +68,7 @@ async def test_a_page_count_that_could_not_run_is_not_the_files_fault(
     h: Harness, monkeypatch: pytest.MonkeyPatch, code: str
 ) -> None:
     script(monkeypatch, "count_pages", lambda n: code)
-    _, doc = await lifecycle.upload_bytes(h, pdf(), filename="a.pdf")
+    _, doc = await upload_bytes(h, pdf(), filename="a.pdf")
     finished = await h.drain()
     assert document_state(h)[0] is None, "the document was marked after a failure that was not its doing"
     assert set(finished.values()) != {"done"}, "the job finished as if nothing had gone wrong"
@@ -98,7 +98,7 @@ async def test_a_page_whose_cut_or_picture_could_not_run_is_not_listed_as_lost(
     h: Harness, monkeypatch: pytest.MonkeyPatch, step: str
 ) -> None:
     script(monkeypatch, step, lambda n: "unavailable")
-    await lifecycle.upload_bytes(h, pdf(), filename="a.pdf")
+    await upload_bytes(h, pdf(), filename="a.pdf")
     finished = await h.drain()
     assert all(not p["unreadable"] for p in h.pages()), "a page was listed unreadable by a failure not its own"
     assert set(finished.values()) != {"done"}
@@ -108,7 +108,7 @@ async def test_a_text_layer_check_that_could_not_run_does_not_make_the_page_unre
     h: Harness, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     script(monkeypatch, "text_layer", lambda n: "unavailable")
-    await lifecycle.upload_bytes(h, pdf(), filename="a.pdf")
+    await upload_bytes(h, pdf(), filename="a.pdf")
     finished = await h.drain()
     assert all(not p["unreadable"] for p in h.pages())
     assert set(finished.values()) != {"done"}

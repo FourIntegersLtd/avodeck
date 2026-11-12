@@ -97,7 +97,7 @@ def layer_exit(page_pdf: bytes) -> Any:
 def pictures_slow(page_pdf: bytes, rotation: int) -> Any:
     """A big scan: the drawing takes two seconds, in the child, so the worker's loop is not held."""
     time.sleep(2)
-    return parsing.blank_pictures()
+    return parsing.pictures(page_pdf, rotation)
 
 
 def pictures_crash(page_pdf: bytes, rotation: int) -> Any:

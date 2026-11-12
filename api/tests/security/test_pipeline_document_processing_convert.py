@@ -145,7 +145,12 @@ def test_a_deeply_nested_email_is_bounded_not_a_crash() -> None:
 
 def test_a_non_pdf_over_the_convert_cap_is_not_converted(monkeypatch: pytest.MonkeyPatch) -> None:
     called: list[int] = []
-    monkeypatch.setattr(convert, "_docx_lines", lambda data: called.append(1) or [])
+
+    def docx_lines(data: bytes) -> list[str]:
+        called.append(1)
+        return []
+
+    monkeypatch.setattr(convert, "_docx_lines", docx_lines)
     data = docx_bytes("hello")
     found = convert.unpack(data, "a.docx", convert.Limits(max_convert_bytes=len(data) - 1))
     assert found.exhibit and found.pdf is None and called == []

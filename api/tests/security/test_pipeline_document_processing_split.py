@@ -6,6 +6,7 @@ from __future__ import annotations
 import io
 from email.message import EmailMessage
 from pathlib import Path
+from typing import Any
 
 import pytest
 from docx import Document
@@ -48,7 +49,12 @@ async def test_a_non_pdf_over_the_convert_cap_is_never_read_into_memory_and_the_
     monkeypatch.setattr(pipeline_service, "LIMITS", cap)
     converted: list[int] = []
     real_unpack = convert.unpack
-    monkeypatch.setattr(convert, "unpack", lambda *a, **k: converted.append(1) or real_unpack(*a, **k))
+
+    def counted_unpack(*a: Any, **k: Any) -> convert.Unpacked:
+        converted.append(1)
+        return real_unpack(*a, **k)
+
+    monkeypatch.setattr(convert, "unpack", counted_unpack)
     read: list[int] = []
     real_read = Path.read_bytes
 

@@ -22,7 +22,7 @@ from app.core import case_files
 from app.features.pipeline import service as pipeline_service
 from tests.repository.test_pipeline_support import Harness
 from tests.security import test_foundation_file_lifecycle_validation as lifecycle
-from tests.support.file_lifecycle_documents import text_pdf
+from tests.support.file_lifecycle_documents import text_pdf, upload_bytes
 
 pytestmark = pytest.mark.anyio
 
@@ -101,7 +101,7 @@ async def test_the_scratch_file_is_removed_when_the_split_fails(
         raise RuntimeError("synthetic failure")
 
     monkeypatch.setattr(pipeline_service, "_checked_pages", boom)
-    await lifecycle.upload_bytes(h, text_pdf(2, "plain"), filename="plain.pdf")
+    await upload_bytes(h, text_pdf(2, "plain"), filename="plain.pdf")
     await h.drain()
     assert_private(scratch)
     assert left_behind(scratch) == []

@@ -18,7 +18,15 @@ from app.features.pipeline import convert, parsing, repo
 from tests.repository.test_pipeline_support import Harness
 from tests.security import test_foundation_file_lifecycle_validation as lifecycle
 from tests.support import pipeline_parse_stand_ins as stand_in
-from tests.support.file_lifecycle_documents import _save, _typed_page, encrypted_pdf, text_pdf, truncated_pdf, zip_of
+from tests.support.file_lifecycle_documents import (
+    _save,
+    _typed_page,
+    encrypted_pdf,
+    text_pdf,
+    truncated_pdf,
+    upload_bytes,
+    zip_of,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -165,7 +173,7 @@ async def test_a_retry_after_a_mid_job_crash_creates_no_duplicate_pages_or_words
     for words in ("keep one", f"{stand_in.MARK} two", "keep three"):
         _typed_page(marked, words)
     monkeypatch.setattr(parsing, "pictures", stand_in.pictures_crash)
-    _, doc = await lifecycle.upload_bytes(h, _save(marked), filename="crash.pdf")
+    _, doc = await upload_bytes(h, _save(marked), filename="crash.pdf")
     first = await h.drain(timeout=90)
     assert "failed" in first.values(), "premise: the crash was reached"
     monkeypatch.setattr(parsing, "pictures", real)

@@ -20,7 +20,7 @@ from app.features.pipeline import parsing
 from tests.repository.test_pipeline_support import Harness
 from tests.security import test_foundation_file_lifecycle_validation as lifecycle
 from tests.support import pipeline_parse_stand_ins as stand_in
-from tests.support.file_lifecycle_documents import _save, _typed_page, text_pdf
+from tests.support.file_lifecycle_documents import _save, _typed_page, text_pdf, upload_bytes
 
 pytestmark = pytest.mark.anyio
 
@@ -111,7 +111,7 @@ async def test_a_text_layer_check_that_hangs_or_dies_sends_that_page_to_ocr(
 ) -> None:
     monkeypatch.setattr(parsing, "text_layer", getattr(stand_in, f"layer_{mode}"))
     # DP-09 review P4: no usable text layer, so the page goes to OCR (none is wired here: the job pauses for it)
-    await lifecycle.upload_bytes(h, three_pages(f"{stand_in.MARK} two"), filename="three.pdf")
+    await upload_bytes(h, three_pages(f"{stand_in.MARK} two"), filename="three.pdf")
     await h.drain()
     first, middle, last = page_rows(h)
     assert middle["unreadable"] is False and middle["text_source"] is None and words_of(h, middle["id"]) == 0
