@@ -6,10 +6,13 @@ Importing this package registers its job kinds on the app's registry, subscribes
 
 from __future__ import annotations
 
+import dataclasses
+
 from fastapi import FastAPI
 from psycopg import AsyncConnection
 
-from app.core import jobs
+from app.core import jobs, sandbox
+from app.core.config import sandbox_settings
 from app.core.contracts.events import DocumentUploaded, events
 from app.core.contracts.fact_dates import register_resolve_fact_event_date
 from app.core.contracts.pipeline import (
@@ -41,7 +44,19 @@ from app.features.pipeline.service import (
     scan_document,
 )
 
+SANDBOX_PREWARM = ("app.features.pipeline.parsing",)  # what a parser child imports as it starts (the worker's list)
+API_SANDBOX_CHILDREN = 2  # the API cuts a page now and then (the split route); the worker holds the bulk pool
+
 __all__ = ["mount_on", "pipeline_router", "record_gaps_reader", "register", "wiring"]
+
+
+async def on_startup(app: FastAPI) -> None:
+    """The split route runs its cut in the parser sandbox, so the API starts it now with the parsing module
+    imported: the first split does not wait for a child to start and load the pipeline."""
+    cfg = sandbox_settings()
+    await sandbox.start(
+        dataclasses.replace(cfg, pool_size=min(cfg.pool_size, API_SANDBOX_CHILDREN)), prewarm=SANDBOX_PREWARM
+    )
 
 
 async def heal_runs(conn: AsyncConnection) -> None:
