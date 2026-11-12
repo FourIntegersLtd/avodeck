@@ -78,7 +78,7 @@ async def test_a_conversion_that_hangs_or_dies_marks_that_document_damaged_and_t
 
     from docx import Document
 
-    monkeypatch.setattr(parsing, "unpack", getattr(stand_in, f"unpack_{mode}"))
+    monkeypatch.setattr(parsing, "unpack_file", getattr(stand_in, f"unpack_{mode}"))
     note = Document()
     note.add_paragraph("synthetic note")
     out = io.BytesIO()
@@ -106,12 +106,15 @@ async def test_a_page_that_cannot_be_cut_or_pictured_is_unreadable_and_the_next_
 
 
 @pytest.mark.parametrize("mode", MODES)
-async def test_a_text_layer_check_that_hangs_or_dies_makes_that_page_unreadable_like_an_ocr_failure(
+async def test_a_text_layer_check_that_hangs_or_dies_sends_that_page_to_ocr(
     h: Harness, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
     monkeypatch.setattr(parsing, "text_layer", getattr(stand_in, f"layer_{mode}"))
-    await run(h, three_pages(f"{stand_in.MARK} two"), "three.pdf")
+    # DP-09 review P4: no usable text layer, so the page goes to OCR (none is wired here: the job pauses for it)
+    await lifecycle.upload_bytes(h, three_pages(f"{stand_in.MARK} two"), filename="three.pdf")
+    await h.drain()
     first, middle, last = page_rows(h)
-    assert middle["unreadable"] is True and words_of(h, middle["id"]) == 0
-    for page in (first, last):
-        assert page["unreadable"] is False and words_of(h, page["id"]) > 0, "control: the other pages are read"
+    assert middle["unreadable"] is False and middle["text_source"] is None and words_of(h, middle["id"]) == 0
+    # the job pauses at the page that needs OCR, so a page after it may not have been reached yet
+    assert first["unreadable"] is False and last["unreadable"] is False
+    assert words_of(h, first["id"]) + words_of(h, last["id"]) > 0, "control: the other pages are read"

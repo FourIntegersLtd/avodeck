@@ -44,16 +44,16 @@ def count_exit(path: str, max_pages: int) -> int:
     return parsing.count_pages(path, max_pages)
 
 
-def unpack_hang(data: bytes, filename: str, limits: convert.Limits) -> convert.Unpacked:
+def unpack_hang(path: str, filename: str, limits: convert.Limits, out_dir: str) -> parsing.UnpackedFiles:
     if filename.startswith(FILE_NAME):
         _hang()
-    return parsing.unpack(data, filename, limits)
+    return parsing.unpack_file(path, filename, limits, out_dir)
 
 
-def unpack_exit(data: bytes, filename: str, limits: convert.Limits) -> convert.Unpacked:
+def unpack_exit(path: str, filename: str, limits: convert.Limits, out_dir: str) -> parsing.UnpackedFiles:
     if filename.startswith(FILE_NAME):
         _die()
-    return parsing.unpack(data, filename, limits)
+    return parsing.unpack_file(path, filename, limits, out_dir)
 
 
 def cut_hang(path: str, indexes: list[int]) -> list[bytes]:
