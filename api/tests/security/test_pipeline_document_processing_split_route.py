@@ -17,7 +17,7 @@ from httpx import Response
 
 from app.core import sandbox
 from app.core.config import SandboxSettings
-from app.features.pipeline import paths
+from app.features.pipeline import parsing, paths
 from tests.repository.test_pipeline_quarantine import audited
 from tests.repository.test_pipeline_support import Harness
 from tests.security import test_foundation_file_lifecycle_validation as lifecycle
@@ -70,7 +70,7 @@ async def test_a_cut_that_hangs_or_dies_fails_with_a_code_and_writes_nothing(
     await lifecycle.run(h, two_pages(), "two.pdf")
     before = written(h)
     stored = await h.storage.list_recursive(f"cases/{h.case_id}/")
-    monkeypatch.setattr(stand_in.parsing, "halves", getattr(stand_in, f"halves_{mode}"), raising=False)
+    monkeypatch.setattr(parsing, "halves", getattr(stand_in, f"halves_{mode}"), raising=False)
 
     started = time.monotonic()
     got = await cut(h, 2)  # the marked page
@@ -89,7 +89,7 @@ async def test_the_api_still_serves_and_cuts_the_next_page_after_a_failed_cut(
     h: Harness, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
     await lifecycle.run(h, two_pages(), "two.pdf")
-    monkeypatch.setattr(stand_in.parsing, "halves", getattr(stand_in, f"halves_{mode}"), raising=False)
+    monkeypatch.setattr(parsing, "halves", getattr(stand_in, f"halves_{mode}"), raising=False)
     assert (await cut(h, 2)).status_code == 422
     summary = await h.client.get(f"/v1/cases/{h.case_id}/bundle/summary")
     assert summary.status_code == 200, "the API stopped answering after a failed cut"
