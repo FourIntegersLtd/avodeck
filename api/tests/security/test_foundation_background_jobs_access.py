@@ -259,12 +259,6 @@ def test_the_orphan_sweep_does_not_queue_a_job_row_inserted_around_enqueue_job(
     assert queued == [], "the sweep queued a job the role could not have enqueued"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="BG-04: app.requeue_failed_job checks only case.upload, for any kind and any queue name, not the kind's"
-    " action from app.job_kind_actions",
-)
 def test_requeue_failed_job_needs_the_action_of_the_kind(
     team: Team, seed: Seed, as_api: Any, admin: psycopg.Connection
 ) -> None:

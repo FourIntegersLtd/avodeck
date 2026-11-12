@@ -658,6 +658,12 @@ A joint expert is one with two or more current instructing parties; no separate 
 | cancel_requested_at / cancel_requested_by | Who asked to stop reading the bundle, and when (it stops at the next page) |
 | reprocess_opted_at / reprocess_opted_by | Who chose to have the pages read again with a newer model, and when (verified facts never change) |
 
+### pipeline_job_retries
+| Field | In plain words |
+|---|---|
+| job_id | The failed processing job a person has put back with "Try again" |
+| retries | How many times, in the job's whole life (at most 5; after that only Avodeck support can put it back) |
+
 ## Understand
 
 ### fact_question_links

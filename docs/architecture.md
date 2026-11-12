@@ -298,6 +298,7 @@ A bundle's pages and documents belong to the bundle, not to any one case (ADR 00
 | `record_gaps` | Periods where a record source seems to go quiet (possible missing records). | case_id, source_type, fact_kind, gap_start, gap_end, last_page_id, confirmed, version |
 | `record_entries` | Where each entry starts and ends on a page, for the records transcript (ADR 0028). Holds no text. | bundle_id, page_id, kind, first_n, last_n, author_role, specialty, event_date, date_basis, extraction_version |
 | `instructing_party_requests` | Emails asking the instructing party for missing or clearer records, and when they were sent. | case_id, items, body_text, sent_via, sent_at, message_id, follow_up_on, quarantined_page_ids |
+| `pipeline_job_retries` | How many times a person has put one failed processing job back with "Try again" (at most 5 in its life). Numbers and ids only. | job_id, retries, updated_at |
 | `case_processing` | The expert's controls over reading the bundle: a request to stop at the next page, and the opt-in to read it again with a newer model. | case_id, cancel_requested_at, cancel_requested_by, reprocess_opted_at, reprocess_opted_by |
 
 ### 4.5 Understand

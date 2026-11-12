@@ -73,6 +73,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `record_gaps` | A | Worker; named expert confirms | Many | Recalculated when records are appended | Case deletion |
 | `record_entries` | A | Worker (`extract_entries`, `retry_unread_pages`, T-07b) | Many per page | Replaced when the page is read again | Belongs to the bundle, not the case (ADR 0034) |
 | `instructing_party_requests` | A | Named expert or assistant drafts; named expert sends | Many | Sent ones never edited (append only, hash-chained) | Case deletion |
+| `pipeline_job_retries` | A | Database function only (`app.requeue_failed_job`, migration 0144); no role reads it | One per failed job a person has retried | Count only goes up; capped at 5 | With the job |
 | `case_processing` | A | Named expert or assistant (case.upload) | One per case | Cancel and reprocess opt-in set and cleared | Case deletion |
 | `fact_question_links` | D | Named expert | Many | State machine; stale when fact or question changes | Case deletion |
 | `check_config` | D | The expert | One per check per expert, including checks they add | Edit freely | With the person |

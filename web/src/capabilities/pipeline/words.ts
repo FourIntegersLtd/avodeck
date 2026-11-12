@@ -48,6 +48,7 @@ const WORDS = {
   "preparing.start": "Start preparing",
   "preparing.nothing": "Nothing is being prepared yet. When the records are in, start preparing them here.",
   "preparing.err.paused": "Preparing is paused for the moment. Your files and work are safe. Please try again in a little while.",
+  "preparing.err.retry_limit": "We have tried this several times and it has not worked. Your files and work are safe. Please contact support and we will look into it.",
   "preparing.err.conflict": "Your bundle can't be prepared in its current state. Reload this page to see where it stands.",
   "preparing.paused": "Avodeck is looking into this. You don't need to do anything.",
   "preparing.paused_ref": "If you phone us, please read out this reference:",

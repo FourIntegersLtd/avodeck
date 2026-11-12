@@ -64,7 +64,9 @@ def test_the_sixth_person_retry_of_one_job_is_refused_and_flagged(
         assert _retry(api, admin, other) is True, "another job's retries are counted on their own"
 
 
-def test_a_person_without_access_cannot_read_the_limit_flag(api_dsn: str, admin: psycopg.Connection, seed: Seed) -> None:
+def test_a_person_without_access_cannot_read_the_limit_flag(
+    api_dsn: str, admin: psycopg.Connection, seed: Seed
+) -> None:
     expert, stranger = seed.person(), seed.person()
     case = seed.case(seed.org(kind="personal", members={expert: "owner"}), expert)
     job = seed.job(case, requested_by=expert)
