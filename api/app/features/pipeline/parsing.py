@@ -13,7 +13,6 @@ import io
 from pathlib import Path
 
 import pikepdf
-from PIL import Image
 
 from app.core.ai.ocr import OcrPage
 from app.core.config import document_limits
@@ -77,19 +76,3 @@ def text_layer(page_pdf: bytes) -> OcrPage | None:
 
 def pictures(page_pdf: bytes, rotation: int) -> Pictures:
     return render.render(page_pdf, rotation)
-
-
-# --- stand-ins for a page that could not be cut or pictured: made here from nothing, never from the stranger's file
-
-
-def blank_page() -> bytes:
-    """A one-page PDF with nothing on it."""
-    pdf = pikepdf.new()
-    pdf.add_blank_page(page_size=(595, 842))
-    out = io.BytesIO()
-    pdf.save(out)
-    return out.getvalue()
-
-
-def blank_pictures() -> Pictures:
-    return render.encode(Image.new("RGB", (794, 1123), "white"))

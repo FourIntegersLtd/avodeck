@@ -412,6 +412,11 @@ async def set_image(conn: AsyncConnection, page_id: uuid.UUID, image_path: str) 
     await conn.execute("update app.pages set image_path = %s where id = %s", (image_path, page_id))
 
 
+async def mark_lost(conn: AsyncConnection, page_id: uuid.UUID) -> None:
+    """A page no parser child could cut or draw: listed as unreadable, image still unset so a later run cuts it."""
+    await conn.execute("update app.pages set unreadable = true where id = %s", (page_id,))
+
+
 _IN_RANGE = (
     " and (%(first)s::int is null or {p}bundle_page_no >= %(first)s)"
     " and (%(last)s::int is null or {p}bundle_page_no <= %(last)s)"

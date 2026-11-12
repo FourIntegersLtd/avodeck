@@ -386,20 +386,20 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
         nonlocal finished
         source = sources[page.document_id]
         index = page.bundle_page_no - page.first_page_no
-        lost = False  # DP-09: a parser child hung or died on this page: it is kept as a blank, unreadable page
         try:
             page_pdf = await source.cut(index)
+            pictures = await _pictures(page_pdf, page.rotation)
         except sandbox.SandboxError as error:
-            log.warning("page could not be cut: %s", error.code)  # a code only
-            page_pdf, lost = parsing.blank_page(), True
-        if lost:
-            pictures = parsing.blank_pictures()
-        else:
-            try:
-                pictures = await _pictures(page_pdf, page.rotation)
-            except sandbox.SandboxError as error:
-                log.warning("page could not be pictured: %s", error.code)
-                pictures, lost = parsing.blank_pictures(), True
+            # DP-09: a parser child hung or died on this page. No stand-in is stored as the page: its image stays
+            # unset so a later run cuts it again, and it is listed meanwhile as a page we could not read.
+            log.warning("page could not be cut or pictured: %s", error.code)  # a code only
+            # TODO(read_failure): once `page_analysis.read_failure` merges, record `error.code` (e.g. timed_out)
+            # so the expert can tell a lost page from an OCR failure.
+            async with ctx.transaction() as conn:
+                await repo.mark_lost(conn, page.id)
+            await source.finished_one(index)
+            finished += 1
+            return
         image_path = paths.page_image_path(ctx.case_id, page.id)
         thumbnail_path = paths.thumbnail_path(ctx.case_id, page.id)
         page_path = paths.page_pdf_path(ctx.case_id, page.id)
@@ -414,12 +414,6 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
         del sealed
         async with ctx.transaction() as conn:
             await repo.set_image(conn, page.id, image_path)
-            if lost:  # exactly what a page OCR could not read gets: no words, listed as a page we couldn't read
-                # TODO(read_failure): once `page_analysis.read_failure` merges, record the sandbox code here
-                # (`error.code`, e.g. timed_out) so the expert can tell a lost page from an OCR failure.
-                await repo.store_words(
-                    conn, page.id, [], source="ocr", confidence=0.0, handwriting=False, unreadable=True, size=(1.0, 1.0)
-                )
         await source.finished_one(index)
         finished += 1
         if finished % 25 == 0:
