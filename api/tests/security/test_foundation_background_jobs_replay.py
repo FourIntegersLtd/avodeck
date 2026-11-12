@@ -160,12 +160,6 @@ async def test_a_second_queue_row_for_a_finished_job_does_not_run_it_again(
     assert [s for _, s in queue_rows(admin, job)] == ["succeeded", "succeeded"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="BG-05: two queue rows for one queued job with no case lock run the handler twice (the worker only skips"
-    " a job that is already `done`; it does not refuse one that is `running`)",
-)
 async def test_two_queue_rows_for_one_job_on_two_workers_run_the_handler_once(
     world: World, worker_db: Database, worker_dsn: str, admin: psycopg.Connection
 ) -> None:
@@ -232,12 +226,6 @@ async def test_control_a_job_paused_for_a_person_is_recorded_paused_with_its_rea
     assert world.ran == [job]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="BG-06: a stray queue row resumes a job paused for a reason that waits for a person (cost_guard), because"
-    " paused -> running is allowed and the worker does not look at the pause reason",
-)
 async def test_a_stray_queue_row_does_not_resume_a_job_paused_for_a_person(
     world: World, worker_db: Database, worker_dsn: str, admin: psycopg.Connection
 ) -> None:

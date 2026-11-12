@@ -145,12 +145,6 @@ async def test_control_one_process_request_queues_one_job(
     assert queued == (1,)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="BG-08: POST /process queues a new bundle job on every call (no per-case dedupe); the only brake is the"
-    " per-person rate limit (600 a minute per endpoint), so one person can put hundreds of jobs on one case",
-)
 async def test_two_hundred_process_requests_do_not_queue_two_hundred_jobs(
     client_for: ClientFor, seed: Seed, admin: psycopg.Connection
 ) -> None:
@@ -174,12 +168,6 @@ def test_control_the_enqueue_function_accepts_an_ordinary_priority(
         assert api.execute("select app.enqueue_job(%s, 'zz_a', 'zz_q', 0, false, 'x')", (case,)).fetchone() is not None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="BG-09: app.enqueue_job takes the queue name and the priority from its caller, so a person who can reach the"
-    " SQL role (injection, a leaked app_api credential) can queue on the interactive queue at any priority",
-)
 def test_the_enqueue_function_does_not_trust_the_callers_priority(
     api_dsn: str, admin: psycopg.Connection, seed: Seed
 ) -> None:
@@ -254,12 +242,6 @@ async def test_one_cases_backlog_does_not_hold_up_another_cases_ordinary_job(
 # --- 17. an overall time limit ---------------------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="BG-12: no job has an overall time limit; a handler that hangs while its worker stays alive keeps its"
-    " heartbeat, so it is never stalled, never retried, and (for a changes_case kind) holds the case lock for ever",
-)
 def test_a_job_has_an_overall_time_limit() -> None:
     names = set(inspect.signature(JobWorker.__init__).parameters)
     limits = {n for n in names if any(word in n for word in ("runtime", "time_limit", "max_seconds", "job_timeout"))}
@@ -284,24 +266,12 @@ def test_control_the_queue_table_has_its_own_indexes(admin: psycopg.Connection) 
     assert _queue_index_definitions(admin), "the queue table has indexes to look in"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="BG-13: no index on procrastinate_jobs.args->>'job_id', so the orphan sweep and the queue-row lookups scan the"  # noqa: E501
-    " whole table (about 10 s on a 25k-row backlog), and the table is never pruned",
-)
 def test_the_queue_has_an_index_the_orphan_sweep_and_the_run_lookup_can_use(admin: psycopg.Connection) -> None:
     """`app.requeue_orphaned_jobs` and the cancel/retry paths look queue rows up by `args ->> 'job_id'`."""
     indexes = _queue_index_definitions(admin)
     assert any("args" in d and "job_id" in d for d in indexes), "no index on the job id inside the queue payload"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="BG-14: nothing deletes finished procrastinate_jobs or procrastinate_events rows (no retention step), so"
-    " the queue tables only grow; a timestamp and ids only, no patient text, but a cost and a slower sweep",
-)
 async def test_finished_queue_rows_are_pruned_by_a_worker_housekeeping_round(
     worker_db: Database, worker_dsn: str, admin: psycopg.Connection, api_db: Database, seed: Seed
 ) -> None:

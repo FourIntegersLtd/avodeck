@@ -97,13 +97,18 @@ def test_the_upload_role_can_enqueue_processing_but_a_viewer_cannot(
     )  # rolled back
 
 
-@pytest.mark.parametrize("kind", ["export_case", "delete_case"])
-def test_enqueue_needs_the_action_of_the_kind_not_just_upload(team: Team, as_api: Any, kind: str) -> None:
-    """`app.job_kind_actions` (0015): nobody queues an export or a deletion with the action of an upload."""
-    own = attempt(as_api(team.expert), "select app.enqueue_job(%s, %s, 'zz_q', 0, false, 'x')", (team.case, kind))
+@pytest.mark.parametrize(("kind", "priority"), [("export_case", 10), ("delete_case", 0)])
+def test_enqueue_needs_the_action_of_the_kind_not_just_upload(
+    team: Team, as_api: Any, kind: str, priority: int
+) -> None:
+    """`app.job_kind_actions` (0015): nobody queues an export or a deletion with the action of an upload.
+    The priority is the one the kind has (an interactive kind 10, BG-09): the database refuses any other."""
+    own = attempt(
+        as_api(team.expert), "select app.enqueue_job(%s, %s, 'zz_q', %s, false, 'x')", (team.case, kind, priority)
+    )
     assert own[0] is None, "control: the role that holds the action enqueues it"
     refused = attempt(
-        as_api(team.assistant), "select app.enqueue_job(%s, %s, 'zz_q', 0, false, 'x')", (team.case, kind)
+        as_api(team.assistant), "select app.enqueue_job(%s, %s, 'zz_q', %s, false, 'x')", (team.case, kind, priority)
     )
     assert refused[0] == INSUFFICIENT_PRIVILEGE
 
@@ -220,12 +225,6 @@ def test_the_api_role_cannot_insert_a_job_row_in_another_persons_case(
     assert admin.execute("select count(*) from app.jobs where case_id = %s", (other_case,)).fetchone() == (0,)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="BG-03: app_api may insert app.jobs rows directly (policy jobs_add, case.upload), so a role holding only"
-    " upload can create a job of ANY kind, skipping app.enqueue_job's per-kind action check; nothing in the API does this",  # noqa: E501
-)
 @pytest.mark.parametrize("kind", ["export_case", "delete_case"])
 def test_a_direct_insert_into_jobs_cannot_choose_a_kind_the_role_may_not_enqueue(
     team: Team, as_api: Any, kind: str
@@ -236,12 +235,6 @@ def test_a_direct_insert_into_jobs_cannot_choose_a_kind_the_role_may_not_enqueue
     assert code == INSUFFICIENT_PRIVILEGE, f"the upload role inserted a {kind} job directly ({rows} row)"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="BG-03: the orphan sweep (app.requeue_orphaned_jobs) puts a hand-inserted queued job on the queue,"
-    " with the inserter's own priority, so the worker runs a kind its requester never had the action for",
-)
 def test_the_orphan_sweep_does_not_queue_a_job_row_inserted_around_enqueue_job(
     team: Team, api_dsn: str, worker_dsn: str, admin: psycopg.Connection
 ) -> None:

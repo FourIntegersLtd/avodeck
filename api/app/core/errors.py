@@ -21,6 +21,8 @@ from starlette.routing import Match, Route
 CONFLICT_SQLSTATE = "AV409"
 # Raised when something tries to change a locked report version (migration 0008, rule 8).
 LOCKED_SQLSTATE = "AVLCK"
+# Raised by `app.enqueue_job` when a case already holds its limit of queued or running jobs of one kind (BG-11).
+QUEUE_FULL_SQLSTATE = "AVCAP"
 
 logger = logging.getLogger("app.errors")
 
@@ -70,6 +72,14 @@ def already_confirmed() -> ApiError:
 
 def questions_locked() -> ApiError:
     return ApiError("questions_locked", "The questions are locked.", 409)
+
+
+def too_many_jobs() -> ApiError:
+    return ApiError(
+        "too_many_jobs",
+        "This case already has a lot of that work waiting. Please wait for it to finish, then try again.",
+        429,
+    )
 
 
 def locked() -> ApiError:
@@ -129,6 +139,10 @@ async def _database_error(request: Request, exc: Exception) -> JSONResponse:
         return await _api_error(request, conflict())
     if exc.sqlstate == LOCKED_SQLSTATE:
         return await _api_error(request, locked())
+    if exc.sqlstate == QUEUE_FULL_SQLSTATE:
+        busy = too_many_jobs()
+        busy.headers["Retry-After"] = "30"
+        return await _api_error(request, busy)
     raise exc
 
 

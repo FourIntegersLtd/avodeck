@@ -54,7 +54,7 @@ from procrastinate.retry import BaseRetryStrategy, RetryDecision
 from psycopg import AsyncConnection
 
 from app.core.ai.kit import MAX_WAIT_SECONDS, backoff_delays
-from app.core.config import DEFAULT_JOB_MAX_STALL_REQUEUES
+from app.core.config import DEFAULT_JOB_MAX_STALL_REQUEUES, DEFAULT_QUEUE_RETENTION_DAYS, JobTimeLimits
 from app.core.db import Database, job_checkouts
 from app.core.email import Mailer, OutboxMailer
 from app.core.errors import ProcessingPaused
@@ -77,6 +77,17 @@ SweepHandler = Callable[[AsyncConnection], Awaitable[None]]
 
 # F5: pauses the worker resumes by itself, because the service comes back without anyone acting.
 RESUMABLE_PAUSES = frozenset({"service_busy", "model_unavailable"})
+# BG-06: the pause codes under which a queue row may start a `paused` job. The two above resume themselves; `resuming`
+# is what the shutdown pause and every person-driven or support resume set (`app.resume_paused_job`,
+# `app.support_job_action`); `busy_processing` is the page-batch waiter the pipeline sweep hands back (it checks
+# again, and pauses again if the run is still busy). A job paused for anything else (`cost_guard`, `cancelled`)
+# waits for a person; a stray queue row does not restart it.
+QUEUE_ROW_MAY_RESUME = RESUMABLE_PAUSES | {"resuming", "busy_processing"}
+# BG-12: the code of a job that failed for good because a run went past its time limit.
+TIMED_OUT = "timed_out"
+# BG-14: finished queue rows are pruned at most this often (seconds), and this many rows in one statement.
+PRUNE_EVERY_SECONDS = 24 * 60 * 60
+PRUNE_BATCH = 5000
 # Waits between resumes: doubling from the AI kit's base, F5's 2 hours in all; then the job fails.
 # Waits (seconds) between tries when a status write loses its database connection (the pooler closed it).
 # Seconds a stopping worker lets running jobs finish before it pauses them (they carry on at restart).
@@ -109,6 +120,7 @@ class JobKind:
     interactive: bool
     changes_case: bool
     runs_on_hold: bool = False
+    time_limit_seconds: float | None = None  # BG-12: this kind's own limit; None takes the worker's per-queue one
 
 
 class JobRegistry:
@@ -126,14 +138,21 @@ class JobRegistry:
         self.sweeps: dict[str, SweepHandler] = {}
 
     def kind(
-        self, name: str, *, interactive: bool = False, changes_case: bool = True, runs_on_hold: bool = False
+        self,
+        name: str,
+        *,
+        interactive: bool = False,
+        changes_case: bool = True,
+        runs_on_hold: bool = False,
+        time_limit_seconds: float | None = None,
     ) -> Callable[[JobHandler], JobHandler]:
-        """`runs_on_hold`: the kind deals with a case on hold itself; other kinds wait for the case to resume."""
+        """`runs_on_hold`: the kind deals with a case on hold itself; other kinds wait for the case to resume.
+        `time_limit_seconds`: the longest one run of this kind may take (default: the worker's limit for its queue)."""
 
         def register(handler: JobHandler) -> JobHandler:
             if name in self.kinds:
                 raise ValueError(f"job kind {name!r} is registered twice")
-            self.kinds[name] = JobKind(name, handler, interactive, changes_case, runs_on_hold)
+            self.kinds[name] = JobKind(name, handler, interactive, changes_case, runs_on_hold, time_limit_seconds)
             return handler
 
         return register
@@ -336,6 +355,17 @@ class _ResumeLater(Exception):
         self.wait_seconds = wait_seconds
 
 
+def job_time_limit(kind: JobKind, limits: JobTimeLimits) -> float:
+    """Seconds one run of `kind` may take (BG-12): its own limit, else the one for its queue kind."""
+    if kind.time_limit_seconds is not None:
+        return kind.time_limit_seconds
+    return limits.interactive if kind.interactive else limits.bulk
+
+
+class _TimedOut(Exception):  # noqa: N818 - a signal inside the worker: a run went past its time limit (BG-12)
+    """Raised in place of the handler's own error when its run was stopped by the time limit."""
+
+
 class _RetryOnlyWhenAsked(BaseRetryStrategy):
     def __init__(self, wait_seconds: float) -> None:
         self.wait_seconds = wait_seconds
@@ -381,9 +411,15 @@ class JobWorker:
         shutdown_grace_seconds: float = DEFAULT_SHUTDOWN_GRACE_SECONDS,
         queues: Sequence[str] | None = None,
         max_stall_requeues: int = DEFAULT_JOB_MAX_STALL_REQUEUES,
+        time_limits: JobTimeLimits | None = None,
+        queue_retention_days: int = DEFAULT_QUEUE_RETENTION_DAYS,
+        prune_every_seconds: float = PRUNE_EVERY_SECONDS,
     ) -> None:
         """`queues`: the queues this worker takes jobs from; none means all of the registry's, the old one too.
-        `max_stall_requeues`: how many times a job's stalls are put back before the next one fails it."""
+        `max_stall_requeues`: how many times a job's stalls are put back before the next one fails it.
+        `time_limits`: the longest one run of a job may take, per queue kind (BG-12; a kind may set its own).
+        `queue_retention_days`: finished queue rows older than this are deleted, at most every `prune_every_seconds`
+        (BG-14)."""
         self.registry = registry
         self.queues = list(registry.all_queues if queues is None else queues)
         self.mailer: Mailer = mailer or OutboxMailer()
@@ -394,6 +430,9 @@ class JobWorker:
         self.stalled_after_seconds = stalled_after_seconds
         self.max_attempts = int(max_attempts)
         self.max_stall_requeues = max_stall_requeues
+        self.time_limits = time_limits if time_limits is not None else JobTimeLimits()
+        self.queue_retention_days = queue_retention_days
+        self.prune_every_seconds = prune_every_seconds
         self.schedule_seconds = schedule_seconds
         self.pause_delays = tuple(pause_delays)
         self.persist_waits = tuple(persist_waits)
@@ -435,12 +474,16 @@ class JobWorker:
 
     async def _housekeeping(self) -> None:
         last_catch_up = float("-inf")
+        last_prune = float("-inf")
         loop = asyncio.get_running_loop()
         while True:
             try:
                 await self.requeue_stalled()
                 await self.requeue_orphaned()
                 await self.run_sweeps()
+                if loop.time() - last_prune >= self.prune_every_seconds:
+                    last_prune = loop.time()
+                    await self.prune_finished_queue_rows()
                 if loop.time() - last_catch_up >= self.schedule_seconds:
                     last_catch_up = loop.time()
                     for name in self.registry.schedules:
@@ -461,6 +504,25 @@ class JobWorker:
             except Exception as exc:  # noqa: BLE001 - the type only: messages may carry patient text
                 logger.error("worker sweep %s failed: %s", name, type(exc).__name__)
         return ok
+
+    async def prune_finished_queue_rows(self) -> int:
+        """Delete finished queue rows, and their events, older than `queue_retention_days`, and those of a deleted case
+        (BG-14, audit 12 D1f): `app.prune_queue_rows` in batches. Ids and timestamps only were ever in them. Returns
+        how many rows went."""
+        total = 0
+        for _ in range(100):  # a bound, so one round cannot run for ever
+            async with self.database.anonymous() as conn:
+                cur = await conn.execute(
+                    "select app.prune_queue_rows(%s, %s)", (self.queue_retention_days, PRUNE_BATCH)
+                )
+                row = await cur.fetchone()
+            removed = int(row[0]) if row else 0
+            total += removed
+            if removed < PRUNE_BATCH:
+                break
+        if total:
+            logger.info("%d finished queue row(s) pruned", total)
+        return total
 
     async def requeue_stalled(self) -> int:
         """Put back the jobs of workers whose heartbeat stopped (F6). Returns how many were put back.
@@ -557,24 +619,38 @@ class JobWorker:
                 return  # stays queued; `release_case_hold()` puts it back when the case resumes
             cur = await conn.execute(
                 # Resuming from a pause, or after a stalled worker, is not a new attempt: `attempts` counts
-                # failures only.
+                # failures only. The claim names the states a queue row may start (BG-05, BG-06): a `queued` job; a
+                # `running` one only when the worker's own stall requeue or a parked parent's wake marked it
+                # (`requeued_stall`); a `paused` one only for a code the worker may resume. A second queue row for a
+                # job that is running, failed or waiting for a person claims nothing and ends.
                 "update app.jobs set status = 'running', error_code = null, requeued_stall = false,"
                 " attempts = attempts + case when status = 'paused' or requeued_stall then 0 else 1 end,"
-                " started_at = coalesce(started_at, now()) where id = %s returning kind, attempts",
-                (job,),
+                " started_at = coalesce(started_at, now()) where id = %s"
+                " and (status = 'queued' or (status = 'running' and requeued_stall)"
+                " or (status = 'paused' and error_code = any(%s)))"
+                " returning kind, attempts",
+                (job, sorted(QUEUE_ROW_MAY_RESUME)),
             )
             row = await cur.fetchone()
         if row is None:
-            return  # the job's row is gone (case deleted): nothing to do
+            if known is not None:  # the job exists but this row may not start it: a duplicate or a stray row
+                logger.warning("queue row for job %s ignored: the job is %s", job, known[1])
+            return  # nothing to do: the job's row is gone (case deleted), or this queue row has no right to start it
         kind_name, attempt = row
         kind = self.registry.kinds.get(kind_name)
         if kind is None:
             await self._finish(case, job, "failed", error_code="unknown_kind")
             _dead_letter(kind_name, job)
             return
+        limit = asyncio.timeout(job_time_limit(kind, self.time_limits))
         try:
             try:
-                await kind.handler(JobContext(self.database, job, case, kind_name, attempt, mailer=self.mailer))
+                async with limit:
+                    await kind.handler(JobContext(self.database, job, case, kind_name, attempt, mailer=self.mailer))
+            except TimeoutError:
+                if not limit.expired():
+                    raise  # the handler's own timeout, an ordinary failure
+                raise _TimedOut from None
             finally:
                 # The checkout limit ends with the handler call, before the status below is written: a handler that
                 # raises while holding all its permits must not leave the worker waiting for one.
@@ -620,7 +696,7 @@ class JobWorker:
 
                 await self._persist(requeue)
                 raise _TryAgain from None
-            await self._finish(case, job, "failed", error_code="job_error")
+            await self._finish(case, job, "failed", error_code=TIMED_OUT if isinstance(exc, _TimedOut) else "job_error")
             _dead_letter(kind_name, job)
             return
         await self._finish(case, job, "done", pct=100)

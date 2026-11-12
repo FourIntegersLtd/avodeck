@@ -9,21 +9,23 @@ BG-14 (finished queue rows are pruned, and a purged case's go with it).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import psycopg
 import pytest
+from starlette.requests import Request
 
 from app.core.config import JobTimeLimits, job_time_limits, queue_retention_days
 from app.core.db import Database
 from app.core.errors import _database_error, too_many_jobs
 from app.core.features import DEFAULT_PACKAGE, load_features
 from app.core.jobs import JobContext, JobKind, job_time_limit
-from tests.support.background_jobs import defer, queue_rows, role_connection
+from tests.support.background_jobs import defer, job_row, role_connection, wait_for
 from tests.support.db import scope_for
 from tests.support.jobs import isolated_registry, open_worker, run_until_finished
 from tests.support.seed import Seed
@@ -197,9 +199,14 @@ async def test_a_queue_row_resumes_a_job_paused_for_a_reason_a_worker_may_resume
     admin.execute("update app.jobs set status = 'paused', error_code = %s where id = %s", (code, job))
     defer(admin, registry.queue_for("zz_work"), job, case)
     async with open_worker(registry, worker_db, worker_dsn) as worker:
-        await run_until_finished(worker, admin, [job], timeout=20)
+        task = asyncio.create_task(worker.run())
+        try:
+            await wait_for(lambda: job_row(admin, job)[0] == "done", timeout=20)
+        finally:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
     assert ran == [job]
-    assert queue_rows(admin, job)[0][0] == registry.queue_for("zz_work")
 
 
 # --- BG-09: the database decides a kind's queue and priority ---------------------------------------------------------
@@ -278,7 +285,7 @@ async def test_a_case_cannot_hold_more_than_five_queued_or_running_jobs_of_one_k
         with pytest.raises(psycopg.Error) as refused:
             enqueue(api, case, "zz_cap")
         assert refused.value.sqlstate == QUEUE_FULL
-        assert (await _database_error(SimpleNamespace(), refused.value)).status_code == 429  # type: ignore[arg-type]
+        assert (await _database_error(cast(Request, SimpleNamespace()), refused.value)).status_code == 429
         assert enqueue(api, case, "zz_cap_other") is not None, "the cap is per kind"
         # finishing one makes room
         admin.execute("update app.jobs set status = 'running' where id = %s", (jobs[0],))
@@ -305,7 +312,7 @@ def test_a_kind_that_is_queued_in_bulk_by_a_person_has_a_higher_cap() -> None:
     import os
 
     with psycopg.connect(os.environ["TEST_DATABASE_ADMIN_URL"]) as conn:
-        rows = dict(conn.execute("select kind, max_active from app.job_kind_actions").fetchall())
+        rows: dict[str, int | None] = dict(conn.execute("select kind, max_active from app.job_kind_actions").fetchall())
     assert rows["finalize_upload"] is not None and rows["finalize_upload"] >= 100
     assert rows["process_bundle"] is None, "an ordinary kind takes the default of five"
 
@@ -317,12 +324,20 @@ def _finished_queue_row(
     admin: psycopg.Connection, queue: str, job: uuid.UUID, case: uuid.UUID, *, age_days: int, status: str = "succeeded"
 ) -> int:
     defer(admin, queue, job, case)
-    found = admin.execute(
-        "update procrastinate.procrastinate_jobs set status = %s::procrastinate.procrastinate_job_status,"
-        " scheduled_at = now() - make_interval(days => %s) where args ->> 'job_id' = %s returning id",
-        (status, age_days, str(job)),
-    ).fetchone()
+    admin.execute("set search_path = procrastinate, public")  # the queue's status trigger names its tables bare
+    try:
+        found = admin.execute(
+            "update procrastinate.procrastinate_jobs set status = %s::procrastinate.procrastinate_job_status,"
+            " scheduled_at = now() - make_interval(days => %s) where args ->> 'job_id' = %s returning id",
+            (status, age_days, str(job)),
+        ).fetchone()
+    finally:
+        admin.execute("reset search_path")
     assert found is not None
+    admin.execute(
+        "update procrastinate.procrastinate_events set at = now() - make_interval(days => %s) where job_id = %s",
+        (age_days, found[0]),
+    )
     return int(found[0])
 
 
@@ -377,7 +392,8 @@ def test_the_api_role_cannot_call_the_prune(api_dsn: str) -> None:
 
 
 def test_purging_a_case_removes_its_finished_queue_rows(worker_dsn: str, admin: psycopg.Connection, seed: Seed) -> None:
-    expert, case = owned_case(seed)
+    expert = seed.person()
+    case = seed.case(seed.org(kind="personal", members={expert: "owner"}), expert, status="active")
     queue = f"zz_purge_{uuid.uuid4().hex[:8]}"
     finished = _finished_queue_row(admin, queue, seed.job(case, kind="zz", requested_by=expert), case, age_days=0)
     admin.execute("update app.cases set status = 'served' where id = %s", (case,))
