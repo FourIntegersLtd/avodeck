@@ -230,6 +230,62 @@ def pipeline_batch_settings(env: Mapping[str, str] | None = None) -> PipelineBat
     )
 
 
+@dataclass(frozen=True)
+class DocumentLimits:
+    """What one document may cost to process (audit 13). Page caps: `MAX_DOCUMENT_PAGES` per document, `MAX_BUNDLE_PAGES`
+    per bundle (4,000, non-functional requirement C1). Images: `MAX_IMAGE_PIXELS` per frame, `MAX_IMAGE_FRAMES` per file.
+    `MAX_CONVERT_BYTES` is the largest non-PDF file converted in memory. `MAX_OCR_RESPONSE_BYTES` caps one answer
+    read back from the OCR service."""
+
+    max_document_pages: int = 4000
+    max_bundle_pages: int = 4000
+    max_image_pixels: int = 100_000_000
+    max_image_frames: int = 2000
+    max_convert_bytes: int = 100 * 1024 * 1024
+    max_ocr_response_bytes: int = 64 * 1024 * 1024
+
+
+def document_limits(env: Mapping[str, str] | None = None) -> DocumentLimits:
+    source = os.environ if env is None else env
+    defaults = DocumentLimits()
+    bundle = env_int(source, "MAX_BUNDLE_PAGES", defaults.max_bundle_pages, minimum=1)
+    document = env_int(source, "MAX_DOCUMENT_PAGES", min(defaults.max_document_pages, bundle), minimum=1)
+    if document > bundle:
+        raise ConfigError("MAX_DOCUMENT_PAGES must not be more than MAX_BUNDLE_PAGES")
+    return DocumentLimits(
+        max_document_pages=document,
+        max_bundle_pages=bundle,
+        max_image_pixels=env_int(source, "MAX_IMAGE_PIXELS", defaults.max_image_pixels, minimum=1),
+        max_image_frames=env_int(source, "MAX_IMAGE_FRAMES", defaults.max_image_frames, minimum=1),
+        max_convert_bytes=env_int(source, "MAX_CONVERT_BYTES", defaults.max_convert_bytes, minimum=1),
+        max_ocr_response_bytes=env_int(source, "MAX_OCR_RESPONSE_BYTES", defaults.max_ocr_response_bytes, minimum=1),
+    )
+
+
+@dataclass(frozen=True)
+class SandboxSettings:
+    """The parser sandbox (`app.core.sandbox`): child processes that run PDF and image parsing. `pool_size` children,
+    each recycled after `recycle_after` tasks; a call is killed after `timeout_seconds`; a child may not grow past
+    `memory_bytes` of address space."""
+
+    pool_size: int = 2
+    timeout_seconds: float = 120.0
+    memory_bytes: int = 3 * 1024 * 1024 * 1024
+    recycle_after: int = 50
+
+
+def sandbox_settings(env: Mapping[str, str] | None = None) -> SandboxSettings:
+    """`SANDBOX_POOL_SIZE` (2), `SANDBOX_TIMEOUT_SECONDS` (120), `SANDBOX_MEMORY_MB` (3072), `SANDBOX_RECYCLE_AFTER` (50)."""
+    source = os.environ if env is None else env
+    d = SandboxSettings()
+    return SandboxSettings(
+        pool_size=env_int(source, "SANDBOX_POOL_SIZE", d.pool_size, minimum=1),
+        timeout_seconds=env_float(source, "SANDBOX_TIMEOUT_SECONDS", d.timeout_seconds, minimum=0.1),
+        memory_bytes=env_int(source, "SANDBOX_MEMORY_MB", d.memory_bytes // (1024 * 1024), minimum=64) * 1024 * 1024,
+        recycle_after=env_int(source, "SANDBOX_RECYCLE_AFTER", d.recycle_after, minimum=1),
+    )
+
+
 DEFAULT_SSE_SAFETY_POLL_SECONDS = 30.0
 
 
