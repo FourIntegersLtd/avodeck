@@ -33,12 +33,14 @@ import psycopg
 import pytest
 from fastapi import FastAPI
 
+from app.core import deferred
 from app.core.auth.supabase import _unavailable
 from app.core.email import ACCOUNT_CREATED, Mail
 from app.features.organisations import repo as organisations_repo
 from tests.fixtures.test_organisations_world import STALE, World, world  # noqa: F401
 from tests.support.auth import AuthAdmin, new_email, totp
 from tests.support.db import ClientFor
+from tests.support.deferred import drain
 
 pytestmark = pytest.mark.anyio
 
@@ -57,7 +59,15 @@ def key() -> dict[str, str]:
     return {"Idempotency-Key": uuid.uuid4().hex}
 
 
-def mails(app: FastAPI, template: str) -> list[Mail]:
+@pytest.fixture(autouse=True)
+def _empty_deferred_work(admin: psycopg.Connection) -> None:
+    """A delivery takes every due row, so each test starts with none."""
+    admin.execute("delete from app.deferred_work")
+
+
+async def mails(app: FastAPI, worker_dsn: str, template: str) -> list[Mail]:
+    """The email is written with the request and sent by the worker (BG-16): run one delivery, then look."""
+    await drain(worker_dsn, app.state.mailer)
     return [m for m in app.state.mailer.outbox if m.template == template]
 
 
@@ -89,7 +99,7 @@ async def sign_in(browser: Any, email: str, password: str) -> httpx.Response:
 
 async def test_staff_create_an_account_and_see_its_temporary_password_once(
     client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection,
-    auth_admin: AuthAdmin, browser: Any, caplog: pytest.LogCaptureFixture,
+    auth_admin: AuthAdmin, browser: Any, caplog: pytest.LogCaptureFixture, worker_dsn: str,
 ) -> None:  # fmt: skip
     email = new_email()
     with caplog.at_level(logging.DEBUG):
@@ -117,7 +127,8 @@ async def test_staff_create_an_account_and_see_its_temporary_password_once(
         " where m.person_id = %s",
         (person,),
     ).fetchall() == [("personal", "owner")]
-    [mail] = mails(app, ACCOUNT_CREATED)  # email is set up here: a set-password link, never the password
+    # email is set up here: a set-password link, never the password
+    [mail] = await mails(app, worker_dsn, ACCOUNT_CREATED)
     assert mail.to == email
     assert set(mail.params) == {"link", "link_hours"} and mail.params["link_hours"] == "1"
     assert mail.params["link"].startswith("https://app.test/reset-password?token=")
@@ -133,7 +144,7 @@ async def test_staff_create_an_account_and_see_its_temporary_password_once(
 
 
 async def test_a_repeat_with_the_same_key_never_shows_the_password_again(
-    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection
+    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection, worker_dsn: str
 ) -> None:
     client = await client_for(staff)
     body = {"full_name": "Dr X", "email": new_email()}
@@ -147,12 +158,12 @@ async def test_a_repeat_with_the_same_key_never_shows_the_password_again(
     assert looks_temporary(shown["temporary_password"])
     assert replayed == {**shown, "temporary_password": None, "password_shown": True}
     assert admin.execute("select count(*) from app.support_accounts where created_by = %s", (staff,)).fetchone() == (1,)
-    assert len(mails(app, ACCOUNT_CREATED)) == 1
+    assert len(await mails(app, worker_dsn, ACCOUNT_CREATED)) == 1
 
 
 async def test_with_no_email_set_up_the_account_is_made_without_one(
     client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, monkeypatch: pytest.MonkeyPatch,
-    browser: Any,
+    browser: Any, worker_dsn: str,
 ) -> None:  # fmt: skip
     async def never(email: str) -> str:
         raise AssertionError("no set-password link without email")
@@ -160,6 +171,7 @@ async def test_with_no_email_set_up_the_account_is_made_without_one(
     monkeypatch.setattr(app.state, "mail_configured", False)
     monkeypatch.setattr(app.state.auth, "admin_recovery_token", never)
     made = await create(client_for, staff)
+    await drain(worker_dsn, app.state.mailer)
     assert app.state.mailer.outbox == []
     assert (await sign_in(browser, made["email"], made["temporary_password"])).status_code == 200
 
@@ -189,13 +201,19 @@ async def test_the_new_person_signs_in_sets_up_mfa_chooses_a_password_and_become
 
 
 async def test_the_set_password_link_also_works_and_clears_the_temporary_password(
-    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, browser: Any, admin: psycopg.Connection
+    client_for: ClientFor,
+    world: World,
+    staff: uuid.UUID,
+    app: FastAPI,
+    browser: Any,
+    admin: psycopg.Connection,
+    worker_dsn: str,
 ) -> None:
     made = await create(client_for, staff)
     web = await browser()
     reset = await web.post(
         "/v1/auth/password/reset",
-        json={"token": reset_token(mails(app, ACCOUNT_CREATED)[0]), "new_password": NEW_PASSWORD},
+        json={"token": reset_token((await mails(app, worker_dsn, ACCOUNT_CREATED))[0]), "new_password": NEW_PASSWORD},
     )
     assert reset.status_code == 200, reset.text
     assert admin.execute(
@@ -216,13 +234,20 @@ BAD_FORMS = {
 
 @pytest.mark.parametrize("case", sorted(BAD_FORMS))
 async def test_the_form_must_make_sense(
-    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection, case: str
+    client_for: ClientFor,
+    world: World,
+    staff: uuid.UUID,
+    app: FastAPI,
+    admin: psycopg.Connection,
+    case: str,
+    worker_dsn: str,
 ) -> None:
     body: dict[str, Any] = {"full_name": "Dr New", "email": new_email(), **BAD_FORMS[case]}
     if body.get("organisation_id") == "TEAM":
         body["organisation_id"] = str(world.agency)
     resp = await (await client_for(staff)).post(URL, json=body, headers=key())
     assert resp.status_code == 422, resp.text
+    await drain(worker_dsn, app.state.mailer)
     assert app.state.mailer.outbox == []
     assert admin.execute("select count(*) from app.invites where email = %s", (body.get("email", ""),)).fetchone() == (
         0,
@@ -252,7 +277,7 @@ async def test_staff_cannot_add_anyone_to_a_team(
 
 async def test_an_email_that_already_has_an_account_is_a_clean_conflict(
     client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection,
-    auth_admin: AuthAdmin,
+    auth_admin: AuthAdmin, worker_dsn: str,
 ) -> None:  # fmt: skip
     client = await client_for(staff)
     known = await client.post(URL, json={"full_name": "Dr K", "email": world.email("dr_k").upper()}, headers=key())
@@ -264,7 +289,7 @@ async def test_an_email_that_already_has_an_account_is_a_clean_conflict(
     first = await create(client_for, staff)
     twice = await client.post(URL, json={"full_name": "Dr T", "email": first["email"]}, headers=key())
     assert (twice.status_code, twice.json()["error"]["code"]) == (409, "conflict")
-    assert len(mails(app, ACCOUNT_CREATED)) == 1
+    assert len(await mails(app, worker_dsn, ACCOUNT_CREATED)) == 1
     assert admin.execute("select count(*) from app.support_accounts where created_by = %s", (staff,)).fetchone() == (1,)
     # Each refused attempt stays in the audit trail (ids and codes only), though the request rolled back.
     assert (
@@ -278,9 +303,10 @@ async def test_an_email_that_already_has_an_account_is_a_clean_conflict(
 
 @pytest.mark.parametrize("who", ["dr_k", "owner", "removed"])
 async def test_anyone_but_current_staff_gets_404(
-    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, who: str
+    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, who: str, worker_dsn: str
 ) -> None:
     made = await create(client_for, staff)
+    await drain(worker_dsn, app.state.mailer)
     app.state.mailer.outbox.clear()
     person = world[who] if who != "removed" else world.seed.person()
     if who == "removed":
@@ -290,6 +316,7 @@ async def test_anyone_but_current_staff_gets_404(
     created = await client.post(URL, json={"full_name": "Dr X", "email": new_email()}, headers=key())
     assert created.status_code == 404
     assert (await client.post(f"{URL}/{made['id']}/temporary-password", headers=key())).status_code == 404
+    await drain(worker_dsn, app.state.mailer)
     assert app.state.mailer.outbox == []
 
 
@@ -319,9 +346,10 @@ async def test_creating_needs_the_csrf_token_and_an_idempotency_key(
 
 async def test_a_new_temporary_password_replaces_the_old_one_not_more_than_once_a_minute(
     client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection,
-    browser: Any, caplog: pytest.LogCaptureFixture,
+    browser: Any, caplog: pytest.LogCaptureFixture, worker_dsn: str,
 ) -> None:  # fmt: skip
     made = await create(client_for, staff)
+    await drain(worker_dsn, app.state.mailer)
     app.state.mailer.outbox.clear()
     person = uuid.UUID(made["person_id"])
     client = await client_for(staff)
@@ -344,6 +372,7 @@ async def test_a_new_temporary_password_replaces_the_old_one_not_more_than_once_
     assert (await sign_in(browser, made["email"], made["temporary_password"])).status_code == 401
     assert (await sign_in(browser, made["email"], password)).status_code == 200
     assert (await their_device.get("/v1/auth/session")).status_code == 401  # signed out everywhere
+    await drain(worker_dsn, app.state.mailer)
     assert app.state.mailer.outbox == []  # the password is told by phone or in person, never emailed
     assert password not in caplog.text
     again = await client.post(url, headers=same)
@@ -399,7 +428,7 @@ async def test_refused_attempts_count_toward_the_twenty_an_hour(
 
 async def test_if_the_set_password_link_cannot_be_made_the_login_is_undone(
     client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection,
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, worker_dsn: str,
 ) -> None:  # fmt: skip
     async def down(email: str) -> str:
         raise _unavailable()
@@ -410,6 +439,7 @@ async def test_if_the_set_password_link_cannot_be_made_the_login_is_undone(
         resp = await (await client_for(staff)).post(URL, json={"full_name": "Dr X", "email": email}, headers=key())
     assert (resp.status_code, resp.json()["error"]["code"]) == (503, "auth_unavailable")
     assert admin.execute("select count(*) from app.people where email = %s", (email,)).fetchone() == (0,)
+    await drain(worker_dsn, app.state.mailer)
     assert app.state.mailer.outbox == []
     made = await create(client_for, staff, email=email)  # the login was deleted, so the email is free again
     assert made["email"] == email
@@ -417,7 +447,7 @@ async def test_if_the_set_password_link_cannot_be_made_the_login_is_undone(
 
 async def test_if_the_database_work_fails_the_login_is_undone(
     client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection,
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, worker_dsn: str,
 ) -> None:  # fmt: skip
     async def broken(*args: Any, **kwargs: Any) -> Any:
         raise RuntimeError("database went away")
@@ -428,17 +458,64 @@ async def test_if_the_database_work_fails_the_login_is_undone(
         with pytest.raises(RuntimeError):
             await (await client_for(staff)).post(URL, json={"full_name": "Dr X", "email": email}, headers=key())
     assert admin.execute("select count(*) from app.people where email = %s", (email,)).fetchone() == (0,)
+    await drain(worker_dsn, app.state.mailer)
     assert app.state.mailer.outbox == []
     made = await create(client_for, staff, email=email)
     assert made["email"] == email
 
 
+async def test_the_email_is_sealed_in_the_request_and_delivered_by_the_worker_not_the_request(
+    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection, worker_dsn: str
+) -> None:
+    """BG-16: nothing is sent by the request, so an API restart after the commit cannot lose it; the row is there
+    until the worker delivers it, holds no address or link in the clear, and is wiped once sent."""
+    made = await create(client_for, staff)
+    assert app.state.mailer.outbox == []  # the request itself sent nothing
+    rows = admin.execute("select name, status, sealed from app.deferred_work where kind = 'mail'").fetchall()
+    assert [(r[0], r[1]) for r in rows] == [(ACCOUNT_CREATED, "pending")]
+    assert made["email"] not in str(rows[0][2]) and "reset-password" not in str(rows[0][2])
+    [mail] = await mails(app, worker_dsn, ACCOUNT_CREATED)
+    assert mail.to == made["email"] and mail.idempotency_key  # a repeat delivery is not a second email
+    assert admin.execute("select status, sealed from app.deferred_work where kind = 'mail'").fetchall() == [
+        ("done", None)
+    ]
+
+
+async def test_a_request_that_rolls_back_leaves_no_email_to_deliver(
+    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection,
+    monkeypatch: pytest.MonkeyPatch, worker_dsn: str,
+) -> None:  # fmt: skip
+    """The mail is written after the account rows, in the same transaction: if the request fails after that point
+    the row goes with it and the worker has nothing to send."""
+    real = deferred.defer_mail
+
+    async def then_fail(*args: Any, **kwargs: Any) -> Any:
+        await real(*args, **kwargs)
+        raise RuntimeError("the request failed after the mail was written")
+
+    email = new_email()
+    with monkeypatch.context() as patched:
+        patched.setattr(deferred, "defer_mail", then_fail)
+        with pytest.raises(RuntimeError):
+            await (await client_for(staff)).post(URL, json={"full_name": "Dr X", "email": email}, headers=key())
+    assert admin.execute("select count(*) from app.deferred_work").fetchone() == (0,)
+    assert await drain(worker_dsn, app.state.mailer) == 0
+    assert app.state.mailer.outbox == []
+    assert admin.execute("select count(*) from app.people where email = %s", (email,)).fetchone() == (0,)
+
+
 async def test_a_password_reset_from_the_email_link_is_never_replaced(
-    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, browser: Any, admin: psycopg.Connection
+    client_for: ClientFor,
+    world: World,
+    staff: uuid.UUID,
+    app: FastAPI,
+    browser: Any,
+    admin: psycopg.Connection,
+    worker_dsn: str,
 ) -> None:
     made = await create(client_for, staff)
     web = await browser()
-    token = reset_token(mails(app, ACCOUNT_CREATED)[0])
+    token = reset_token((await mails(app, worker_dsn, ACCOUNT_CREATED))[0])
     reset = await web.post("/v1/auth/password/reset", json={"token": token, "new_password": NEW_PASSWORD})
     assert reset.status_code == 200, reset.text
     admin.execute("update app.support_accounts set last_sent_at = now() - interval '2 minutes' where id = %s",
