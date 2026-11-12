@@ -53,6 +53,7 @@ from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput, OutputTruncated, TooLargeForFallback
 from app.core.ai.ocr import OcrFailed, OcrPage, OcrResult
+from app.core.config import document_limits
 from app.core.contracts.fact_dates import case_anchor, latest_printed_date
 from app.core.contracts.fact_flags import flag_for_recheck
 from app.core.contracts.fact_verifications import log_remaps
@@ -111,7 +112,7 @@ _CPU = ThreadPoolExecutor(max_workers=CPU_CONCURRENCY, thread_name_prefix="pipel
 _PDFIUM = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pdfium")
 _CUT = ThreadPoolExecutor(max_workers=1, thread_name_prefix="qpdf")  # one thread holds an open document and cuts it
 _SPLITS = asyncio.Semaphore(1)  # one split at a time in this process
-LIMITS = convert.Limits()
+LIMITS = convert.limits_from(document_limits())  # page caps, image caps and the convert cap come from settings
 PART_OBJECT = "file"  # the one sealed object under a part's prefix
 log = logging.getLogger(__name__)
 
@@ -180,6 +181,10 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+class TooManyPages(Exception):
+    """A document has more pages than `MAX_DOCUMENT_PAGES` (or would take the bundle past `MAX_BUNDLE_PAGES`)."""
+
+
 def _checked_pages(source: Path | bytes) -> int:
     """The page count of a PDF, after cutting every page once and dropping it, so a damaged page stops the
     document here (F2), as it always did, not part-way through the pictures.
@@ -191,6 +196,8 @@ def _checked_pages(source: Path | bytes) -> int:
         count = len(pdf.pages)
         if count == 0:
             raise pikepdf.PdfError("no pages")
+        if count > LIMITS.max_document_pages:
+            raise TooManyPages  # refused on the count alone, before any page is cut (DP-04)
         for index in range(count):
             cut_page(pdf, index)
         return count
@@ -337,6 +344,13 @@ async def _split_documents(ctx: JobContext, services: PipelineServices) -> None:
                         log.warning("document could not be opened: %s", type(error).__name__)  # class only, no text
                         reason = "locked" if isinstance(error, pikepdf.PasswordError) else "damaged"
                         await repo.mark_unopened(conn, ctx.case_id, doc.id, reason)
+                        continue
+                    except TooManyPages:  # DP-04: over the per-document cap
+                        await repo.mark_unopened(conn, ctx.case_id, doc.id, "too_many_pages")
+                        continue
+                    await repo.lock_bundle_numbering(conn, ctx.case_id)  # the bundle's total is read under the lock
+                    if await repo.last_page_no(conn, ctx.case_id) + count > LIMITS.max_bundle_pages:
+                        await repo.mark_unopened(conn, ctx.case_id, doc.id, "too_many_pages")  # DP-04: bundle cap
                         continue
                     await repo.add_pages(conn, ctx.case_id, doc.id, count)
                     await repo.link_replacements(conn, ctx.case_id)

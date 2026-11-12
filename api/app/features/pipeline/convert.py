@@ -24,6 +24,7 @@ from pathlib import Path
 import pikepdf
 from PIL import Image
 
+from app.core.config import DocumentLimits
 from app.core.pdf import is_pdf
 
 PDF = "application/pdf"
@@ -57,6 +58,20 @@ class Limits:
     max_convert_bytes: int = 100 * 1024 * 1024  # a Word file, email or picture read whole to be turned into pages
     max_part_bytes: int = 64 * 1024 * 1024  # what one part of a Word file may inflate to
     max_typed_pages: int = 4000  # pages of typed text one Word file or email may make
+    max_document_pages: int = 4000  # pages one document may have (`MAX_DOCUMENT_PAGES`)
+    max_bundle_pages: int = 4000  # pages one bundle may have (`MAX_BUNDLE_PAGES`)
+
+
+def limits_from(settings: DocumentLimits) -> Limits:
+    """The processing limits with the cell's document settings applied."""
+    return Limits(
+        max_image_pixels=settings.max_image_pixels,
+        max_image_frames=settings.max_image_frames,
+        max_convert_bytes=settings.max_convert_bytes,
+        max_typed_pages=settings.max_document_pages,
+        max_document_pages=settings.max_document_pages,
+        max_bundle_pages=settings.max_bundle_pages,
+    )
 
 
 @dataclass(frozen=True)

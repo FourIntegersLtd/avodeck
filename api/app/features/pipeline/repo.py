@@ -68,6 +68,18 @@ async def lock_bundle_numbering(conn: AsyncConnection, case_id: uuid.UUID) -> No
     )
 
 
+async def last_page_no(conn: AsyncConnection, case_id: uuid.UUID) -> int:
+    """The bundle's highest page number so far (its page total: numbers are never reused). Read under
+    `lock_bundle_numbering` when the answer decides something."""
+    cur = await conn.execute(
+        "select coalesce(max(bundle_page_no), 0) from app.pages"
+        " where bundle_id = (select bundle_id from app.cases where id = %s)",
+        (case_id,),
+    )
+    row = await cur.fetchone()
+    return int(row[0]) if row else 0
+
+
 async def add_pages(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID, count: int) -> bool:
     """Number the document's pages after the case's last page, once. False if already split.
 
@@ -97,7 +109,8 @@ async def add_pages(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid
 
 
 async def mark_unopened(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID, reason: str) -> None:
-    """F2: the file could not be opened (`locked` or `damaged`). It gets no pages and is not tried again."""
+    """F2: the file could not be opened (`locked` or `damaged`, or `too_many_pages` over a page cap, DP-04). It gets
+    no pages and is not tried again."""
     await conn.execute("update app.documents set unreadable_reason = %s where id = %s", (reason, document_id))
     await add_pages(conn, case_id, document_id, 0)
 
