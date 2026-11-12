@@ -7,6 +7,7 @@ table in plaintext (rule 6); a delivered, failed or expired row has no payload a
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
@@ -258,7 +259,132 @@ async def test_finished_rows_are_pruned_after_a_week_and_pending_ones_are_not(
     ]
 
 
-def test_the_delivery_is_a_worker_sweep() -> None:
+def test_the_delivery_is_a_worker_sweep_that_runs_after_the_housekeeping_sweeps() -> None:
     from app.core.jobs import registry
 
-    assert deferred.SWEEP in registry.sweeps
+    assert deferred.SWEEP in registry.database_sweeps and deferred.SWEEP not in registry.sweeps
+
+
+# --- one row at a time: a slow or failing mail service must not hold the worker's other housekeeping ---------------
+
+
+class SlowMailer:
+    """Takes `delay` seconds per mail; `hang_for` addresses never answer; `during` runs while a mail is being sent."""
+
+    def __init__(self, delay: float = 0.0, hang_for: str | None = None, during: object = None) -> None:
+        self.delay, self.hang_for, self.during = delay, hang_for, during
+        self.keys: list[str | None] = []
+
+    async def send(self, mail: Mail) -> None:
+        if callable(self.during):
+            self.during()
+        if mail.to == self.hang_for:
+            await asyncio.sleep(60)
+        await asyncio.sleep(self.delay)
+        self.keys.append(mail.idempotency_key)
+
+
+async def _defer_many(api_db: Database, person: uuid.UUID, count: int) -> list[uuid.UUID]:
+    ids = []
+    for n in range(count):
+        ids.append(await _defer_as(api_db, person, spot_check_code_mail(f"r{n}.zz@example.org", code=f"{n:06d}")))
+    return ids
+
+
+async def test_a_mail_is_sent_while_only_its_own_row_is_held(
+    api_db: Database, worker_db: Database, admin: psycopg.Connection, seed: Seed
+) -> None:
+    await _defer_many(api_db, seed.person(), 4)
+    free_while_sending: list[int] = []
+
+    def look() -> None:
+        row = admin.execute(
+            "select count(*) from (select id from app.deferred_work where status = 'pending'"
+            " for update skip locked) s"
+        ).fetchone()
+        assert row is not None
+        free_while_sending.append(row[0])
+
+    mailer = SlowMailer(during=look)
+    assert await deferred.deliver_all(worker_db, mailer) == 4  # type: ignore[arg-type]
+    assert free_while_sending == [3, 2, 1, 0][: len(free_while_sending)] and free_while_sending[0] == 3
+
+
+async def test_two_sweeps_at_once_never_send_a_row_twice(
+    api_db: Database, worker_db: Database, seed: Seed
+) -> None:
+    ids = await _defer_many(api_db, seed.person(), 8)
+    mailer = SlowMailer(delay=0.05)
+    sent = await asyncio.gather(
+        deferred.deliver_all(worker_db, mailer),  # type: ignore[arg-type]
+        deferred.deliver_all(worker_db, mailer),  # type: ignore[arg-type]
+    )
+    assert sum(sent) == 8
+    assert sorted(k for k in mailer.keys if k) == sorted(str(i) for i in ids) and len(mailer.keys) == 8
+
+
+async def test_a_round_stops_at_its_time_budget_and_leaves_the_rest_for_the_next(
+    api_db: Database, worker_db: Database, admin: psycopg.Connection, seed: Seed
+) -> None:
+    await _defer_many(api_db, seed.person(), 6)
+    mailer = SlowMailer(delay=0.2)
+    sent = await deferred.deliver_all(worker_db, mailer, budget_seconds=0.3)  # type: ignore[arg-type]
+    assert 1 <= sent <= 3
+    assert admin.execute("select count(*) from app.deferred_work where status = 'pending'").fetchone() == (6 - sent,)
+    assert await deferred.deliver_all(worker_db, mailer) == 6 - sent  # type: ignore[arg-type]
+
+
+async def test_a_mail_that_never_answers_is_cut_off_noted_and_the_others_still_go(
+    api_db: Database, worker_db: Database, admin: psycopg.Connection, seed: Seed
+) -> None:
+    ids = await _defer_many(api_db, seed.person(), 3)
+    mailer = SlowMailer(hang_for="r0.zz@example.org")
+    sent = await deferred.deliver_all(worker_db, mailer, row_limit_seconds=0.2)  # type: ignore[arg-type]
+    assert sent == 2
+    row = _row(admin, ids[0])
+    assert row["status"] == "pending" and row["attempts"] == 1 and row["last_error"] == "TimeoutError"
+
+
+async def test_with_a_failing_mail_service_the_other_sweeps_still_run_in_the_round(
+    api_db: Database, worker_db: Database, worker_dsn: str, seed: Seed, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import app.core.notifications as notifications
+    from tests.support.jobs import isolated_registry, open_worker
+
+    await _defer_many(api_db, seed.person(), 3)
+    monkeypatch.setattr(notifications, "default_mailer", lambda: SlowMailer(hang_for="r0.zz@example.org"))
+    monkeypatch.setattr(deferred, "ROW_LIMIT_SECONDS", 0.2)
+    registry = isolated_registry()
+    order: list[str] = []
+    registry.database_sweep("zz_deferred")(deferred._sweep)  # the real delivery, registered FIRST
+
+    @registry.sweep("zz_requeue")
+    async def requeue(conn: object) -> None:
+        order.append("requeue")
+
+    @registry.sweep("zz_heal")
+    async def heal(conn: object) -> None:
+        order.append("heal")
+
+    async with open_worker(registry, worker_db, worker_dsn) as worker:
+        assert await asyncio.wait_for(worker.run_sweeps(), 20) == 3
+    assert order == ["requeue", "heal"]
+
+
+async def test_a_database_sweep_that_fails_does_not_stop_the_others(worker_db: Database, worker_dsn: str) -> None:
+    from tests.support.jobs import isolated_registry, open_worker
+
+    registry = isolated_registry()
+    ran: list[str] = []
+
+    @registry.database_sweep("zz_bad")
+    async def bad(database: Database) -> None:
+        raise RuntimeError("boom, with some text")
+
+    @registry.database_sweep("zz_good")
+    async def good(database: Database) -> None:
+        ran.append("good")
+
+    async with open_worker(registry, worker_db, worker_dsn) as worker:
+        assert await worker.run_sweeps() == 1
+    assert ran == ["good"]
