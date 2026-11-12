@@ -9,6 +9,7 @@ Nothing in this module prints or asserts on page text (rule 6); messages name pa
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import functools
 import hashlib
@@ -16,6 +17,7 @@ import io
 import json
 import re
 import shutil
+import time
 import uuid
 from collections.abc import AsyncIterator, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -42,7 +44,7 @@ from app.core.storage import CaseFileStorage
 from tests.support.ai import FIXTURES, ScriptedBedrock, cell, response
 from tests.support.db import ClientFor
 from tests.support.files import CHUNK, build_app
-from tests.support.jobs import FINISHED, isolated_registry, open_worker, run_until_finished
+from tests.support.jobs import FINISHED, isolated_registry, open_worker, statuses
 from tests.support.packs import REPO
 from tests.support.uploads import run_finalize
 
@@ -294,13 +296,39 @@ class Harness:
         return [r[0] for r in self.admin.execute("select id from app.jobs where case_id = %s", (self.case_id,))]
 
     async def drain(self, timeout: float = 120) -> dict[uuid.UUID, str]:
-        """Run the worker until every job on the case (and any job they queue) has finished."""
+        """Run the worker until every job on the case (and any job they queue) has finished.
+
+        One worker task runs for the whole drain. It used to be stopped and started again between checks, and a
+        stop that landed while a job the last one had queued was running paused that job `resuming` (the worker's
+        own shutdown pause), which the next check counted as finished (audit 13, DP-09 follow-up)."""
         async with open_worker(self.registry, self.worker_db, self.worker_dsn) as worker:
-            while True:
-                ids = self.job_ids()
-                found = await run_until_finished(worker, self.admin, ids, timeout=timeout)
-                if len(self.job_ids()) == len(ids) and all(s in FINISHED for s in found.values()):
-                    return found
+            task = asyncio.create_task(worker.run(concurrency=1))
+            deadline = time.monotonic() + timeout
+            try:
+                while True:
+                    ids = self.job_ids()
+                    found = statuses(self.admin, ids)
+                    resting = all(s in FINISHED for s in found.values()) and not self.resuming(ids)
+                    if resting and len(self.job_ids()) == len(ids):
+                        return found
+                    if task.done():
+                        task.result()
+                        raise AssertionError(f"worker stopped early: {found}")
+                    if time.monotonic() > deadline:
+                        raise AssertionError(f"jobs not finished in {timeout}s: {found}")
+                    await asyncio.sleep(0.05)
+            finally:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+
+    def resuming(self, ids: Sequence[uuid.UUID]) -> bool:
+        """A job the worker paused only because it was stopping: it is not finished, it carries on when a worker runs."""
+        row = self.admin.execute(
+            "select count(*) from app.jobs where id = any(%s) and status = 'paused' and error_code = 'resuming'",
+            (list(ids),),
+        ).fetchone()
+        return bool(row and row[0])
 
     async def enqueue(self, kind: str) -> uuid.UUID:
         from tests.support.db import scope_for
