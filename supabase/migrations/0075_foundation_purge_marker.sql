@@ -14,7 +14,8 @@ set role app_migrator;
 
 create table app.case_purge_marks (
   purged_case uuid primary key,
-  xid bigint not null
+  xid bigint not null,
+  created_at timestamptz not null default now()
 );
 -- The column is not called case_id on purpose: this is not case data, it is a one-transaction marker, and a
 -- `case_id` column would make the case-table registry (and the purge order) expect it to be purged like one.
