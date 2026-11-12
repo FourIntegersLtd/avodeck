@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
 
-from app.core import logs, metrics
+from app.core import logs, metrics, sandbox
 from app.core.auth.supabase import SupabaseAuth
 from app.core.config import (
     ConfigError,
@@ -162,6 +162,7 @@ def create_app(
             yield
         finally:
             lag.cancel()
+            await sandbox.stop()  # no parser child outlives the API (F-h); a no-op when none was started
             if owned_notifier is not None:
                 app.state.case_notifier = None
                 await owned_notifier.stop()
