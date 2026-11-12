@@ -1286,7 +1286,11 @@ async def _duplicates(ctx: JobContext, services: PipelineServices) -> None:
         async with ctx.transaction() as conn:
             words = await _compared_words(conn, services, ctx.case_id, page_id)
             thumbnail = await services.crypto.decrypt(conn, ctx.case_id, blob, purpose=path)
-        picture = await asyncio.get_running_loop().run_in_executor(_CPU, duplicates.picture_hash, thumbnail)
+        try:
+            picture = await sandbox.run(parsing.picture_hash, thumbnail)
+        except sandbox.SandboxError as error:  # DP-09: no hash, so never compared as a copy; tried again next run
+            log.warning("picture could not be hashed: %s", error.code)  # a code only
+            return
         typed = sum(1 for w in words if not w.handwritten)
         async with ctx.transaction() as conn:
             await repo.store_hashes(conn, page_id, picture, duplicates.word_hash(words), typed)
